@@ -1,0 +1,21 @@
+# Maven build output
+target/
+
+# Assembled demo install + published repo + local cache
+dist/
+
+# Local-only notes / scratch
+.local/
+
+# Signing keys — generated locally by tools/KeyGen.java, never committed
+launch-signing-key.pk8.b64
+launch-verify-key.x509.b64
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store

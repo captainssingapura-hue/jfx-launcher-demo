@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.fxsuite</groupId>
+    <artifactId>web-launcher</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <description>
+        The web dashboard half of the FxSuite proof-of-concept, built on the
+        homing-studio framework (same Bootstrap / Umbrella / Studio pattern as
+        homing-doc-plus-demo). Serves a single studio whose home page lists the
+        launchable apps as fxsuite://launch/&lt;id&gt; links — clicking one hands the
+        URL to the OS, which invokes the master-launcher and opens a native
+        JavaFX window.
+    </description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Released homing-studio version — resolvable from the remote repo, so
+             no local `mvn install` of the framework is needed. -->
+        <homing.core.version>0.5.4</homing.core.version>
+        <server.main>com.example.fxsuite.web.WebLauncherServer</server.main>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.captainssingapura-hue.homing.js</groupId>
+            <artifactId>homing-server</artifactId>
+            <version>${homing.core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.captainssingapura-hue.homing.js</groupId>
+            <artifactId>homing-libs</artifactId>
+            <version>${homing.core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.captainssingapura-hue.homing.js</groupId>
+            <artifactId>homing-studio-base</artifactId>
+            <version>${homing.core.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>${server.main}</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

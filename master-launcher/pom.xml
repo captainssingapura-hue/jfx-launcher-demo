@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.fxsuite</groupId>
+    <artifactId>master-launcher</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <description>
+        The FxSuite gatekeeper. A thin, JavaFX-free jar with two jobs:
+          1. --register / --unregister : install a per-user (HKCU) fxsuite://
+             protocol handler pointing back at this jar.
+          2. launch mode (fxsuite://launch/&lt;id&gt;?tok=…) : parse the URL, verify
+             the server-signed token, allow-list the app id, then spawn the app
+             in its OWN process with the shared fxsuite-javafx.jar on the
+             classpath. This launcher never touches JavaFX itself.
+    </description>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <main.class>com.example.fxsuite.launcher.Launcher</main.class>
+    </properties>
+
+    <dependencies>
+        <!-- No JavaFX, no third-party libs. Only the JDK (java.base for parsing
+             and crypto, java.desktop/Swing for the rejection dialog). -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>master-launcher</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
