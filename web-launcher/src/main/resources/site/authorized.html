@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FxSuite — Authorized Launch</title>
+    <style>
+        body { font: 16px/1.5 "Segoe UI", system-ui, sans-serif; margin: 0;
+               background: linear-gradient(135deg, #e8f5e9, #ffffff); color: #1b2b20; }
+        .wrap { max-width: 660px; margin: 7vh auto; padding: 0 24px; }
+        .card { background: #fff; border: 1px solid #cfe8d4; border-radius: 14px;
+                padding: 28px 30px; box-shadow: 0 8px 30px rgba(0,0,0,.06); }
+        h1 { margin: 0 0 4px; font-size: 24px; color: #1b5e20; }
+        .sub { color: #4a5b50; margin: 0 0 22px; }
+        button { font: inherit; font-weight: 600; cursor: pointer; border: 0;
+                 border-radius: 10px; padding: 12px 18px; background: #2e7d32; color: #fff; margin: 0 8px 8px 0; }
+        button.alt { background: #1565c0; }
+        button:hover { filter: brightness(0.94); }
+        .badge { display:inline-block; font: 12px/1 ui-monospace, Consolas, monospace;
+                 color: #2e7d32; background: #e8f5e9; border:1px solid #b6ddbd;
+                 padding: 5px 8px; border-radius: 6px; }
+        code { font: 13px ui-monospace, Consolas, monospace; color: #37474f;
+               background:#f1f5f2; padding:1px 5px; border-radius:4px; word-break: break-all; }
+        #status { margin-top: 16px; min-height: 1.5em; color:#4a5b50; }
+        a.alt { color:#8a6d00; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <span class="badge">✓ authorized origin — localhost token server</span>
+        <h1>Hello, FxSuite</h1>
+        <p class="sub">Pick a version. The server mints a token that names that version and
+            its jar hash; the launcher downloads it on first use, verifies the bytes, caches
+            it, and launches.</p>
+
+        <button data-ver="1.0.0">▶ Launch v1.0.0</button>
+        <button data-ver="1.1.0" class="alt">▶ Launch v1.1.0</button>
+        <button data-ver="">▶ Launch latest</button>
+
+        <div id="status"></div>
+
+        <p style="margin-top:26px; font-size:14px; color:#4a5b50;">
+            Compare with the <a class="alt" href="/copycat">copycat page</a> — same
+            <code>fxsuite://launch/hello</code> URL, but no token. The launcher rejects it.
+        </p>
+    </div>
+</div>
+
+<script>
+    const status = document.getElementById("status");
+
+    async function launch(ver) {
+        const q = ver ? ("&ver=" + encodeURIComponent(ver)) : "";
+        status.textContent = "Requesting a fresh launch token…";
+        try {
+            const res = await fetch("/token?app=hello" + q);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || ("token endpoint returned " + res.status));
+            }
+            const data = await res.json();
+            status.innerHTML = "Launching <b>hello v" + data.ver + "</b> via <code>"
+                + data.url.slice(0, 44) + "…</code>";
+            window.location.href = data.url;    // hand the tokened fxsuite:// URL to the OS
+        } catch (e) {
+            status.textContent = "Could not launch: " + e.message;
+        }
+    }
+
+    for (const btn of document.querySelectorAll("button[data-ver]")) {
+        btn.addEventListener("click", () => launch(btn.getAttribute("data-ver")));
+    }
+</script>
+</body>
+</html>

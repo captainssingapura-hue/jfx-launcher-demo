@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Totally Legit Deals — Launch FxSuite!</title>
+    <style>
+        body { font: 16px/1.5 "Segoe UI", system-ui, sans-serif; margin: 0;
+               background: linear-gradient(135deg, #fdeaea, #ffffff); color: #2b1b1b; }
+        .wrap { max-width: 640px; margin: 8vh auto; padding: 0 24px; }
+        .card { background: #fff; border: 1px solid #f0cccc; border-radius: 14px;
+                padding: 28px 30px; box-shadow: 0 8px 30px rgba(0,0,0,.06); }
+        h1 { margin: 0 0 4px; font-size: 24px; color: #b71c1c; }
+        .sub { color: #6b4a4a; margin: 0 0 22px; }
+        a.launch { display:inline-block; font-weight: 600; text-decoration:none;
+                 border-radius: 10px; padding: 12px 20px; background: #c62828; color: #fff; }
+        a.launch:hover { background: #b21f1f; }
+        .badge { display:inline-block; font: 12px/1 ui-monospace, Consolas, monospace;
+                 color: #b71c1c; background: #fdeaea; border:1px solid #f0b6b6;
+                 padding: 5px 8px; border-radius: 6px; }
+        code { font: 13px ui-monospace, Consolas, monospace; color: #37474f;
+               background:#f6f1f1; padding:1px 5px; border-radius:4px; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <span class="badge">⚠ decoy — a DIFFERENT website</span>
+        <h1>Click here to launch FxSuite!</h1>
+        <p class="sub">This page is not the FxSuite origin. It just hardcodes the same
+            <code>fxsuite://launch/hello</code> URL it saw elsewhere — with no signed token.</p>
+
+        <a class="launch" href="fxsuite://launch/hello">▶ Launch desktop app</a>
+
+        <p style="margin-top:26px; font-size:14px; color:#6b4a4a;">
+            Clicking this <em>does</em> invoke the protocol handler — but the launcher
+            finds no valid token and refuses. That is the whole point: reusing the URL
+            from another site does not work.
+        </p>
+    </div>
+</div>
+</body>
+</html>
