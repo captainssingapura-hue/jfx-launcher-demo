@@ -8,7 +8,7 @@ where the syntax differs.
 
 ## 0. Prerequisites
 
-- **Windows** (the shared JavaFX jar bundles Windows natives).
+- **Windows** (the launcher jar bundles Windows natives).
 - **JDK 25** on your `PATH` — check with `java -version`.
 - **Maven 3.9+** — check with `mvn -v`.
 - **Internet access on first build** — `web-launcher` uses the released
@@ -45,10 +45,12 @@ mvn clean package
 *(The root `pom.xml` is a build-everything aggregator; each module can still be built
 on its own with `mvn -f <module>/pom.xml clean package`.)*
 
-You should get three jars:
-- `fxsuite-javafx/target/fxsuite-javafx.jar` (~9.5 MB — the shared JavaFX runtime)
-- `app-hello/target/app-hello.jar` (~6 KB — a thin app)
-- `master-launcher/target/master-launcher.jar` (~30 KB — the gatekeeper)
+Key outputs:
+- `master-launcher/target/master-launcher-app.jar` (~9.6 MB — the **self-contained**
+  launcher: gatekeeper + bundled JavaFX; this is what gets deployed)
+- `master-launcher/target/master-launcher.jar` (~47 KB — thin, a compile dependency only)
+- `app-hello/target/app-hello.jar` (~6 KB — a thin app, JavaFX not bundled)
+- `fxsuite-setup/target/fxsuite-setup.jar` (~9.6 MB — the installer)
 
 ---
 
@@ -57,11 +59,16 @@ You should get three jars:
 The **install** deliberately contains *no apps* — apps are pulled from the repo on demand.
 
 ```bash
-# install: launcher + shared JavaFX + pinned repo config
-mkdir -p dist/fxsuite/lib
-cp master-launcher/target/master-launcher.jar dist/fxsuite/master-launcher.jar
-cp fxsuite-javafx/target/fxsuite-javafx.jar   dist/fxsuite/lib/fxsuite-javafx.jar
-printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/launcher.properties
+# one self-contained install per environment (no shared lib/ — the -app jar bundles JavaFX)
+APP=master-launcher/target/master-launcher-app.jar
+for E in prod uat; do
+  mkdir -p dist/fxsuite/$E
+  cp "$APP" dist/fxsuite/$E/master-launcher.jar
+  printf "env=$E\nrepo.base=http://localhost:8087\n" > dist/fxsuite/$E/launcher.properties
+done
+mkdir -p dist/fxsuite/dev
+cp "$APP" dist/fxsuite/dev/master-launcher.jar          # shared by dev1..devN
+printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/dev/launcher.properties
 
 # publish app-hello 1.0.0 and 1.1.0 to the repo (embed a version marker so the
 # two versions have different bytes / hash / on-screen version)
@@ -213,7 +220,7 @@ rm -rf "$LOCALAPPDATA/fxsuite/cache"
 | Clicking a link does nothing | Run step 3 (`--register`); confirm the browser's "Open FxSuite…" prompt. |
 | “missing launch token” on the authorized page | The token server (8086) isn't running — start step 4. |
 | “App … is not published” | You skipped the publish step (2), or `-Dfxsuite.repo.dir` doesn't point at `dist/repo`. |
-| “Shared JavaFX runtime is missing” | `dist/fxsuite/lib/fxsuite-javafx.jar` isn't there — redo step 2. |
+| “Could not locate the launcher jar to provide JavaFX” | You deployed the thin `master-launcher.jar` instead of `master-launcher-app.jar` — redo step 2. |
 | Window doesn't appear but log shows `spawned …` | Check `launch.log` for a JavaFX error; ensure JDK **25**. |
 | Port already in use | An old server is still running; stop it (or reboot the terminal). |
 

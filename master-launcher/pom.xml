@@ -10,24 +10,45 @@
     <packaging>jar</packaging>
 
     <description>
-        The FxSuite gatekeeper. A thin, JavaFX-free jar with two jobs:
-          1. --register / --unregister : install a per-user (HKCU) fxsuite://
-             protocol handler pointing back at this jar.
-          2. launch mode (fxsuite://launch/&lt;id&gt;?tok=…) : parse the URL, verify
-             the server-signed token, allow-list the app id, then spawn the app
-             in its OWN process with the shared fxsuite-javafx.jar on the
-             classpath. This launcher never touches JavaFX itself.
+        The FxSuite gatekeeper. The launcher itself never touches JavaFX (it uses
+        java.desktop/Swing for its one dialog); it registers a per-user fxsuite://
+        handler, verifies the signed token, and spawns each app in its OWN process.
+
+        This module produces two jars:
+          * master-launcher.jar        — thin, launcher classes only. What
+            fxsuite-setup depends on for the registry/setup service.
+          * master-launcher-app.jar    — SELF-CONTAINED: the launcher plus a bundled
+            JavaFX (classes + Windows natives). This is what gets deployed and
+            registered. When it spawns an app it puts THIS jar on the app's classpath,
+            so the app gets JavaFX from the launcher — no separate shared jar and no
+            fragile relative lib/ lookup.
     </description>
 
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <main.class>com.example.fxsuite.launcher.Launcher</main.class>
+        <javafx.version>25</javafx.version>
+        <javafx.classifier>win</javafx.classifier>
     </properties>
 
     <dependencies>
-        <!-- No JavaFX, no third-party libs. Only the JDK (java.base for parsing
-             and crypto, java.desktop/Swing for the rejection dialog). -->
+        <!-- JavaFX is not used by the launcher's own code — it is bundled into the
+             -app jar purely to be handed to the apps the launcher spawns. The
+             `win`-classifier artifacts carry the classes AND the native dlls. -->
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -49,17 +70,54 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
             </plugin>
+
+            <!-- Thin main jar (master-launcher.jar): launcher classes only, no JavaFX.
+                 This is what fxsuite-setup compiles against, so its own shading stays
+                 free of duplicate JavaFX. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.4.1</version>
                 <configuration>
                     <archive>
-                        <manifest>
-                            <mainClass>${main.class}</mainClass>
-                        </manifest>
+                        <manifest><mainClass>${main.class}</mainClass></manifest>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <!-- Self-contained -app jar: launcher + bundled JavaFX (classes + dlls). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>app</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -26,16 +26,14 @@ public final class AppSpawner {
 
     public static void spawn(String envId, Path appJar, String mainClass, List<String> appArgs)
             throws LaunchException {
-        Path javafxJar = Install.sharedJavafxJar();
-        if (!Files.isRegularFile(javafxJar)) {
-            throw new LaunchException("Shared JavaFX runtime is missing: " + javafxJar);
-        }
+        // The launcher's own (self-contained) jar provides JavaFX to the app.
+        Path javafxProvider = Install.javafxProviderJar();
         if (!Files.isRegularFile(appJar)) {
             throw new LaunchException("App jar is missing: " + appJar);
         }
 
         String javaw = Path.of(System.getProperty("java.home"), "bin", "javaw.exe").toString();
-        String classpath = appJar + File.pathSeparator + javafxJar;
+        String classpath = appJar + File.pathSeparator + javafxProvider;
 
         List<String> cmd = new ArrayList<>();
         cmd.add(javaw);

@@ -26,26 +26,28 @@ authorized page ─▶ GET /token?app=hello&env=prod ─▶ backend looks up the
                                                      │
                      cache miss? download <repo>/apps/hello/1.1.0/… → check bytes == signed sha256
                                                      │
-                     spawn in its OWN process, sharing one JavaFX jar:
-                     javaw -cp <cache>/app-hello-1.1.0.jar;lib/fxsuite-javafx.jar HelloMain
+                     spawn in its OWN process; the launcher jar provides JavaFX:
+                     javaw -cp <cache>/app-hello-1.1.0.jar;master-launcher.jar HelloMain
                                                      │
                                             native JavaFX window
 ```
 
 ## Architecture
 
-The launcher is a **thin, JavaFX-free gatekeeper** that ships **no app jars**. It
-verifies the request, fetches the exact version named in the token from a **pinned
-repository** (download + integrity-check + cache), then launches the app as a
-**separate process** that puts the one shared `fxsuite-javafx.jar` on its classpath.
-So JavaFX is stored once, apps are tiny, and versions update dynamically.
+The launcher is a **JavaFX-free gatekeeper** (its own code uses only the JDK) that
+ships **no app jars**. It verifies the request, fetches the exact version named in the
+token from a **pinned repository** (download + integrity-check + cache), then launches
+the app as a **separate process**. The launcher jar is **self-contained** — it bundles
+JavaFX, and hands it to the app by putting itself on the app's classpath. So an
+environment is a single jar, apps stay tiny, and versions update dynamically.
 
 | Module | What it is | Size |
 |--------|-----------|------|
-| [`master-launcher`](master-launcher) | Gatekeeper: register handler, verify token, fetch+verify+cache the versioned app jar, spawn its process. No JavaFX. | ~30 KB |
-| [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime — all classes + 54 native DLLs shaded into one jar. | ~9.5 MB (×1) |
+| [`master-launcher`](master-launcher) | Gatekeeper: register handler, verify token, fetch+verify+cache the versioned app jar, spawn its process. Own code uses no JavaFX; the deployed `-app` jar bundles JavaFX to hand to spawned apps. | thin ~47 KB / self-contained ~9.6 MB |
+| [`fxsuite-setup`](fxsuite-setup) | Standalone JavaFX installer: reviewable, reversible registration + key management. | ~9.6 MB |
 | [`app-hello`](app-hello) | A single app. JavaFX is `provided` (not bundled); own code only. Published per version to the repo. | ~6 KB (×versions) |
-| [`web-launcher`](web-launcher) | Dashboard + token origin + repo server, built on the **homing-studio** framework. | — |
+| [`web-launcher`](web-launcher) | Dashboard (homing MPAs) + token/catalogue API + repo server. | — |
+| [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime jar — now used **only by the `alt/` PoCs**; the main launcher is self-contained. | ~9.5 MB |
 
 Each is an independent Maven build (JDK 25). `web-launcher` depends on the released
 homing-studio **0.5.4**, resolved from the remote Maven repo — no local framework
@@ -55,15 +57,21 @@ build required.
 
 ```
 fxsuite/
-  lib/fxsuite-javafx.jar             shared JavaFX runtime (once, across environments)
   prod/  master-launcher.jar  launcher.properties (env=prod)  verify-key.x509.b64  ← Prod's own key
   uat/   master-launcher.jar  launcher.properties (env=uat)   verify-key.x509.b64
   dev/   master-launcher.jar  launcher.properties (repo.base) verify-key.x509.b64  ← shared by dev1..devN
 ```
 
+Each `master-launcher.jar` is **self-contained** — it bundles JavaFX (classes + Windows
+natives) and, when it spawns an app, puts *itself* on the app's classpath to provide it. So
+there is no shared `lib/` directory and no relative-path lookup to get wrong; an environment
+is one jar plus its `launcher.properties`. (The build produces this as `master-launcher-app.jar`
+alongside a thin `master-launcher.jar` used only as a compile dependency.)
+
 Singleton environments (Prod, UAT) get a **dedicated install with their own trust anchor**;
 all dev environments share the one `dev/` install and are distinguished by `--env=` on the
-registered command.
+registered command. Apps themselves stay thin — JavaFX is `provided`, never bundled — so the
+only copies of JavaFX are the handful of launcher installs.
 
 ## Environments
 
@@ -129,19 +137,16 @@ trust anchor instead of having their own.
 ```bash
 mvn clean package          # root aggregator builds all modules (JDK 25 required)
 
-# shared JavaFX runtime (once)
-mkdir -p dist/fxsuite/lib
-cp fxsuite-javafx/target/fxsuite-javafx.jar dist/fxsuite/lib/fxsuite-javafx.jar
-
-# one install per environment (singletons get their own trust anchor)
+# one self-contained install per environment (the -app jar bundles JavaFX)
+APP=master-launcher/target/master-launcher-app.jar
 for E in prod uat; do
   mkdir -p dist/fxsuite/$E
-  cp master-launcher/target/master-launcher.jar dist/fxsuite/$E/master-launcher.jar
+  cp "$APP" dist/fxsuite/$E/master-launcher.jar
   printf "env=$E\nrepo.base=http://localhost:8087\n" > dist/fxsuite/$E/launcher.properties
 done
 # one shared install for all dev environments (no env= — supplied per registration)
 mkdir -p dist/fxsuite/dev
-cp master-launcher/target/master-launcher.jar dist/fxsuite/dev/master-launcher.jar
+cp "$APP" dist/fxsuite/dev/master-launcher.jar
 printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/dev/launcher.properties
 
 # A launcher prefers verify-key.x509.b64 in its own install folder and falls back to

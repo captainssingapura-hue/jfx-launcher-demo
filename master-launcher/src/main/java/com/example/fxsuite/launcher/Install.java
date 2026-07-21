@@ -16,13 +16,19 @@ public final class Install {
         return jar.getParent();
     }
 
-    /** The shared JavaFX runtime jar (may be shared across environments). */
-    public static Path sharedJavafxJar() throws LaunchException {
-        Path own = root().resolve("lib/fxsuite-javafx.jar");
-        // Singleton installs sit one level below a shared lib/ directory; accept either.
-        return java.nio.file.Files.isRegularFile(own)
-                ? own
-                : root().getParent() == null ? own : root().getParent().resolve("lib/fxsuite-javafx.jar");
+    /**
+     * The jar that provides JavaFX to spawned apps — the launcher's own (self-contained)
+     * jar. Because the launcher bundles JavaFX (classes + native dlls), putting this jar
+     * on an app's classpath is all the app needs. Resolved from the running jar's
+     * location, so there is no relative lib/ path to get wrong.
+     */
+    public static Path javafxProviderJar() throws LaunchException {
+        Path jar = ProtocolRegistrar.ownJarPath();
+        if (jar == null || !jar.toString().toLowerCase().endsWith(".jar")) {
+            throw new LaunchException("Could not locate the launcher jar to provide JavaFX from "
+                    + "(are you running from the built -app jar?).");
+        }
+        return jar;
     }
 
     /** This environment's trust anchor, if the install provides one. */
