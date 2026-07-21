@@ -7,9 +7,12 @@ dist/
 # Local-only notes / scratch
 .local/
 
-# Signing keys — generated locally by tools/KeyGen.java, never committed
-launch-signing-key.pk8.b64
-launch-verify-key.x509.b64
+# Signing keys — generated locally by tools/KeyGen.java, never committed.
+# Globs, not exact names: per-environment keys are suffixed (…-prod, …-uat, …).
+launch-signing-key*.b64
+launch-verify-key*.b64
+verify-key*.b64
+*.pk8.b64
 
 # IDE
 .idea/

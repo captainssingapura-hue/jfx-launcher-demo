@@ -1,43 +1,48 @@
 # FxSuite — Desktop App Launcher
 
-> **Launches are gated by a server-signed token.** The dashboard link below carries
-> no token on its own — it points at the *authorized launch page*, which mints a
-> fresh signed token and then opens the native app. A different site that merely
-> reuses the `fxsuite://` URL has no valid token and is rejected.
+> **Launches are gated by a server-signed token that names the environment.** Pick an
+> environment on the *Launch by environment* page; the backend signs a token for that
+> environment and version, and the desktop app opens. A different site reusing the URL has no
+> valid token and is rejected.
 
-## Launch
+## In this studio
 
-- **[▶ Open the authorized launch page](http://localhost:8086/)** — mint a token and
-  launch “Hello, FxSuite”.
-- **[⚠ Open the copycat page](http://localhost:8086/copycat)** — same URL, no token;
-  the launcher refuses it.
+- **Launch by environment** — Production, UAT and the dev environments, each with its own
+  URL scheme and its own launcher install.
+- **Published versions** — what is in the artifact repository, and which version each
+  environment resolves to.
+
+Both are proper MPAs (`StandardMPA` hosting one widget), reachable from the catalogue — not
+hand-written HTML pages.
 
 ## One-time setup
 
-If nothing happens, install the protocol handler once (no admin rights needed):
+Each environment registers its own handler once (no admin rights needed):
 
 ```
-java -jar master-launcher.jar --register
+java -jar dist/fxsuite/prod/master-launcher.jar --register --env=prod
+java -jar dist/fxsuite/dev/master-launcher.jar  --register --env=dev1
 ```
 
-That registers `fxsuite://` under your user account (`HKEY_CURRENT_USER`), so clicks
-route to a local `java -jar` — no IT approval, no UAC prompt.
+That registers `fxsuite-prod://` / `fxsuite-dev1://` under your user account
+(`HKEY_CURRENT_USER`), so clicks route to a local `java -jar` — no IT approval, no UAC prompt.
 
-## What happens on an authorized click
+## What happens on a launch
 
-1. The launch page calls the backend for a fresh token: `GET /token?app=hello`.
-2. The backend signs a short-lived token (RS256, private key server-side only) and
-   returns `fxsuite://launch/hello?tok=<JWT>`.
-3. The browser hands that URL to the OS protocol handler → `javaw -jar master-launcher.jar …`.
-4. The launcher **verifies** the token with its embedded public key: signature,
-   issuer/audience, app binding, and expiry — then opens the window.
+1. The page asks the backend for a token: `GET /token?app=hello&env=<env>`.
+2. The backend signs a short-lived token — **environment, app, version and the artifact's
+   SHA-256** — with that environment's private key.
+3. The browser hands `fxsuite-<env>://launch/hello?tok=…` to the OS, which routes it to that
+   environment's launcher install.
+4. The launcher **verifies** the token, checks it is addressed to *its* environment, downloads
+   the exact version, checks the hash, and launches it with environment-coloured chrome.
 
-## Why a copycat is rejected
+## Why another site can't launch anything
 
-A protocol handler never learns which site invoked it, so we don't try to check the
-domain. Instead trust rides on the **signature**: only the FxSuite backend holds the
-private key, so only it can mint a token the launcher accepts. A copied URL carries no
-valid token → refused.
+A protocol handler never learns which site invoked it, so we don't try to check the domain.
+Trust rides on the **signature**: only the backend holds the signing keys. Three independent
+layers keep environments apart — the scheme, the per-environment signing key, and the signed
+`env` claim (which is what separates dev‑1 from dev‑2, since they share a key).
 
-> **Next:** one-time-use enforcement (burn the token's `jti` nonce server-side) to
-> also defeat replay of a captured, still-fresh token.
+> See the [copycat page](http://localhost:8086/copycat) — deliberately served from a separate
+> origin as ad-hoc HTML, because its whole point is to be a *foreign* site.

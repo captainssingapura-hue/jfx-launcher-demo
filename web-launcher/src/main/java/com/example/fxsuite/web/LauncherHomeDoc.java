@@ -19,8 +19,8 @@ public record LauncherHomeDoc() implements ClasspathMarkdownDoc {
     @Override public UUID   uuid()    { return ID; }
     @Override public String title()   { return "FxSuite — Desktop App Launcher"; }
     @Override public String summary() {
-        return "Click an app to open it as a native JavaFX desktop window via the "
-             + "fxsuite:// protocol handler.";
+        return "How a web click opens a native JavaFX app in a chosen environment — the "
+             + "fxsuite-<env>:// handlers, signed launch tokens, and per-environment isolation.";
     }
     @Override public String category(){ return "GUIDE"; }
     @Override public List<Reference> references() { return List.of(); }

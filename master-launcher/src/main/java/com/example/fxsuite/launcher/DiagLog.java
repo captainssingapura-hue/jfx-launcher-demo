@@ -19,14 +19,17 @@ public final class DiagLog {
 
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
+    /** Environment this process serves; scopes the log file so environments never share one. */
+    private static volatile String env = "unscoped";
+
     private DiagLog() {}
 
+    public static void setEnv(String envId) {
+        if (envId != null && !envId.isBlank()) env = envId;
+    }
+
     public static Path logFile() {
-        String base = System.getenv("LOCALAPPDATA");
-        if (base == null || base.isBlank()) {
-            base = System.getProperty("java.io.tmpdir");
-        }
-        return Path.of(base, "fxsuite", "launch.log");
+        return Install.envStateRoot(env).resolve("launch.log");
     }
 
     public static synchronized void log(String message) {

@@ -30,13 +30,14 @@ java tools/KeyGen.java
 This writes the private key into `web-launcher` (the token issuer) and the public
 key into `master-launcher` (the verifier). Both are git-ignored; re-run to rotate.
 
-Then build:
+Then build everything with one command from the repo root:
 
 ```bash
-mvn -f fxsuite-javafx/pom.xml  clean package
-mvn -f app-hello/pom.xml       clean package
-mvn -f master-launcher/pom.xml clean package
+mvn clean package
 ```
+
+*(The root `pom.xml` is a build-everything aggregator; each module can still be built
+on its own with `mvn -f <module>/pom.xml clean package`.)*
 
 You should get three jars:
 - `fxsuite-javafx/target/fxsuite-javafx.jar` (~9.5 MB — the shared JavaFX runtime)
@@ -82,7 +83,25 @@ foreach ($v in '1.0.0','1.1.0') {
 
 ---
 
-## 3. Register the protocol handler (one-time, per user — no admin)
+## 3. Register the protocol handlers (one-time, per user — no admin)
+
+### Option A — the setup app (recommended)
+
+```bash
+java -jar dist/fxsuite/fxsuite-setup.jar
+```
+
+A standalone JavaFX installer — it bundles JavaFX, so it runs on a machine where
+nothing is installed yet. It discovers the environments in the install folder, shows
+their current registration status, and prints **the exact registry keys, values and
+data** it will write before you apply anything. Adding a dev environment is a matter
+of typing its id (and optional base URL).
+
+Everything is reversible: installing records whatever handler was registered for that
+scheme beforehand, so **Remove** puts the original back rather than just deleting —
+and deletes the key outright only when there was nothing there before.
+
+### Option B — the command line
 
 ```bash
 java -jar dist/fxsuite/master-launcher.jar --register

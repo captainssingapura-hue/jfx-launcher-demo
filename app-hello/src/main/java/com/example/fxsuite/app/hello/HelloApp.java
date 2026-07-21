@@ -29,6 +29,15 @@ public final class HelloApp extends Application {
         List<String> args = getParameters().getRaw();
         String requestedVer = args.size() > 1 ? args.get(1) : "?";
         String bundledVer = bundledVersion();      // baked into THIS jar's bytes
+        String env = System.getProperty("fxsuite.env", "unknown");   // injected by the launcher
+
+        // Environment must be unmistakable: with several environments open at once, the
+        // dominant risk is acting in the wrong one.
+        Label envBanner = new Label("  " + env.toUpperCase() + "  ");
+        envBanner.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        envBanner.setTextFill(Color.WHITE);
+        envBanner.setStyle("-fx-background-color:" + envColour(env) + "; -fx-background-radius:6;"
+                + " -fx-padding:4 12 4 12;");
 
         Label heading = new Label("Hello, FxSuite  ·  v" + bundledVer);
         heading.setFont(Font.font("Segoe UI", FontWeight.BOLD, 26));
@@ -53,15 +62,24 @@ public final class HelloApp extends Application {
         ok.setFont(Font.font("Consolas", 13));
         ok.setTextFill(Color.web("#2e7d32"));
 
-        VBox root = new VBox(14, heading, blurb, ver, proc, ok);
+        VBox root = new VBox(14, envBanner, heading, blurb, ver, proc, ok);
         root.setPadding(new Insets(28));
         root.setAlignment(Pos.CENTER_LEFT);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #e8f5e9, #ffffff);");
+        root.setStyle("-fx-background-color: linear-gradient(to bottom right, #e8f5e9, #ffffff);"
+                + " -fx-border-color:" + envColour(env) + "; -fx-border-width: 5 0 0 0;");
 
-        stage.setTitle("FxSuite — Hello v" + bundledVer);
-        stage.setScene(new Scene(root, 580, 340));
+        stage.setTitle("[" + env.toUpperCase() + "] FxSuite — Hello v" + bundledVer);
+        stage.setScene(new Scene(root, 580, 380));
         stage.show();
         stage.toFront();
+    }
+
+    /** Colour-code the environment: red = Production, amber = UAT, blue = dev, grey = unknown. */
+    private static String envColour(String env) {
+        if (env.equals("prod")) return "#c62828";
+        if (env.equals("uat")) return "#ef6c00";
+        if (env.startsWith("dev")) return "#1565c0";
+        return "#607d8b";
     }
 
     /** Version baked into this jar (a resource added at publish time); "dev" if absent. */

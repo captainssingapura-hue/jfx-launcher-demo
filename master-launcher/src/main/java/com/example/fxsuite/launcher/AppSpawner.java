@@ -24,7 +24,8 @@ public final class AppSpawner {
 
     private AppSpawner() {}
 
-    public static void spawn(Path appJar, String mainClass, List<String> appArgs) throws LaunchException {
+    public static void spawn(String envId, Path appJar, String mainClass, List<String> appArgs)
+            throws LaunchException {
         Path javafxJar = Install.sharedJavafxJar();
         if (!Files.isRegularFile(javafxJar)) {
             throw new LaunchException("Shared JavaFX runtime is missing: " + javafxJar);
@@ -39,6 +40,9 @@ public final class AppSpawner {
         List<String> cmd = new ArrayList<>();
         cmd.add(javaw);
         cmd.add("--enable-native-access=ALL-UNNAMED");   // silence JDK 25 native-access warning
+        // Tell the app which environment it belongs to, so it can render unmistakable
+        // environment chrome and connect to the right backend.
+        cmd.add("-Dfxsuite.env=" + envId);
         cmd.add("-cp");
         cmd.add(classpath);
         cmd.add(mainClass);

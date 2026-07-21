@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FxSuite — Ops console</title>
+<style>
+  body{font:15px/1.5 "Segoe UI",system-ui,sans-serif;margin:0;background:#0f1523;color:#e8ecf6}
+  .wrap{max-width:960px;margin:0 auto;padding:26px 20px}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:#9aa4bd;margin:0 0 18px}
+  table{width:100%;border-collapse:collapse;background:#161d2e;border-radius:12px;overflow:hidden}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #2a3450}
+  th{background:#1c2748;color:#b9c6ef;font-weight:600;font-size:13px}
+  td.mono,code{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#5fd08a;margin-right:6px}
+  button{font:inherit;font-weight:600;cursor:pointer;border:0;border-radius:8px;padding:6px 12px;background:#c62828;color:#fff}
+  button:hover{background:#a91f1f}
+  .empty{color:#9aa4bd;padding:18px 4px}
+  .foot{color:#6b7794;margin-top:14px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FxSuite — Production Ops console</h1>
+  <p class="sub">Live inventory of locally‑running apps across connected agents. Auto‑refreshes every 2s.</p>
+  <table>
+    <thead><tr><th>User</th><th>Host</th><th>App</th><th>Version</th><th>PID</th><th>Uptime</th><th>Control</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="7" class="empty">loading…</td></tr></tbody>
+  </table>
+  <p class="foot">Kill pushes an RSA‑signed command down the agent's connection; the agent verifies it and terminates the process.</p>
+</div>
+<script>
+  async function refresh(){
+    let data;
+    try { data = await (await fetch('/ops/agents')).json(); }
+    catch(e){ return; }
+    const rows = [];
+    for (const a of (data.agents||[])) {
+      const apps = a.apps||[];
+      if (!apps.length) {
+        rows.push(`<tr><td><span class="dot"></span>${a.user||'?'}</td><td>${a.host||''}</td>
+                   <td colspan="5" class="empty">connected — nothing running</td></tr>`);
+      }
+      for (const p of apps) {
+        rows.push(`<tr>
+          <td><span class="dot"></span>${a.user||'?'}</td>
+          <td>${a.host||''}</td>
+          <td>${p.app}</td>
+          <td class="mono">${p.ver}</td>
+          <td class="mono">${p.pid}</td>
+          <td class="mono">${p.uptimeS}s</td>
+          <td><button onclick="kill('${a.user}','${p.launchId}',this)">Kill</button></td>
+        </tr>`);
+      }
+    }
+    document.getElementById('rows').innerHTML =
+      rows.length ? rows.join('') : '<tr><td colspan="7" class="empty">no agents connected</td></tr>';
+  }
+  async function kill(user, launchId, btn){
+    btn.disabled = true; btn.textContent = 'killing…';
+    try { await fetch(`/ops/kill?user=${encodeURIComponent(user)}&launchId=${encodeURIComponent(launchId)}`, {method:'POST'}); }
+    catch(e){}
+    setTimeout(refresh, 400);
+  }
+  refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>

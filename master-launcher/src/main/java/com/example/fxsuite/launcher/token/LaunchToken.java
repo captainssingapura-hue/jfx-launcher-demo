@@ -4,18 +4,19 @@ package com.example.fxsuite.launcher.token;
  * The validated claims carried by a launch token.
  *
  * <ul>
- *   <li>{@code iss} — issuer; must be the FxSuite web backend.</li>
- *   <li>{@code aud} — audience; must be the launcher.</li>
- *   <li>{@code app} — the app id this token authorizes.</li>
- *   <li>{@code ver} — the exact app version to run (the server chooses it, so it
- *       can roll everyone forward just by minting tokens for a new version).</li>
- *   <li>{@code sha256} — hex SHA-256 of the app jar the server wants run. The
- *       launcher downloads by app+version from a <i>pinned</i> repo and refuses
- *       to launch unless the bytes hash to this value — so the signed token
- *       authorizes the exact <b>bytes</b>, not just the app id.</li>
+ *   <li>{@code iss} / {@code aud} — issuer and audience.</li>
+ *   <li>{@code env} — the environment this token authorizes. The launcher refuses a
+ *       token whose {@code env} is not its own. For singleton environments the
+ *       separate signing key is the primary control; for multiplexed dev
+ *       environments (which share a signer) this claim is the <b>only</b> thing
+ *       separating dev‑1 from dev‑2.</li>
+ *   <li>{@code app} — the app id.</li>
+ *   <li>{@code ver} — the exact version to run.</li>
+ *   <li>{@code sha256} — hex SHA-256 of the app jar, so the signed token authorizes
+ *       the exact bytes.</li>
  *   <li>{@code iat} / {@code exp} — issued-at / expiry, epoch seconds.</li>
  *   <li>{@code jti} — unique token id (nonce); reserved for one-time-use.</li>
  * </ul>
  */
-public record LaunchToken(String iss, String aud, String app, String ver,
+public record LaunchToken(String iss, String aud, String env, String app, String ver,
                           String sha256, long iat, long exp, String jti) {}
