@@ -83,7 +83,25 @@ foreach ($v in '1.0.0','1.1.0') {
 
 ---
 
-## 3. Register the protocol handler (one-time, per user — no admin)
+## 3. Register the protocol handlers (one-time, per user — no admin)
+
+### Option A — the setup app (recommended)
+
+```bash
+java -jar dist/fxsuite/fxsuite-setup.jar
+```
+
+A standalone JavaFX installer — it bundles JavaFX, so it runs on a machine where
+nothing is installed yet. It discovers the environments in the install folder, shows
+their current registration status, and prints **the exact registry keys, values and
+data** it will write before you apply anything. Adding a dev environment is a matter
+of typing its id (and optional base URL).
+
+Everything is reversible: installing records whatever handler was registered for that
+scheme beforehand, so **Remove** puts the original back rather than just deleting —
+and deletes the key outright only when there was nothing there before.
+
+### Option B — the command line
 
 ```bash
 java -jar dist/fxsuite/master-launcher.jar --register

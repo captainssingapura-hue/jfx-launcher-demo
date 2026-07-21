@@ -1,5 +1,8 @@
 package com.example.fxsuite.launcher;
 
+import com.example.fxsuite.launcher.setup.RegistryPlan;
+import com.example.fxsuite.launcher.setup.RegistrySetup;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -40,41 +43,16 @@ public final class ProtocolRegistrar {
         if (!jar.toString().toLowerCase().endsWith(".jar")) {
             DiagLog.log("[register] WARNING: not running from a .jar (" + jar + "). Package first.");
         }
-
-        String scheme = EnvConfig.scheme(envId);
-        String javaw = javawExe();
-        StringBuilder cmd = new StringBuilder()
-                .append(quote(javaw)).append(" -jar ").append(quote(jar.toString()))
-                .append(" --env=").append(envId);
-        if (base != null && !base.isBlank()) cmd.append(" --base=").append(base.trim());
-        cmd.append(" \"%1\"");
-        String command = cmd.toString();
-
-        String reg = """
-                Windows Registry Editor Version 5.00
-
-                [HKEY_CURRENT_USER\\Software\\Classes\\%1$s]
-                @="URL:FxSuite (%2$s)"
-                "URL Protocol"=""
-
-                [HKEY_CURRENT_USER\\Software\\Classes\\%1$s\\shell\\open\\command]
-                @="%3$s"
-                """.formatted(scheme, envId, escapeRegValue(command));
-
-        if (importReg(reg)) {
-            DiagLog.log("[register] " + scheme + ":// registered for environment '" + envId + "'.");
-            DiagLog.log("[register] command = " + command);
-            DiagLog.log("[register] Test:  cmd /c start \"\" \"" + scheme + "://launch/hello?tok=…\"");
-        } else {
-            DiagLog.log("[register] FAILED — see reg.exe output above.");
-        }
+        // Same plan/apply path the setup app uses, so CLI and GUI cannot drift.
+        RegistryPlan plan = RegistrySetup.installPlan(envId, jar, base);
+        DiagLog.log("[register] planned changes:" + System.lineSeparator() + plan.describe());
+        DiagLog.log("[register] " + RegistrySetup.apply(plan));
     }
 
     public static void unregister(String envId) {
-        String scheme = EnvConfig.scheme(envId);
-        boolean ok = reg("delete", CLASSES + scheme, "/f");
-        DiagLog.log(ok ? "[unregister] removed " + scheme + "://"
-                       : "[unregister] nothing removed for " + scheme + " (was it registered?)");
+        RegistryPlan plan = RegistrySetup.uninstallPlan(envId);
+        DiagLog.log("[unregister] planned changes:" + System.lineSeparator() + plan.describe());
+        DiagLog.log("[unregister] " + RegistrySetup.apply(plan));
     }
 
     /** All registered FxSuite environments on this user account. */

@@ -133,7 +133,20 @@ for v in 1.0.0 1.1.0; do
 done
 ```
 
-**Register the environments (one-time, per user — no admin):**
+**Register the environments (one-time, per user — no admin).** Either run the setup app:
+
+```bash
+cp fxsuite-setup/target/fxsuite-setup.jar dist/fxsuite/
+java -jar dist/fxsuite/fxsuite-setup.jar
+```
+
+A self-contained JavaFX installer (it bundles JavaFX, since it runs before anything is
+installed). It lists the environments it finds, shows their current status, and displays
+**the exact registry changes** before applying them. Removal is a true inverse: it restores
+any handler that was registered before FxSuite took over the scheme, and only deletes the
+key when there was none.
+
+…or use the command line:
 
 ```bash
 java -jar dist/fxsuite/prod/master-launcher.jar --register --env=prod
