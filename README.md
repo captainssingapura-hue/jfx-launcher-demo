@@ -103,7 +103,28 @@ choose *which version* but never redirect the download to another host.
 
 ## Try it
 
-**1. Build the jars, assemble the install, and publish two app versions:**
+**1. Generate the signing keys** (nothing is committed, so a fresh clone has none):
+
+```bash
+java tools/KeyGen.java     # shared pair: private -> web-launcher, public -> master-launcher
+```
+
+That one pair is enough to run everything. Per-environment keys — so a token minted
+for one environment fails at another on the **signature** alone — are easiest to manage
+in the setup app (step 3): pick a **keys root**, and it creates one folder per
+environment holding that environment's pair, shows each launcher's **trust anchor and
+fingerprint**, installs the public half, and can confirm the private key matches the key
+a launcher actually trusts.
+
+```
+<keys root>/prod/signing-key.pk8.b64    private — the SERVER's; give it to the issuer
+<keys root>/prod/verify-key.x509.b64    public  — installed beside prod's launcher
+```
+
+Keep the default shared pair and everything still works; environments simply share one
+trust anchor instead of having their own.
+
+**2. Build the jars, assemble the install, and publish two app versions:**
 
 ```bash
 mvn clean package          # root aggregator builds all modules (JDK 25 required)
@@ -123,6 +144,10 @@ mkdir -p dist/fxsuite/dev
 cp master-launcher/target/master-launcher.jar dist/fxsuite/dev/master-launcher.jar
 printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/dev/launcher.properties
 
+# A launcher prefers verify-key.x509.b64 in its own install folder and falls back to
+# the key baked into its jar — so nothing more is needed for the shared-key setup.
+# Per-environment anchors are installed from the setup app (step 3).
+
 # publish app-hello 1.0.0 and 1.1.0 to the repo (embed a version marker so the
 # bytes — and the hash, and the displayed version — differ per version)
 for v in 1.0.0 1.1.0; do
@@ -133,7 +158,7 @@ for v in 1.0.0 1.1.0; do
 done
 ```
 
-**Register the environments (one-time, per user — no admin).** Either run the setup app:
+**3. Register the environments** (one-time, per user — no admin). Either run the setup app:
 
 ```bash
 cp fxsuite-setup/target/fxsuite-setup.jar dist/fxsuite/
@@ -145,6 +170,14 @@ installed). It lists the environments it finds, shows their current status, and 
 **the exact registry changes** before applying them. Removal is a true inverse: it restores
 any handler that was registered before FxSuite took over the scheme, and only deletes the
 key when there was none.
+
+It also manages the **launch-token keys**: choose a keys root, and per environment it can
+generate a pair into `<keys root>/<env>/`, install the public half beside that launcher,
+and check that the private key matches the anchor the launcher trusts. Each row shows the
+anchor's source (install folder vs the jar's built-in default) and its fingerprint, so a
+Production launcher silently falling back to the shared key is visible at a glance.
+Generating keys is an *operator* action — the private half belongs to the token issuer and
+must never be distributed to workstations.
 
 …or use the command line:
 
@@ -162,7 +195,7 @@ Each writes `HKCU\Software\Classes\fxsuite-<env>\shell\open\command`. Remove one
 `--unregister --env=<id>`. Every key/value it touches — plus verification and
 troubleshooting — is documented in [docs/windows-registry.md](docs/windows-registry.md).
 
-**2. Run the web side (one JVM, three ports):**
+**4. Run the web side (one JVM, three ports):**
 
 ```bash
 cd web-launcher
@@ -188,11 +221,13 @@ one endpoint that must not be callable by other sites.
 The only other origins are things that genuinely *are* separate: the copycat decoy (it must
 look foreign) and the artifact repository (a Nexus stand-in).
 
-**3. Open `http://localhost:8086/` in a real browser and click a version.**
-The page fetches a fresh signed token for that version; the launcher downloads it
-(first time), verifies the bytes, caches it, and a native JavaFX window shows that
-version. Click a different version to see a dynamic update; click again to see a
-cache hit (no re-download). Open `/copycat` to see a tokenless URL rejected.
+**5. Open `http://localhost:8085/` in a real browser and pick an environment.**
+The studio's *Launch by environment* page asks the backend for a signed token; the
+launcher downloads that version (first time), verifies the bytes, caches it, and a
+native JavaFX window opens with environment-coloured chrome. Launch a different
+environment to see them side by side; launch the same one twice to see a cache hit.
+Open `http://localhost:8086/copycat` — a different origin — to see a tokenless URL
+rejected.
 
 Simulate from a shell:
 

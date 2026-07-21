@@ -30,6 +30,12 @@ java tools/KeyGen.java
 This writes the private key into `web-launcher` (the token issuer) and the public
 key into `master-launcher` (the verifier). Both are git-ignored; re-run to rotate.
 
+That single pair runs the whole demo. If you want **per-environment keys**, the setup
+app (step 3) does it with less ceremony: pick a keys root and it creates
+`<keys root>/<env>/` holding that environment's pair, installs the public half beside
+the right launcher, and shows each launcher's trust anchor + fingerprint so you can see
+which key is actually in force.
+
 Then build everything with one command from the repo root:
 
 ```bash
