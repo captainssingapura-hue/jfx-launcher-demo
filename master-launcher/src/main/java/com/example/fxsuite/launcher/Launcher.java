@@ -9,57 +9,85 @@ import java.util.List;
 /**
  * Process entry point and gatekeeper for the FxSuite launcher.
  *
- * <p>This jar is thin and JavaFX-free, and ships <b>no app jars</b>. In launch
- * mode it verifies the request, fetches the exact app version named in the
- * (signed) token from the pinned repository — downloading + caching on first use
- * — checks the bytes against the token's signed hash, and spawns the app in its
- * own process. Two responsibilities, selected by the first argument:</p>
- * <ul>
- *   <li>{@code --register} / {@code --unregister} — install/remove the per-user
- *       {@code fxsuite://} protocol handler;</li>
- *   <li>an {@code fxsuite://…} URL — the OS invokes us this way after a web
- *       click.</li>
- * </ul>
+ * <p>Each installed instance serves exactly <b>one environment</b>. Singleton
+ * environments (Prod, UAT) get a dedicated install whose {@code launcher.properties}
+ * names the environment; multiplexed dev environments share one install and are told
+ * which environment they are via {@code --env=} (and {@code --base=}) on the registered
+ * command line. The environment therefore comes from installation + registration —
+ * never from the launch URL.</p>
+ *
+ * <pre>
+ *   --register --env=&lt;id&gt; [--base=&lt;url&gt;]   install the fxsuite-&lt;id&gt;:// handler
+ *   --unregister --env=&lt;id&gt;                 remove it
+ *   --list                                   show registered environments
+ *   --prune                                  drop registrations whose jar is gone
+ *   fxsuite-&lt;id&gt;://launch/&lt;app&gt;?tok=…        launch (normally invoked by the OS)
+ * </pre>
  */
 public final class Launcher {
+
+    private enum Mode { LAUNCH, REGISTER, UNREGISTER, LIST, PRUNE, HELP }
 
     private Launcher() {}
 
     public static void main(String[] args) {
-        if (args.length == 0) {
-            printUsage();
-            return;
-        }
+        String argEnv = null, argBase = null, url = null;
+        Mode mode = null;
 
-        String first = args[0].trim();
-        switch (first) {
-            case "--register" -> ProtocolRegistrar.register();
-            case "--unregister" -> ProtocolRegistrar.unregister();
-            case "--help", "-h", "/?" -> printUsage();
-            default -> launch(args[0]);
+        for (String a : args) {
+            String s = a.trim();
+            if (s.startsWith("--env=")) argEnv = s.substring("--env=".length());
+            else if (s.startsWith("--base=")) argBase = s.substring("--base=".length());
+            else if (s.equals("--register")) mode = Mode.REGISTER;
+            else if (s.equals("--unregister")) mode = Mode.UNREGISTER;
+            else if (s.equals("--list")) mode = Mode.LIST;
+            else if (s.equals("--prune")) mode = Mode.PRUNE;
+            else if (s.equals("--help") || s.equals("-h") || s.equals("/?")) mode = Mode.HELP;
+            else if (!s.startsWith("--")) url = s;      // the launch URL
+        }
+        if (mode == null) mode = (url != null) ? Mode.LAUNCH : Mode.HELP;
+
+        EnvConfig env = EnvConfig.load(argEnv, argBase);
+        DiagLog.setEnv(env.envId());   // scope the log file to this environment
+
+        try {
+            switch (mode) {
+                case REGISTER -> ProtocolRegistrar.register(env.requireEnvId(), argBase);
+                case UNREGISTER -> ProtocolRegistrar.unregister(env.requireEnvId());
+                case LIST -> ProtocolRegistrar.list();
+                case PRUNE -> ProtocolRegistrar.prune();
+                case HELP -> printUsage();
+                case LAUNCH -> launch(url, env);
+            }
+        } catch (LaunchException e) {
+            DiagLog.log("error: " + e.getMessage());
+            UserAlert.error(e.getMessage());
         }
     }
 
-    /** Launch mode: {@code raw} is (expected to be) an {@code fxsuite://} URL. */
-    private static void launch(String raw) {
-        DiagLog.log("launch invoked with arg: " + raw);
+    /** Launch mode: {@code raw} is (expected to be) an {@code fxsuite-<env>://} URL. */
+    private static void launch(String raw, EnvConfig env) {
+        DiagLog.log("launch invoked [" + env.envId() + "] with arg: " + raw);
         try {
+            String ownEnv = env.requireEnvId();
             LaunchUri uri = LaunchUri.parse(raw);
 
-            // Security gate: a valid, unexpired, app-bound, server-signed token is
-            // required. It also names the version and the expected jar hash.
-            LaunchToken token = new TokenVerifier().verify(uri.token(), uri.appId());
-            DiagLog.log("token OK: app='" + token.app() + "' ver='" + token.ver()
-                    + "' (jti=" + token.jti() + ")");
+            // The scheme carries the environment too; refuse anything not addressed to us.
+            if (!ownEnv.equals(uri.env())) {
+                throw new LaunchException("This launcher serves environment '" + ownEnv
+                        + "' but the link was for '" + uri.env() + "'.");
+            }
 
-            // Resolve the exact version from the pinned repo (cache or download),
-            // verifying the downloaded bytes against the token's signed hash.
-            Path appJar = new AppFetcher().fetch(token.app(), token.ver(), token.sha256());
+            // Security gate: signature (this environment's key), env / app binding,
+            // version and artifact hash, expiry.
+            LaunchToken token = new TokenVerifier().verify(uri.token(), ownEnv, uri.appId());
+            DiagLog.log("token OK: env='" + token.env() + "' app='" + token.app()
+                    + "' ver='" + token.ver() + "' (jti=" + token.jti() + ")");
 
-            // Entry point comes from the verified jar itself.
+            Path appJar = new AppFetcher(env).fetch(token.app(), token.ver(), token.sha256());
             String mainClass = Manifests.mainClass(appJar);
 
-            AppSpawner.spawn(appJar, mainClass, List.of(token.app(), token.ver()));
+            AppSpawner.spawn(ownEnv, appJar, mainClass, List.of(token.app(), token.ver()));
         } catch (LaunchException e) {
             DiagLog.log("rejected launch: " + e.getMessage());
             UserAlert.error(e.getMessage());
@@ -68,17 +96,18 @@ public final class Launcher {
 
     private static void printUsage() {
         System.out.println("""
-                FxSuite master launcher (gatekeeper)
+                FxSuite launcher — one instance per environment
 
                 Usage:
-                  java -jar master-launcher.jar --register       Install the fxsuite:// handler (HKCU)
-                  java -jar master-launcher.jar --unregister     Remove the handler
-                  java -jar master-launcher.jar fxsuite://launch/<app>?tok=<token>
-                                                                 Launch an app version named in the token
-                                                                 (normally done by the OS on a web click)
-                  java -jar master-launcher.jar --help           This message
+                  java -jar master-launcher.jar --register --env=<id> [--base=<url>]
+                  java -jar master-launcher.jar --unregister --env=<id>
+                  java -jar master-launcher.jar --list
+                  java -jar master-launcher.jar --prune
+                  java -jar master-launcher.jar fxsuite-<id>://launch/<app>?tok=<token>
+                  java -jar master-launcher.jar --help
 
-                Apps are resolved dynamically from the repository named in
-                launcher.properties (repo.base); nothing is hardcoded here.""");
+                Singleton environments (prod, uat) use a dedicated install whose
+                launcher.properties sets env= and repo.base=.  Multiplexed dev
+                environments share one install and pass --env / --base at registration.""");
     }
 }

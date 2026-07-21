@@ -24,14 +24,10 @@ import java.time.Duration;
  */
 public final class AppFetcher {
 
-    private final RepoConfig repo;
+    private final EnvConfig env;
 
-    public AppFetcher() {
-        this(RepoConfig.load());
-    }
-
-    public AppFetcher(RepoConfig repo) {
-        this.repo = repo;
+    public AppFetcher(EnvConfig env) {
+        this.env = env;
     }
 
     /**
@@ -39,7 +35,9 @@ public final class AppFetcher {
      * @throws LaunchException on download failure or integrity mismatch
      */
     public Path fetch(String app, String ver, String expectedSha256) throws LaunchException {
-        Path cacheJar = Install.cacheRoot()
+        // Cache is keyed by environment: the same app+version in Prod and dev-2 are
+        // separate files and can never be confused.
+        Path cacheJar = Install.cacheRoot(env.envId())
                 .resolve(app).resolve(ver).resolve("app-" + app + "-" + ver + ".jar");
 
         // Cache hit only if the bytes still match the signed hash.
@@ -52,7 +50,7 @@ public final class AppFetcher {
             DiagLog.log("[fetch] could not read cached jar, will re-download: " + e.getMessage());
         }
 
-        URI src = repo.artifactUri(app, ver);
+        URI src = env.artifactUri(app, ver);
         DiagLog.log("[fetch] downloading " + src);
         byte[] bytes = download(src);
 

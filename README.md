@@ -12,11 +12,15 @@ reusing the URL has no valid token; a tampered jar fails the hash check. Apps ar
 (Nexus/Artifactory) and cached, so the server can roll versions forward without
 touching the install.
 
+**Multiple environments** (Production, UAT, `dev[1..n]`) are supported: each has its own
+URL scheme and its own launcher install — see
+[docs/multi-env-simple-launcher.md](docs/multi-env-simple-launcher.md) and §*Environments* below.
+
 ```
-authorized page ─▶ GET /token?app=hello&ver=1.1.0 ─▶ backend looks up the jar in the repo,
-       │                                              signs {app, ver, sha256} (RS256, private key)
-       ▼                                              returns fxsuite://launch/hello?tok=<JWT>
-   browser hands URL to OS ─▶ HKCU handler ─▶ javaw -jar master-launcher.jar "<url>"   (thin gatekeeper, no JavaFX)
+authorized page ─▶ GET /token?app=hello&env=prod ─▶ backend looks up the jar in the repo,
+       │                                            signs {env, app, ver, sha256} (RS256, per-env key)
+       ▼                                            returns fxsuite-prod://launch/hello?tok=<JWT>
+   browser hands URL to OS ─▶ HKCU handler ─▶ javaw -jar prod/master-launcher.jar --env=prod "<url>"
                                                      │
                      validate URL + VERIFY TOKEN (public key) → get app, ver, sha256
                                                      │
@@ -47,14 +51,39 @@ Each is an independent Maven build (JDK 25). `web-launcher` depends on the relea
 homing-studio **0.5.4**, resolved from the remote Maven repo — no local framework
 build required.
 
-**Install layout** — note it contains **no apps**:
+**Install layout** — one install *per environment*, and **no apps**:
 
 ```
 fxsuite/
-  master-launcher.jar        the registered handler target
-  lib/fxsuite-javafx.jar     shared JavaFX runtime (once)
-  launcher.properties        repo.base=http://…    (pinned, trusted config)
+  lib/fxsuite-javafx.jar             shared JavaFX runtime (once, across environments)
+  prod/  master-launcher.jar  launcher.properties (env=prod)  verify-key.x509.b64  ← Prod's own key
+  uat/   master-launcher.jar  launcher.properties (env=uat)   verify-key.x509.b64
+  dev/   master-launcher.jar  launcher.properties (repo.base) verify-key.x509.b64  ← shared by dev1..devN
 ```
+
+Singleton environments (Prod, UAT) get a **dedicated install with their own trust anchor**;
+all dev environments share the one `dev/` install and are distinguished by `--env=` on the
+registered command.
+
+## Environments
+
+| Environment | Scheme | Binary | Args |
+|---|---|---|---|
+| Production | `fxsuite-prod://` | `prod/master-launcher.jar` | env from `launcher.properties` |
+| UAT | `fxsuite-uat://` | `uat/master-launcher.jar` | env from `launcher.properties` |
+| dev1 … devN | `fxsuite-dev1://` … | **same** `dev/master-launcher.jar` | `--env=devN [--base=…]` |
+
+Three independent layers keep environments apart — all verified:
+
+1. **Scheme** — the launcher refuses a URL addressed to another environment.
+2. **Signature** — singleton environments have their own signing key, so a UAT token fails
+   outright at Production.
+3. **`env` claim** — multiplexed dev environments *share* a key, so the signed `env` claim is
+   what stops a dev‑1 token being replayed at dev‑2.
+
+State is keyed by environment (`%LOCALAPPDATA%\fxsuite\<env>\{cache,launch.log}`), so the same
+app+version in Prod and dev are separate copies, and apps carry colour‑coded environment chrome
+(🔴 Prod, 🟠 UAT, 🔵 dev) injected via `-Dfxsuite.env`.
 
 **Repository layout** (Nexus/Artifactory stand-in) and **local cache**:
 
@@ -77,15 +106,22 @@ choose *which version* but never redirect the download to another host.
 **1. Build the jars, assemble the install, and publish two app versions:**
 
 ```bash
-mvn -o -f fxsuite-javafx/pom.xml  clean package
-mvn -o -f app-hello/pom.xml       clean package
-mvn -o -f master-launcher/pom.xml clean package
+mvn clean package          # root aggregator builds all modules (JDK 25 required)
 
-# install (NO apps): launcher + shared JavaFX + pinned repo config
+# shared JavaFX runtime (once)
 mkdir -p dist/fxsuite/lib
-cp master-launcher/target/master-launcher.jar dist/fxsuite/master-launcher.jar
-cp fxsuite-javafx/target/fxsuite-javafx.jar   dist/fxsuite/lib/fxsuite-javafx.jar
-printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/launcher.properties
+cp fxsuite-javafx/target/fxsuite-javafx.jar dist/fxsuite/lib/fxsuite-javafx.jar
+
+# one install per environment (singletons get their own trust anchor)
+for E in prod uat; do
+  mkdir -p dist/fxsuite/$E
+  cp master-launcher/target/master-launcher.jar dist/fxsuite/$E/master-launcher.jar
+  printf "env=$E\nrepo.base=http://localhost:8087\n" > dist/fxsuite/$E/launcher.properties
+done
+# one shared install for all dev environments (no env= — supplied per registration)
+mkdir -p dist/fxsuite/dev
+cp master-launcher/target/master-launcher.jar dist/fxsuite/dev/master-launcher.jar
+printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/dev/launcher.properties
 
 # publish app-hello 1.0.0 and 1.1.0 to the repo (embed a version marker so the
 # bytes — and the hash, and the displayed version — differ per version)
@@ -97,25 +133,47 @@ for v in 1.0.0 1.1.0; do
 done
 ```
 
-**Install the handler (one-time, per user — no admin):**
+**Register the environments (one-time, per user — no admin):**
 
 ```bash
-java -jar dist/fxsuite/master-launcher.jar --register
+java -jar dist/fxsuite/prod/master-launcher.jar --register --env=prod
+java -jar dist/fxsuite/uat/master-launcher.jar  --register --env=uat
+java -jar dist/fxsuite/dev/master-launcher.jar  --register --env=dev1   # same binary…
+java -jar dist/fxsuite/dev/master-launcher.jar  --register --env=dev2   # …different arg
+
+java -jar dist/fxsuite/dev/master-launcher.jar  --list     # show registered environments
+java -jar dist/fxsuite/dev/master-launcher.jar  --prune    # drop registrations whose jar is gone
 ```
 
-`--register` writes `HKCU\Software\Classes\fxsuite\shell\open\command` pointing at
-the launcher jar in `dist/fxsuite`. Remove it with `--unregister`.
+Each writes `HKCU\Software\Classes\fxsuite-<env>\shell\open\command`. Remove one with
+`--unregister --env=<id>`. Every key/value it touches — plus verification and
+troubleshooting — is documented in [docs/windows-registry.md](docs/windows-registry.md).
 
 **2. Run the web side (one JVM, three ports):**
 
 ```bash
 cd web-launcher
-mvn -o exec:java -Dfxsuite.repo.dir=/abs/path/to/dist/repo
-#   http://localhost:8085/   homing-studio dashboard (catalogue)
-#   http://localhost:8086/   authorized launch page (pick a version → token → launch)
-#   http://localhost:8086/copycat   decoy: same URL, no token → rejected
-#   http://localhost:8087/   artifact repository (Nexus/Artifactory stand-in)
+mvn exec:java -Dfxsuite.repo.dir=/abs/path/to/dist/repo
+#   http://localhost:8085/                       homing-studio catalogue (the UI)
+#   http://localhost:8085/app?app=env-launch     launch by environment   (MPA)
+#   http://localhost:8085/app?app=published-apps published versions      (MPA)
+#   http://localhost:8085/token?app=&env=        signed-token API   (same origin)
+#   http://localhost:8085/catalog                published artifacts (same origin)
+#   http://localhost:8086/copycat                decoy: a DIFFERENT site, no token → rejected
+#   http://localhost:8087/                       artifact repository (Nexus stand-in)
 ```
+
+The UI pages are **homing MPAs** (`StandardMPA` hosting one widget each), registered in
+`LauncherStudio.apps()` and organised as catalogue entries — not hand-written HTML.
+
+The APIs are **served by the studio itself**, contributed through
+`Fixtures.harnessGetActions()` — homing's standard way to add routes. They return plain Java
+records, which the framework serialises to JSON (only non-JSON responses need `TypedContent`).
+Because the UI and its API share one origin, **no CORS is involved** — which matters for the
+one endpoint that must not be callable by other sites.
+
+The only other origins are things that genuinely *are* separate: the copycat decoy (it must
+look foreign) and the artifact repository (a Nexus stand-in).
 
 **3. Open `http://localhost:8086/` in a real browser and click a version.**
 The page fetches a fresh signed token for that version; the launcher downloads it
@@ -126,12 +184,16 @@ cache hit (no re-download). Open `/copycat` to see a tokenless URL rejected.
 Simulate from a shell:
 
 ```bash
-# authorized: pick a version → download + verify + launch
-URL=$(curl -s "http://localhost:8086/token?app=hello&ver=1.1.0" | sed -E 's/.*"url":"([^"]*)".*/\1/')
-java -jar dist/fxsuite/master-launcher.jar "$URL"
+# authorized: pick an environment → token → download + verify + launch
+URL=$(curl -s "http://localhost:8086/token?app=hello&env=prod" | sed -E 's/.*"url":"([^"]*)".*/\1/')
+java -jar dist/fxsuite/prod/master-launcher.jar "$URL"
 
 # copycat / bare URL → rejected (dialog), nothing spawned
-cmd /c start "" "fxsuite://launch/hello"
+cmd /c start "" "fxsuite-prod://launch/hello"
+
+# cross-environment replay → also rejected
+TOK=$(curl -s "http://localhost:8086/token?app=hello&env=dev1" | sed -E 's/.*tok=([^"]*)".*/\1/')
+java -jar dist/fxsuite/dev/master-launcher.jar --env=dev2 "fxsuite-dev2://launch/hello?tok=$TOK"
 ```
 
 Diagnostics (every launch is logged, since the handler runs windowless

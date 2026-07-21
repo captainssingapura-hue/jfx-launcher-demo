@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FxSuite launcher — two alternative architectures</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --panel:#ffffff; --ink:#16203a; --muted:#5b6478;
+    --line:#7c8598; --box:#ffffff; --boxborder:#c9d3e6;
+    --a1:#2748c8; --a1soft:#e7edff; --a2:#1f7a3d; --a2soft:#e6f5ec;
+    --bad:#c62828; --ghost:#eef1f6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1523; --panel:#161d2e; --ink:#e8ecf6; --muted:#9aa4bd;
+      --line:#6b7794; --box:#1d2740; --boxborder:#38456a;
+      --a1:#6f8cff; --a1soft:#1c2748; --a2:#5fd08a; --a2soft:#16321f;
+      --bad:#ff6b6b; --ghost:#1a2236;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1523; --panel:#161d2e; --ink:#e8ecf6; --muted:#9aa4bd; --line:#6b7794;
+    --box:#1d2740; --boxborder:#38456a; --a1:#6f8cff; --a1soft:#1c2748;
+    --a2:#5fd08a; --a2soft:#16321f; --bad:#ff6b6b; --ghost:#1a2236;
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f7fb; --panel:#ffffff; --ink:#16203a; --muted:#5b6478; --line:#7c8598;
+    --box:#ffffff; --boxborder:#c9d3e6; --a1:#2748c8; --a1soft:#e7edff;
+    --a2:#1f7a3d; --a2soft:#e6f5ec; --bad:#c62828; --ghost:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:16px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 22px 60px}
+  h1{font-size:26px;margin:0 0 4px}
+  .lede{color:var(--muted);margin:0 0 26px;max-width:70ch}
+  .card{background:var(--panel);border:1px solid var(--boxborder);border-radius:16px;
+        padding:22px 24px;margin:0 0 26px;box-shadow:0 6px 24px rgba(0,0,0,.05)}
+  .tag{display:inline-block;font:600 12px ui-monospace,Consolas,monospace;
+       padding:4px 9px;border-radius:999px;margin-bottom:8px}
+  .tag.v1{color:var(--a1);background:var(--a1soft)}
+  .tag.v2{color:var(--a2);background:var(--a2soft)}
+  h2{font-size:20px;margin:2px 0 2px}
+  .card > p{color:var(--muted);margin:0 0 14px}
+  .diagram{overflow-x:auto;margin:6px 0 4px}
+  svg{width:100%;height:auto;min-width:640px;display:block}
+  ol{margin:8px 0 0;padding-left:22px}
+  ol li{margin:5px 0}
+  code{font:13px ui-monospace,Consolas,monospace;background:var(--ghost);
+       padding:1px 6px;border-radius:5px}
+  .callout{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:15px}
+  .callout.good{background:var(--a2soft);border:1px solid color-mix(in srgb,var(--a2) 40%,transparent)}
+  .callout.note{background:var(--ghost);border:1px solid var(--boxborder);color:var(--muted)}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.cmp{grid-template-columns:1fr}}
+  .cmp .col{background:var(--panel);border:1px solid var(--boxborder);border-radius:14px;padding:16px 18px}
+  .cmp h3{margin:0 0 8px;font-size:16px}
+  .cmp .col.v1 h3{color:var(--a1)} .cmp .col.v2 h3{color:var(--a2)}
+  .cmp ul{margin:0;padding-left:18px;color:var(--muted)}
+  /* shared SVG styling */
+  .box{fill:var(--box);stroke:var(--boxborder);stroke-width:2}
+  .box.b1{stroke:var(--a1)} .box.b2{stroke:var(--a2)}
+  .box.bad{stroke:var(--bad);stroke-dasharray:7 5;fill:none}
+  .box.ghost{fill:var(--ghost);stroke:var(--muted);stroke-dasharray:6 5;opacity:.75}
+  .bt{fill:var(--ink);font:600 16px "Segoe UI",system-ui,sans-serif;text-anchor:middle}
+  .bs{fill:var(--muted);font:400 13px "Segoe UI",system-ui,sans-serif;text-anchor:middle}
+  .flow{fill:none;stroke:var(--line);stroke-width:2.4}
+  .flow.a1{stroke:var(--a1)} .flow.a2{stroke:var(--a2)}
+  .flow.bad{stroke:var(--bad);stroke-dasharray:7 6}
+  .conn{fill:none;stroke:var(--a1);stroke-width:1.7;stroke-dasharray:5 4;opacity:.8}
+  .clbl{fill:var(--muted);font:500 12.5px "Segoe UI",system-ui,sans-serif;text-anchor:middle}
+  .xmark{fill:var(--bad);font:700 20px sans-serif;text-anchor:middle}
+  .n circle{stroke:#fff;stroke-width:1.5}
+  .n.a1 circle{fill:var(--a1)} .n.a2 circle{fill:var(--a2)}
+  .n text{fill:#fff;font:700 13px "Segoe UI",sans-serif;text-anchor:middle}
+  .catrow{fill:var(--a2soft);stroke:color-mix(in srgb,var(--a2) 35%,transparent);stroke-width:1}
+  .catt{fill:var(--ink);font:500 12.5px ui-monospace,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FxSuite launcher — two alternative architectures</h1>
+  <p class="lede">Both make the launcher a standing native app and shrink the browser's
+    role, cutting copycat‑website risk. One backend serves both. Apps are still
+    downloaded on demand and integrity‑checked before they run.</p>
+
+  <!-- ============ VARIANT 1 ============ -->
+  <div class="card">
+    <span class="tag v1">variant 1 · push</span>
+    <h2>Server‑mediated launch</h2>
+    <p>The web page talks only to the server; the server pushes a signed command to the agent.</p>
+
+    <div class="diagram">
+    <svg viewBox="0 0 940 380" role="img" aria-label="Server-mediated push architecture">
+      <!-- standing websocket bracket -->
+      <path class="conn" d="M487,160 L487,126 L822,126 L822,160"/>
+      <text class="clbl" x="654" y="118">standing WebSocket — the agent dials out and stays connected</text>
+
+      <!-- boxes -->
+      <rect class="box" x="40" y="164" width="175" height="72" rx="12"/>
+      <text class="bt" x="127" y="196">Web page</text>
+      <text class="bs" x="127" y="216">(browser)</text>
+
+      <rect class="box b1" x="390" y="160" width="195" height="82" rx="12"/>
+      <text class="bt" x="487" y="192">Relay / Server</text>
+      <text class="bs" x="487" y="212">validates + RSA‑signs</text>
+
+      <rect class="box b1" x="735" y="160" width="175" height="82" rx="12"/>
+      <text class="bt" x="822" y="192">Agent</text>
+      <text class="bs" x="822" y="212">JavaFX · always on</text>
+
+      <rect class="box b1" x="735" y="300" width="175" height="58" rx="12"/>
+      <text class="bt" x="822" y="335">App window</text>
+
+      <rect class="box bad" x="735" y="40" width="175" height="56" rx="12"/>
+      <text class="bt" x="822" y="66" style="fill:var(--bad)">Copycat site</text>
+      <text class="bs" x="822" y="84">any other website</text>
+
+      <!-- flows -->
+      <line class="flow a1" x1="215" y1="200" x2="384" y2="200" marker-end="url(#ar1)"/>
+      <g class="n a1"><circle cx="300" cy="200" r="13"/><text x="300" y="205">1</text></g>
+
+      <line class="flow a1" x1="585" y1="200" x2="729" y2="200" marker-end="url(#ar1)"/>
+      <g class="n a1"><circle cx="660" cy="200" r="13"/><text x="660" y="205">2</text></g>
+
+      <line class="flow a1" x1="822" y1="242" x2="822" y2="294" marker-end="url(#ar1)"/>
+      <g class="n a1"><circle cx="822" cy="271" r="13"/><text x="822" y="276">3</text></g>
+
+      <!-- blocked copycat -->
+      <line class="flow bad" x1="822" y1="96" x2="822" y2="154" marker-end="url(#arbad)"/>
+      <text class="xmark" x="853" y="132">✗</text>
+      <text class="clbl" x="700" y="140" style="fill:var(--bad)">no local endpoint</text>
+
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="var(--a1)"/></marker>
+        <marker id="arbad" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="var(--bad)"/></marker>
+      </defs>
+    </svg>
+    </div>
+
+    <ol>
+      <li><b>Browser → server.</b> The page calls only the server: <code>POST /launch</code> (app, version). No launch URL ever reaches the machine.</li>
+      <li><b>Server → agent.</b> The server checks the request, RSA‑signs a launch command, and pushes it down the agent's standing WebSocket.</li>
+      <li><b>Agent → app.</b> The agent verifies the signature (and the app's SHA‑256) and launches it.</li>
+    </ol>
+    <div class="callout good"><b>Why copycat‑resistant:</b> the browser never contacts the agent, and a copycat site can neither reach the agent nor forge a server‑signed command.</div>
+    <div class="callout note">PoC today: <code>ws://</code> localhost, shared‑token agent auth, web session stubbed. Production: <code>wss</code> on 443, real login + session‑to‑agent pairing.</div>
+  </div>
+
+  <!-- ============ VARIANT 2 ============ -->
+  <div class="card">
+    <span class="tag v2">variant 2 · pull</span>
+    <h2>Launcher‑native — the local launcher handles everything</h2>
+    <p>No browser, no protocol handler, no push channel — so there is no web attack surface at all.</p>
+
+    <div class="diagram">
+    <svg viewBox="0 0 940 384" role="img" aria-label="Launcher-native pull architecture">
+      <!-- launcher (the star) -->
+      <rect class="box b2" x="70" y="118" width="290" height="156" rx="14"/>
+      <text class="bt" x="215" y="150">Local Launcher</text>
+      <text class="bs" x="215" y="170">JavaFX · catalogue UI</text>
+      <rect class="catrow" x="92" y="192" width="246" height="30" rx="7"/>
+      <text class="catt" x="104" y="212">hello 1.0.0            ▶ Launch</text>
+      <rect class="catrow" x="92" y="230" width="246" height="30" rx="7"/>
+      <text class="catt" x="104" y="250">hello 1.1.0            ▶ Launch</text>
+
+      <!-- backend -->
+      <rect class="box b2" x="690" y="150" width="200" height="92" rx="12"/>
+      <text class="bt" x="790" y="184">Backend</text>
+      <text class="bs" x="790" y="204">catalogue + repo</text>
+
+      <!-- app -->
+      <rect class="box b2" x="70" y="312" width="290" height="56" rx="12"/>
+      <text class="bt" x="215" y="345">App window — own process</text>
+
+      <!-- ghost browser -->
+      <rect class="box ghost" x="690" y="44" width="200" height="54" rx="12"/>
+      <text class="bt" x="790" y="70" style="fill:var(--muted)">browser</text>
+      <text class="bs" x="790" y="88">not involved</text>
+      <text class="xmark" x="905" y="78">✗</text>
+
+      <!-- flows -->
+      <line class="flow a2" x1="360" y1="168" x2="684" y2="168" marker-end="url(#ar2)"/>
+      <g class="n a2"><circle cx="522" cy="168" r="13"/><text x="522" y="173">1</text></g>
+
+      <line class="flow a2" x1="684" y1="200" x2="366" y2="200" marker-end="url(#ar2)"/>
+      <g class="n a2"><circle cx="522" cy="200" r="13"/><text x="522" y="205">2</text></g>
+
+      <line class="flow a2" x1="360" y1="232" x2="684" y2="232" marker-end="url(#ar2)"/>
+      <g class="n a2"><circle cx="522" cy="232" r="13"/><text x="522" y="237">3</text></g>
+
+      <line class="flow a2" x1="215" y1="274" x2="215" y2="306" marker-end="url(#ar2)"/>
+      <g class="n a2"><circle cx="215" cy="290" r="13"/><text x="215" y="295">4</text></g>
+
+      <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L7,3 L0,6 Z" fill="var(--a2)"/></marker>
+      </defs>
+    </svg>
+    </div>
+
+    <ol>
+      <li><b>Launcher → backend.</b> The launcher requests the catalogue: <code>GET /catalogue</code>.</li>
+      <li><b>Backend → launcher.</b> Returns apps + versions + each jar's <code>sha256</code>. The launcher lists them in its own UI.</li>
+      <li><b>You pick, launcher downloads.</b> On <i>Launch</i> it fetches that version (<code>GET /repo/…</code>), <b>verifies the SHA‑256</b> against the catalogue, and caches it.</li>
+      <li><b>Launcher → app.</b> Spawns the app as its own process, sharing the one JavaFX jar.</li>
+    </ol>
+    <div class="callout good"><b>Why copycat‑proof:</b> there is no local endpoint and no per‑app URL anywhere — no website has anything to target.</div>
+    <div class="callout note">PoC today: catalogue over plain HTTP on localhost. Production: <code>wss</code>/HTTPS + a <b>signed catalogue</b> so the launcher trusts the versions and hashes.</div>
+  </div>
+
+  <!-- ============ WHEN TO USE ============ -->
+  <div class="cmp">
+    <div class="col v1">
+      <h3>Reach for variant 1 when…</h3>
+      <ul>
+        <li>you want a <b>web front‑end</b> to drive launches</li>
+        <li>the server must stay <b>in the loop</b> (entitlements, audit, remote kill)</li>
+        <li>selection lives on a page, not in the desktop app</li>
+      </ul>
+    </div>
+    <div class="col v2">
+      <h3>Reach for variant 2 when…</h3>
+      <ul>
+        <li>you want <b>zero web attack surface</b></li>
+        <li>the launcher should work with <b>no browser open</b></li>
+        <li>a self‑contained desktop client is the whole experience</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</body>
+</html>

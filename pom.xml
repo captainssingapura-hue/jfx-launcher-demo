@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.fxsuite</groupId>
+    <artifactId>launcher-demo</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>FxSuite launcher demo (aggregator)</name>
+    <description>
+        Build-everything aggregator so a fresh checkout can be built with a single
+        `mvn package` from the repo root. The modules are otherwise independent
+        projects — this POM deliberately does NOT act as a parent, so each module
+        keeps its own configuration and can still be built on its own.
+
+        Requires JDK 25 (most modules compile with release 25).
+    </description>
+
+    <modules>
+        <module>fxsuite-javafx</module>
+        <module>app-hello</module>
+        <module>master-launcher</module>
+        <module>web-launcher</module>
+        <module>alt/relay</module>
+        <module>alt/agent</module>
+        <module>alt/local-launcher</module>
+    </modules>
+</project>

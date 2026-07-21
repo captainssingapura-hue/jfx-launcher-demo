@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.fxsuite.alt</groupId>
+    <artifactId>alt-local-launcher</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <description>
+        Alternative architecture, variant 2 — the local launcher handles everything
+        locally. A standalone JavaFX desktop app: it pulls the app catalogue from
+        the backend, presents apps + versions in its OWN UI, and on selection
+        downloads the jar, verifies its SHA-256 against the catalogue, caches it,
+        and spawns it as a separate process sharing the one JavaFX jar. No browser,
+        no protocol handler, no push channel — so no copycat surface at all.
+    </description>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <javafx.version>25</javafx.version>
+        <javafx.classifier>win</javafx.classifier>
+        <app.main>com.example.fxsuite.alt.local.LocalLauncherMain</app.main>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier><scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier><scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId>
+            <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier><scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>alt-local-launcher</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive><manifest><mainClass>${app.main}</mainClass></manifest></archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

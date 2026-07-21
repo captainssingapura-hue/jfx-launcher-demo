@@ -61,6 +61,20 @@ public record AppRepository(Path root) {
         }
     }
 
+    /** Every app that has something published, alphabetically. */
+    public List<String> apps() {
+        Path appsDir = root.resolve("apps");
+        if (!Files.isDirectory(appsDir)) return List.of();
+        try (Stream<Path> s = Files.list(appsDir)) {
+            return s.filter(Files::isDirectory)
+                    .map(p -> p.getFileName().toString())
+                    .sorted()
+                    .toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** All published versions of an app, newest first. */
     public List<String> versions(String app) {
         Path appDir = root.resolve("apps").resolve(app);

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FxSuite (alt) — server-mediated launch</title>
+    <style>
+        body { font: 16px/1.5 "Segoe UI", system-ui, sans-serif; margin: 0;
+               background: linear-gradient(135deg, #e7edff, #ffffff); color: #16203a; }
+        .wrap { max-width: 660px; margin: 7vh auto; padding: 0 24px; }
+        .card { background: #fff; border: 1px solid #cdd7f0; border-radius: 14px;
+                padding: 28px 30px; box-shadow: 0 8px 30px rgba(0,0,0,.06); }
+        h1 { margin: 0 0 4px; font-size: 23px; color: #1a3a8f; }
+        .sub { color: #47506a; margin: 0 0 22px; }
+        button { font: inherit; font-weight: 600; cursor: pointer; border: 0;
+                 border-radius: 10px; padding: 12px 18px; background: #2748c8; color: #fff; margin: 0 8px 8px 0; }
+        button:hover { filter: brightness(.94); }
+        .badge { display:inline-block; font: 12px/1 ui-monospace, Consolas, monospace;
+                 color: #1a3a8f; background: #e7edff; border:1px solid #b9c6ef;
+                 padding: 5px 8px; border-radius: 6px; }
+        code { font: 13px ui-monospace, Consolas, monospace; background:#eef1f8; padding:1px 5px; border-radius:4px; }
+        #status { margin-top: 16px; min-height: 1.5em; color:#47506a; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <span class="badge">web → server → agent (browser never touches the launch)</span>
+        <h1>Launch Hello (server-mediated)</h1>
+        <p class="sub">This button calls <b>the server</b>, not your machine. The server validates
+            the request and pushes a signed command down the agent's standing connection.
+            A copycat site can't reach the agent, so it can't launch anything.</p>
+
+        <button data-ver="1.0.0">Launch v1.0.0</button>
+        <button data-ver="1.1.0">Launch v1.1.0</button>
+
+        <div id="status"></div>
+        <p style="margin-top:22px; font-size:14px; color:#47506a;">
+            The agent must be running and connected (it authenticates to the server). If it
+            isn't, you'll see <code>no agent connected</code>.
+        </p>
+    </div>
+</div>
+
+<script>
+    const status = document.getElementById("status");
+    // PoC: a fixed user. Real system binds the browser session to the agent via login/pairing.
+    const USER = "alice";
+
+    async function launch(ver) {
+        status.textContent = "Asking the server to launch hello " + ver + "…";
+        try {
+            const res = await fetch(`/launch?user=${USER}&app=hello&ver=${ver}`, { method: "POST" });
+            const data = await res.json();
+            status.textContent = res.ok
+                ? `Server pushed launch of hello ${data.ver} to the agent ✓`
+                : `Rejected: ${data.error}`;
+        } catch (e) {
+            status.textContent = "Request failed: " + e.message;
+        }
+    }
+    for (const b of document.querySelectorAll("button[data-ver]"))
+        b.addEventListener("click", () => launch(b.getAttribute("data-ver")));
+</script>
+</body>
+</html>

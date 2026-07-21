@@ -30,13 +30,14 @@ java tools/KeyGen.java
 This writes the private key into `web-launcher` (the token issuer) and the public
 key into `master-launcher` (the verifier). Both are git-ignored; re-run to rotate.
 
-Then build:
+Then build everything with one command from the repo root:
 
 ```bash
-mvn -f fxsuite-javafx/pom.xml  clean package
-mvn -f app-hello/pom.xml       clean package
-mvn -f master-launcher/pom.xml clean package
+mvn clean package
 ```
+
+*(The root `pom.xml` is a build-everything aggregator; each module can still be built
+on its own with `mvn -f <module>/pom.xml clean package`.)*
 
 You should get three jars:
 - `fxsuite-javafx/target/fxsuite-javafx.jar` (~9.5 MB — the shared JavaFX runtime)

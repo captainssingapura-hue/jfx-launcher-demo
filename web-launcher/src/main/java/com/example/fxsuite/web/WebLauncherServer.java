@@ -43,13 +43,15 @@ public final class WebLauncherServer {
         // Artifact repository (the launcher downloads versions from here).
         new RepoHttpServer(REPO_PORT, repo.root()).start();
 
-        // Authorized origin: version-bound signed tokens + launch/copycat pages.
-        new TokenHttpServer(TOKEN_PORT, repo).start();
+        // A separate origin hosting only the copycat decoy (the token/catalogue APIs
+        // are served by the studio itself — see LauncherFixtures.harnessGetActions()).
+        new TokenHttpServer(TOKEN_PORT).start();
 
-        // Homing-studio dashboard (blocks).
+        // Homing-studio dashboard — also serves /token and /catalog, contributed by the
+        // fixtures, so the UI and its API share one origin (blocks).
         Umbrella<Studio<?>> umbrella = new Umbrella.Solo<>(LauncherStudio.INSTANCE);
         new Bootstrap<>(
-                new LauncherFixtures<>(umbrella),
+                new LauncherFixtures<>(umbrella, repo),
                 new DefaultRuntimeParams(DASHBOARD_PORT)
         ).start();
     }
