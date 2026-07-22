@@ -31,9 +31,18 @@ public final class Install {
         return jar;
     }
 
-    /** This environment's trust anchor, if the install provides one. */
-    public static Path verifyKeyFile() throws LaunchException {
-        return root().resolve("verify-key.x509.b64");
+    /**
+     * This environment's trust anchor beside the jar, if the install provides one.
+     *
+     * <p>Env-specific first ({@code verify-key-<env>.x509.b64}) so several per-environment
+     * launcher jars can sit in one folder and still each trust their own key; a plain
+     * {@code verify-key.x509.b64} serves as a shared fallback.</p>
+     */
+    public static Path verifyKeyFile(String envId) throws LaunchException {
+        Path envSpecific = root().resolve("verify-key-" + envId + ".x509.b64");
+        return java.nio.file.Files.isRegularFile(envSpecific)
+                ? envSpecific
+                : root().resolve("verify-key.x509.b64");
     }
 
     /** Per-user, <b>per-environment</b> state root: cache and logs never mix across envs. */

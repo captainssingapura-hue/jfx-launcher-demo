@@ -26,7 +26,7 @@ import java.util.List;
  */
 public final class Launcher {
 
-    private enum Mode { LAUNCH, REGISTER, UNREGISTER, LIST, PRUNE, HELP }
+    private enum Mode { LAUNCH, REGISTER, UNREGISTER, LIST, PRUNE, HELP, UI }
 
     private Launcher() {}
 
@@ -45,7 +45,9 @@ public final class Launcher {
             else if (s.equals("--help") || s.equals("-h") || s.equals("/?")) mode = Mode.HELP;
             else if (!s.startsWith("--")) url = s;      // the launch URL
         }
-        if (mode == null) mode = (url != null) ? Mode.LAUNCH : Mode.HELP;
+        // No arguments at all means someone opened the jar directly (double-click), so show
+        // the launcher UI rather than printing help nobody can see.
+        if (mode == null) mode = (url != null) ? Mode.LAUNCH : Mode.UI;
 
         EnvConfig env = EnvConfig.load(argEnv, argBase);
         DiagLog.setEnv(env.envId());   // scope the log file to this environment
@@ -57,6 +59,8 @@ public final class Launcher {
                 case LIST -> ProtocolRegistrar.list();
                 case PRUNE -> ProtocolRegistrar.prune();
                 case HELP -> printUsage();
+                case UI -> javafx.application.Application.launch(
+                        com.example.fxsuite.launcher.ui.LauncherUiApp.class);
                 case LAUNCH -> launch(url, env);
             }
         } catch (LaunchException e) {
@@ -80,7 +84,7 @@ public final class Launcher {
 
             // Security gate: signature (this environment's key), env / app binding,
             // version and artifact hash, expiry.
-            LaunchToken token = new TokenVerifier().verify(uri.token(), ownEnv, uri.appId());
+            LaunchToken token = new TokenVerifier(ownEnv).verify(uri.token(), ownEnv, uri.appId());
             DiagLog.log("token OK: env='" + token.env() + "' app='" + token.app()
                     + "' ver='" + token.ver() + "' (jti=" + token.jti() + ")");
 

@@ -1,4 +1,4 @@
-package com.example.fxsuite.setup;
+package com.example.fxsuite.launcher.setup;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,20 +33,22 @@ import java.util.jar.JarFile;
  * workstations. Generating a pair is therefore an operator action, not part of a normal
  * install.</p>
  */
-final class Keys {
+public final class Keys {
 
-    static final String PRIVATE_FILE = "signing-key.pk8.b64";
-    static final String PUBLIC_FILE = "verify-key.x509.b64";
+    public static final String PRIVATE_FILE = "signing-key.pk8.b64";
+    public static final String PUBLIC_FILE = "verify-key.x509.b64";
+    /** Installed beside the launcher as verify-key-<env>.x509.b64 so per-env jars can share a folder. */
+    public static String installedName(String envId) { return "verify-key-" + envId + ".x509.b64"; }
     /** Where the launcher jar carries its built-in fallback anchor. */
     private static final String EMBEDDED_ENTRY = "fxsuite/launch-verify-key.x509.b64";
 
     private Keys() {}
 
     /** Which key a launcher will actually trust, and its fingerprint. */
-    record Anchor(Source source, String fingerprint) {
+    public record Anchor(Source source, String fingerprint) {
         enum Source { INSTALL_FOLDER, EMBEDDED_IN_JAR, NONE }
 
-        String describe() {
+        public String describe() {
             return switch (source) {
                 case INSTALL_FOLDER -> "install folder";
                 case EMBEDDED_IN_JAR -> "embedded (shared default)";
@@ -58,7 +60,7 @@ final class Keys {
     // --- generation -------------------------------------------------------
 
     /** Generate a fresh pair into {@code <keysRoot>/<env>/}. Returns the public fingerprint. */
-    static String generate(Path keysRoot, String envId) throws Exception {
+    public static String generate(Path keysRoot, String envId) throws Exception {
         Path dir = keysRoot.resolve(envId);
         Files.createDirectories(dir);
 
@@ -72,11 +74,11 @@ final class Keys {
     }
 
     /** Copy the public half into the environment's launcher install folder. */
-    static void installPublic(Path keysRoot, String envId, Path envInstallDir) throws IOException {
+    public static void installPublic(Path keysRoot, String envId, Path envInstallDir) throws IOException {
         Path from = keysRoot.resolve(envId).resolve(PUBLIC_FILE);
         if (!Files.isRegularFile(from)) throw new IOException("no public key at " + from);
         Files.createDirectories(envInstallDir);
-        Files.copy(from, envInstallDir.resolve(PUBLIC_FILE),
+        Files.copy(from, envInstallDir.resolve(installedName(envId)),
                 java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     }
 
@@ -86,10 +88,10 @@ final class Keys {
      * What this environment's launcher will trust: the key file beside it if present,
      * otherwise the one baked into the launcher jar — mirroring TokenVerifier's own order.
      */
-    static Anchor installedAnchor(Path envInstallDir, Path launcherJar) {
+    public static Anchor installedAnchor(String envId, Path envInstallDir, Path launcherJar) {
         try {
-            Path f = envInstallDir == null ? null : envInstallDir.resolve(PUBLIC_FILE);
-            if (f != null && Files.isRegularFile(f)) {
+            Path f = keyBeside(envId, envInstallDir);
+            if (f != null) {
                 return new Anchor(Anchor.Source.INSTALL_FOLDER,
                         fingerprintOfB64(Files.readString(f, StandardCharsets.US_ASCII)));
             }
@@ -111,7 +113,7 @@ final class Keys {
     }
 
     /** Does the generated private key correspond to the key the launcher will trust? */
-    static boolean matches(Path keysRoot, String envId, Path envInstallDir, Path launcherJar) {
+    public static boolean matches(Path keysRoot, String envId, Path envInstallDir, Path launcherJar) {
         try {
             Path priv = keysRoot.resolve(envId).resolve(PRIVATE_FILE);
             if (!Files.isRegularFile(priv)) return false;
@@ -119,7 +121,7 @@ final class Keys {
             PrivateKey privateKey = KeyFactory.getInstance("RSA").generatePrivate(
                     new PKCS8EncodedKeySpec(Base64.getDecoder()
                             .decode(Files.readString(priv, StandardCharsets.US_ASCII).trim())));
-            PublicKey publicKey = trustedKey(envInstallDir, launcherJar);
+            PublicKey publicKey = trustedKey(envId, envInstallDir, launcherJar);
             if (publicKey == null) return false;
 
             byte[] nonce = new byte[32];
@@ -136,10 +138,10 @@ final class Keys {
         }
     }
 
-    private static PublicKey trustedKey(Path envInstallDir, Path launcherJar) throws Exception {
-        Path f = envInstallDir == null ? null : envInstallDir.resolve(PUBLIC_FILE);
+    private static PublicKey trustedKey(String envId, Path envInstallDir, Path launcherJar) throws Exception {
+        Path f = keyBeside(envId, envInstallDir);
         String b64 = null;
-        if (f != null && Files.isRegularFile(f)) {
+        if (f != null) {
             b64 = Files.readString(f, StandardCharsets.US_ASCII);
         } else if (launcherJar != null && Files.isRegularFile(launcherJar)) {
             try (JarFile jf = new JarFile(launcherJar.toFile())) {
@@ -154,8 +156,17 @@ final class Keys {
                 new X509EncodedKeySpec(Base64.getDecoder().decode(b64.trim())));
     }
 
+    /** The key file beside the launcher for this env: env-specific first, then shared. */
+    private static Path keyBeside(String envId, Path dir) {
+        if (dir == null) return null;
+        Path envSpecific = dir.resolve(installedName(envId));
+        if (Files.isRegularFile(envSpecific)) return envSpecific;
+        Path shared = dir.resolve(PUBLIC_FILE);
+        return Files.isRegularFile(shared) ? shared : null;
+    }
+
     /** Short SHA-256 over the key's DER bytes — enough to compare two anchors by eye. */
-    static String fingerprintOfB64(String b64) {
+    public static String fingerprintOfB64(String b64) {
         try {
             byte[] der = Base64.getDecoder().decode(b64.trim());
             byte[] d = MessageDigest.getInstance("SHA-256").digest(der);

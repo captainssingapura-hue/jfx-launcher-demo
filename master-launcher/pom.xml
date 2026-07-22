@@ -10,18 +10,18 @@
     <packaging>jar</packaging>
 
     <description>
-        The FxSuite gatekeeper. The launcher itself never touches JavaFX (it uses
-        java.desktop/Swing for its one dialog); it registers a per-user fxsuite://
-        handler, verifies the signed token, and spawns each app in its OWN process.
+        The FxSuite environment app — one self-contained, double-clickable jar per
+        environment. It is all three things at once:
 
-        This module produces two jars:
-          * master-launcher.jar        — thin, launcher classes only. What
-            fxsuite-setup depends on for the registry/setup service.
-          * master-launcher-app.jar    — SELF-CONTAINED: the launcher plus a bundled
-            JavaFX (classes + Windows natives). This is what gets deployed and
-            registered. When it spawns an app it puts THIS jar on the app's classpath,
-            so the app gets JavaFX from the launcher — no separate shared jar and no
-            fragile relative lib/ lookup.
+          * double-clicked  → the launcher UI: the apps this jar carries, one click
+            away, with registration and signing keys under Settings in the menu bar
+            (there is no separate installer program any more);
+          * given a fxsuite-&lt;env&gt;:// URL by the OS → verifies the signed token and
+            launches the requested app;
+          * given --register / --list / … → the same operations headlessly.
+
+        The jar bundles JavaFX and its managed apps, so a bundled app launches with no
+        download: the launcher puts ITSELF on the app's classpath to provide JavaFX.
     </description>
 
     <properties>
@@ -80,9 +80,6 @@
                 <version>3.5.2</version>
             </plugin>
 
-            <!-- Thin main jar (master-launcher.jar): launcher classes only, no JavaFX.
-                 This is what fxsuite-setup compiles against, so its own shading stays
-                 free of duplicate JavaFX. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -94,7 +91,9 @@
                 </configuration>
             </plugin>
 
-            <!-- Self-contained -app jar: launcher + bundled JavaFX (classes + dlls). -->
+            <!-- One self-contained jar: launcher UI + CLI + bundled JavaFX + managed apps.
+                 Nothing depends on this module any more, so the shaded jar is simply the
+                 main artifact — no thin/attached split to keep straight. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -104,8 +103,6 @@
                         <phase>package</phase>
                         <goals><goal>shade</goal></goals>
                         <configuration>
-                            <shadedArtifactAttached>true</shadedArtifactAttached>
-                            <shadedClassifierName>app</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">

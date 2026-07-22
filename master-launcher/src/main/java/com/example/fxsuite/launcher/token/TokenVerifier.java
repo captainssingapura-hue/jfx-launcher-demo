@@ -55,8 +55,8 @@ public final class TokenVerifier {
     private final PublicKey publicKey;
     private final java.util.function.LongSupplier clockSeconds;
 
-    public TokenVerifier() {
-        this(loadKey(), () -> System.currentTimeMillis() / 1000);
+    public TokenVerifier(String envId) {
+        this(loadKey(envId), () -> System.currentTimeMillis() / 1000);
     }
 
     /** For tests: inject a key and a fixed clock. */
@@ -168,9 +168,9 @@ public final class TokenVerifier {
     }
 
     /** Per-environment key file next to the jar, else the embedded default. */
-    private static PublicKey loadKey() {
+    private static PublicKey loadKey(String envId) {
         try {
-            Path f = Install.verifyKeyFile();
+            Path f = Install.verifyKeyFile(envId);
             if (Files.isRegularFile(f)) {
                 return fromBase64(Files.readString(f, StandardCharsets.US_ASCII));
             }

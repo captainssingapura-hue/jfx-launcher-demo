@@ -49,8 +49,7 @@ the env-baked design: a singleton command is just `javaw -jar master-launcher.ja
 
 | Module | What it is | Size |
 |--------|-----------|------|
-| [`master-launcher`](master-launcher) | Gatekeeper: register handler, verify token, fetch+verify+cache the versioned app jar, spawn its process. Own code uses no JavaFX; the deployed `-app` jar bundles JavaFX to hand to spawned apps. | thin ~47 KB / self-contained ~9.6 MB |
-| [`fxsuite-setup`](fxsuite-setup) | Standalone JavaFX installer: reviewable, reversible registration + key management. | ~9.6 MB |
+| [`master-launcher`](master-launcher) | The whole environment app in one jar: launcher UI (double-click), protocol-handler launch, CLI, Settings (registration + keys), bundled JavaFX and managed apps. | ~9.6 MB per env |
 | [`app-hello`](app-hello) | A single app. JavaFX is `provided` (not bundled); own code only. Published per version to the repo. | ~6 KB (×versions) |
 | [`web-launcher`](web-launcher) | Dashboard (homing MPAs) + token/catalogue API + repo server. | — |
 | [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime jar — now used **only by the `alt/` PoCs**; the main launcher is self-contained. | ~9.5 MB |
@@ -59,14 +58,19 @@ Each is an independent Maven build (JDK 25). `web-launcher` depends on the relea
 homing-studio **0.5.4**, resolved from the remote Maven repo — no local framework
 build required.
 
-**Install layout** — one install *per environment*, and **no apps**:
+**Install layout** — one **dedicated, double-clickable build per environment**:
 
 ```
 fxsuite/
-  prod/  master-launcher.jar  launcher.properties (env=prod)  verify-key.x509.b64  ← Prod's own key
-  uat/   master-launcher.jar  launcher.properties (env=uat)   verify-key.x509.b64
-  dev/   master-launcher.jar  launcher.properties (repo.base) verify-key.x509.b64  ← shared by dev1..devN
+  FxSuite-prod.jar              env baked in; carries its apps + JavaFX
+  FxSuite-uat.jar               env baked in
+  FxSuite-dev.jar               no baked env — takes --env=devN (shared by dev1..devN)
+  verify-key-prod.x509.b64      Prod's own trust anchor (env-specific, so builds can share a folder)
 ```
+
+Each jar is the **whole environment app**. Double-click it and you get the launcher UI —
+the apps it carries, one click away — with registration and signing keys under **Settings**
+in the menu bar. There is no separate installer program.
 
 Each `master-launcher.jar` is **self-contained** — it bundles JavaFX (classes + Windows
 natives) and, when it spawns an app, puts *itself* on the app's classpath to provide it. So
