@@ -60,7 +60,10 @@ public final class LauncherUiApp extends Application {
 
     @Override
     public void start(Stage stage) {
-        env = EnvConfig.load(null, null);
+        // Same arguments the CLI honours: a multiplexed build can be opened straight onto one
+        // of its environments (java -jar FxSuite-dev.jar --env=dev3), which is how a developer
+        // runs it from a command prompt.
+        env = EnvConfig.load(argValue("--env="), argValue("--base="));
         spec = env.spec();
         String envId = env.envId() != null ? env.envId()
                 : (spec != null ? spec.suggestedId() : "dev");
@@ -160,6 +163,15 @@ public final class LauncherUiApp extends Application {
                 ? "not registered — use Settings ▸ Registration to enable web links"
                 : "registered: fxsuite-" + currentEnvId() + ":// links will open this launcher";
         log(status);
+    }
+
+    private String argValue(String prefix) {
+        if (getParameters() == null) return null;
+        for (String a : getParameters().getRaw()) {
+            String s = a.trim();
+            if (s.startsWith(prefix)) return s.substring(prefix.length());
+        }
+        return null;
     }
 
     /** A multiplexed build serves a family; anything outside it is refused here, not at launch. */

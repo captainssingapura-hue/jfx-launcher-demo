@@ -76,6 +76,18 @@ public record EnvConfig(String envId, String repoBase, EnvSpec spec, String prob
         return envId;
     }
 
+    /**
+     * Where this run's diagnostics belong.
+     *
+     * <p>Usually the environment itself. When resolution failed, a singleton build still
+     * knows which environment it is, and its refusal belongs in that environment's log rather
+     * than in the unscoped one — a multiplexed build genuinely has nowhere to put it yet.</p>
+     */
+    public String logScope() {
+        if (envId != null) return envId;
+        return (spec != null && !spec.multiplexed()) ? spec.family() : null;
+    }
+
     /** The apps this build carries directly. */
     public List<BundledApp> bundledApps() {
         return spec == null ? List.of() : spec.bundledApps();

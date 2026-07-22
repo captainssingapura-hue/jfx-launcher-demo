@@ -51,7 +51,7 @@ public final class Launcher {
         if (mode == null) mode = (url != null) ? Mode.LAUNCH : Mode.UI;
 
         EnvConfig env = EnvConfig.load(argEnv, argBase);
-        DiagLog.setEnv(env.envId());   // scope the log file to this environment
+        DiagLog.setEnv(env.logScope());   // scope the log file to this environment
 
         try {
             switch (mode) {
@@ -60,8 +60,10 @@ public final class Launcher {
                 case LIST -> ProtocolRegistrar.list();
                 case PRUNE -> ProtocolRegistrar.prune();
                 case HELP -> printUsage();
+                // Args are forwarded: a developer running the multiplexed build from cmd with
+                // --env=dev3 should get a window already on dev3, not the default pick.
                 case UI -> javafx.application.Application.launch(
-                        com.example.fxsuite.launcher.ui.LauncherUiApp.class);
+                        com.example.fxsuite.launcher.ui.LauncherUiApp.class, args);
                 case LAUNCH -> launch(url, env);
             }
         } catch (LaunchException e) {
