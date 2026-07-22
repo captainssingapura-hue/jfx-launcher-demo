@@ -23,7 +23,7 @@
         <module>fxsuite-javafx</module>
         <module>app-hello</module>
         <module>master-launcher</module>
-        <module>fxsuite-setup</module>
+        <module>env</module>
         <module>web-launcher</module>
         <module>alt/relay</module>
         <module>alt/agent</module>

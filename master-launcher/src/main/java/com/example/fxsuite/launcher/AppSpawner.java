@@ -24,18 +24,28 @@ public final class AppSpawner {
 
     private AppSpawner() {}
 
+    /**
+     * Launch a BUNDLED app: its classes are already inside the launcher jar, so the
+     * app runs from the launcher jar's own classpath — no download, no separate jar.
+     */
+    public static void spawnBundled(String envId, String mainClass, List<String> appArgs)
+            throws LaunchException {
+        spawnWithClasspath(Install.javafxProviderJar().toString(), envId, mainClass, appArgs);
+    }
+
     public static void spawn(String envId, Path appJar, String mainClass, List<String> appArgs)
             throws LaunchException {
-        Path javafxJar = Install.sharedJavafxJar();
-        if (!Files.isRegularFile(javafxJar)) {
-            throw new LaunchException("Shared JavaFX runtime is missing: " + javafxJar);
-        }
+        // The launcher's own (self-contained) jar provides JavaFX to the downloaded app.
+        Path javafxProvider = Install.javafxProviderJar();
         if (!Files.isRegularFile(appJar)) {
             throw new LaunchException("App jar is missing: " + appJar);
         }
+        spawnWithClasspath(appJar + File.pathSeparator + javafxProvider, envId, mainClass, appArgs);
+    }
 
+    private static void spawnWithClasspath(String classpath, String envId, String mainClass,
+                                           List<String> appArgs) throws LaunchException {
         String javaw = Path.of(System.getProperty("java.home"), "bin", "javaw.exe").toString();
-        String classpath = appJar + File.pathSeparator + javafxJar;
 
         List<String> cmd = new ArrayList<>();
         cmd.add(javaw);

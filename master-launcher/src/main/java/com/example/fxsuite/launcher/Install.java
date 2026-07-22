@@ -16,18 +16,33 @@ public final class Install {
         return jar.getParent();
     }
 
-    /** The shared JavaFX runtime jar (may be shared across environments). */
-    public static Path sharedJavafxJar() throws LaunchException {
-        Path own = root().resolve("lib/fxsuite-javafx.jar");
-        // Singleton installs sit one level below a shared lib/ directory; accept either.
-        return java.nio.file.Files.isRegularFile(own)
-                ? own
-                : root().getParent() == null ? own : root().getParent().resolve("lib/fxsuite-javafx.jar");
+    /**
+     * The jar that provides JavaFX to spawned apps — the launcher's own (self-contained)
+     * jar. Because the launcher bundles JavaFX (classes + native dlls), putting this jar
+     * on an app's classpath is all the app needs. Resolved from the running jar's
+     * location, so there is no relative lib/ path to get wrong.
+     */
+    public static Path javafxProviderJar() throws LaunchException {
+        Path jar = ProtocolRegistrar.ownJarPath();
+        if (jar == null || !jar.toString().toLowerCase().endsWith(".jar")) {
+            throw new LaunchException("Could not locate the launcher jar to provide JavaFX from "
+                    + "(are you running from the built -app jar?).");
+        }
+        return jar;
     }
 
-    /** This environment's trust anchor, if the install provides one. */
-    public static Path verifyKeyFile() throws LaunchException {
-        return root().resolve("verify-key.x509.b64");
+    /**
+     * This environment's trust anchor beside the jar, if the install provides one.
+     *
+     * <p>Env-specific first ({@code verify-key-<env>.x509.b64}) so several per-environment
+     * launcher jars can sit in one folder and still each trust their own key; a plain
+     * {@code verify-key.x509.b64} serves as a shared fallback.</p>
+     */
+    public static Path verifyKeyFile(String envId) throws LaunchException {
+        Path envSpecific = root().resolve("verify-key-" + envId + ".x509.b64");
+        return java.nio.file.Files.isRegularFile(envSpecific)
+                ? envSpecific
+                : root().resolve("verify-key.x509.b64");
     }
 
     /** Per-user, <b>per-environment</b> state root: cache and logs never mix across envs. */

@@ -117,7 +117,7 @@ public final class ProtocolRegistrar {
     }
 
     /** Absolute path to the jar (or classes dir) this class was loaded from. */
-    static Path ownJarPath() {
+    public static Path ownJarPath() {
         try {
             var src = ProtocolRegistrar.class.getProtectionDomain().getCodeSource();
             if (src == null || src.getLocation() == null) return null;
