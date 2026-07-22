@@ -16,13 +16,14 @@ import java.util.regex.Pattern;
  * <ol>
  *   <li>command-line {@code --env=} / {@code --base=} — how multiplexed dev
  *       environments are distinguished (one shared binary, different args);</li>
- *   <li>{@code launcher.properties} next to the jar ({@code env=}, {@code repo.base=}) —
- *       how singleton environments (Prod, UAT) are configured, since each has its
- *       own dedicated install;</li>
+ *   <li>the <b>baked-in</b> {@code /fxsuite/launcher-env.properties} resource — how a
+ *       singleton (Prod, UAT) jar identifies itself, so it needs no companion file and
+ *       no {@code --env} argument;</li>
+ *   <li>{@code launcher.properties} next to the jar — an external override;</li>
  *   <li>built-in default for {@code repo.base}.</li>
  * </ol>
  *
- * <p>The environment is therefore fixed by <b>installation and registration</b>, never
+ * <p>The environment is therefore fixed by <b>the jar and its registration</b>, never
  * by anything inside the launch URL.</p>
  */
 public record EnvConfig(String envId, String repoBase) {
@@ -32,12 +33,36 @@ public record EnvConfig(String envId, String repoBase) {
 
     private static final String DEFAULT_BASE = "http://localhost:8087";
 
+    private static final String BAKED_RESOURCE = "/fxsuite/launcher-env.properties";
+
     public static EnvConfig load(String argEnv, String argBase) {
-        Properties p = properties();
-        String env = firstNonBlank(argEnv, p.getProperty("env"));
-        String base = firstNonBlank(argBase, p.getProperty("repo.base"), DEFAULT_BASE).trim();
+        Properties baked = baked();
+        Properties ext = properties();
+        String env = firstNonBlank(argEnv, baked.getProperty("env"), ext.getProperty("env"));
+        String base = firstNonBlank(argBase, baked.getProperty("repo.base"),
+                ext.getProperty("repo.base"), DEFAULT_BASE).trim();
         while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
         return new EnvConfig(env == null ? null : env.trim(), base);
+    }
+
+    /** The environment baked into this jar, if any (present in singleton jars, absent in the dev jar). */
+    public static String bakedEnv() {
+        String e = baked().getProperty("env");
+        return e == null || e.isBlank() ? null : e.trim();
+    }
+
+    /** The environment baked into a specific jar file, or null — used when registering it. */
+    public static String bakedEnvOf(Path jar) {
+        try (java.util.jar.JarFile jf = new java.util.jar.JarFile(jar.toFile())) {
+            var entry = jf.getJarEntry("fxsuite/launcher-env.properties");
+            if (entry == null) return null;
+            Properties p = new Properties();
+            try (InputStream in = jf.getInputStream(entry)) { p.load(in); }
+            String e = p.getProperty("env");
+            return e == null || e.isBlank() ? null : e.trim();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     /** @throws LaunchException if this launcher has no usable environment id */
@@ -57,6 +82,14 @@ public record EnvConfig(String envId, String repoBase) {
     /** {@code <base>/apps/<app>/<ver>/app-<app>-<ver>.jar} — fixed pattern, never from the URL. */
     public URI artifactUri(String app, String ver) {
         return URI.create(repoBase + "/apps/" + app + "/" + ver + "/app-" + app + "-" + ver + ".jar");
+    }
+
+    private static Properties baked() {
+        Properties p = new Properties();
+        try (InputStream in = EnvConfig.class.getResourceAsStream(BAKED_RESOURCE)) {
+            if (in != null) p.load(in);
+        } catch (IOException ignored) {}
+        return p;
     }
 
     private static Properties properties() {

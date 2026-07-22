@@ -35,13 +35,22 @@ public final class RegistrySetup {
 
     // --- planning --------------------------------------------------------
 
-    /** The exact command Windows will run for this environment. */
+    /**
+     * The exact command Windows will run for this environment.
+     *
+     * <p>A singleton jar bakes its own environment, so its command needs no {@code --env}.
+     * The shared dev jar has none baked, so its command supplies {@code --env} (and an
+     * optional {@code --base}) — the "optional args for the multiplexed env".</p>
+     */
     public static String commandFor(String envId, Path launcherJar, String base) {
+        boolean baked = envId.equals(EnvConfig.bakedEnvOf(launcherJar));
         StringBuilder cmd = new StringBuilder()
                 .append('"').append(javawExe()).append('"')
-                .append(" -jar ").append('"').append(launcherJar).append('"')
-                .append(" --env=").append(envId);
-        if (base != null && !base.isBlank()) cmd.append(" --base=").append(base.trim());
+                .append(" -jar ").append('"').append(launcherJar).append('"');
+        if (!baked) {
+            cmd.append(" --env=").append(envId);
+            if (base != null && !base.isBlank()) cmd.append(" --base=").append(base.trim());
+        }
         return cmd.append(" \"%1\"").toString();
     }
 

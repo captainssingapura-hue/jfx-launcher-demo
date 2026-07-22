@@ -84,10 +84,19 @@ public final class Launcher {
             DiagLog.log("token OK: env='" + token.env() + "' app='" + token.app()
                     + "' ver='" + token.ver() + "' (jti=" + token.jti() + ")");
 
-            Path appJar = new AppFetcher(env).fetch(token.app(), token.ver(), token.sha256());
-            String mainClass = Manifests.mainClass(appJar);
-
-            AppSpawner.spawn(ownEnv, appJar, mainClass, List.of(token.app(), token.ver()));
+            // A managed app carried by this launcher launches directly from its own jar —
+            // no download. Anything not bundled falls back to the pinned repo.
+            var bundled = BundledApps.find(token.app());
+            if (bundled.isPresent()) {
+                DiagLog.log("launching bundled app '" + token.app() + "' (bundled v"
+                        + bundled.get().version() + ", requested v" + token.ver() + ")");
+                AppSpawner.spawnBundled(ownEnv, bundled.get().mainClass(),
+                        List.of(token.app(), token.ver()));
+            } else {
+                Path appJar = new AppFetcher(env).fetch(token.app(), token.ver(), token.sha256());
+                String mainClass = Manifests.mainClass(appJar);
+                AppSpawner.spawn(ownEnv, appJar, mainClass, List.of(token.app(), token.ver()));
+            }
         } catch (LaunchException e) {
             DiagLog.log("rejected launch: " + e.getMessage());
             UserAlert.error(e.getMessage());

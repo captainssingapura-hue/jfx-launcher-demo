@@ -34,12 +34,18 @@ authorized page ─▶ GET /token?app=hello&env=prod ─▶ backend looks up the
 
 ## Architecture
 
-The launcher is a **JavaFX-free gatekeeper** (its own code uses only the JDK) that
-ships **no app jars**. It verifies the request, fetches the exact version named in the
-token from a **pinned repository** (download + integrity-check + cache), then launches
-the app as a **separate process**. The launcher jar is **self-contained** — it bundles
-JavaFX, and hands it to the app by putting itself on the app's classpath. So an
-environment is a single jar, apps stay tiny, and versions update dynamically.
+The launcher's own code uses only the JDK. Each **environment is one self-contained jar**
+that bundles JavaFX **and its managed apps** and bakes in its own environment id. A launch
+resolves the app from what the launcher carries and runs it **from the launcher jar's own
+classpath — no download**. Anything *not* bundled falls back to fetching the exact version
+from a **pinned repository** (download + integrity-check + cache). Either way the app runs as
+a **separate process**, and the token still gates every launch.
+
+So the common case is: the web link opens the env's launcher, which already has the app. The
+trade-off is that bundling pins one version per app per env jar — updating the managed set means
+shipping a new env jar (the "curated suite, versioned as a unit" model). Registration reflects
+the env-baked design: a singleton command is just `javaw -jar master-launcher.jar "%1"` (no
+`--env`); the shared dev jar takes `--env=devN`.
 
 | Module | What it is | Size |
 |--------|-----------|------|
