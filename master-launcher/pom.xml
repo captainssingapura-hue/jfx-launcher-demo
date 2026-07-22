@@ -10,52 +10,42 @@
     <packaging>jar</packaging>
 
     <description>
-        The FxSuite environment app — one self-contained, double-clickable jar per
-        environment. It is all three things at once:
+        The FxSuite launcher CORE — a library, not a deliverable.
 
-          * double-clicked  → the launcher UI: the apps this jar carries, one click
-            away, with registration and signing keys under Settings in the menu bar
-            (there is no separate installer program any more);
-          * given a fxsuite-&lt;env&gt;:// URL by the OS → verifies the signed token and
-            launches the requested app;
-          * given --register / --list / … → the same operations headlessly.
+        It contains everything the environment apps share: the launcher UI shown on
+        double-click, the protocol-handler launch path, the CLI, the registry
+        plan/apply/revert service, key management and token verification.
 
-        The jar bundles JavaFX and its managed apps, so a bundled app launches with no
-        download: the launcher puts ITSELF on the app's classpath to provide JavaFX.
+        It deliberately bundles nothing. Each environment is its own module under env/
+        which depends on this core, adds the apps that environment carries plus its
+        launcher-env.properties, and shades the lot into a regular fat jar
+        (FxSuite-&lt;env&gt;.jar). JavaFX is `provided` here and bundled there.
     </description>
 
     <properties>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>com.example.fxsuite.launcher.Launcher</main.class>
         <javafx.version>25</javafx.version>
         <javafx.classifier>win</javafx.classifier>
     </properties>
 
     <dependencies>
-        <!-- JavaFX is not used by the launcher's own code — it is bundled into the
-             -app jar purely to be handed to the apps the launcher spawns. The
-             `win`-classifier artifacts carry the classes AND the native dlls. -->
+        <!-- Needed to compile the launcher UI; supplied at runtime by the environment
+             module's fat jar, which is also what provides JavaFX to spawned apps. -->
         <dependency>
             <groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId>
             <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId><artifactId>javafx-graphics</artifactId>
             <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
-        </dependency>
-
-        <!-- Managed apps carried by the launcher. Their classes are shaded into the
-             -app jar so a bundled app launches with no download. Add one dependency
-             per app the env launcher should carry. -->
-        <dependency>
-            <groupId>com.example.fxsuite</groupId>
-            <artifactId>app-hello</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -78,52 +68,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.4.1</version>
-                <configuration>
-                    <archive>
-                        <manifest><mainClass>${main.class}</mainClass></manifest>
-                    </archive>
-                </configuration>
-            </plugin>
-
-            <!-- One self-contained jar: launcher UI + CLI + bundled JavaFX + managed apps.
-                 Nothing depends on this module any more, so the shaded jar is simply the
-                 main artifact — no thin/attached split to keep straight. -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals><goal>shade</goal></goals>
-                        <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>${main.class}</mainClass>
-                                </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>module-info.class</exclude>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

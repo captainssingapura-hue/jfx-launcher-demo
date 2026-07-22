@@ -49,7 +49,8 @@ the env-baked design: a singleton command is just `javaw -jar master-launcher.ja
 
 | Module | What it is | Size |
 |--------|-----------|------|
-| [`master-launcher`](master-launcher) | The whole environment app in one jar: launcher UI (double-click), protocol-handler launch, CLI, Settings (registration + keys), bundled JavaFX and managed apps. | ~9.6 MB per env |
+| [`master-launcher`](master-launcher) | The launcher **core library**: launcher UI, protocol-handler launch, CLI, Settings (registration + keys), token verification. Bundles nothing. | ~90 KB |
+| [`env/prod`, `env/uat`, `env/dev`](env) | One module per environment — a regular fat jar (`FxSuite-<env>.jar`) of core + JavaFX + that environment's apps. Its identity is its resources: which environment it is, and which apps it carries. | ~9.6 MB each |
 | [`app-hello`](app-hello) | A single app. JavaFX is `provided` (not bundled); own code only. Published per version to the repo. | ~6 KB (×versions) |
 | [`web-launcher`](web-launcher) | Dashboard (homing MPAs) + token/catalogue API + repo server. | — |
 | [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime jar — now used **only by the `alt/` PoCs**; the main launcher is self-contained. | ~9.5 MB |
@@ -147,21 +148,16 @@ trust anchor instead of having their own.
 ```bash
 mvn clean package          # root aggregator builds all modules (JDK 25 required)
 
-# one self-contained install per environment (the -app jar bundles JavaFX)
-APP=master-launcher/target/master-launcher-app.jar
-for E in prod uat; do
-  mkdir -p dist/fxsuite/$E
-  cp "$APP" dist/fxsuite/$E/master-launcher.jar
-  printf "env=$E\nrepo.base=http://localhost:8087\n" > dist/fxsuite/$E/launcher.properties
-done
-# one shared install for all dev environments (no env= — supplied per registration)
-mkdir -p dist/fxsuite/dev
-cp "$APP" dist/fxsuite/dev/master-launcher.jar
-printf 'repo.base=http://localhost:8087\n' > dist/fxsuite/dev/launcher.properties
+# `mvn clean package` above already produced one fat jar per environment —
+# deploying is just copying them:
+mkdir -p dist/fxsuite
+cp env/prod/target/FxSuite-prod.jar dist/fxsuite/
+cp env/uat/target/FxSuite-uat.jar   dist/fxsuite/
+cp env/dev/target/FxSuite-dev.jar   dist/fxsuite/
 
-# A launcher prefers verify-key.x509.b64 in its own install folder and falls back to
-# the key baked into its jar — so nothing more is needed for the shared-key setup.
-# Per-environment anchors are installed from the setup app (step 3).
+# A launcher prefers verify-key-<env>.x509.b64 beside it, then a shared
+# verify-key.x509.b64, then the key baked into its jar — so nothing more is needed for
+# the shared-key setup. Per-environment anchors are installed from Settings ▸ Signing keys.
 
 # publish app-hello 1.0.0 and 1.1.0 to the repo (embed a version marker so the
 # bytes — and the hash, and the displayed version — differ per version)
