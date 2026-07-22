@@ -2,6 +2,7 @@ package com.example.fxsuite.launcher.setup;
 
 import com.example.fxsuite.launcher.EnvConfig;
 import com.example.fxsuite.launcher.Install;
+import com.example.fxsuite.launcher.env.EnvSpecs;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,16 +39,19 @@ public final class RegistrySetup {
     /**
      * The exact command Windows will run for this environment.
      *
-     * <p>A singleton jar bakes its own environment, so its command needs no {@code --env}.
-     * The shared dev jar has none baked, so its command supplies {@code --env} (and an
-     * optional {@code --base}) — the "optional args for the multiplexed env".</p>
+     * <p>A singleton build knows its own environment, so its command needs no {@code --env}.
+     * A multiplexed build must be told which of its family this registration is for, so its
+     * command supplies {@code --env} (and an optional {@code --base}) — the "optional args
+     * for the multiplexed env". The jar itself is asked which it is.</p>
      */
     public static String commandFor(String envId, Path launcherJar, String base) {
-        boolean baked = envId.equals(EnvConfig.bakedEnvOf(launcherJar));
+        boolean needsEnvArg = EnvSpecs.ofJar(launcherJar, envId)
+                .map(EnvSpecs.JarEnv::requiresEnvArgument)
+                .orElse(true);          // unknown build: be explicit rather than assume
         StringBuilder cmd = new StringBuilder()
                 .append('"').append(javawExe()).append('"')
                 .append(" -jar ").append('"').append(launcherJar).append('"');
-        if (!baked) {
+        if (needsEnvArg) {
             cmd.append(" --env=").append(envId);
             if (base != null && !base.isBlank()) cmd.append(" --base=").append(base.trim());
         }
@@ -63,6 +67,15 @@ public final class RegistrySetup {
         if (launcherJar == null || !Files.isRegularFile(launcherJar)) {
             return new RegistryPlan(RegistryPlan.Action.INSTALL, envId, scheme, List.of(),
                     "launcher jar not found: " + launcherJar);
+        }
+
+        // Ask the jar whether it may serve this environment at all. Registering the dev build
+        // as fxsuite-prod:// used to succeed and fail later at launch; now it never installs.
+        var jarEnv = EnvSpecs.ofJar(launcherJar, envId).orElse(null);
+        if (jarEnv != null && !jarEnv.accepts()) {
+            return new RegistryPlan(RegistryPlan.Action.INSTALL, envId, scheme, List.of(),
+                    "this is the " + jarEnv.displayName() + " launcher; it serves "
+                            + jarEnv.membership() + ", not '" + envId + "'");
         }
 
         String command = commandFor(envId, launcherJar, base);

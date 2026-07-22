@@ -50,7 +50,7 @@ the env-baked design: a singleton command is just `javaw -jar master-launcher.ja
 | Module | What it is | Size |
 |--------|-----------|------|
 | [`master-launcher`](master-launcher) | The launcher **core library**: launcher UI, protocol-handler launch, CLI, Settings (registration + keys), token verification. Bundles nothing. | ~90 KB |
-| [`env/prod`, `env/uat`, `env/dev`](env) | One module per environment — a regular fat jar (`FxSuite-<env>.jar`) of core + JavaFX + that environment's apps. Its identity is its resources: which environment it is, and which apps it carries. | ~9.6 MB each |
+| [`env/prod`, `env/uat`, `env/dev`](env) | One module per environment — a regular fat jar (`FxSuite-<env>.jar`) of core + JavaFX + that environment's apps. Its identity is one class: an `EnvSpec` saying whether it is a `SingletonEnv` or a `MultiplexedEnv`, and which apps it carries. | ~9.6 MB each |
 | [`app-hello`](app-hello) | A single app. JavaFX is `provided` (not bundled); own code only. Published per version to the repo. | ~6 KB (×versions) |
 | [`web-launcher`](web-launcher) | Dashboard (homing MPAs) + token/catalogue API + repo server. | — |
 | [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime jar — now used **only by the `alt/` PoCs**; the main launcher is self-contained. | ~9.5 MB |
@@ -73,24 +73,33 @@ Each jar is the **whole environment app**. Double-click it and you get the launc
 the apps it carries, one click away — with registration and signing keys under **Settings**
 in the menu bar. There is no separate installer program.
 
-Each `master-launcher.jar` is **self-contained** — it bundles JavaFX (classes + Windows
+Each `FxSuite-<env>.jar` is **self-contained** — it bundles JavaFX (classes + Windows
 natives) and, when it spawns an app, puts *itself* on the app's classpath to provide it. So
 there is no shared `lib/` directory and no relative-path lookup to get wrong; an environment
-is one jar plus its `launcher.properties`. (The build produces this as `master-launcher-app.jar`
-alongside a thin `master-launcher.jar` used only as a compile dependency.)
-
-Singleton environments (Prod, UAT) get a **dedicated install with their own trust anchor**;
-all dev environments share the one `dev/` install and are distinguished by `--env=` on the
-registered command. Apps themselves stay thin — JavaFX is `provided`, never bundled — so the
-only copies of JavaFX are the handful of launcher installs.
+is one jar. Apps themselves stay thin — JavaFX is `provided`, never bundled — so the only
+copies of JavaFX are the handful of launcher installs.
 
 ## Environments
 
+An environment build declares itself in **code**, not configuration: each module under
+[`env/`](env) contributes one `EnvSpec`, and there are exactly two kinds.
+
+| | Singleton | Multiplexed |
+|---|---|---|
+| Used by | Production, UAT | dev1 … devN |
+| Build | dedicated, with its own trust anchor | one build, registered once per environment |
+| Knows its own environment | yes | no — must be told |
+| `--env` on the registered command | none; a conflicting one is **refused** | **required**, and checked for family membership |
+
 | Environment | Scheme | Binary | Args |
 |---|---|---|---|
-| Production | `fxsuite-prod://` | `prod/master-launcher.jar` | env from `launcher.properties` |
-| UAT | `fxsuite-uat://` | `uat/master-launcher.jar` | env from `launcher.properties` |
-| dev1 … devN | `fxsuite-dev1://` … | **same** `dev/master-launcher.jar` | `--env=devN [--base=…]` |
+| Production | `fxsuite-prod://` | `FxSuite-prod.jar` | — (the build *is* prod) |
+| UAT | `fxsuite-uat://` | `FxSuite-uat.jar` | — (the build *is* uat) |
+| dev1 … devN | `fxsuite-dev1://` … | **same** `FxSuite-dev.jar` | `--env=devN [--base=…]` |
+
+Because the distinction is a type rather than a missing property, mis-registration fails at
+the point of registration: the dev build cannot be installed as `fxsuite-prod://`, and the
+Production build refuses `--env=dev1`.
 
 Three independent layers keep environments apart — all verified:
 
@@ -111,8 +120,9 @@ app+version in Prod and dev are separate copies, and apps carry colour‑coded e
 %LOCALAPPDATA%/fxsuite/cache/<app>/<ver>/…jar         downloaded on first use, re-hashed each launch
 ```
 
-The launcher resolves the install root from its own jar location. The repo base is
-read from `launcher.properties` — never from the URL/token — and the artifact path
+The launcher resolves the install root from its own jar location. The repo base comes from
+the environment's `EnvSpec` (overridable per install with `--base=` or a `launcher.properties`
+beside the jar) — never from the URL/token — and the artifact path
 is a fixed pattern built from the (charset-validated) app + version, so a token can
 choose *which version* but never redirect the download to another host.
 

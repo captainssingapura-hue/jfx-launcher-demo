@@ -9,12 +9,13 @@ import java.util.List;
 /**
  * Process entry point and gatekeeper for the FxSuite launcher.
  *
- * <p>Each installed instance serves exactly <b>one environment</b>. Singleton
- * environments (Prod, UAT) get a dedicated install whose {@code launcher.properties}
- * names the environment; multiplexed dev environments share one install and are told
- * which environment they are via {@code --env=} (and {@code --base=}) on the registered
- * command line. The environment therefore comes from installation + registration —
- * never from the launch URL.</p>
+ * <p>Each installed instance serves exactly <b>one environment</b>, declared by the
+ * {@link com.example.fxsuite.launcher.env.EnvSpec} its build carries. A
+ * {@link com.example.fxsuite.launcher.env.SingletonEnv} build (Prod, UAT) knows its own
+ * environment; a {@link com.example.fxsuite.launcher.env.MultiplexedEnv} build (dev) is told
+ * which of its family it is via {@code --env=} on the registered command line. The
+ * environment therefore comes from the build + its registration — never from the launch
+ * URL.</p>
  *
  * <pre>
  *   --register --env=&lt;id&gt; [--base=&lt;url&gt;]   install the fxsuite-&lt;id&gt;:// handler
@@ -65,7 +66,11 @@ public final class Launcher {
             }
         } catch (LaunchException e) {
             DiagLog.log("error: " + e.getMessage());
-            UserAlert.error(e.getMessage());
+            // A console invocation reports to the console. Only the paths the OS starts —
+            // a protocol URL or a double-click — have no console to report to, and there a
+            // modal dialog is the message; on the CLI it would just hang the command.
+            if (mode == Mode.LAUNCH || mode == Mode.UI) UserAlert.error(e.getMessage());
+            else System.err.println("error: " + e.getMessage());
         }
     }
 
@@ -90,11 +95,11 @@ public final class Launcher {
 
             // A managed app carried by this launcher launches directly from its own jar —
             // no download. Anything not bundled falls back to the pinned repo.
-            var bundled = BundledApps.find(token.app());
+            var bundled = env.bundledApp(token.app());
             if (bundled.isPresent()) {
                 DiagLog.log("launching bundled app '" + token.app() + "' (bundled v"
                         + bundled.get().version() + ", requested v" + token.ver() + ")");
-                AppSpawner.spawnBundled(ownEnv, bundled.get().mainClass(),
+                AppSpawner.spawnBundled(ownEnv, bundled.get().mainClassName(),
                         List.of(token.app(), token.ver()));
             } else {
                 Path appJar = new AppFetcher(env).fetch(token.app(), token.ver(), token.sha256());
@@ -119,8 +124,9 @@ public final class Launcher {
                   java -jar master-launcher.jar fxsuite-<id>://launch/<app>?tok=<token>
                   java -jar master-launcher.jar --help
 
-                Singleton environments (prod, uat) use a dedicated install whose
-                launcher.properties sets env= and repo.base=.  Multiplexed dev
-                environments share one install and pass --env / --base at registration.""");
+                Singleton environments (prod, uat) have a dedicated build that knows its
+                own environment, so --env is unnecessary and a conflicting one is refused.
+                Multiplexed dev environments share one build and must pass --env=devN
+                (optionally --base) at registration.""");
     }
 }

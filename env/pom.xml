@@ -15,12 +15,13 @@
         the launcher core, JavaFX, and the apps that environment carries, with the
         environment declared in its own resources.
 
-        A child module is nearly empty by design — its identity is its resources:
-          fxsuite/launcher-env.properties   which environment this build is
-          fxsuite/bundled-apps.properties   which apps it carries, and at what version
+        A child module is nearly empty by design — its identity is one class: an EnvSpec,
+        contributed through META-INF/services, saying whether it is a SingletonEnv (a
+        dedicated build, Prod and UAT) or a MultiplexedEnv (one build serving dev1..devN),
+        where its artifacts live, and which apps it carries.
 
-        An environment that should carry a different app set simply declares different
-        dependencies and a different bundled-apps.properties.
+        Apps are named there by SomeApp.class rather than by a string, so an environment
+        that carries the wrong app set fails to compile rather than failing to launch.
     </description>
 
     <modules>

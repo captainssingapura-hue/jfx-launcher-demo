@@ -16,10 +16,10 @@
         double-click, the protocol-handler launch path, the CLI, the registry
         plan/apply/revert service, key management and token verification.
 
-        It deliberately bundles nothing. Each environment is its own module under env/
-        which depends on this core, adds the apps that environment carries plus its
-        launcher-env.properties, and shades the lot into a regular fat jar
-        (FxSuite-&lt;env&gt;.jar). JavaFX is `provided` here and bundled there.
+        It deliberately declares no environment and bundles nothing. Each environment is
+        its own module under env/ which depends on this core, contributes one EnvSpec
+        (SingletonEnv or MultiplexedEnv) via META-INF/services, and shades the lot into a
+        regular fat jar (FxSuite-&lt;env&gt;.jar). JavaFX is `provided` here and bundled there.
     </description>
 
     <properties>
