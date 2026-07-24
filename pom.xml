@@ -28,5 +28,6 @@
         <module>alt/relay</module>
         <module>alt/agent</module>
         <module>alt/local-launcher</module>
+        <module>host-manager</module>
     </modules>
 </project>
