@@ -3,6 +3,7 @@
 **A declarative control plane with privilege-separated on-host agents**
 
 Status: design white paper · Version 0.1 · 2026-07-25
+Companion: [Decoupling Infrastructure and Application Management](decoupling-infra-and-app-management-whitepaper.md)
 
 ---
 
