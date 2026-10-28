@@ -1,0 +1,57 @@
+/*
+ * The environment-coloured title bar.
+ *
+ * Everything keys off one looked-up colour, -fxsuite-accent, set on the bar from the
+ * environment's spec — so Production, UAT and dev differ by data, not by stylesheet.
+ */
+
+.fxsuite-title-bar {
+    -fx-background-color: -fxsuite-accent;
+    -fx-padding: 0 0 0 10;
+    -fx-alignment: center-left;
+    -fx-font-family: "Segoe UI";
+}
+
+.fxsuite-title-bar .fxsuite-logo {
+    -fx-background-color: white;
+    -fx-background-radius: 5;
+    -fx-text-fill: -fxsuite-accent;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+    -fx-padding: 2 5 2 5;
+}
+
+.fxsuite-title-bar .fxsuite-title {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+}
+
+.fxsuite-title-bar .fxsuite-env-pill {
+    -fx-background-color: white;
+    -fx-background-radius: 10;
+    -fx-text-fill: -fxsuite-accent;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+    -fx-padding: 2 10 2 10;
+}
+
+/* Menus sit in the bar: transparent, white labels, a soft highlight when hovered or open. */
+.fxsuite-title-bar .menu-bar {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.fxsuite-title-bar .menu-bar > .container > .menu-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 4;
+    -fx-padding: 4 9 4 9;
+}
+
+.fxsuite-title-bar .menu-bar > .container > .menu-button > .label {
+    -fx-text-fill: white;
+}
+
+.fxsuite-title-bar .menu-bar > .container > .menu-button:hover,
+.fxsuite-title-bar .menu-bar > .container > .menu-button:showing {
+    -fx-background-color: rgba(255, 255, 255, 0.18);
+}

@@ -62,8 +62,13 @@ public final class Launcher {
                 case HELP -> printUsage();
                 // Args are forwarded: a developer running the multiplexed build from cmd with
                 // --env=dev3 should get a window already on dev3, not the default pick.
-                case UI -> javafx.application.Application.launch(
-                        com.example.fxsuite.launcher.ui.LauncherUiApp.class, args);
+                case UI -> {
+                    // Before JavaFX starts: the environment-coloured title bar uses a JavaFX 25
+                    // preview API, whose flag JavaFX reads once and cannot take from a double-click.
+                    com.example.fxsuite.launcher.ui.TitleBar.optIn();
+                    javafx.application.Application.launch(
+                            com.example.fxsuite.launcher.ui.LauncherUiApp.class, args);
+                }
                 case LAUNCH -> launch(url, env);
             }
         } catch (LaunchException e) {

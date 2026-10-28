@@ -16,7 +16,6 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -24,6 +23,7 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -69,15 +69,18 @@ public final class LauncherUiApp extends Application {
                 : (spec != null ? spec.suggestedId() : "dev");
         String accent = spec != null ? spec.accentColour() : "#607d8b";
 
-        // ── header ────────────────────────────────────────────────────────
+        // ── title bar: environment-coloured, title + environment in the middle ──
+        // Styled by titlebar.css (fonts too), so nothing here sets fonts in code: a value set
+        // in code would be overridden by the stylesheet anyway.
         Label title = new Label("FxSuite Launcher");
-        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.getStyleClass().add("fxsuite-title");
 
-        Label pill = new Label("  " + envId.toUpperCase() + "  ");
-        pill.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
-        pill.setTextFill(Color.WHITE);
-        pill.setStyle("-fx-background-color:" + accent + "; -fx-background-radius:6;"
-                + " -fx-padding:4 12 4 12;");
+        Label pill = new Label(envId.toUpperCase());
+        pill.getStyleClass().add("fxsuite-env-pill");
+        if (spec != null) pill.setTooltip(new Tooltip(spec.displayName()));
+
+        HBox titleCenter = new HBox(10, title, pill);
+        titleCenter.setAlignment(Pos.CENTER);
 
         boolean pickable = spec == null || spec.multiplexed();
         envField = new TextField(envId);
@@ -96,8 +99,6 @@ public final class LauncherUiApp extends Application {
             envField.textProperty().addListener((o, was, now) -> validateEnv(now, pill));
         }
 
-        HBox header = new HBox(12, title, pill);
-        header.setAlignment(Pos.CENTER_LEFT);
         HBox envRow = new HBox(8, envLabel, envField, envNote);
         envRow.setAlignment(Pos.CENTER_LEFT);
 
@@ -115,7 +116,7 @@ public final class LauncherUiApp extends Application {
             }
         }
 
-        // ── menu bar: Settings lives here ─────────────────────────────────
+        // ── menus: in the title bar, left; Settings lives here ────────────
         MenuBar menuBar = new MenuBar();
         Menu settings = new Menu("Settings");
         MenuItem registration = new MenuItem("Registration…");
@@ -131,25 +132,29 @@ public final class LauncherUiApp extends Application {
 
         menuBar.getMenus().addAll(file, settings);
 
+        Label logo = new Label("FX");
+        logo.getStyleClass().add("fxsuite-logo");
+        HBox titleLeading = new HBox(8, logo, menuBar);
+        titleLeading.setAlignment(Pos.CENTER_LEFT);
+
         logView = new TextArea();
         logView.setEditable(false);
         logView.setFont(Font.font("Consolas", 12));
         logView.setPrefRowCount(7);
 
-        VBox body = new VBox(12, header, envRow, new Label("Apps in this environment:"), apps,
+        VBox body = new VBox(12, envRow, new Label("Apps in this environment:"), apps,
                 new Label("Activity:"), logView);
         body.setPadding(new Insets(18));
-        body.setStyle("-fx-background-color: linear-gradient(to bottom right,#eef2ff,#ffffff);"
-                + " -fx-border-color:" + accent + "; -fx-border-width: 4 0 0 0;");
+        body.setStyle("-fx-background-color: linear-gradient(to bottom right,#eef2ff,#ffffff);");
         VBox.setVgrow(logView, Priority.ALWAYS);
 
-        VBox root = new VBox(menuBar, body);
-        VBox.setVgrow(body, Priority.ALWAYS);
-
+        // The taskbar and Alt+Tab still show the stage title, so it keeps naming the environment.
         stage.setTitle("FxSuite Launcher — "
                 + (spec != null ? spec.displayName() + " (" + envId + ")" : envId.toUpperCase()));
-        stage.setScene(new Scene(root, 700, 540));
+        stage.setScene(TitleBar.scene(stage, accent, titleLeading, titleCenter, body, 700, 560));
+        stage.setMinWidth(560);
         stage.show();
+        log("title bar: " + (TitleBar.extended() ? "extended (JavaFX 25 preview)" : "native"));
 
         // A multiplexed build has no environment until one is chosen — but here that is the
         // picker's job, not an error, so say it the way the window works.
@@ -182,7 +187,7 @@ public final class LauncherUiApp extends Application {
         envNote.setText(ok ? (spec == null ? "" : "one build, several environments: " + spec.membership())
                            : "not an environment this build serves (" + spec.membership() + ")");
         envNote.setTextFill(ok ? Color.web("#5b6478") : Color.web("#c62828"));
-        if (ok && !id.isEmpty()) pill.setText("  " + id.toUpperCase() + "  ");
+        if (ok && !id.isEmpty()) pill.setText(id.toUpperCase());
         launchButtons.forEach(b -> b.setDisable(!ok));
     }
 

@@ -73,6 +73,13 @@ Each jar is the **whole environment app**. Double-click it and you get the launc
 the apps it carries, one click away — with registration and signing keys under **Settings**
 in the menu bar. There is no separate installer program.
 
+The window's **title bar is the environment's colour** (🔴 Prod, 🟠 UAT, 🔵 dev), with the
+menus and an environment badge inside it, so a Production window can't be mistaken for a dev
+one. It uses JavaFX 25's extended title bar (`StageStyle.EXTENDED` + `HeaderBar`), a JavaFX
+*preview* feature the launcher opts into by itself — double-click still works with no flags.
+Run with `-Dfxsuite.titlebar=native` to keep the standard Windows title bar instead (the same
+coloured strip then sits beneath it).
+
 Each `FxSuite-<env>.jar` is **self-contained** — it bundles JavaFX (classes + Windows
 natives) and, when it spawns an app, puts *itself* on the app's classpath to provide it. So
 there is no shared `lib/` directory and no relative-path lookup to get wrong; an environment
