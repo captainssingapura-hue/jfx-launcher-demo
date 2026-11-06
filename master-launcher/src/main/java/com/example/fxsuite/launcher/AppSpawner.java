@@ -14,7 +14,7 @@ import java.util.List;
  * with an argument vector — no shell, no {@code cmd.exe}:</p>
  * <pre>
  *   javaw --enable-native-access=ALL-UNNAMED
- *         -cp "&lt;app jar&gt;;&lt;fxsuite-javafx.jar&gt;" &lt;MainClass&gt; &lt;app args…&gt;
+ *         -cp "&lt;app jar&gt;;&lt;environment jar&gt;" AppBootstrap &lt;MainClass&gt; &lt;app args…&gt;
  * </pre>
  *
  * <p>The app jar is the cached, integrity-verified file from {@link AppFetcher};
@@ -28,23 +28,24 @@ public final class AppSpawner {
      * Launch a BUNDLED app: its classes are already inside the launcher jar, so the
      * app runs from the launcher jar's own classpath — no download, no separate jar.
      */
-    public static void spawnBundled(String envId, String mainClass, List<String> appArgs)
+    public static void spawnBundled(String envId, String appId, String mainClass, List<String> appArgs)
             throws LaunchException {
-        spawnWithClasspath(Install.javafxProviderJar().toString(), envId, mainClass, appArgs);
+        spawnWithClasspath(Install.javafxProviderJar().toString(), envId, appId, mainClass, appArgs);
     }
 
-    public static void spawn(String envId, Path appJar, String mainClass, List<String> appArgs)
-            throws LaunchException {
+    public static void spawn(String envId, String appId, Path appJar, String mainClass,
+                             List<String> appArgs) throws LaunchException {
         // The launcher's own (self-contained) jar provides JavaFX to the downloaded app.
         Path javafxProvider = Install.javafxProviderJar();
         if (!Files.isRegularFile(appJar)) {
             throw new LaunchException("App jar is missing: " + appJar);
         }
-        spawnWithClasspath(appJar + File.pathSeparator + javafxProvider, envId, mainClass, appArgs);
+        spawnWithClasspath(appJar + File.pathSeparator + javafxProvider, envId, appId, mainClass, appArgs);
     }
 
-    private static void spawnWithClasspath(String classpath, String envId, String mainClass,
-                                           List<String> appArgs) throws LaunchException {
+    private static void spawnWithClasspath(String classpath, String envId, String appId,
+                                           String mainClass, List<String> appArgs)
+            throws LaunchException {
         String javaw = Path.of(System.getProperty("java.home"), "bin", "javaw.exe").toString();
 
         List<String> cmd = new ArrayList<>();
@@ -53,8 +54,11 @@ public final class AppSpawner {
         // Tell the app which environment it belongs to, so it can render unmistakable
         // environment chrome and connect to the right backend.
         cmd.add("-Dfxsuite.env=" + envId);
+        cmd.add("-Dfxsuite.appId=" + AppIdentity.appId(envId, appId));
         cmd.add("-cp");
         cmd.add(classpath);
+        // Started through the bootstrap so the app gets its taskbar identity with no code of its own.
+        cmd.add(AppBootstrap.class.getName());
         cmd.add(mainClass);
         cmd.addAll(appArgs);
 

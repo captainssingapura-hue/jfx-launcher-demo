@@ -80,6 +80,14 @@ one. It uses JavaFX 25's extended title bar (`StageStyle.EXTENDED` + `HeaderBar`
 Run with `-Dfxsuite.titlebar=native` to keep the standard Windows title bar instead (the same
 coloured strip then sits beneath it).
 
+On the **taskbar**, every window shows its environment's icon instead of the Java cup, and each
+launcher and app is its own taskbar entry per environment, so Production and UAT never stack
+together. This needs no native wrapper: spawned apps start through `AppBootstrap`, which sets
+the Windows app ID and the icon before their `main` runs, so an app gets this with no code of
+its own (a stage that sets its own icon keeps it). Pinning is not covered: a pinned window
+still needs a shortcut carrying the same app ID. Icons must be real image files, because JavaFX
+silently ignores ones generated in memory; `java tools/MakeEnvIcons.java` regenerates them.
+
 Each `FxSuite-<env>.jar` is **self-contained** — it bundles JavaFX (classes + Windows
 natives) and, when it spawns an app, puts *itself* on the app's classpath to provide it. So
 there is no shared `lib/` directory and no relative-path lookup to get wrong; an environment

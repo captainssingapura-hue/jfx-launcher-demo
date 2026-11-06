@@ -2,6 +2,7 @@ package com.example.fxsuite.launcher.setup;
 
 import com.example.fxsuite.launcher.EnvConfig;
 import com.example.fxsuite.launcher.Install;
+import com.example.fxsuite.launcher.StableJava;
 import com.example.fxsuite.launcher.env.EnvSpecs;
 
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  * Plans, applies and reverses the per-user protocol-handler registration.
@@ -31,6 +33,10 @@ public final class RegistrySetup {
     private static final String CLASSES = "HKCU\\Software\\Classes\\";
     /** Marker meaning "nothing was registered before we installed". */
     private static final String NONE = "";
+    /** {@code -jar "...\FxSuite-prod.jar"}, or the {@code master-launcher.jar} of earlier layouts. */
+    private static final Pattern OWN_COMMAND = Pattern.compile(
+            "-jar\\s+\"[^\"]*[\\\\/](FxSuite-[^\"\\\\/]*|master-launcher[^\"\\\\/]*)\\.jar\"",
+            Pattern.CASE_INSENSITIVE);
 
     private RegistrySetup() {}
 
@@ -49,7 +55,7 @@ public final class RegistrySetup {
                 .map(EnvSpecs.JarEnv::requiresEnvArgument)
                 .orElse(true);          // unknown build: be explicit rather than assume
         StringBuilder cmd = new StringBuilder()
-                .append('"').append(javawExe()).append('"')
+                .append('"').append(StableJava.javaw()).append('"')
                 .append(" -jar ").append('"').append(launcherJar).append('"');
         if (needsEnvArg) {
             cmd.append(" --env=").append(envId);
@@ -101,7 +107,7 @@ public final class RegistrySetup {
             return new RegistryPlan(RegistryPlan.Action.UNINSTALL, envId, scheme, List.of(), null);
         }
         String backup = backups().getProperty(scheme);
-        List<RegistryOp> ops = (backup != null && !backup.equals(NONE))
+        List<RegistryOp> ops = (backup != null && !backup.equals(NONE) && !isOwnCommand(backup))
                 ? List.of(RegistryOp.restore(key + "\\shell\\open\\command", "(Default)", backup))
                 : List.of(RegistryOp.deleteKey(key, current));
         return new RegistryPlan(RegistryPlan.Action.UNINSTALL, envId, scheme, ops, null);
@@ -177,6 +183,18 @@ public final class RegistrySetup {
         return null;
     }
 
+    /** Whether a registered command names a Java that no longer exists, so its links cannot open. */
+    public static boolean javaMissing(String command) {
+        if (command == null || !command.startsWith("\"")) return false;
+        int end = command.indexOf('"', 1);
+        if (end < 0) return false;
+        try {
+            return !Files.isRegularFile(Path.of(command.substring(1, end)));
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     /** Every FxSuite environment currently registered for this user. */
     public static List<String> registeredEnvs() {
         List<String> envs = new ArrayList<>();
@@ -207,10 +225,22 @@ public final class RegistrySetup {
         return p;
     }
 
+    /**
+     * Records what uninstalling should restore. Only the first install's answer counts: a later
+     * install displaces FxSuite's own earlier command, and recording that would make removal
+     * "restore" a handler of ours rather than whatever was there before FxSuite.
+     */
     private static void rememberBackup(String scheme, String previousCommand) {
         Properties p = backups();
-        p.setProperty(scheme, previousCommand == null ? NONE : previousCommand);
+        if (p.containsKey(scheme)) return;
+        p.setProperty(scheme, previousCommand == null || isOwnCommand(previousCommand)
+                ? NONE : previousCommand);
         store(p);
+    }
+
+    /** Whether a registered command is one of ours, rather than some other handler for the scheme. */
+    static boolean isOwnCommand(String command) {
+        return OWN_COMMAND.matcher(command).find();
     }
 
     private static void forgetBackup(String scheme) {
@@ -230,10 +260,6 @@ public final class RegistrySetup {
     }
 
     // --- reg.exe plumbing -------------------------------------------------
-
-    private static String javawExe() {
-        return Path.of(System.getProperty("java.home"), "bin", "javaw.exe").toString();
-    }
 
     private static String escapeRegValue(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");

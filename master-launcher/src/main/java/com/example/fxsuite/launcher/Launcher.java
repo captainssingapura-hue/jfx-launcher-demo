@@ -66,6 +66,10 @@ public final class Launcher {
                     // Before JavaFX starts: the environment-coloured title bar uses a JavaFX 25
                     // preview API, whose flag JavaFX reads once and cannot take from a double-click.
                     com.example.fxsuite.launcher.ui.TitleBar.optIn();
+                    // Also before the first window. A dev build with no --env yet is grouped as "dev".
+                    String scope = env.envId() != null ? env.envId()
+                            : env.spec() != null ? env.spec().family() : "unknown";
+                    DiagLog.log("[identity] " + AppIdentity.apply(AppIdentity.launcherId(scope)));
                     javafx.application.Application.launch(
                             com.example.fxsuite.launcher.ui.LauncherUiApp.class, args);
                 }
@@ -106,12 +110,13 @@ public final class Launcher {
             if (bundled.isPresent()) {
                 DiagLog.log("launching bundled app '" + token.app() + "' (bundled v"
                         + bundled.get().version() + ", requested v" + token.ver() + ")");
-                AppSpawner.spawnBundled(ownEnv, bundled.get().mainClassName(),
+                AppSpawner.spawnBundled(ownEnv, token.app(), bundled.get().mainClassName(),
                         List.of(token.app(), token.ver()));
             } else {
                 Path appJar = new AppFetcher(env).fetch(token.app(), token.ver(), token.sha256());
                 String mainClass = Manifests.mainClass(appJar);
-                AppSpawner.spawn(ownEnv, appJar, mainClass, List.of(token.app(), token.ver()));
+                AppSpawner.spawn(ownEnv, token.app(), appJar, mainClass,
+                        List.of(token.app(), token.ver()));
             }
         } catch (LaunchException e) {
             DiagLog.log("rejected launch: " + e.getMessage());

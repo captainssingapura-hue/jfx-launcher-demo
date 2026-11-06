@@ -48,6 +48,11 @@ HKEY_CURRENT_USER\Software\Classes\fxsuite-prod\shell\open\command
   (`fxsuite-prod://launch/hello?tok=…`). **Keep it quoted** — the URL can contain characters
   that would otherwise split into multiple arguments.
 - **Use `javaw.exe`, not `java.exe`** — `java.exe` flashes a console window on every launch.
+- **Name a Java path that survives updates.** A versioned folder such as `jdk-25.0.2` disappears
+  at the next JDK update, and every web link then fails. Registration prefers
+  `Java\latest\jdk-<feature>`, which Oracle's installer keeps current. Other JDKs have no such
+  link, so they use the versioned path; the launcher window and `--list` report a handler whose
+  Java has gone, and re-applying the registration repairs it.
 - **Absolute paths only.** There is no working directory guarantee when the shell invokes it.
 - `--env` / `--base` are how *multiplexed* dev environments reuse one binary (§4).
 

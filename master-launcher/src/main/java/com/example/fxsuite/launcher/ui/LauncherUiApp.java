@@ -164,8 +164,12 @@ public final class LauncherUiApp extends Application {
                             + " — choose the environment above (showing " + envId + ")"
                     : env.problem());
         }
-        String status = RegistrySetup.currentCommand(currentEnvId()) == null
+        String registered = RegistrySetup.currentCommand(currentEnvId());
+        String status = registered == null
                 ? "not registered — use Settings ▸ Registration to enable web links"
+                : RegistrySetup.javaMissing(registered)
+                ? "web links are broken: the registered Java no longer exists — "
+                        + "re-apply it in Settings ▸ Registration"
                 : "registered: fxsuite-" + currentEnvId() + ":// links will open this launcher";
         log(status);
     }
@@ -219,7 +223,7 @@ public final class LauncherUiApp extends Application {
         String envId = currentEnvId();
         new Thread(() -> {
             try {
-                AppSpawner.spawnBundled(envId, b.mainClassName(), List.of(b.appId(), b.version()));
+                AppSpawner.spawnBundled(envId, b.appId(), b.mainClassName(), List.of(b.appId(), b.version()));
                 log("launched " + b.appId() + " v" + b.version() + " in " + envId);
             } catch (Exception ex) {
                 log("could not launch " + b.appId() + ": " + ex.getMessage());
