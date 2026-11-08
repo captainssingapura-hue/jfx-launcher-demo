@@ -29,5 +29,6 @@
         <module>alt/agent</module>
         <module>alt/local-launcher</module>
         <module>host-manager</module>
+        <module>deployment-model</module>
     </modules>
 </project>
