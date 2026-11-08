@@ -25,12 +25,14 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(8); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
 
         record V8_20261106_0() implements PhysicalVersion<AcmeCore>, IncludeChecksum {
             public Monotonic monotonic() { return new Monotonic(8); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 6)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
             public Sha256 checksum() { return new Sha256(CORE_BINARY); }
         }
 
@@ -38,6 +40,8 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(8); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 6)); }
             public Patch patch() { return new Patch(1); }
+            public V8_20261106_0 base() { return new V8_20261106_0(); }
+            public Dependencies changes() { return new Dependencies(); }
             public Sha256 checksum() { return new Sha256(CORE_BINARY); }
         }
 
@@ -45,6 +49,7 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(9); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 10)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -56,18 +61,22 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
 
         record V1_20261101_1() implements VirtualVersion<Ledger, V1_20261101_0> {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 1)); }
             public Patch patch() { return new Patch(1); }
+            public V1_20261101_0 base() { return new V1_20261101_0(); }
+            public Dependencies changes() { return new Dependencies(); }
         }
 
         record V2_20261201_0() implements PhysicalVersion<Ledger> {
             public Monotonic monotonic() { return new Monotonic(2); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 12, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -78,6 +87,7 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(3); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -86,11 +96,13 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
         record Again() implements PhysicalVersion<DuplicateLib> {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -99,11 +111,13 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
         record V2_20261001_0() implements PhysicalVersion<SharedDateLib> {
             public Monotonic monotonic() { return new Monotonic(2); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -112,11 +126,14 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
         record V2_20261002_0() implements VirtualVersion<VirtualAcrossLinesLib, V1_20261001_0> {
             public Monotonic monotonic() { return new Monotonic(2); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 2)); }
             public Patch patch() { return new Patch(0); }
+            public V1_20261001_0 base() { return new V1_20261001_0(); }
+            public Dependencies changes() { return new Dependencies(); }
         }
     }
 
@@ -125,11 +142,14 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 5)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
         record V1_20261001_0() implements VirtualVersion<VirtualBeforeBaseLib, V1_20261005_0> {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public V1_20261005_0 base() { return new V1_20261005_0(); }
+            public Dependencies changes() { return new Dependencies(); }
         }
     }
 
@@ -138,12 +158,15 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
             public Sha256 checksum() { return new Sha256("a".repeat(64)); }
         }
         record V1_20261001_1() implements VirtualVersion<ChecksumMismatchLib, V1_20261001_0>, IncludeChecksum {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(1); }
+            public V1_20261001_0 base() { return new V1_20261001_0(); }
+            public Dependencies changes() { return new Dependencies(); }
             public Sha256 checksum() { return new Sha256("b".repeat(64)); }
         }
     }
@@ -153,11 +176,14 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
         record V1_20261001_1() implements VirtualVersion<UncheckedBaseLib, V1_20261001_0>, IncludeChecksum {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(1); }
+            public V1_20261001_0 base() { return new V1_20261001_0(); }
+            public Dependencies changes() { return new Dependencies(); }
             public Sha256 checksum() { return new Sha256("c".repeat(64)); }
         }
     }
@@ -168,6 +194,7 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(8); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 12, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
@@ -176,6 +203,7 @@ class VersionTest {
         public Monotonic monotonic() { return new Monotonic(3); }
         public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
         public Patch patch() { return new Patch(0); }
+        public Dependencies dependencies() { return new Dependencies(); }
     }
 
     record StrayBaseLib() implements Library {
@@ -183,6 +211,8 @@ class VersionTest {
             public Monotonic monotonic() { return new Monotonic(3); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 1)); }
             public Patch patch() { return new Patch(1); }
+            public V3_20261001_0 base() { return new V3_20261001_0(); }
+            public Dependencies changes() { return new Dependencies(); }
         }
     }
 
@@ -283,8 +313,8 @@ class VersionTest {
 
     @Test
     void aVirtualVersionsChecksumMustBeItsBases() {
-        assertViolation(ChecksumMismatchLib.class, "its checksum differs from its base 1.20261001.0");
-        assertViolation(UncheckedBaseLib.class, "includes a checksum but its base 1.20261001.0 does not");
+        assertViolation(ChecksumMismatchLib.class, "its checksum differs from the physical release 1.20261001.0");
+        assertViolation(UncheckedBaseLib.class, "includes a checksum but the physical release 1.20261001.0 it runs does not");
     }
 
     @Test

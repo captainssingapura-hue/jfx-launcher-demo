@@ -5,5 +5,5 @@ package com.example.fxsuite.deployment;
  * unit that brings external code into the estate, and it aggregates its members rather
  * than copying them in.
  */
-public non-sealed interface ExternalBundle extends DeploymentUnit {
+public non-sealed interface ExternalBundle extends DeploymentUnit, Dependable {
 }

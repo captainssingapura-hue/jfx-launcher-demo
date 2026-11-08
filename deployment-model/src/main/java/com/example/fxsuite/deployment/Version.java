@@ -23,4 +23,7 @@ public sealed interface Version<U extends DeploymentUnit> extends Scalar, Statel
     ReleaseDate date();
 
     Patch patch();
+
+    /** The exact versions of the libraries and bundles this release runs with. */
+    Dependencies dependencies();
 }
