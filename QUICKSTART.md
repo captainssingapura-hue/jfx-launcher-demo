@@ -12,7 +12,7 @@ where the syntax differs.
 - **JDK 25** on your `PATH` — check with `java -version`.
 - **Maven 3.9+** — check with `mvn -v`.
 - **Internet access on first build** — `web-launcher` uses the released
-  **homing-studio 0.5.4** (fetched from the remote Maven repo); no local framework
+  **ja-http 0.1.0** (fetched from Maven Central); no local framework
   build is needed. Later builds work offline once dependencies are cached.
 
 Everything runs on **localhost**; nothing needs admin rights or IT.
@@ -140,8 +140,8 @@ It serves three ports:
 
 | URL | What |
 |-----|------|
-| `http://localhost:8085/` | homing-studio dashboard (catalogue) |
-| `http://localhost:8086/` | **authorized launch page** — pick a version, get a token, launch |
+| `http://localhost:8085/` | dashboard home |
+| `http://localhost:8085/launch` | **launch page**: pick an environment, get a token, launch |
 | `http://localhost:8086/copycat` | decoy page (same URL, **no token**) |
 | `http://localhost:8087/` | artifact repository (Nexus/Artifactory stand-in) |
 

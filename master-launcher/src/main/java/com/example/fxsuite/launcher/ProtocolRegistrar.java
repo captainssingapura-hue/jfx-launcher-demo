@@ -74,7 +74,9 @@ public final class ProtocolRegistrar {
         List<String> envs = registeredEnvs();
         if (envs.isEmpty()) { DiagLog.log("[list] no FxSuite environments registered."); return; }
         for (String env : envs) {
-            DiagLog.log("[list] " + EnvConfig.scheme(env) + "://   -> " + commandOf(env));
+            String command = commandOf(env);
+            DiagLog.log("[list] " + EnvConfig.scheme(env) + "://   -> " + command
+                    + (RegistrySetup.javaMissing(command) ? "   [BROKEN: this Java no longer exists]" : ""));
         }
     }
 

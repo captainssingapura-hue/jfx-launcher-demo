@@ -2,7 +2,6 @@ package com.example.fxsuite.web.action;
 
 import com.example.fxsuite.web.repo.AppRepository;
 
-import hue.captains.singapura.js.homing.server.EmptyParam;
 import hue.captains.singapura.tao.http.action.GetAction;
 import hue.captains.singapura.tao.http.action.Param;
 import hue.captains.singapura.tao.http.action.ParamMarshaller;
@@ -16,10 +15,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * {@code GET /catalog} — everything published in the artifact repository.
  *
- * <p>Returns a plain record; the framework serialises it to JSON.</p>
+ * <p>Returns a plain record; ja-http serialises it to JSON.</p>
  */
 public final class CatalogGetAction
-        implements GetAction<RoutingContext, CatalogGetAction.Query, EmptyParam.NoHeaders, CatalogGetAction.Response> {
+        implements GetAction<RoutingContext, CatalogGetAction.Query, NoParams.Headers, CatalogGetAction.Response> {
 
     /** No query parameters — the catalogue is served whole. */
     public record Query() implements Param._QueryString {}
@@ -39,12 +38,12 @@ public final class CatalogGetAction
     }
 
     @Override
-    public ParamMarshaller._Header<RoutingContext, EmptyParam.NoHeaders> headerMarshaller() {
-        return ctx -> new EmptyParam.NoHeaders();
+    public ParamMarshaller._Header<RoutingContext, NoParams.Headers> headerMarshaller() {
+        return ctx -> new NoParams.Headers();
     }
 
     @Override
-    public CompletableFuture<Response> execute(Query q, EmptyParam.NoHeaders headers) {
+    public CompletableFuture<Response> execute(Query q, NoParams.Headers headers) {
         List<Item> items = new ArrayList<>();
         for (String app : repo.apps()) {
             for (String ver : repo.versions(app)) {

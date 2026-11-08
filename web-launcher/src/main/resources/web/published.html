@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Published versions · FxSuite</title>
+    <link rel="stylesheet" href="/site.css">
+    <script src="/published.js" defer></script>
+</head>
+<body>
+<header class="bar">
+    <div class="inner">
+        <a class="brand" href="/">FxSuite · Launcher</a>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/launch">Launch</a>
+            <a href="/published" aria-current="page">Published versions</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+    <h1>Published versions</h1>
+    <p class="lead">Everything in the artifact repository. Which version an environment
+        launches: <b>prod</b> is pinned, <b>uat</b> gets the release candidate, and
+        <b>dev</b> environments get the latest.</p>
+
+    <div class="card table-wrap">
+        <table>
+            <thead><tr><th>App</th><th>Version</th><th>SHA-256</th></tr></thead>
+            <tbody id="rows"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

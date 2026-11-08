@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Launch · FxSuite</title>
+    <link rel="stylesheet" href="/site.css">
+    <script src="/launch.js" defer></script>
+</head>
+<body>
+<header class="bar">
+    <div class="inner">
+        <a class="brand" href="/">FxSuite · Launcher</a>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/launch" aria-current="page">Launch</a>
+            <a href="/published">Published versions</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+    <h1>Launch by environment</h1>
+    <p class="lead">The server signs a launch token for the environment you pick, and the
+        <b>hello</b> desktop app opens in it.</p>
+
+    <div class="envs" id="envs"></div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+</main>
+</body>
+</html>

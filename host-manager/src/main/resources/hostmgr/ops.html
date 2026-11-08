@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FxSuite — host fleet</title>
+<style>
+  body { font-family: "Segoe UI", system-ui, sans-serif; margin: 24px; color: #1a2230; background: #f6f8fc; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .gen { color: #5b6478; margin-bottom: 18px; }
+  .host { background: #fff; border: 1px solid #d3dae8; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; }
+  .host h2 { font-size: 15px; margin: 0 0 8px; display: flex; gap: 10px; align-items: center; }
+  .pill { font-size: 12px; font-weight: 700; color: #fff; border-radius: 6px; padding: 2px 9px; }
+  .k-direct { background: #607d8b; } .k-systemd { background: #2e7d32; }
+  .caught { color: #2e7d32; font-weight: 600; } .behind { color: #c62828; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef1f6; }
+  th { color: #5b6478; font-weight: 600; }
+  .up { color: #2e7d32; font-weight: 600; } .down { color: #c62828; font-weight: 600; }
+  code { font-family: Consolas, monospace; }
+  .empty { color: #8a93a6; font-style: italic; }
+</style>
+</head>
+<body>
+  <h1>FxSuite host fleet</h1>
+  <div class="gen">declared generation: <b id="gen">…</b> — hosts converge on their next tick</div>
+  <div id="fleet"></div>
+  <script>
+    async function refresh() {
+      let data;
+      try { data = await (await fetch('/ops/state')).json(); }
+      catch (e) { document.getElementById('fleet').innerHTML = '<div class="empty">control plane unreachable</div>'; return; }
+      const gen = data.generation;
+      document.getElementById('gen').textContent = gen;
+      const hosts = data.hosts || [];
+      if (!hosts.length) { document.getElementById('fleet').innerHTML = '<div class="empty">no hosts reporting yet</div>'; return; }
+      document.getElementById('fleet').innerHTML = hosts.map(h => {
+        const caught = h.generation === gen;
+        const rows = (h.units || []).length ? h.units.map(u => `
+          <tr>
+            <td><code>${u.unit}</code></td>
+            <td>${u.version ?? '—'}</td>
+            <td class="${u.active ? 'up' : 'down'}">${u.active ? 'active' : 'down'}</td>
+            <td>${u.pid || '—'}</td>
+            <td>${u.uptimeS ? u.uptimeS + 's' : '—'}</td>
+          </tr>`).join('') : '<tr><td colspan="5" class="empty">no apps running</td></tr>';
+        return `<div class="host">
+          <h2>${h.host}
+            <span class="pill k-${h.kind}">${h.kind}</span>
+            <span class="${caught ? 'caught' : 'behind'}">${caught ? 'in sync (gen ' + h.generation + ')' : 'converging — at gen ' + h.generation}</span>
+          </h2>
+          <table>
+            <thead><tr><th>unit</th><th>version</th><th>state</th><th>pid</th><th>uptime</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+      }).join('');
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
