@@ -52,12 +52,12 @@ the env-baked design: a singleton command is just `javaw -jar master-launcher.ja
 | [`master-launcher`](master-launcher) | The launcher **core library**: launcher UI, protocol-handler launch, CLI, Settings (registration + keys), token verification. Bundles nothing. | ~90 KB |
 | [`env/prod`, `env/uat`, `env/dev`](env) | One module per environment — a regular fat jar (`FxSuite-<env>.jar`) of core + JavaFX + that environment's apps. Its identity is one class: an `EnvSpec` saying whether it is a `SingletonEnv` or a `MultiplexedEnv`, and which apps it carries. | ~9.6 MB each |
 | [`app-hello`](app-hello) | A single app. JavaFX is `provided` (not bundled); own code only. Published per version to the repo. | ~6 KB (×versions) |
-| [`web-launcher`](web-launcher) | Dashboard (homing MPAs) + token/catalogue API + repo server. | — |
+| [`web-launcher`](web-launcher) | Dashboard (plain HTML pages) + token/catalogue API on ja-http, plus the repo server. | — |
 | [`fxsuite-javafx`](fxsuite-javafx) | Shared JavaFX runtime jar — now used **only by the `alt/` PoCs**; the main launcher is self-contained. | ~9.5 MB |
 
 Each is an independent Maven build (JDK 25). `web-launcher` depends on the released
-homing-studio **0.5.4**, resolved from the remote Maven repo — no local framework
-build required.
+**ja-http 0.1.0** (its Vert.x host), resolved from Maven Central, so no local framework
+build is required.
 
 **Install layout** — one **dedicated, double-clickable build per environment**:
 
@@ -236,29 +236,27 @@ troubleshooting — is documented in [docs/windows-registry.md](docs/windows-reg
 ```bash
 cd web-launcher
 mvn exec:java -Dfxsuite.repo.dir=/abs/path/to/dist/repo
-#   http://localhost:8085/                       homing-studio catalogue (the UI)
-#   http://localhost:8085/app?app=env-launch     launch by environment   (MPA)
-#   http://localhost:8085/app?app=published-apps published versions      (MPA)
-#   http://localhost:8085/token?app=&env=        signed-token API   (same origin)
-#   http://localhost:8085/catalog                published artifacts (same origin)
-#   http://localhost:8086/copycat                decoy: a DIFFERENT site, no token → rejected
-#   http://localhost:8087/                       artifact repository (Nexus stand-in)
+#   http://localhost:8085/                 home: how launching works
+#   http://localhost:8085/launch           launch by environment
+#   http://localhost:8085/published        published versions
+#   http://localhost:8085/token?app=&env=  signed-token API      (same origin)
+#   http://localhost:8085/catalog          published artifacts   (same origin)
+#   http://localhost:8086/copycat          decoy: a DIFFERENT site, no token → rejected
+#   http://localhost:8087/                 artifact repository (Nexus stand-in)
 ```
 
-The UI pages are **homing MPAs** (`StandardMPA` hosting one widget each), registered in
-`LauncherStudio.apps()` and organised as catalogue entries — not hand-written HTML.
-
-The APIs are **served by the studio itself**, contributed through
-`Fixtures.harnessGetActions()` — homing's standard way to add routes. They return plain Java
-records, which the framework serialises to JSON (only non-JSON responses need `TypedContent`).
-Because the UI and its API share one origin, **no CORS is involved** — which matters for the
-one endpoint that must not be callable by other sites.
+The dashboard is a set of **ja-http actions**, all listed in `LauncherRoutes`. The pages are
+plain HTML, CSS and JavaScript under `web-launcher/src/main/resources/web/`, each served by a
+`Page` action. The APIs return plain Java records, which ja-http serialises to JSON. Because
+the pages and the API share one origin, **no CORS is involved**, which matters for the one
+endpoint that must not be usable by other sites. The dashboard listens on `127.0.0.1` only,
+since it mints launch tokens.
 
 The only other origins are things that genuinely *are* separate: the copycat decoy (it must
 look foreign) and the artifact repository (a Nexus stand-in).
 
 **5. Open `http://localhost:8085/` in a real browser and pick an environment.**
-The studio's *Launch by environment* page asks the backend for a signed token; the
+The *Launch by environment* page asks the backend for a signed token; the
 launcher downloads that version (first time), verifies the bytes, caches it, and a
 native JavaFX window opens with environment-coloured chrome. Launch a different
 environment to see them side by side; launch the same one twice to see a cache hit.

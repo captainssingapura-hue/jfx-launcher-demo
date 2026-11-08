@@ -3,7 +3,6 @@ package com.example.fxsuite.web.action;
 import com.example.fxsuite.web.repo.AppRepository;
 import com.example.fxsuite.web.token.LaunchTokenIssuer;
 
-import hue.captains.singapura.js.homing.server.EmptyParam;
 import hue.captains.singapura.tao.http.action.GetAction;
 import hue.captains.singapura.tao.http.action.Param;
 import hue.captains.singapura.tao.http.action.ParamMarshaller;
@@ -17,16 +16,14 @@ import java.util.regex.Pattern;
 /**
  * {@code GET /token?app=&env=&ver=} — mints a signed launch URL for one environment.
  *
- * <p>Registered through {@code Fixtures.harnessGetActions()}, so it is served by the
- * studio itself rather than a side-car HTTP server. Because it is same-origin with the
- * pages that call it, no CORS is involved — which matters for the one endpoint that
- * must not be callable by other sites.</p>
+ * <p>Served on the same origin as the dashboard pages that call it, so no CORS is
+ * involved, which matters for the one endpoint that must not be usable by other sites.</p>
  *
- * <p>The response is a plain record: the framework serialises any non-{@code TypedContent}
+ * <p>The response is a plain record: ja-http serialises any non-{@code TypedContent}
  * result to JSON, so there is no hand-built JSON here.</p>
  */
 public final class TokenGetAction
-        implements GetAction<RoutingContext, TokenGetAction.Query, EmptyParam.NoHeaders, TokenGetAction.Response> {
+        implements GetAction<RoutingContext, TokenGetAction.Query, NoParams.Headers, TokenGetAction.Response> {
 
     private static final Pattern APP = Pattern.compile("[a-z0-9][a-z0-9-]{0,31}");
     private static final Pattern VER = Pattern.compile("[0-9][0-9A-Za-z.\\-]{0,31}");
@@ -54,12 +51,12 @@ public final class TokenGetAction
     }
 
     @Override
-    public ParamMarshaller._Header<RoutingContext, EmptyParam.NoHeaders> headerMarshaller() {
-        return ctx -> new EmptyParam.NoHeaders();
+    public ParamMarshaller._Header<RoutingContext, NoParams.Headers> headerMarshaller() {
+        return ctx -> new NoParams.Headers();
     }
 
     @Override
-    public CompletableFuture<Response> execute(Query q, EmptyParam.NoHeaders headers) {
+    public CompletableFuture<Response> execute(Query q, NoParams.Headers headers) {
         try {
             String app = require(q.app(), APP, "app");
             String env = require(q.env(), ENV, "env");

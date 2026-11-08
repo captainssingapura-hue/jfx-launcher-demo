@@ -12,13 +12,13 @@ import java.nio.charset.StandardCharsets;
 /**
  * A deliberately <b>separate origin</b> hosting the copycat decoy.
  *
- * <p>The token and catalogue APIs used to live here; they now belong to the studio
- * itself (contributed via {@code Fixtures.harnessGetActions()}), so the UI and its API
+ * <p>The token and catalogue APIs used to live here; they now belong to the dashboard
+ * itself ({@code LauncherRoutes}), so the UI and its API
  * share one origin and no CORS is needed.</p>
  *
  * <p>What remains is only the decoy page — and it stays on its own port <i>on purpose</i>:
  * its whole point is to be a different website emitting the same {@code fxsuite-<env>://}
- * URL without a valid token. Serving it from the studio would undercut what it
+ * URL without a valid token. Serving it from the dashboard would undercut what it
  * demonstrates.</p>
  */
 public final class TokenHttpServer {
@@ -52,7 +52,7 @@ public final class TokenHttpServer {
                 + "<body style=\"font:16px system-ui,sans-serif;margin:6vh auto;max-width:640px\">"
                 + "<h2>A different origin</h2><p>This host exists only to prove that a site which "
                 + "is not FxSuite cannot launch anything. See <a href=\"/copycat\">/copycat</a>.</p>"
-                + "<p>The real launcher UI and its API live in the studio: "
+                + "<p>The real launcher UI and its API live in the dashboard: "
                 + "<a href=\"http://localhost:8085/\">localhost:8085</a>.</p>");
     }
 

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FxSuite Launcher</title>
+    <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="bar">
+    <div class="inner">
+        <a class="brand" href="/">FxSuite · Launcher</a>
+        <nav>
+            <a href="/" aria-current="page">Home</a>
+            <a href="/launch">Launch</a>
+            <a href="/published">Published versions</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+    <h1>Desktop app launcher</h1>
+    <p class="lead">Open a native JavaFX app in a chosen environment, straight from a web link.</p>
+
+    <p class="note"><b>Launches need a token signed by this server, naming the environment.</b>
+        Pick an environment and the server signs a token for that environment and version, then
+        the desktop app opens. Another site reusing the link has no valid token and is rejected.</p>
+
+    <div class="cards">
+        <a class="card" href="/launch">
+            <b>Launch by environment</b>
+            <span>Production, UAT and the dev environments, each with its own link scheme and
+                launcher install.</span>
+        </a>
+        <a class="card" href="/published">
+            <b>Published versions</b>
+            <span>What is in the artifact repository, and which version each environment
+                launches.</span>
+        </a>
+    </div>
+
+    <h2>One-time setup</h2>
+    <p>Each environment registers its own link handler once, with no admin rights:</p>
+    <pre>java -jar dist/fxsuite/FxSuite-prod.jar --register
+java -jar dist/fxsuite/FxSuite-dev.jar  --register --env=dev1</pre>
+    <p>That registers <code>fxsuite-prod://</code> and <code>fxsuite-dev1://</code> for your
+        user account only (<code>HKEY_CURRENT_USER</code>), so a click starts that environment's
+        launcher with no IT approval and no UAC prompt.</p>
+
+    <h2>What happens on a launch</h2>
+    <ol>
+        <li>The page asks the server for a token: <code>GET /token?app=hello&amp;env=&lt;env&gt;</code>.</li>
+        <li>The server signs a short-lived token naming the <b>environment, app, version and the
+            artifact's SHA-256</b>, with that environment's private key.</li>
+        <li>The browser hands <code>fxsuite-&lt;env&gt;://launch/hello?tok=…</code> to Windows,
+            which starts that environment's launcher.</li>
+        <li>The launcher <b>checks</b> the token and that it names <i>its</i> environment,
+            downloads that exact version, checks its hash, and opens it.</li>
+    </ol>
+
+    <h2>Why another site can't launch anything</h2>
+    <p>A link handler never learns which site opened it, so the launcher doesn't check the
+        site. Trust comes from the <b>signature</b>: only this server holds the signing keys.
+        Three separate checks keep environments apart: the link scheme, the per-environment
+        signing key, and the signed environment name (which is what separates dev1 from dev2,
+        since they share a key).</p>
+    <p>Try the <a href="http://localhost:8086/copycat">copycat page</a>. It is served from a
+        different origin on purpose, because its point is to be a <i>foreign</i> site.</p>
+</main>
+</body>
+</html>
