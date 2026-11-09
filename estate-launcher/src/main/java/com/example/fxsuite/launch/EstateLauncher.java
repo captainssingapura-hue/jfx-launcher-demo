@@ -2,35 +2,27 @@ package com.example.fxsuite.launch;
 
 import com.example.fxsuite.deployment.DeploymentUnit;
 import com.example.fxsuite.deployment.Lineage;
-import com.example.fxsuite.deployment.Resolution;
-import com.example.fxsuite.deployment.Resolver;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
-import com.example.fxsuite.deployment.VersionUnit;
 import com.example.fxsuite.deployment.Violation;
 import com.example.fxsuite.deployment.VirtualVersion;
 import com.example.fxsuite.deployment.Warning;
 import com.example.fxsuite.estate.DemoEstate;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 
 /**
- * Launches one release of a demo-estate application:
+ * The command line for {@link AppLauncher}: launches one release of a demo-estate application.
  *
  * <ol>
  *   <li>resolves its dependency graph with the deployment model, refusing a conflict;</li>
  *   <li>works out the exact jars: a virtual release runs its base's jar, a bundle brings its
  *       members;</li>
- *   <li>copies them from a Maven-layout repository into a directory of its own,
+ *   <li>copies them from Maven-layout repositories into a directory of its own,
  *       {@code <apps dir>/<app>/<version>/lib}, checking each against its recorded checksum;</li>
  *   <li>starts the app in its own JVM with exactly those jars as its classpath; its output
  *       goes to {@code app.log} beside them.</li>
@@ -55,7 +47,6 @@ import java.util.stream.Collectors;
 public final class EstateLauncher {
 
     private final Catalogue catalogue = new Catalogue(new DemoEstate().units());
-    private final RuntimePlan plan = new RuntimePlan();
     private final VersionText text = new VersionText();
 
     public static void main(final String[] args) {
@@ -70,8 +61,8 @@ public final class EstateLauncher {
         final List<String> positional = args.stream().filter(a -> !a.startsWith("--")).filter(a -> !isOptionValue(args, a))
                 .toList();
         if (positional.size() != 2) {
-            System.err.println("usage: estate-launcher <App> <version> [--nearest-wins] [--install-only] [--reinstall] [--wait]"
-                    + " [--repo <dir>] [--apps-dir <dir>]\n       estate-launcher --list");
+            System.err.println("usage: estate-launcher <App> <version> [--nearest-wins] [--install-only] [--reinstall]"
+                    + " [--wait] [--repo <dir>] [--apps-dir <dir>]\n       estate-launcher --list");
             return 1;
         }
         final Optional<Version<?>> found = catalogue.find(positional.get(0), positional.get(1));
@@ -80,49 +71,36 @@ public final class EstateLauncher {
             return 1;
         }
         final Version<?> app = found.get();
-        final boolean nearestWins = args.contains("--nearest-wins");
-        final List<Path> repositories = new ArrayList<>();
-        option(args, "--repo").map(Path::of).ifPresent(repositories::add);
-        repositories.add(Path.of("dist", "acme-repo").toAbsolutePath());
-        repositories.add(Path.of(System.getProperty("user.home"), ".m2", "repository"));
-        final Path appsDir = option(args, "--apps-dir").map(Path::of).orElse(defaultAppsDir());
+        final AppLauncher launcher = new AppLauncher(AppLauncher.Settings.defaults(
+                option(args, "--repo").map(Path::of), option(args, "--apps-dir").map(Path::of)));
+        final AppLauncher.Prepared prepared = launcher.prepare(app, args.contains("--nearest-wins"));
 
         System.out.println(text.named(app) + (app instanceof VirtualVersion<?, ?>
                 ? "   (virtual: runs the binary of " + text.named(new Lineage().physicalOf(app)) + ")" : ""));
-
-        final Collection<? extends Version<?>> releases;
-        if (nearestWins) {
-            releases = plan.nearestWins(app);
+        if (prepared.nearestWins()) {
             System.out.println("\nNEAREST WINS, not the model's resolution: closest declaration of each unit,"
                     + " lowest at equal depth");
-        } else {
-            final Resolution resolution = new Resolver().resolve(app);
-            for (final Violation conflict : resolution.conflicts().items()) {
-                System.err.println("CONFLICT " + conflict.message());
-            }
-            if (!resolution.isValid()) {
-                System.err.println("Refusing to launch a release whose dependencies do not resolve.");
-                return 2;
-            }
-            releases = resolution.resolved().versions();
-            for (final Warning warning : resolution.warnings().items()) {
-                System.out.println("\nWARNING " + warning.message());
-            }
+        }
+        for (final Violation conflict : prepared.conflicts()) {
+            System.err.println("CONFLICT " + conflict.message());
+        }
+        if (!prepared.canLaunch()) {
+            System.err.println("Refusing to launch a release whose dependencies do not resolve.");
+            return 2;
+        }
+        for (final Warning warning : prepared.warnings()) {
+            System.out.println("\nWARNING " + warning.message());
         }
 
-        System.out.println("\nRuns with " + releases.size() + " releases:");
-        releases.stream().<Version<?>>map(v -> v).sorted(Comparator.comparing(text::named))
+        System.out.println("\nRuns with " + prepared.releases().size() + " releases:");
+        prepared.releases().stream().sorted(Comparator.comparing(text::named))
                 .forEach(v -> System.out.println("  " + text.named(v)));
+        System.out.println("\nJars (" + prepared.jars().size() + "):");
+        prepared.jars().forEach(jar -> System.out.println("  " + jar));
 
-        final List<Coordinates> jars = plan.jars(app, new ArrayList<>(releases));
-        System.out.println("\nJars (" + jars.size() + "):");
-        jars.forEach(jar -> System.out.println("  " + jar));
-
-        final String unit = new VersionUnit().of(app.getClass()).orElseThrow().getSimpleName();
-        final Path dir = appsDir.resolve(unit).resolve(text.number(app) + (nearestWins ? "-nearest-wins" : ""));
         final Installer.Installation installation;
         try {
-            installation = new Installer().install(repositories, dir, jars, args.contains("--reinstall"));
+            installation = launcher.install(prepared, args.contains("--reinstall"));
         } catch (Installer.ReleaseChanged e) {
             System.err.println("\n" + e.getMessage() + "\nRefusing to launch. A real fix publishes a new version;"
                     + " --reinstall takes the new bytes anyway.");
@@ -132,21 +110,20 @@ public final class EstateLauncher {
             return 6;
         } catch (Installer.MissingJars e) {
             System.err.println("\n" + e.getMessage()
-                    + "\nBuild and install the sample estate first: mvn -f sample-estate/pom.xml install");
+                    + "\nPublish the sample estate first, from the repository root: mvn -f sample-estate/pom.xml deploy");
             return 3;
         } catch (IOException e) {
-            System.err.println("\ncould not install into " + dir + ": " + e);
+            System.err.println("\ncould not install into " + prepared.dir() + ": " + e);
             return 3;
         }
-        System.out.println("\n" + dir + "\n  " + installation.outcome());
+        System.out.println("\n" + prepared.dir() + "\n  " + installation.outcome());
 
         if (args.contains("--install-only")) {
             return 0;
         }
         try {
-            final String label = text.named(app) + (nearestWins ? " [nearest-wins classpath]" : "");
-            final Process process = start(label, dir, installation.jars());
-            System.out.println("\nStarted, pid " + process.pid() + "; its output goes to " + dir.resolve("app.log"));
+            final Process process = launcher.start(prepared, installation);
+            System.out.println("\nStarted, pid " + process.pid() + "; its output goes to " + prepared.log());
             if (args.contains("--wait")) {
                 return process.waitFor();
             }
@@ -160,25 +137,6 @@ public final class EstateLauncher {
         }
     }
 
-    /** @param label what the app calls itself: the release, and how its classpath was made */
-    private Process start(final String label, final Path dir, final List<Path> jars) throws IOException {
-        final String mainClass;
-        try (JarFile appJar = new JarFile(jars.get(0).toFile())) {
-            mainClass = appJar.getManifest().getMainAttributes().getValue("Main-Class");
-        }
-        final List<String> command = List.of(
-                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "--enable-native-access=ALL-UNNAMED",
-                "-Dacme.release=" + label,
-                "-cp", jars.stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator)),
-                mainClass);
-        return new ProcessBuilder(command)
-                .directory(dir.toFile())
-                .redirectErrorStream(true)
-                .redirectOutput(dir.resolve("app.log").toFile())
-                .start();
-    }
-
     private void list() {
         for (final Class<? extends DeploymentUnit> app : catalogue.applications()) {
             System.out.println(app.getSimpleName());
@@ -187,12 +145,6 @@ public final class EstateLauncher {
                         + (release instanceof VirtualVersion<?, ?> ? "   virtual" : ""));
             }
         }
-    }
-
-    private Path defaultAppsDir() {
-        final String local = System.getenv("LOCALAPPDATA");
-        return (local != null ? Path.of(local) : Path.of(System.getProperty("user.home"), ".local", "share"))
-                .resolve("fxsuite").resolve("apps");
     }
 
     private Optional<String> option(final List<String> args, final String name) {

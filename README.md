@@ -335,7 +335,7 @@ copies exactly those jars into a directory of the release's own, and starts it.
 | `demo-estate` | The estate as data: 16 units (bundles of JavaFX, Jackson 2/3, Guava, jOntology; internal libraries; four apps) and 44 releases |
 | `sample-estate` | Real code for each of the 24 physical library and app releases, one module per version, checked by jOntology as it builds |
 | `estate-launcher` | Resolves a release, installs its jars into `%LOCALAPPDATA%\fxsuite\apps\<app>\<version>\lib`, and starts it |
-| `estate-viewer` | The estate in 3D, whole or one app at a time |
+| `estate-viewer` | The estate in 3D, whole or one app at a time; the per-app view launches the chosen release through the same launcher |
 
 ```bash
 # from the repository root: build everything, then publish the sample estate's jars to dist/acme-repo
@@ -349,7 +349,7 @@ java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.0 --neare
 java -jar estate-launcher/target/estate-launcher.jar Atlas 1.20261121.1                  # AcmeCore 9 and Jackson 3, side by side
 
 java -jar estate-viewer/target/estate-viewer.jar                                         # the whole estate in 3D
-java -cp estate-viewer/target/estate-viewer.jar com.example.fxsuite.viewer.AppsMain      # one app at a time
+java -cp estate-viewer/target/estate-viewer.jar com.example.fxsuite.viewer.AppsMain      # one app at a time, with a Launch button
 ```
 
 Each app window lists the releases actually running, the result of each check (failures in

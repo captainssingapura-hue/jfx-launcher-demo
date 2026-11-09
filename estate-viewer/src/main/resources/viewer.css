@@ -77,3 +77,21 @@
 .combo-box-popup .list-cell { -fx-background-color: #2a2e36; -fx-text-fill: #e6e9ee; }
 .combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected { -fx-background-color: #3b5b85; }
 .side .jar { -fx-text-fill: #b9c2cf; -fx-font-family: "Consolas"; -fx-font-size: 12px; }
+
+/* ---- launching */
+
+.side .button {
+    -fx-background-color: #2a2e36;
+    -fx-text-fill: #e6e9ee;
+    -fx-background-radius: 5;
+    -fx-border-color: #3c424d;
+    -fx-border-radius: 5;
+    -fx-padding: 6 16;
+}
+.side .button:hover { -fx-background-color: #343a44; }
+.side .button.launch { -fx-background-color: #2f6f4f; -fx-border-color: #3f8a64; -fx-font-weight: bold; }
+.side .button.launch:hover { -fx-background-color: #378058; }
+.side .button:disabled { -fx-opacity: 0.45; }
+.side .check-box { -fx-text-fill: #c3cad5; }
+.side .check-box .box { -fx-background-color: #2a2e36; -fx-border-color: #4a515d; -fx-border-radius: 3; }
+.side .running { -fx-text-fill: #6fd39a; -fx-font-weight: bold; }

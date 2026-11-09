@@ -5,6 +5,7 @@ import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
 import com.example.fxsuite.deployment.VirtualVersion;
 import com.example.fxsuite.estate.DemoEstate;
+import com.example.fxsuite.launch.AppLauncher;
 
 import javafx.application.Application;
 import javafx.collections.FXCollections;
@@ -17,9 +18,11 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * One application at a time: pick an app, then one of its versions, and see only the
@@ -29,8 +32,13 @@ import java.util.List;
  *
  * <p>Uses the same rendering engine as {@link EstateViewer}.
  *
+ * <p>The chosen version can be launched from here, through the same {@link AppLauncher} as
+ * the command line: its own directory of jars, its own JVM. Jars come from
+ * {@code dist/acme-repo} under the current directory, or {@code -Destate.repo=<dir>} first.
+ *
  * <p>For an unattended picture: {@code -Destate.snapshot=out.png} saves the window and exits,
- * and {@code -Destate.select="Ledger 1.20261101.0"} picks the app and version first.
+ * and {@code -Destate.select="Ledger 1.20261101.0"} picks the app and version first;
+ * {@code -Destate.launch=true} then launches it.
  */
 public final class AppDependenciesViewer extends Application {
 
@@ -40,6 +48,8 @@ public final class AppDependenciesViewer extends Application {
     private final DependencyView view = new DependencyView();
     private final VBox details = new VBox(10);
     private final Label counts = chrome.muted("");
+    private final LaunchPanel launchPanel = new LaunchPanel(chrome, new AppLauncher(AppLauncher.Settings.defaults(
+            Optional.ofNullable(System.getProperty("estate.repo")).map(Path::of), Optional.empty())));
     private Version<?> chosen;
 
     @Override
@@ -97,6 +107,7 @@ public final class AppDependenciesViewer extends Application {
                 chrome.title("App dependencies"),
                 chrome.section("Application"), apps,
                 chrome.section("Version"), versions,
+                chrome.section("Launch"), launchPanel.node(),
                 counts,
                 chrome.legend(),
                 chrome.help("Click a release to see its own resolution · Esc goes back to the app"),
@@ -116,6 +127,9 @@ public final class AppDependenciesViewer extends Application {
             apps.getSelectionModel().select(releases.applications().stream()
                     .filter(app -> releases.of(app).contains(initial)).findFirst().orElse(null));
             versions.getSelectionModel().select(initial);
+            if (Boolean.getBoolean("estate.launch")) {
+                launchPanel.launchNow();
+            }
         } else if (!releases.applications().isEmpty()) {
             apps.getSelectionModel().selectFirst();
         }
@@ -125,6 +139,7 @@ public final class AppDependenciesViewer extends Application {
     /** Draws only what the version reaches, and highlights what it resolves to. */
     private void show(final Version<?> version) {
         chosen = version;
+        launchPanel.show(version);
         view.show(new EstateLayout(releases.closure(version)));
         counts.setText(chrome.countsText(view.layout()));
         view.select(version);
