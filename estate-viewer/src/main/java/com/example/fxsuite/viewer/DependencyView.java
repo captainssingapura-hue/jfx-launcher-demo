@@ -6,6 +6,7 @@ import com.example.fxsuite.viewer.EstateLayout.Edge;
 import com.example.fxsuite.viewer.EstateLayout.Placed;
 import com.example.fxsuite.viewer.Highlighter.Highlight;
 
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Point3D;
 import javafx.scene.AmbientLight;
 import javafx.scene.Cursor;
@@ -50,6 +51,11 @@ import java.util.stream.IntStream;
  * sits one layer in front of its deepest dependency. Declared dependencies are dim lines. Selecting a release lights the graph its
  * resolution uses, dims the rest, and draws in amber the declared dependencies resolution
  * raised past.
+ *
+ * <p>The estate stays still and the camera moves, as an {@link Orbit} around a focus point:
+ * drag to turn around it, right-drag to pan, scroll to zoom toward the cursor. Selecting a
+ * release frames its graph. Keys: 1 angled, 2 front, 3 side, 4 top, 5 behind, F frames the
+ * selection, R resets. Every change of view glides rather than jumps.
  */
 public final class DependencyView {
 
@@ -63,9 +69,12 @@ public final class DependencyView {
     private static final double ROW = CARD_HEIGHT * LogScale.LARGEST + 24;
     private static final double LAYER = 360;
 
+    private static final double FIELD_OF_VIEW = 35;
+    /** Looking down on the estate from the front left. */
     private static final double START_PITCH = -22;
-    /** -Destate.yaw=<degrees> starts from another angle, e.g. 152 to look from behind. */
-    private static final double START_YAW = Double.parseDouble(System.getProperty("estate.yaw", "-28"));
+    /** -Destate.yaw=<degrees> starts from another heading, such as 208 to look from behind. */
+    private static final double START_YAW = Double.parseDouble(System.getProperty("estate.yaw", "28"));
+    private static final long GLIDE_NANOS = 450_000_000L;
 
     private final VersionText text = new VersionText();
     private final SecurityMarks security;
@@ -86,10 +95,16 @@ public final class DependencyView {
     private final PhongMaterial edgeLit = material("#eef1f5");
     private final PhongMaterial edgeRaised = material("#f0b429");
 
-    private final Rotate pitch = new Rotate(START_PITCH, Rotate.X_AXIS);
-    private final Rotate yaw = new Rotate(START_YAW, Rotate.Y_AXIS);
-    private final Translate camera = new Translate(0, 0, -2300);
-    private double fittedDistance = -2300;
+    /** The camera and the light it carries, placed by {@link #orbit}. */
+    private final Translate rigAt = new Translate();
+    private final Rotate rigYaw = new Rotate(0, Rotate.Y_AXIS);
+    private final Rotate rigPitch = new Rotate(0, Rotate.X_AXIS);
+    private final SubScene view;
+    private Orbit orbit = new Orbit(Point3D.ZERO, 2300, START_YAW, START_PITCH);
+    private AnimationTimer glide;
+    /** Where the layout's centre sits: the world origin. */
+    private Point3D offset = Point3D.ZERO;
+    private Version<?> selected;
 
     private EstateLayout layout = new EstateLayout(List.of());
     private Consumer<Highlight> onSelect = highlight -> { };
@@ -106,22 +121,22 @@ public final class DependencyView {
         this.security = security;
         this.sizes = sizes;
         final Group world = new Group(content);
-        world.getTransforms().addAll(pitch, yaw);
 
-        // soft light from above and to the left of the viewer, fixed while the estate turns
+        // soft light from above and to the left of the camera, carried with it
         final AmbientLight ambient = new AmbientLight(Color.web("#a9adb4"));
         final PointLight key = new PointLight(Color.web("#6e6e6e"));
-        key.getTransforms().add(new Translate(-1400, -1800, -2600));
+        key.getTransforms().add(new Translate(-700, -900, -200));
 
         final PerspectiveCamera eye = new PerspectiveCamera(true);
-        eye.setFieldOfView(35);
         // a near clip well away from zero keeps depth precise enough, even across the whole
         // estate, for a face to stay in front of its own slate
         eye.setNearClip(20);
-        eye.setFarClip(40_000);
-        eye.getTransforms().add(camera);
+        eye.setFarClip(60_000);
+        eye.setFieldOfView(FIELD_OF_VIEW);
+        final Group rig = new Group(eye, key);
+        rig.getTransforms().addAll(rigAt, rigYaw, rigPitch);
 
-        final SubScene view = new SubScene(new Group(world, ambient, key), 0, 0, true, SceneAntialiasing.BALANCED);
+        view = new SubScene(new Group(world, ambient, rig), 0, 0, true, SceneAntialiasing.BALANCED);
         view.setFill(Color.web("#15171c"));
         view.setCamera(eye);
         node = new Pane(view);
@@ -154,13 +169,19 @@ public final class DependencyView {
         this.onBackground = onBackground;
     }
 
-    /** Esc does the background action; R resets the view. */
+    /** Esc does the background action; R resets the view; F frames the selection; 1 to 5 are preset views. */
     public void installKeys(final Scene scene) {
         scene.setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ESCAPE) {
-                onBackground.run();
-            } else if (e.getCode() == KeyCode.R) {
-                resetView();
+            switch (e.getCode()) {
+                case ESCAPE -> onBackground.run();
+                case R -> resetView();
+                case F -> glideTo(selected == null ? home() : framed(new Highlighter().of(layout, selected).members()));
+                case DIGIT1 -> glideTo(preset("angled"));
+                case DIGIT2 -> glideTo(preset("front"));
+                case DIGIT3 -> glideTo(preset("side"));
+                case DIGIT4 -> glideTo(preset("top"));
+                case DIGIT5 -> glideTo(preset("behind"));
+                default -> { }
             }
         });
     }
@@ -184,9 +205,10 @@ public final class DependencyView {
         // nodes added to the 3D sub-scene after the window is shown are not styled on their own
         content.applyCss();
 
-        content.getTransforms().setAll(new Translate(0, layout.maxRow() * ROW / 2, -layout.maxDepth() * LAYER / 2));
-        fittedDistance = fit(layout);
-        resetView();
+        offset = new Point3D(0, layout.maxRow() * ROW / 2, -layout.maxDepth() * LAYER / 2);
+        content.getTransforms().setAll(new Translate(offset.getX(), offset.getY(), offset.getZ()));
+        stopGlide();
+        place(home());
         clear();
     }
 
@@ -202,10 +224,13 @@ public final class DependencyView {
         edges.forEach((edge, shape) -> shape.setMaterial(
                 highlight.lit().contains(edge) ? edgeLit
                         : highlight.raised().contains(edge) ? edgeRaised : edgeDim));
+        selected = root;
+        glideTo(framed(highlight.members()));
         onSelect.accept(highlight);
     }
 
     public void clear() {
+        selected = null;
         cards.values().forEach(slate -> restyle(slate, null));
         edges.values().forEach(shape -> shape.setMaterial(edgeIdle));
         onClear.run();
@@ -217,12 +242,80 @@ public final class DependencyView {
                 .filter(v -> text.named(v).equals(named)).findFirst();
     }
 
+    /** Back to the whole set, from the starting angle. */
     public void resetView() {
-        pitch.setAngle(START_PITCH);
-        yaw.setAngle(START_YAW);
-        camera.setX(0);
-        camera.setY(0);
-        camera.setZ(fittedDistance);
+        glideTo(home());
+    }
+
+    // ---- the camera
+
+    /** The whole set, from the starting view: {@code -Destate.view} if given, else angled. */
+    private Orbit home() {
+        final Orbit start = preset(System.getProperty("estate.view", "angled"));
+        return framed(layout.placed().stream().<Version<?>>map(Placed::version).toList())
+                .withAngles(start.yaw(), start.pitch());
+    }
+
+    /** The current view turned to a named angle. */
+    private Orbit preset(final String name) {
+        return switch (name) {
+            case "front" -> orbit.withAngles(0, 0);                         // layers stacked like a deck
+            case "side" -> orbit.withAngles(-90, 0);                        // depth runs left to right
+            case "top" -> orbit.withAngles(0, -Orbit.MAX_PITCH);            // looking straight down
+            case "behind" -> orbit.withAngles(START_YAW + 180, START_PITCH);
+            default -> orbit.withAngles(START_YAW, START_PITCH);
+        };
+    }
+
+    /** The given releases filling the view, from the current angle. */
+    private Orbit framed(final java.util.Collection<? extends Version<?>> releases) {
+        final List<Point3D> points = releases.stream().map(cards::get).filter(java.util.Objects::nonNull)
+                .map(slate -> centre(slate.placed()).add(offset)).toList();
+        final double width = view.getWidth() > 0 ? view.getWidth() : 1060;
+        final double height = view.getHeight() > 0 ? view.getHeight() : 880;
+        return new Framing().frame(points, CARD_WIDTH * LogScale.LARGEST / 2, FIELD_OF_VIEW, width / height,
+                orbit.yaw(), orbit.pitch());
+    }
+
+    /** Puts the camera where the orbit says, at once. */
+    private void place(final Orbit next) {
+        orbit = next;
+        final Point3D at = next.position();
+        rigAt.setX(at.getX());
+        rigAt.setY(at.getY());
+        rigAt.setZ(at.getZ());
+        rigYaw.setAngle(next.yaw());
+        rigPitch.setAngle(next.pitch());
+    }
+
+    /** Moves the camera to the orbit smoothly, easing in and out. */
+    private void glideTo(final Orbit target) {
+        stopGlide();
+        final Orbit from = orbit;
+        glide = new AnimationTimer() {
+            private long start = -1;
+
+            @Override
+            public void handle(final long now) {
+                if (start < 0) {
+                    start = now;
+                }
+                final double t = Math.min(1, (now - start) / (double) GLIDE_NANOS);
+                final double eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                place(from.towards(target, eased));
+                if (t >= 1) {
+                    stop();
+                }
+            }
+        };
+        glide.start();
+    }
+
+    private void stopGlide() {
+        if (glide != null) {
+            glide.stop();
+            glide = null;
+        }
     }
 
     // ---- building the scene
@@ -230,16 +323,6 @@ public final class DependencyView {
     private Point3D centre(final Placed placed) {
         return new Point3D(placed.lane() * COLUMN, -placed.row() * ROW,
                 (layout.maxDepth() - placed.depth()) * LAYER);
-    }
-
-    /** A camera distance that keeps the whole set in view from the starting angle. */
-    private double fit(final EstateLayout layout) {
-        final double minLane = layout.placed().stream().mapToDouble(Placed::lane).min().orElse(0);
-        final double maxLane = layout.placed().stream().mapToDouble(Placed::lane).max().orElse(0);
-        final double width = (maxLane - minLane) * COLUMN + CARD_WIDTH * LogScale.LARGEST;
-        final double height = layout.maxRow() * ROW + CARD_HEIGHT * LogScale.LARGEST;
-        final double depth = layout.maxDepth() * LAYER;
-        return -1.8 * Math.max(Math.max(width, height), Math.max(depth, 650));
     }
 
     /**
@@ -383,6 +466,9 @@ public final class DependencyView {
     // ---- camera
 
     private void orbitAndZoom(final SubScene view) {
+        // world distance per screen pixel on the focus plane, for panning
+        final java.util.function.DoubleSupplier perPixel = () ->
+                orbit.distance() * Math.tan(Math.toRadians(FIELD_OF_VIEW) / 2) / Math.max(1, view.getHeight() / 2);
         view.setOnMousePressed(e -> {
             lastX = e.getSceneX();
             lastY = e.getSceneY();
@@ -392,18 +478,20 @@ public final class DependencyView {
             final double dy = e.getSceneY() - lastY;
             lastX = e.getSceneX();
             lastY = e.getSceneY();
+            stopGlide();
             if (e.getButton() == MouseButton.PRIMARY) {
-                yaw.setAngle(yaw.getAngle() + dx * 0.25);
-                pitch.setAngle(Math.max(-85, Math.min(85, pitch.getAngle() - dy * 0.25)));
+                // turn around the focus point, as if dragging the estate round
+                place(orbit.turned(-dx * 0.25, dy * 0.25));
             } else {
-                final double scale = -camera.getZ() / 900;
-                camera.setX(camera.getX() - dx * scale);
-                camera.setY(camera.getY() - dy * scale);
+                // move the focus point with the mouse
+                place(orbit.panned(-dx * perPixel.getAsDouble(), -dy * perPixel.getAsDouble()));
             }
         });
         view.setOnScroll(e -> {
-            final double factor = e.getDeltaY() > 0 ? 0.9 : 1.1;
-            camera.setZ(Math.max(-30_000, Math.min(-300, camera.getZ() * factor)));
+            stopGlide();
+            final double factor = e.getDeltaY() > 0 ? 0.88 : 1 / 0.88;
+            final Point3D under = orbit.onPivotPlane(e.getX(), e.getY(), view.getWidth(), view.getHeight(), FIELD_OF_VIEW);
+            place(orbit.zoomedToward(under, factor));
         });
         view.setOnMouseClicked(e -> {
             if (e.getButton() == MouseButton.PRIMARY && e.isStillSincePress()) {
