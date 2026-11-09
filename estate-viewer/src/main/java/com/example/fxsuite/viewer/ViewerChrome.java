@@ -1,5 +1,8 @@
 package com.example.fxsuite.viewer;
 
+import com.example.fxsuite.deployment.BundleRelease;
+import com.example.fxsuite.deployment.Exposure;
+import com.example.fxsuite.deployment.ExternalArtifact;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
 import com.example.fxsuite.deployment.Violation;
@@ -72,15 +75,17 @@ public final class ViewerChrome {
                 swatch("bundle", "Bundle of external libraries"),
                 swatch("library", "Internal library"),
                 swatch("application", "Application"),
-                swatch("virtual-sample", "Virtual release: same binary, newer dependencies"));
+                swatch("virtual-sample", "Virtual release: same binary, newer dependencies"),
+                swatch("vulnerable-sample", "⚠ CVE: a bundle bringing a jar with a known vulnerability"),
+                swatch("insecure-sample", "⚠ insecure: an app release that runs with one"));
     }
 
     public Label help(final String extra) {
         return muted("Drag to orbit · right-drag to pan · scroll to zoom · R resets the view\n" + extra);
     }
 
-    /** Fills {@code into} with what the highlight says about its release. */
-    public void details(final VBox into, final Highlight highlight, final Placed placed) {
+    /** Fills {@code into} with what the highlight says about its release, and its known vulnerabilities. */
+    public void details(final VBox into, final Highlight highlight, final Placed placed, final SecurityMarks security) {
         final String kind = switch (placed.kind()) {
             case BUNDLE -> "Bundle";
             case LIBRARY -> "Library";
@@ -89,12 +94,21 @@ public final class ViewerChrome {
         into.getChildren().setAll(styled(text.named(highlight.root()), "selection"),
                 muted(kind + " · depth " + placed.depth() + (placed.isVirtual() ? " · virtual release" : "")));
 
+        security(into, highlight.root(), placed, security);
+
         into.getChildren().add(section("Declares"));
         final List<Version<?>> declared = sorted(highlight.root().dependencies().versions());
         if (declared.isEmpty()) {
             into.getChildren().add(muted("No internal dependencies."));
         }
         declared.forEach(v -> into.getChildren().add(new Label(text.named(v))));
+
+        if (highlight.root() instanceof BundleRelease bundle) {
+            final List<String> jars = bundle.members().artifacts().stream()
+                    .map(ExternalArtifact::coordinates).sorted().toList();
+            into.getChildren().add(section("Brings " + jars.size() + " external jars"));
+            jars.forEach(jar -> into.getChildren().add(styled(jar, "jar")));
+        }
 
         final List<Version<?>> resolved = sorted(highlight.resolution().resolved().versions());
         into.getChildren().add(section("Runs with " + resolved.size() + " releases"));
@@ -105,6 +119,32 @@ public final class ViewerChrome {
         }
         for (final Violation conflict : highlight.resolution().conflicts().items()) {
             into.getChildren().addAll(section("Conflict"), styled(conflict.message(), "conflict"));
+        }
+    }
+
+    private void security(final VBox into, final Version<?> release, final Placed placed, final SecurityMarks security) {
+        final List<Exposure> exposures = security.exposures(release);
+        final boolean bundle = placed.kind() == EstateLayout.Kind.BUNDLE;
+        if (exposures.isEmpty()) {
+            into.getChildren().addAll(section("Security"), styled("No known vulnerabilities in "
+                    + (bundle ? "the jars it brings" : "anything it runs with")
+                    + " (advisories from OSV, " + security.asOf() + ").", "secure"));
+            return;
+        }
+        final long advisories = exposures.stream().map(e -> e.advisory().id()).distinct().count();
+        into.getChildren().addAll(section("Security"), styled(switch (placed.kind()) {
+            case BUNDLE -> "⚠ Brings jars with " + advisories + " known vulnerabilities";
+            case APPLICATION -> "⚠ Insecure: runs with " + advisories + " known vulnerabilities";
+            case LIBRARY -> "⚠ Runs with " + advisories + " known vulnerabilities";
+        }, "insecure-text"));
+        for (final Exposure exposure : exposures) {
+            final ExternalArtifact jar = exposure.jar();
+            into.getChildren().addAll(
+                    styled(exposure.advisory().name() + "  " + exposure.advisory().severity(), "advisory"),
+                    muted(exposure.advisory().summary()),
+                    styled(jar.artifact() + " " + jar.version()
+                            + (bundle ? "" : " via " + text.named(exposure.bundle()))
+                            + " · fixed in " + exposure.fixedIn(), "jar"));
         }
     }
 

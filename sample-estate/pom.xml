@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example.acme</groupId>
+    <artifactId>sample-estate</artifactId>
+    <version>1</version>
+    <packaging>pom</packaging>
+
+    <name>Acme sample estate</name>
+    <description>
+        The demo estate's code: one module per physical release of each internal library and
+        application, at its real coordinates (com.example.acme:&lt;unit&gt;:&lt;version&gt;), so
+        every version builds side by side in one build. Virtual releases and bundles have no
+        modules: a virtual release runs its physical base's jar, and a bundle's jars come from
+        Maven Central.
+
+        What runs together is decided by the deployment model in demo-estate, not by these
+        poms: their dependencies exist only to compile against. Keep each module in step with
+        its release in demo-estate by hand.
+
+        Every module is checked with jOntology's contract checker as part of the build.
+    </description>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- reproducible jars: the same code always gives the same bytes and checksum -->
+        <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
+        <jontology.version>0.1.0</jontology.version>
+        <!-- releases go to dist/acme-repo (deploy), never into the local Maven repository -->
+        <maven.install.skip>true</maven.install.skip>
+    </properties>
+
+    <!--
+        mvn -f sample-estate/pom.xml deploy publishes every release to dist/acme-repo, laid out like
+        a Maven repository: the estate's own release repository, which the launcher reads. The
+        repository root is found through the .mvn folder at the top of this repository.
+    -->
+    <distributionManagement>
+        <repository>
+            <id>acme-repo</id>
+            <name>The demo estate's release repository</name>
+            <url>file:${maven.multiModuleProjectDirectory}/dist/acme-repo</url>
+        </repository>
+    </distributionManagement>
+
+    <modules>
+        <module>libs/acme-core/8.20261001.0</module>
+        <module>libs/acme-core/8.20261015.0</module>
+        <module>libs/acme-core/8.20261106.0</module>
+        <module>libs/acme-core/8.20261106.1</module>
+        <module>libs/acme-core/9.20261110.0</module>
+        <module>libs/acme-core/9.20261120.0</module>
+        <module>libs/acme-text/3.20261005.0</module>
+        <module>libs/acme-text/3.20261020.0</module>
+        <module>libs/acme-text/4.20261113.0</module>
+        <module>libs/acme-net/5.20261016.0</module>
+        <module>libs/acme-net/6.20261112.0</module>
+        <module>libs/acme-ui/1.20261018.0</module>
+        <module>libs/acme-ui/1.20261021.0</module>
+        <module>libs/acme-charts/2.20261022.0</module>
+        <module>libs/acme-contract/1.20261012.0</module>
+        <module>libs/acme-contract/1.20261030.0</module>
+        <module>libs/acme-contract/2.20261115.0</module>
+        <module>libs/acme-codegen/1.20261009.0</module>
+        <module>apps/hello/1.20261003.0</module>
+        <module>apps/ledger/1.20261101.0</module>
+        <module>apps/atlas/1.20261112.0</module>
+        <module>apps/atlas/1.20261121.0</module>
+        <module>apps/courier/1.20261102.0</module>
+        <module>apps/courier/1.20261107.0</module>
+    </modules>
+
+    <dependencies>
+        <!-- quality control: jOntology's checker, run on each module's classes by the build -->
+        <dependency>
+            <groupId>io.github.captainssingapura-hue.lang.ontology</groupId>
+            <artifactId>enforcing-utils</artifactId>
+            <version>${jontology.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.1</version>
+                    <configuration>
+                        <archive>
+                            <!-- keeps a release's bytes independent of its coordinates -->
+                            <addMavenDescriptor>false</addMavenDescriptor>
+                        </archive>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <!-- Runs jOntology's checker over ${ontology.package}; any violation fails the build. -->
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.5.0</version>
+                    <executions>
+                        <execution>
+                            <id>ontology</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>exec</goal>
+                            </goals>
+                            <configuration>
+                                <executable>${java.home}/bin/java</executable>
+                                <classpathScope>test</classpathScope>
+                                <arguments>
+                                    <argument>-classpath</argument>
+                                    <classpath/>
+                                    <argument>hue.captains.singapura.tao.ontology.utils.EnforcingUtils</argument>
+                                    <argument>${ontology.package}</argument>
+                                </arguments>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

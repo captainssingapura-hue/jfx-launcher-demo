@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.acme</groupId>
+        <artifactId>sample-estate</artifactId>
+        <version>1</version>
+        <relativePath>../../../pom.xml</relativePath>
+    </parent>
+
+    <!-- Keep in step with Ledger.V1_20261101_0 in demo-estate. -->
+    <artifactId>ledger</artifactId>
+    <version>1.20261101.0</version>
+    <name>Ledger</name>
+
+    <properties>
+        <ontology.package>com.example.acme.ledger</ontology.package>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.example.acme</groupId>
+            <artifactId>acme-text</artifactId>
+            <version>3.20261020.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.acme</groupId>
+            <artifactId>acme-net</artifactId>
+            <version>5.20261016.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.acme</groupId>
+            <artifactId>acme-charts</artifactId>
+            <version>2.20261022.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.example.acme</groupId>
+            <artifactId>acme-contract</artifactId>
+            <version>1.20261030.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.22.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-controls</artifactId>
+            <version>25</version>
+            <classifier>win</classifier>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.example.acme.ledger.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

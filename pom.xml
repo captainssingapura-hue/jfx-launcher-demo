@@ -32,5 +32,7 @@
         <module>deployment-model</module>
         <module>demo-estate</module>
         <module>estate-viewer</module>
+        <module>sample-estate</module>
+        <module>estate-launcher</module>
     </modules>
 </project>

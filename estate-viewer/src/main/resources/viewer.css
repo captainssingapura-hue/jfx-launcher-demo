@@ -76,3 +76,35 @@
 .combo-box-popup .list-view { -fx-background-color: #2a2e36; }
 .combo-box-popup .list-cell { -fx-background-color: #2a2e36; -fx-text-fill: #e6e9ee; }
 .combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected { -fx-background-color: #3b5b85; }
+.side .jar { -fx-text-fill: #b9c2cf; -fx-font-family: "Consolas"; -fx-font-size: 12px; }
+
+/* ---- launching */
+
+.side .button {
+    -fx-background-color: #2a2e36;
+    -fx-text-fill: #e6e9ee;
+    -fx-background-radius: 5;
+    -fx-border-color: #3c424d;
+    -fx-border-radius: 5;
+    -fx-padding: 6 16;
+}
+.side .button:hover { -fx-background-color: #343a44; }
+.side .button.launch { -fx-background-color: #2f6f4f; -fx-border-color: #3f8a64; -fx-font-weight: bold; }
+.side .button.launch:hover { -fx-background-color: #378058; }
+.side .button:disabled { -fx-opacity: 0.45; }
+.side .check-box { -fx-text-fill: #c3cad5; }
+.side .check-box .box { -fx-background-color: #2a2e36; -fx-border-color: #4a515d; -fx-border-radius: 3; }
+.side .running { -fx-text-fill: #6fd39a; -fx-font-weight: bold; }
+
+/* ---- known vulnerabilities */
+
+.card.vulnerable, .card.insecure { -fx-border-color: #ff5a5a; -fx-border-width: 2.5; }
+.card .chip.alert { -fx-background-color: #d93636; -fx-text-fill: white; -fx-font-weight: bold; }
+.card.dim .chip.alert { -fx-background-color: #6b2a2a; -fx-text-fill: #e2b4b4; }
+.swatch.vulnerable-sample { -fx-background-color: #2f6f4f; -fx-border-color: #ff5a5a; -fx-border-width: 2; }
+.swatch.insecure-sample { -fx-background-color: #8a3b2b; -fx-border-color: #ff5a5a; -fx-border-width: 2; }
+.side .insecure-text { -fx-text-fill: #ff7b7b; -fx-font-weight: bold; }
+.side .advisory { -fx-text-fill: #ffb0b0; -fx-font-weight: bold; }
+.side .secure { -fx-text-fill: #6fd39a; }
+.card.dim.vulnerable, .card.dim.insecure { -fx-border-color: #7a3434; -fx-border-width: 2; }
+.card.selected.vulnerable, .card.selected.insecure { -fx-border-color: #ffd166; -fx-border-width: 3; }

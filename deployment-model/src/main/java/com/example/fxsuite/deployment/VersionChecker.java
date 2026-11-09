@@ -22,6 +22,8 @@ import java.util.Set;
  *   <li>Its class name spells its number: {@code V<monotonic>_<yyyyMMdd>_<patch>}.</li>
  *   <li>No two versions share a number, and no date is used by two lines.</li>
  *   <li>No version depends on its own unit, and a bundle depends only on bundles.</li>
+ *   <li>Every release of a bundle is a {@link BundleRelease} with at least one member, and
+ *       nothing else is.</li>
  *   <li>A virtual version's base is declared in the same unit, is on the same line, comes
  *       before it, and the chain of bases ends at a physical release. If the virtual
  *       version includes a checksum, that physical release includes the same one.</li>
@@ -48,6 +50,7 @@ public final class VersionChecker implements StatelessFunctionalObject {
         checkEachDateHasOneLine(unit, found.values(), violations);
         for (final Found f : found.values()) {
             checkDependencies(unit, f, violations);
+            checkMembers(unit, f, violations);
             if (f.version() instanceof VirtualVersion<?, ?> virtual) {
                 checkVirtual(unit, f, virtual, found.get(virtual.base().getClass()), violations);
             }
@@ -168,6 +171,28 @@ public final class VersionChecker implements StatelessFunctionalObject {
                             + dependency.getName()));
                 }
             }
+        }
+    }
+
+    private void checkMembers(final Class<?> unit, final Found f, final List<Violation> violations) {
+        final String name = f.type().getName();
+        final boolean bundle = ExternalBundle.class.isAssignableFrom(unit);
+        if (!(f.version() instanceof BundleRelease release)) {
+            if (bundle) {
+                violations.add(new Violation(name + ": a bundle release must implement BundleRelease"));
+            }
+            return;
+        }
+        if (!bundle) {
+            violations.add(new Violation(name + ": only a bundle release has members"));
+            return;
+        }
+        try {
+            if (release.members().isEmpty()) {
+                violations.add(new Violation(name + ": a bundle release must bring at least one member"));
+            }
+        } catch (RuntimeException e) {
+            violations.add(new Violation(name + ": its members could not be worked out: " + e.getMessage()));
         }
     }
 

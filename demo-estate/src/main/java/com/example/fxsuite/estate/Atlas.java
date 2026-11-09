@@ -10,7 +10,7 @@ import com.example.fxsuite.deployment.VirtualVersion;
 
 import java.time.LocalDate;
 
-/** Runs on AcmeCore line 9 and AcmeJson line 2, beside Ledger on the same desktop. */
+/** Runs on AcmeCore line 9 and Jackson 3, beside Ledger on the same desktop. */
 public record Atlas() implements Application {
 
     public record V1_20261112_0() implements PhysicalVersion<Atlas> {
@@ -19,21 +19,26 @@ public record Atlas() implements Application {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeNet.V6_20261112_0(),
-                new AcmeJson.V2_20261105_1(),
-                new AcmeWeb.V1_20261106_0(),
-                new AcmeFx.V1_20261102_0()); }
+                new AcmeJson.V2_20261105_0(),
+                new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeGuava.V1_20261103_0(),
+                new AcmeFx.V1_20261102_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
-    /** Migrated to AcmeWeb line 2 for the tinyhttp fix. Code changed, so physical. */
+    /** Starts using AcmeText. Code changed, so physical. */
     public record V1_20261121_0() implements PhysicalVersion<Atlas> {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 21)); }
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeNet.V6_20261112_0(),
-                new AcmeJson.V2_20261105_1(),
-                new AcmeWeb.V2_20261120_0(),
-                new AcmeFx.V1_20261102_0()); }
+                new AcmeText.V4_20261113_0(),
+                new AcmeJson.V2_20261105_0(),
+                new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeGuava.V1_20261103_0(),
+                new AcmeFx.V1_20261102_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** The AcmeCore line-9 security floor. */
@@ -42,6 +47,20 @@ public record Atlas() implements Application {
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 21)); }
         @Override public Patch patch() { return new Patch(1); }
         @Override public V1_20261121_0 base() { return new V1_20261121_0(); }
-        @Override public Dependencies changes() { return new Dependencies(new AcmeNet.V6_20261112_1()); }
+        @Override public Dependencies changes() { return new Dependencies(
+                new AcmeNet.V6_20261112_1(),
+                new AcmeText.V4_20261113_1()); }
+    }
+
+    /** The fixed Guava. Same binary. */
+    public record V1_20261121_2() implements VirtualVersion<Atlas, V1_20261121_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(1); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 21)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V1_20261121_1 base() { return new V1_20261121_1(); }
+        @Override public Dependencies changes() { return new Dependencies(
+                new AcmeText.V4_20261113_2(),
+                new AcmeGuava.V1_20261124_0(),
+                new AcmeJsonGuava.V1_20261124_0()); }
     }
 }

@@ -28,6 +28,11 @@
             <artifactId>fxsuite-demo-estate</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>com.example.fxsuite</groupId>
+            <artifactId>fxsuite-estate-launcher</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
 
         <dependency>
             <groupId>org.openjfx</groupId><artifactId>javafx-base</artifactId>

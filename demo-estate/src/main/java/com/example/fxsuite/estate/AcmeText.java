@@ -10,14 +10,17 @@ import com.example.fxsuite.deployment.VirtualVersion;
 
 import java.time.LocalDate;
 
-/** Text utilities on AcmeCore. One side of the diamond. */
+/** Text utilities on AcmeCore and Guava. One side of the diamond. */
 public record AcmeText() implements Library {
 
     public record V3_20261005_0() implements PhysicalVersion<AcmeText> {
         @Override public Monotonic monotonic() { return new Monotonic(3); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 5)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V8_20261001_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V8_20261001_0(),
+                new AcmeGuava.V1_20261001_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Adds API. */
@@ -25,7 +28,10 @@ public record AcmeText() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(3); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 20)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V8_20261001_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V8_20261001_0(),
+                new AcmeGuava.V1_20261001_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-8 security floor, without a rebuild. */
@@ -37,12 +43,24 @@ public record AcmeText() implements Library {
         @Override public Dependencies changes() { return new Dependencies(new AcmeCore.V8_20261106_1()); }
     }
 
+    /** Moves to the fixed Guava, on top of .1: no rebuild. */
+    public record V3_20261020_2() implements VirtualVersion<AcmeText, V3_20261020_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(3); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 20)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V3_20261020_1 base() { return new V3_20261020_1(); }
+        @Override public Dependencies changes() { return new Dependencies(new AcmeGuava.V1_20261124_0()); }
+    }
+
     /** Moving to AcmeCore line 9 is a change of dependency line, so AcmeText needs a new line too. */
     public record V4_20261113_0() implements PhysicalVersion<AcmeText> {
         @Override public Monotonic monotonic() { return new Monotonic(4); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 13)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V9_20261110_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V9_20261110_0(),
+                new AcmeGuava.V1_20261103_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-9 security floor. */
@@ -52,5 +70,14 @@ public record AcmeText() implements Library {
         @Override public Patch patch() { return new Patch(1); }
         @Override public V4_20261113_0 base() { return new V4_20261113_0(); }
         @Override public Dependencies changes() { return new Dependencies(new AcmeCore.V9_20261120_0()); }
+    }
+
+    /** Moves to the fixed Guava. */
+    public record V4_20261113_2() implements VirtualVersion<AcmeText, V4_20261113_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(4); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 13)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V4_20261113_1 base() { return new V4_20261113_1(); }
+        @Override public Dependencies changes() { return new Dependencies(new AcmeGuava.V1_20261124_0()); }
     }
 }

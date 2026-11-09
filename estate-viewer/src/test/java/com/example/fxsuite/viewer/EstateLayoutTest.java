@@ -14,7 +14,8 @@ import com.example.fxsuite.estate.AcmeJson;
 import com.example.fxsuite.estate.AcmeNet;
 import com.example.fxsuite.estate.AcmeText;
 import com.example.fxsuite.estate.AcmeUi;
-import com.example.fxsuite.estate.AcmeWeb;
+import com.example.fxsuite.estate.AcmeJsonGuava;
+import com.example.fxsuite.estate.AcmeOntology;
 import com.example.fxsuite.estate.DemoEstate;
 import com.example.fxsuite.estate.Hello;
 import com.example.fxsuite.estate.Ledger;
@@ -46,21 +47,22 @@ class EstateLayoutTest {
 
     @Test
     void everyReleaseAndDeclaredDependencyIsPlaced() {
-        assertEquals(42, LAYOUT.placed().size());
-        assertEquals(52, LAYOUT.edges().size());
-        assertEquals(14, LAYOUT.columns().size());
+        assertEquals(52, LAYOUT.placed().size());
+        assertEquals(129, LAYOUT.edges().size());
+        assertEquals(16, LAYOUT.columns().size());
     }
 
     @Test
     void depthIsOneMoreThanTheDeepestDependency() {
-        assertEquals(0, at(new AcmeCore.V8_20261001_0()).depth());
+        assertEquals(0, at(new AcmeOntology.V1_20260901_0()).depth());
         assertEquals(0, at(new AcmeFx.V1_20261102_0()).depth());
-        assertEquals(1, at(new AcmeWeb.V1_20261008_0()).depth());
+        assertEquals(1, at(new AcmeCore.V8_20261001_0()).depth());
+        assertEquals(1, at(new AcmeJsonGuava.V1_20261006_0()).depth());
         assertEquals(1, at(new Hello.V1_20261003_1()).depth());
-        assertEquals(2, at(new AcmeUi.V1_20261021_0()).depth());
-        assertEquals(3, at(new AcmeCharts.V2_20261022_1()).depth());
-        assertEquals(4, at(new Ledger.V1_20261101_1()).depth());
-        assertEquals(4, LAYOUT.maxDepth());
+        assertEquals(3, at(new AcmeUi.V1_20261021_0()).depth());
+        assertEquals(4, at(new AcmeCharts.V2_20261022_1()).depth());
+        assertEquals(5, at(new Ledger.V1_20261101_1()).depth());
+        assertEquals(5, LAYOUT.maxDepth());
         for (EstateLayout.Edge edge : LAYOUT.edges()) {
             assertTrue(edge.from().depth() > edge.to().depth(), edge.toString());
         }
@@ -72,12 +74,12 @@ class EstateLayoutTest {
                 Placed::unit, Collectors.mapping(Placed::lane, Collectors.toSet())));
         lanesByUnit.forEach((unit, lanes) -> assertEquals(1, lanes.size(), unit.getName()));
 
-        // depth 0 holds five units, spread -2..2; the lone unit in front sits in the middle
+        // depth 0 holds four bundles; depth 1 five units; the lone unit in front sits in the middle
         Map<Integer, Set<Double>> lanesByDepth = LAYOUT.placed().stream().collect(Collectors.groupingBy(
                 Placed::depth, Collectors.mapping(Placed::lane, Collectors.toSet())));
-        assertEquals(Set.of(-2.0, -1.0, 0.0, 1.0, 2.0), lanesByDepth.get(0));
-        assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), lanesByDepth.get(1));
-        assertEquals(Set.of(0.0), lanesByDepth.get(4));
+        assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), lanesByDepth.get(0));
+        assertEquals(Set.of(-2.0, -1.0, 0.0, 1.0, 2.0), lanesByDepth.get(1));
+        assertEquals(Set.of(0.0), lanesByDepth.get(5));
         assertEquals(Ledger.class, LAYOUT.columns().get(LAYOUT.columns().size() - 1));
     }
 
@@ -86,7 +88,8 @@ class EstateLayoutTest {
         assertEquals(0, at(new AcmeCore.V8_20261001_0()).row());
         assertEquals(3, at(new AcmeCore.V8_20261106_1()).row());
         assertEquals(5, at(new AcmeCore.V9_20261120_0()).row());
-        assertEquals(5, LAYOUT.maxRow());
+        // AcmeText has the most releases: seven
+        assertEquals(6, LAYOUT.maxRow());
     }
 
     @Test
@@ -94,7 +97,7 @@ class EstateLayoutTest {
         assertTrue(at(new AcmeText.V3_20261020_1()).isVirtual());
         assertFalse(at(new AcmeText.V3_20261020_0()).isVirtual());
         assertEquals(EstateLayout.Kind.LIBRARY, at(new AcmeText.V3_20261020_1()).kind());
-        assertEquals(EstateLayout.Kind.BUNDLE, at(new AcmeJson.V2_20261105_1()).kind());
+        assertEquals(EstateLayout.Kind.BUNDLE, at(new AcmeJson.V2_20261105_0()).kind());
         assertEquals(EstateLayout.Kind.APPLICATION, at(new Ledger.V1_20261101_0()).kind());
     }
 
@@ -131,27 +134,27 @@ class EstateLayoutTest {
     @Test
     void anAppsClosureIsEverythingItsDeclarationsReach() {
         List<Object> closure = List.copyOf(RELEASES.closure(new Ledger.V1_20261101_0()));
-        assertEquals(10, closure.size(), closure.toString());
+        assertEquals(12, closure.size(), closure.toString());
         assertEquals(new Ledger.V1_20261101_0(), closure.get(closure.size() - 1));
         // both sides of the diamond, including the AcmeCore that resolution raises past
         assertTrue(closure.contains(new AcmeCore.V8_20261001_0()));
         assertTrue(closure.contains(new AcmeCore.V8_20261015_0()));
         assertFalse(closure.contains(new AcmeCore.V9_20261110_0()));
-        assertFalse(closure.contains(new AcmeWeb.V1_20261008_0()));
+        assertFalse(closure.contains(new AcmeJsonGuava.V1_20261006_0()));
     }
 
     @Test
     void anAppsLayoutKeepsDepthsButCompactsRowsAndLanes() {
         EstateLayout app = new EstateLayout(RELEASES.closure(new Ledger.V1_20261101_0()));
-        assertEquals(10, app.placed().size());
-        assertEquals(4, app.maxDepth());
+        assertEquals(12, app.placed().size());
+        assertEquals(5, app.maxDepth());
         Placed ledger = app.of(new Ledger.V1_20261101_0()).orElseThrow();
-        assertEquals(4, ledger.depth());
+        assertEquals(5, ledger.depth());
         assertEquals(0, ledger.row());
         // only two AcmeCore releases are in this graph, so rows 0 and 1
         assertEquals(1, app.of(new AcmeCore.V8_20261015_0()).orElseThrow().row());
         assertEquals(1, app.maxRow());
-        // depth 0 here holds AcmeFx, AcmeJson, AcmeCore and AcmeContract
+        // depth 0 here holds AcmeOntology, AcmeFx, AcmeJson and AcmeGuava
         assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), app.placed().stream().filter(p -> p.depth() == 0)
                 .map(Placed::lane).collect(Collectors.toSet()));
     }
@@ -160,7 +163,8 @@ class EstateLayoutTest {
     void theApplicationsAreTheAppUnitsInCatalogueOrder() {
         assertEquals(List.of(Hello.class, Ledger.class, com.example.fxsuite.estate.Atlas.class,
                 com.example.fxsuite.estate.Courier.class), RELEASES.applications());
-        assertEquals(List.of(new Ledger.V1_20261101_0(), new Ledger.V1_20261101_1()), RELEASES.of(Ledger.class));
+        assertEquals(List.of(new Ledger.V1_20261101_0(), new Ledger.V1_20261101_1(), new Ledger.V1_20261101_2()),
+                RELEASES.of(Ledger.class));
     }
 
     // ---- a cycle leaves releases with no depth

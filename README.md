@@ -323,6 +323,57 @@ It writes the private key to `web-launcher/.../fxsuite/launch-signing-key.pk8.b6
 (baked into the launcher jar). Both are git-ignored; re-run any time to rotate.
 *(A real deployment would keep the private key in a secret store, not a resource.)*
 
+## The sample estate: launching from dependency specs
+
+A second, separate track implements the Line–Date Versioning papers for desktop apps:
+every release is declared with its exact dependencies, and the launcher resolves them,
+copies exactly those jars into a directory of the release's own, and starts it.
+
+| Module | What it is |
+|---|---|
+| `deployment-model` | Units, versions (physical and virtual), dependencies, bundle members, resolution, and the checker — as jOntology values |
+| `demo-estate` | The estate as data: 16 units (bundles of JavaFX, Jackson 2/3, Guava, jOntology; internal libraries; four apps) and 44 releases |
+| `sample-estate` | Real code for each of the 24 physical library and app releases, one module per version, checked by jOntology as it builds |
+| `estate-launcher` | Resolves a release, installs its jars into `%LOCALAPPDATA%\fxsuite\apps\<app>\<version>\lib`, and starts it |
+| `estate-viewer` | The estate in 3D, whole or one app at a time; the per-app view launches the chosen release through the same launcher |
+
+```bash
+# from the repository root: build everything, then publish the sample estate's jars to dist/acme-repo
+mvn package
+mvn -f sample-estate/pom.xml deploy
+
+java -jar estate-launcher/target/estate-launcher.jar --list
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.0                 # warns: the diamond; still has the flaw
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.1                 # same binary, fixed AcmeCore
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.0 --nearest-wins  # Maven's pick: NoSuchMethodError
+java -jar estate-launcher/target/estate-launcher.jar Atlas 1.20261121.1                  # AcmeCore 9 and Jackson 3, side by side
+
+java -jar estate-viewer/target/estate-viewer.jar                                         # the whole estate in 3D
+java -cp estate-viewer/target/estate-viewer.jar com.example.fxsuite.viewer.AppsMain      # one app at a time, with a Launch button
+```
+
+**Security fixes as virtual releases.** `demo-estate` carries a snapshot of the real OSV
+advisories that affect its jars (`KnownAdvisories`, taken 2026-11-09). AcmeJson's physical
+release brings Jackson 2.22.2, which four HIGH advisories affect, and AcmeGuava's physical
+release brings Guava 33.4.8 (GHSA-xxph-c9ww-hj94); both are fixed only by virtual releases
+(Jackson 2.22.4, Guava 33.7.2). The viewers flag vulnerable bundles (⚠ CVE) and insecure app
+releases (⚠ insecure) and list each advisory; the launcher prints them before launching.
+
+```bash
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.0   # 5 advisories: Jackson and Guava
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.1   # Jackson fixed; Guava still affected
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.2   # secure: the same binary, all fixes virtual
+```
+
+Courier uses AcmeCodegen, so it needs a rebuild for dependency updates: the Guava fix cannot
+reach it as a virtual release, and it stays flagged until it is rebuilt.
+
+Each app window lists the releases actually running, the result of each check (failures in
+red), and its exact classpath; the same lines go to `app.log` beside its jars. An installed
+release is reused only while every jar matches its recorded checksum, and the launcher
+refuses to run if the repository now holds different bytes for a release it already has —
+a release never changes.
+
 ## Roadmap (next)
 
 - **One-time use:** burn the token's `jti` nonce server-side (a launcher→backend

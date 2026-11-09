@@ -19,6 +19,6 @@ public record AcmeCodegen() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 9)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(); }
+        @Override public Dependencies dependencies() { return new Dependencies(new AcmeOntology.V1_20260901_0()); }
     }
 }
