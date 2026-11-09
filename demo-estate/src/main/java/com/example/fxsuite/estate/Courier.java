@@ -24,6 +24,7 @@ public record Courier() implements Application {
                 new AcmeCodegen.V1_20261009_0(),
                 new AcmeJson.V2_20261005_0(),
                 new AcmeJsonGuava.V1_20261006_0(),
+                new AcmeGuava.V1_20261001_0(),
                 new AcmeFx.V1_20261002_0()); }
     }
 
@@ -37,6 +38,7 @@ public record Courier() implements Application {
                 new AcmeCodegen.V1_20261009_0(),
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeGuava.V1_20261103_0(),
                 new AcmeFx.V1_20261102_0()); }
     }
 }

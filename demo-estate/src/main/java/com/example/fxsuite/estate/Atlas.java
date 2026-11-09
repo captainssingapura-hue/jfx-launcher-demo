@@ -21,6 +21,7 @@ public record Atlas() implements Application {
                 new AcmeNet.V6_20261112_0(),
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeGuava.V1_20261103_0(),
                 new AcmeFx.V1_20261102_0()); }
     }
 
@@ -34,6 +35,7 @@ public record Atlas() implements Application {
                 new AcmeText.V4_20261113_0(),
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeGuava.V1_20261103_0(),
                 new AcmeFx.V1_20261102_0()); }
     }
 

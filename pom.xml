@@ -32,5 +32,6 @@
         <module>deployment-model</module>
         <module>demo-estate</module>
         <module>estate-viewer</module>
+        <module>sample-estate</module>
     </modules>
 </project>

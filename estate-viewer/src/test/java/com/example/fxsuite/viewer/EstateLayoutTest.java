@@ -48,7 +48,7 @@ class EstateLayoutTest {
     @Test
     void everyReleaseAndDeclaredDependencyIsPlaced() {
         assertEquals(44, LAYOUT.placed().size());
-        assertEquals(73, LAYOUT.edges().size());
+        assertEquals(78, LAYOUT.edges().size());
         assertEquals(16, LAYOUT.columns().size());
     }
 

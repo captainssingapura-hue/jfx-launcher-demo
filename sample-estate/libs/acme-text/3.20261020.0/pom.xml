@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example.acme</groupId>
+        <artifactId>sample-estate</artifactId>
+        <version>1</version>
+        <relativePath>../../../pom.xml</relativePath>
+    </parent>
+
+    <!-- Keep in step with AcmeText.V3_20261020_0 in demo-estate. -->
+    <artifactId>acme-text</artifactId>
+    <version>3.20261020.0</version>
+    <name>AcmeText</name>
+
+    <properties>
+        <ontology.package>com.example.acme.text</ontology.package>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.example.acme</groupId>
+            <artifactId>acme-core</artifactId>
+            <version>8.20261001.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.4.8-jre</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
