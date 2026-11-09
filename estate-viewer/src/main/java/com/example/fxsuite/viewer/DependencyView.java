@@ -56,6 +56,12 @@ import java.util.stream.IntStream;
  * drag to turn around it, right-drag to pan, scroll to zoom toward the cursor. Selecting a
  * release frames its graph. Keys: 1 angled, 2 front, 3 side, 4 top, 5 behind, F frames the
  * selection, R resets. Every change of view glides rather than jumps.
+ *
+ * <p>Tab (or W) switches to flying, as a spectator does: drag to look, W A S D to move along
+ * the view, Space and Ctrl to rise and sink, Shift to go faster, the wheel to change speed.
+ * Tab goes back to orbiting the point ahead; F, R and the preset views also return to
+ * orbiting. Keys act only while the 3D view has focus, which a click in it gives. A ground
+ * grid under the estate keeps up and down clear in either mode.
  */
 public final class DependencyView {
 
@@ -106,6 +112,23 @@ public final class DependencyView {
     private Point3D offset = Point3D.ZERO;
     private Version<?> selected;
 
+    private enum Mode { ORBIT, FLY }
+
+    private Mode mode = Mode.ORBIT;
+    private FlyCamera fly = FlyCamera.from(orbit);
+    private Velocity velocity = Velocity.STILL;
+    /** Flying speed, world units per second; Shift goes four times faster. */
+    private double cruise = 360;
+    private final java.util.Set<KeyCode> held = java.util.EnumSet.noneOf(KeyCode.class);
+    private AnimationTimer flight;
+    /** Where flying may go: a box around the estate, above the ground. */
+    private Point3D roamLow = new Point3D(-5000, -5000, -5000);
+    private Point3D roamHigh = new Point3D(5000, 5000, 5000);
+    private double groundY;
+    private final Label hud = new Label();
+    private final Label crosshair = new Label("+");
+    private final javafx.scene.control.Button modeButton = new javafx.scene.control.Button();
+
     private EstateLayout layout = new EstateLayout(List.of());
     private Consumer<Highlight> onSelect = highlight -> { };
     private Runnable onClear = () -> { };
@@ -139,10 +162,34 @@ public final class DependencyView {
         view = new SubScene(new Group(world, ambient, rig), 0, 0, true, SceneAntialiasing.BALANCED);
         view.setFill(Color.web("#15171c"));
         view.setCamera(eye);
-        node = new Pane(view);
+        hud.getStyleClass().add("hud");
+        hud.setMouseTransparent(true);
+        modeButton.getStyleClass().add("hud-button");
+        modeButton.setFocusTraversable(false);
+        final VBox overlay = new VBox(6, modeButton, hud);
+        overlay.setPickOnBounds(false);
+        overlay.relocate(14, 12);
+        crosshair.getStyleClass().add("crosshair");
+        crosshair.setMouseTransparent(true);
+
+        node = new Pane(view, overlay, crosshair);
         view.widthProperty().bind(node.widthProperty());
         view.heightProperty().bind(node.heightProperty());
+        crosshair.layoutXProperty().bind(node.widthProperty().subtract(crosshair.widthProperty()).divide(2));
+        crosshair.layoutYProperty().bind(node.heightProperty().subtract(crosshair.heightProperty()).divide(2));
+        node.setFocusTraversable(true);
+        modeButton.setOnAction(e -> {
+            toggleMode();
+            node.requestFocus();
+        });
+        node.focusedProperty().addListener((obs, was, is) -> {
+            if (!is) {
+                held.clear();
+            }
+        });
         orbitAndZoom(view);
+        keys();
+        updateHud();
     }
 
     /** The node to place in a window. */
@@ -169,21 +216,52 @@ public final class DependencyView {
         this.onBackground = onBackground;
     }
 
-    /** Esc does the background action; R resets the view; F frames the selection; 1 to 5 are preset views. */
+    /** Gives the 3D view keyboard focus once the window is up, so its keys work straight away. */
     public void installKeys(final Scene scene) {
-        scene.setOnKeyPressed(e -> {
-            switch (e.getCode()) {
-                case ESCAPE -> onBackground.run();
-                case R -> resetView();
-                case F -> glideTo(selected == null ? home() : framed(new Highlighter().of(layout, selected).members()));
-                case DIGIT1 -> glideTo(preset("angled"));
-                case DIGIT2 -> glideTo(preset("front"));
-                case DIGIT3 -> glideTo(preset("side"));
-                case DIGIT4 -> glideTo(preset("top"));
-                case DIGIT5 -> glideTo(preset("behind"));
-                default -> { }
+        javafx.application.Platform.runLater(node::requestFocus);
+    }
+
+    /**
+     * Keys act on the 3D view only while it has focus, so typing in the side panel never moves
+     * the camera. Esc does the background action; R resets; F frames the selection; 1 to 5 are
+     * preset views; 6 stands at ground level in front, flying; Tab switches orbit and fly.
+     */
+    private void keys() {
+        node.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.TAB) {
+                // otherwise Tab moves focus to the side panel
+                toggleMode();
+                e.consume();
             }
         });
+        node.setOnKeyPressed(e -> {
+            switch (e.getCode()) {
+                case ESCAPE -> onBackground.run();
+                case R -> {
+                    toOrbit();
+                    resetView();
+                }
+                case F -> {
+                    toOrbit();
+                    glideTo(selected == null ? home() : framed(new Highlighter().of(layout, selected).members()));
+                }
+                case DIGIT1 -> presetView("angled");
+                case DIGIT2 -> presetView("front");
+                case DIGIT3 -> presetView("side");
+                case DIGIT4 -> presetView("top");
+                case DIGIT5 -> presetView("behind");
+                case DIGIT6 -> toFly(entrance());
+                case W, A, S, D, SPACE, CONTROL, SHIFT -> {
+                    held.add(e.getCode());
+                    if (mode == Mode.ORBIT && List.of(KeyCode.W, KeyCode.A, KeyCode.S, KeyCode.D).contains(e.getCode())) {
+                        toFly(FlyCamera.from(orbit));
+                    }
+                }
+                default -> { }
+            }
+            e.consume();
+        });
+        node.setOnKeyReleased(e -> held.remove(e.getCode()));
     }
 
     /** Draws a new set of releases, replacing whatever was shown, and fits the camera to it. */
@@ -207,9 +285,16 @@ public final class DependencyView {
 
         offset = new Point3D(0, layout.maxRow() * ROW / 2, -layout.maxDepth() * LAYER / 2);
         content.getTransforms().setAll(new Translate(offset.getX(), offset.getY(), offset.getZ()));
+        content.getChildren().add(0, ground(layout));
         stopGlide();
+        stopFlight();
+        mode = Mode.ORBIT;
         place(home());
         clear();
+        if ("fly".equals(System.getProperty("estate.mode"))) {
+            toFly(entrance());
+        }
+        updateHud();
     }
 
     /** Highlights what the release resolves to. Does nothing if it is not shown. */
@@ -225,7 +310,9 @@ public final class DependencyView {
                 highlight.lit().contains(edge) ? edgeLit
                         : highlight.raised().contains(edge) ? edgeRaised : edgeDim));
         selected = root;
-        glideTo(framed(highlight.members()));
+        if (mode == Mode.ORBIT) {
+            glideTo(framed(highlight.members()));
+        }
         onSelect.accept(highlight);
     }
 
@@ -280,12 +367,148 @@ public final class DependencyView {
     /** Puts the camera where the orbit says, at once. */
     private void place(final Orbit next) {
         orbit = next;
-        final Point3D at = next.position();
+        aim(next.position(), next.yaw(), next.pitch());
+    }
+
+    private void aim(final Point3D at, final double yaw, final double pitch) {
         rigAt.setX(at.getX());
         rigAt.setY(at.getY());
         rigAt.setZ(at.getZ());
-        rigYaw.setAngle(next.yaw());
-        rigPitch.setAngle(next.pitch());
+        rigYaw.setAngle(yaw);
+        rigPitch.setAngle(pitch);
+    }
+
+    // ---- flying
+
+    private void presetView(final String name) {
+        toOrbit();
+        glideTo(preset(name));
+    }
+
+    private void toggleMode() {
+        if (mode == Mode.FLY) {
+            toOrbit();
+        } else {
+            toFly(FlyCamera.from(orbit));
+        }
+    }
+
+    /** Starts flying from the given camera, which is normally the current view, so nothing jumps. */
+    private void toFly(final FlyCamera from) {
+        stopGlide();
+        mode = Mode.FLY;
+        fly = from.within(roamLow, roamHigh);
+        velocity = Velocity.STILL;
+        aim(fly.position(), fly.yaw(), fly.pitch());
+        if (flight == null) {
+            flight = new AnimationTimer() {
+                private long last = -1;
+
+                @Override
+                public void handle(final long now) {
+                    final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
+                    last = now;
+                    fly(seconds);
+                }
+            };
+            flight.start();
+        }
+        updateHud();
+    }
+
+    /** Back to orbiting, around the point straight ahead at about the estate's distance: the same view. */
+    private void toOrbit() {
+        if (mode != Mode.FLY) {
+            return;
+        }
+        stopFlight();
+        mode = Mode.ORBIT;
+        final double ahead = Point3D.ZERO.subtract(fly.position()).dotProduct(fly.forward());
+        place(fly.toOrbit(ahead > 300 ? ahead : 800));
+        updateHud();
+    }
+
+    private void stopFlight() {
+        if (flight != null) {
+            flight.stop();
+            flight = null;
+        }
+        held.clear();
+        velocity = Velocity.STILL;
+    }
+
+    /** One frame of flying: ease toward the speed the keys ask for, then move. */
+    private void fly(final double seconds) {
+        final double speed = cruise * (held.contains(KeyCode.SHIFT) ? 4 : 1);
+        final Velocity wanted = new Velocity(
+                speed * (axis(KeyCode.W) - axis(KeyCode.S)),
+                speed * (axis(KeyCode.D) - axis(KeyCode.A)),
+                speed * (axis(KeyCode.SPACE) - axis(KeyCode.CONTROL)));
+        velocity = velocity.toward(wanted, seconds);
+        if (!velocity.isStill()) {
+            fly = fly.moved(velocity.ahead() * seconds, velocity.rightward() * seconds, velocity.upward() * seconds)
+                    .within(roamLow, roamHigh);
+            aim(fly.position(), fly.yaw(), fly.pitch());
+        }
+    }
+
+    private int axis(final KeyCode key) {
+        return held.contains(key) ? 1 : 0;
+    }
+
+    /** Standing on the ground in front of the estate, looking in. */
+    private FlyCamera entrance() {
+        return new FlyCamera(new Point3D(0, groundY - 150, offset.getZ() - 1100), 0, 6);
+    }
+
+    private void updateHud() {
+        final boolean flying = mode == Mode.FLY;
+        modeButton.setText(flying ? "Orbit" : "Fly");
+        crosshair.setVisible(flying);
+        hud.setText(flying
+                ? "FLYING  \u00B7  speed " + Math.round(cruise) + "/s\n"
+                  + "W A S D move \u00B7 Space up \u00B7 Ctrl down \u00B7 Shift faster \u00B7 wheel: speed \u00B7 drag to look"
+                  + " \u00B7 Tab: orbit"
+                : "ORBIT\n"
+                  + "drag turn \u00B7 right-drag pan \u00B7 wheel zoom \u00B7 1-5 views \u00B7 F frame \u00B7 R reset"
+                  + " \u00B7 Tab or W: fly \u00B7 6: walk in");
+    }
+
+    /**
+     * A grid on the ground under the estate, a little below the lowest slates, reaching well
+     * beyond it; also sets where flying may go.
+     */
+    private Group ground(final EstateLayout layout) {
+        final double minX = layout.placed().stream().mapToDouble(p -> p.lane() * COLUMN).min().orElse(0) - 1600;
+        final double maxX = layout.placed().stream().mapToDouble(p -> p.lane() * COLUMN).max().orElse(0) + 1600;
+        final double minZ = -1600;
+        final double maxZ = layout.maxDepth() * LAYER + 1600;
+        final double y = ROW / 2 + 70;
+        final double step = 200;
+        final PhongMaterial line = material("#262a31");
+        final PhongMaterial major = material("#323741");
+        final Group grid = new Group();
+        int i = 0;
+        for (double x = Math.floor(minX / step) * step; x <= maxX; x += step, i++) {
+            final Box l = new Box(2, 1, maxZ - minZ);
+            l.setMaterial(i % 5 == 0 ? major : line);
+            l.getTransforms().add(new Translate(x, y, (minZ + maxZ) / 2));
+            grid.getChildren().add(l);
+        }
+        i = 0;
+        for (double z = Math.floor(minZ / step) * step; z <= maxZ; z += step, i++) {
+            final Box l = new Box(maxX - minX, 1, 2);
+            l.setMaterial(i % 5 == 0 ? major : line);
+            l.getTransforms().add(new Translate((minX + maxX) / 2, y, z));
+            grid.getChildren().add(l);
+        }
+        grid.setMouseTransparent(true);
+
+        // in world terms: the content is shifted by the offset
+        groundY = y + offset.getY();
+        roamLow = new Point3D(minX - 2500, groundY - 6000, minZ + offset.getZ() - 2500);
+        roamHigh = new Point3D(maxX + 2500, groundY - 40, maxZ + offset.getZ() + 2500);
+        return grid;
     }
 
     /** Moves the camera to the orbit smoothly, easing in and out. */
@@ -470,6 +693,7 @@ public final class DependencyView {
         final java.util.function.DoubleSupplier perPixel = () ->
                 orbit.distance() * Math.tan(Math.toRadians(FIELD_OF_VIEW) / 2) / Math.max(1, view.getHeight() / 2);
         view.setOnMousePressed(e -> {
+            node.requestFocus();
             lastX = e.getSceneX();
             lastY = e.getSceneY();
         });
@@ -478,6 +702,12 @@ public final class DependencyView {
             final double dy = e.getSceneY() - lastY;
             lastX = e.getSceneX();
             lastY = e.getSceneY();
+            if (mode == Mode.FLY) {
+                // look around: mouse right looks right, mouse up looks up
+                fly = fly.looked(dx * 0.15, -dy * 0.15);
+                aim(fly.position(), fly.yaw(), fly.pitch());
+                return;
+            }
             stopGlide();
             if (e.getButton() == MouseButton.PRIMARY) {
                 // turn around the focus point, as if dragging the estate round
@@ -488,6 +718,11 @@ public final class DependencyView {
             }
         });
         view.setOnScroll(e -> {
+            if (mode == Mode.FLY) {
+                cruise = Math.max(40, Math.min(6000, cruise * (e.getDeltaY() > 0 ? 1.25 : 0.8)));
+                updateHud();
+                return;
+            }
             stopGlide();
             final double factor = e.getDeltaY() > 0 ? 0.88 : 1 / 0.88;
             final Point3D under = orbit.onPivotPlane(e.getX(), e.getY(), view.getWidth(), view.getHeight(), FIELD_OF_VIEW);

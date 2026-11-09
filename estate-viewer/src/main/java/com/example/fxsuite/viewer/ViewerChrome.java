@@ -83,7 +83,9 @@ public final class ViewerChrome {
 
     public Label help(final String extra) {
         return muted("Drag to orbit · right-drag to pan · scroll zooms toward the cursor\n"
-                + "1 angled · 2 front · 3 side · 4 top · 5 behind · F frames the selection · R resets\n" + extra);
+                + "1 angled · 2 front · 3 side · 4 top · 5 behind · F frames the selection · R resets\n"
+                + "Tab or W flies: drag to look, W A S D, Space and Ctrl, Shift faster · 6 walks in at ground level\n"
+                + extra);
     }
 
     /** Fills {@code into} with what the highlight says about its release, and its known vulnerabilities. */

@@ -109,3 +109,22 @@
 .card.dim.vulnerable, .card.dim.insecure { -fx-border-color: #7a3434; -fx-border-width: 2; }
 .card.selected.vulnerable, .card.selected.insecure { -fx-border-color: #ffd166; -fx-border-width: 3; }
 .swatch.size-sample { -fx-background-color: #3a3f48; -fx-min-width: 14; -fx-max-width: 14; -fx-min-height: 9; -fx-max-height: 9; -fx-translate-x: 4; }
+
+/* ---- over the 3D view */
+
+.hud {
+    -fx-text-fill: #c9d0da;
+    -fx-font-size: 12px;
+    -fx-background-color: rgba(21, 23, 28, 0.72);
+    -fx-background-radius: 5;
+    -fx-padding: 6 10;
+}
+.hud-button {
+    -fx-background-color: #2f6f4f;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 5;
+    -fx-padding: 4 14;
+}
+.hud-button:hover { -fx-background-color: #378058; }
+.crosshair { -fx-text-fill: rgba(255, 255, 255, 0.85); -fx-font-size: 26px; -fx-font-weight: bold; }
