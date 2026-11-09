@@ -31,5 +31,6 @@
         <module>host-manager</module>
         <module>deployment-model</module>
         <module>demo-estate</module>
+        <module>estate-viewer</module>
     </modules>
 </project>
