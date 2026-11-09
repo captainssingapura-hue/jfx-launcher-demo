@@ -27,11 +27,12 @@ public final class EstateViewer extends Application {
         final Releases releases = new Releases(new DemoEstate().units());
         final KnownAdvisories advisories = new KnownAdvisories();
         final SecurityMarks security = new SecurityMarks(advisories.all(), advisories.asOf());
-        final DependencyView view = new DependencyView(security);
+        final SizeProvider sizes = new SimulatedSizes();
+        final DependencyView view = new DependencyView(security, sizes);
         final VBox details = new VBox(10);
 
         view.setOnSelect(highlight -> chrome.details(details, highlight,
-                view.layout().of(highlight.root()).orElseThrow(), security));
+                view.layout().of(highlight.root()).orElseThrow(), security, sizes));
         view.setOnClear(() -> details.getChildren().setAll(chrome.muted("Nothing selected.")));
         view.show(new EstateLayout(releases.all()));
 
@@ -39,7 +40,7 @@ public final class EstateViewer extends Application {
         root.setRight(chrome.sidePanel(
                 chrome.title("Demo estate"),
                 chrome.counts(view.layout()),
-                chrome.legend(),
+                chrome.legend(sizes),
                 chrome.help("Click a release to see what it resolves to · Esc clears"),
                 new Region(),
                 details));

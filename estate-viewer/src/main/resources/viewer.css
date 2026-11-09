@@ -61,7 +61,7 @@
 .card.dim { -fx-background-color: #24272e; -fx-border-color: #363b44; }
 .card.dim .unit, .card.dim .number, .card.dim .chip { -fx-text-fill: #59606b; }
 
-.layer { -fx-text-fill: #7f8896; -fx-font-size: 18px; }
+.layer { -fx-text-fill: #8b94a3; -fx-font-size: 16px; }
 
 /* ---- pickers in the side panel */
 
@@ -108,3 +108,31 @@
 .side .secure { -fx-text-fill: #6fd39a; }
 .card.dim.vulnerable, .card.dim.insecure { -fx-border-color: #7a3434; -fx-border-width: 2; }
 .card.selected.vulnerable, .card.selected.insecure { -fx-border-color: #ffd166; -fx-border-width: 3; }
+.swatch.size-sample { -fx-background-color: #3a3f48; -fx-min-width: 14; -fx-max-width: 14; -fx-min-height: 9; -fx-max-height: 9; -fx-translate-x: 4; }
+
+/* ---- over the 3D view */
+
+.hud {
+    -fx-text-fill: #c9d0da;
+    -fx-font-size: 12px;
+    -fx-background-color: rgba(21, 23, 28, 0.72);
+    -fx-background-radius: 5;
+    -fx-padding: 6 10;
+}
+.hud-button {
+    -fx-background-color: #2f6f4f;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 5;
+    -fx-padding: 4 14;
+}
+.hud-button:hover { -fx-background-color: #378058; }
+.crosshair { -fx-text-fill: rgba(255, 255, 255, 0.85); -fx-font-size: 26px; -fx-font-weight: bold; }
+
+/* ---- what the crosshair is on: wins over every selection state */
+.card.targeted, .card.targeted.member, .card.targeted.selected, .card.targeted.passed, .card.targeted.dim,
+.card.targeted.vulnerable, .card.targeted.insecure,
+.card.targeted.selected.vulnerable, .card.targeted.selected.insecure,
+.card.targeted.dim.vulnerable, .card.targeted.dim.insecure,
+.card.targeted.member.vulnerable, .card.targeted.member.insecure { -fx-border-color: #5ad1ff; -fx-border-width: 3.5; }
+.crosshair.on-target { -fx-text-fill: #5ad1ff; }

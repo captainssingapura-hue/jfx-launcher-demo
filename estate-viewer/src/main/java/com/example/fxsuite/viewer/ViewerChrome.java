@@ -70,29 +70,38 @@ public final class ViewerChrome {
                 + (layout.placed().isEmpty() ? 0 : layout.maxDepth() + 1) + " layers";
     }
 
-    public VBox legend() {
+    public VBox legend(final SizeProvider sizes) {
         return new VBox(6,
                 swatch("bundle", "Bundle of external libraries"),
                 swatch("library", "Internal library"),
                 swatch("application", "Application"),
                 swatch("virtual-sample", "Virtual release: same binary, newer dependencies"),
                 swatch("vulnerable-sample", "⚠ CVE: a bundle bringing a jar with a known vulnerability"),
-                swatch("insecure-sample", "⚠ insecure: an app release that runs with one"));
+                swatch("insecure-sample", "⚠ insecure: an app release that runs with one"),
+                swatch("size-sample", "Size: the logarithm of the artifact's size (" + sizes.source() + ")"));
     }
 
     public Label help(final String extra) {
-        return muted("Drag to orbit · right-drag to pan · scroll to zoom · R resets the view\n" + extra);
+        return muted("Drag to orbit · right-drag to pan · scroll zooms toward the cursor\n"
+                + "1 angled · 2 front · 3 side · 4 top · 5 behind · F frames the selection · R resets\n"
+                + "Tab or W flies: drag to look, W A S D, Space and Ctrl, Shift faster · 6 walks in at ground level\n"
+                + "Flying: E selects what the + is on · F flies to the selection · [ ] walk its graph"
+                + " · double-click a slate to fly to it\n"
+                + extra);
     }
 
     /** Fills {@code into} with what the highlight says about its release, and its known vulnerabilities. */
-    public void details(final VBox into, final Highlight highlight, final Placed placed, final SecurityMarks security) {
+    public void details(final VBox into, final Highlight highlight, final Placed placed, final SecurityMarks security,
+                        final SizeProvider sizes) {
         final String kind = switch (placed.kind()) {
             case BUNDLE -> "Bundle";
             case LIBRARY -> "Library";
             case APPLICATION -> "Application";
         };
         into.getChildren().setAll(styled(text.named(highlight.root()), "selection"),
-                muted(kind + " · depth " + placed.depth() + (placed.isVirtual() ? " · virtual release" : "")));
+                muted(kind + " · depth " + placed.depth() + (placed.isVirtual() ? " · virtual release" : "")),
+                muted((placed.kind() == EstateLayout.Kind.BUNDLE ? "Its jars: " : "Artifact: ")
+                        + size(sizes.bytes(highlight.root())) + " (" + sizes.source() + ")"));
 
         security(into, highlight.root(), placed, security);
 
@@ -148,6 +157,14 @@ public final class ViewerChrome {
         }
     }
 
+    /** {@code 1.7 MB}, {@code 48 KB} */
+    public String size(final long bytes) {
+        if (bytes >= 1_000_000) {
+            return String.format("%.1f MB", bytes / 1_000_000.0);
+        }
+        return bytes >= 1_000 ? Math.round(bytes / 1_000.0) + " KB" : bytes + " bytes";
+    }
+
     public Label section(final String title) {
         return styled(title.toUpperCase(), "section");
     }
@@ -172,7 +189,8 @@ public final class ViewerChrome {
         if (path == null) {
             return;
         }
-        final PauseTransition settle = new PauseTransition(Duration.millis(600));
+        // -Destate.settle=<ms> waits longer, for example for -Destate.press to finish
+        final PauseTransition settle = new PauseTransition(Duration.millis(Long.getLong("estate.settle", 600)));
         settle.setOnFinished(e -> {
             try {
                 final WritableImage image = scene.snapshot(null);
