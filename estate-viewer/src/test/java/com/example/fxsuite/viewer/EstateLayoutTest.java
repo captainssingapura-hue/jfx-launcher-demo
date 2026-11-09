@@ -37,7 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EstateLayoutTest {
 
-    private static final EstateLayout LAYOUT = new EstateLayout(new DemoEstate().units());
+    private static final Releases RELEASES = new Releases(new DemoEstate().units());
+    private static final EstateLayout LAYOUT = new EstateLayout(RELEASES.all());
 
     private static Placed at(Object version) {
         return LAYOUT.placed().stream().filter(p -> p.version().equals(version)).findFirst().orElseThrow();
@@ -125,6 +126,43 @@ class EstateLayoutTest {
         });
     }
 
+    // ---- one application's dependencies
+
+    @Test
+    void anAppsClosureIsEverythingItsDeclarationsReach() {
+        List<Object> closure = List.copyOf(RELEASES.closure(new Ledger.V1_20261101_0()));
+        assertEquals(10, closure.size(), closure.toString());
+        assertEquals(new Ledger.V1_20261101_0(), closure.get(closure.size() - 1));
+        // both sides of the diamond, including the AcmeCore that resolution raises past
+        assertTrue(closure.contains(new AcmeCore.V8_20261001_0()));
+        assertTrue(closure.contains(new AcmeCore.V8_20261015_0()));
+        assertFalse(closure.contains(new AcmeCore.V9_20261110_0()));
+        assertFalse(closure.contains(new AcmeWeb.V1_20261008_0()));
+    }
+
+    @Test
+    void anAppsLayoutKeepsDepthsButCompactsRowsAndLanes() {
+        EstateLayout app = new EstateLayout(RELEASES.closure(new Ledger.V1_20261101_0()));
+        assertEquals(10, app.placed().size());
+        assertEquals(4, app.maxDepth());
+        Placed ledger = app.of(new Ledger.V1_20261101_0()).orElseThrow();
+        assertEquals(4, ledger.depth());
+        assertEquals(0, ledger.row());
+        // only two AcmeCore releases are in this graph, so rows 0 and 1
+        assertEquals(1, app.of(new AcmeCore.V8_20261015_0()).orElseThrow().row());
+        assertEquals(1, app.maxRow());
+        // depth 0 here holds AcmeFx, AcmeJson, AcmeCore and AcmeContract
+        assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), app.placed().stream().filter(p -> p.depth() == 0)
+                .map(Placed::lane).collect(Collectors.toSet()));
+    }
+
+    @Test
+    void theApplicationsAreTheAppUnitsInCatalogueOrder() {
+        assertEquals(List.of(Hello.class, Ledger.class, com.example.fxsuite.estate.Atlas.class,
+                com.example.fxsuite.estate.Courier.class), RELEASES.applications());
+        assertEquals(List.of(new Ledger.V1_20261101_0(), new Ledger.V1_20261101_1()), RELEASES.of(Ledger.class));
+    }
+
     // ---- a cycle leaves releases with no depth
 
     record LoopA() implements Library {
@@ -148,7 +186,8 @@ class EstateLayoutTest {
     @Test
     void aDependencyCycleIsReportedInsteadOfLoopingForever() {
         List<Class<? extends DeploymentUnit>> units = List.of(LoopA.class, LoopB.class);
-        IllegalStateException e = assertThrows(IllegalStateException.class, () -> new EstateLayout(units));
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> new EstateLayout(new Releases(units).all()));
         assertTrue(e.getMessage().contains("dependency cycle"), e.getMessage());
     }
 }

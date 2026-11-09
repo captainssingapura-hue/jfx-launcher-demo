@@ -5,9 +5,11 @@ import com.example.fxsuite.deployment.DeploymentUnit;
 import com.example.fxsuite.deployment.ExternalBundle;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionOrder;
+import com.example.fxsuite.deployment.VersionUnit;
 import com.example.fxsuite.deployment.VirtualVersion;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -18,15 +20,17 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * Where each release of an estate goes in the 3D view. Pure: no JavaFX.
+ * Where each of a set of releases goes in the 3D view: a whole estate, or just the part
+ * one application reaches. Pure: no JavaFX.
  *
  * <ul>
  *   <li><b>Depth</b>: 0 for a release with no internal dependencies, otherwise one more
- *       than its deepest dependency.</li>
+ *       than its deepest dependency. A property of the release, so it is the same whichever
+ *       set it is shown in.</li>
  *   <li><b>Lane</b>: one horizontal position per unit, the same in every layer. A unit's
  *       home layer is the depth of its shallowest release; the units sharing a home layer
  *       are spread out in catalogue order and centred, so the layers stack front to back.</li>
- *   <li><b>Row</b>: the release's place among its unit's releases, oldest first.</li>
+ *   <li><b>Row</b>: the release's place among its unit's releases in the set, oldest first.</li>
  * </ul>
  */
 public final class EstateLayout {
@@ -50,19 +54,20 @@ public final class EstateLayout {
     private final int maxDepth;
     private final int maxRow;
 
-    public EstateLayout(final List<Class<? extends DeploymentUnit>> units) {
-        // every release, by unit, oldest first
+    /**
+     * @param releases the releases to show, units in the order their lanes should follow
+     *                 (see {@link Releases})
+     */
+    public EstateLayout(final Collection<? extends Version<?>> releases) {
+        final VersionUnit unitOf = new VersionUnit();
+        // the releases, by unit in order of first appearance, oldest first
         final Map<Class<?>, List<Version<?>>> byUnit = new LinkedHashMap<>();
-        for (final Class<? extends DeploymentUnit> unit : units) {
-            final List<Version<?>> versions = new ArrayList<>();
-            for (final Class<?> type : unit.getDeclaredClasses()) {
-                if (Version.class.isAssignableFrom(type)) {
-                    versions.add(instantiate(type));
-                }
-            }
-            versions.sort(this::compare);
-            byUnit.put(unit, versions);
+        for (final Version<?> release : releases) {
+            final Class<?> unit = unitOf.of(release.getClass()).orElseThrow(() -> new IllegalArgumentException(
+                    release.getClass().getName() + " does not name the unit it is a version of"));
+            byUnit.computeIfAbsent(unit, u -> new ArrayList<>()).add(release);
         }
+        byUnit.values().forEach(versions -> versions.sort(this::compare));
 
         final Map<Version<?>, Integer> depths = new HashMap<>();
         for (final List<Version<?>> versions : byUnit.values()) {
@@ -167,16 +172,6 @@ public final class EstateLayout {
             return Kind.APPLICATION;
         }
         return ExternalBundle.class.isAssignableFrom(unit) ? Kind.BUNDLE : Kind.LIBRARY;
-    }
-
-    private Version<?> instantiate(final Class<?> type) {
-        try {
-            final var constructor = type.getDeclaredConstructor();
-            constructor.setAccessible(true);
-            return (Version<?>) constructor.newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("cannot create " + type.getName(), e);
-        }
     }
 
     @SuppressWarnings("unchecked")

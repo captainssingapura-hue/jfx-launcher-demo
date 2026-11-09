@@ -62,3 +62,17 @@
 .card.dim .unit, .card.dim .number, .card.dim .chip { -fx-text-fill: #59606b; }
 
 .layer { -fx-text-fill: #7f8896; -fx-font-size: 18px; }
+
+/* ---- pickers in the side panel */
+
+.side .combo-box {
+    -fx-background-color: #2a2e36;
+    -fx-background-radius: 5;
+    -fx-border-color: #3c424d;
+    -fx-border-radius: 5;
+}
+.side .combo-box .list-cell { -fx-text-fill: #e6e9ee; -fx-font-size: 14px; }
+.side .combo-box .arrow { -fx-background-color: #aab2bf; }
+.combo-box-popup .list-view { -fx-background-color: #2a2e36; }
+.combo-box-popup .list-cell { -fx-background-color: #2a2e36; -fx-text-fill: #e6e9ee; }
+.combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected { -fx-background-color: #3b5b85; }
