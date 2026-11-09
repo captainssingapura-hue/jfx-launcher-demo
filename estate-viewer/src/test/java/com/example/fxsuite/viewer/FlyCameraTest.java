@@ -50,6 +50,28 @@ class FlyCameraTest {
     }
 
     @Test
+    void aDroneKeepsItsHeightWhateverItLooksAt() {
+        for (double pitch : new double[] {-80, -30, 0, 45}) {
+            FlyCamera drone = new FlyCamera(new Point3D(10, -400, 20), 37, pitch);
+            FlyCamera moved = drone.cruised(250, -60, 0);
+            assertEquals(-400, moved.position().getY(), 1e-9, "level at pitch " + pitch);
+            // ahead is where it faces, along the ground, and it does not turn
+            Point3D level = new Point3D(drone.forward().getX(), 0, drone.forward().getZ()).normalize();
+            near(drone.position().add(level.multiply(250)).add(drone.right().multiply(-60)), moved.position());
+            assertEquals(drone.yaw(), moved.yaw());
+            assertEquals(drone.pitch(), moved.pitch());
+        }
+    }
+
+    @Test
+    void aDroneChangesHeightOnlyWhenToldAndThenStraightUp() {
+        FlyCamera drone = new FlyCamera(new Point3D(10, -400, 20), 37, -60);
+        FlyCamera climbed = drone.cruised(0, 0, 120);
+        near(drone.position().add(0, -120, 0), climbed.position());
+        near(drone.forward(), climbed.forward());
+    }
+
+    @Test
     void lookingTurnsInPlaceAndStopsShortOfStraightUpOrDown() {
         FlyCamera fly = new FlyCamera(new Point3D(5, 6, 7), 10, 0);
         FlyCamera turned = fly.looked(30, 200);

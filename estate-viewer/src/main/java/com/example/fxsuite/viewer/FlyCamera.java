@@ -35,6 +35,21 @@ public record FlyCamera(Point3D position, double yaw, double pitch) {
         return axes().right();
     }
 
+    /** The direction ahead along the ground: where the camera faces, ignoring its tilt. */
+    public Point3D heading() {
+        final double y = Math.toRadians(yaw);
+        return new Point3D(Math.sin(y), 0, Math.cos(y));
+    }
+
+    /**
+     * Moved as a drone moves: ahead along the heading and sideways, both level whatever the
+     * tilt, and straight up. Only {@code upward} changes the height.
+     */
+    public FlyCamera cruised(final double ahead, final double rightward, final double upward) {
+        final Point3D step = heading().multiply(ahead).add(right().multiply(rightward)).add(UP.multiply(upward));
+        return new FlyCamera(position.add(step), yaw, pitch);
+    }
+
     /** Turned in place: right and up for positive amounts. */
     public FlyCamera looked(final double right, final double up) {
         return new FlyCamera(position, yaw + right, pitch + up);

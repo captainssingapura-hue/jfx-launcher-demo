@@ -120,13 +120,14 @@
     -fx-padding: 6 10;
 }
 .hud-button {
-    -fx-background-color: #2f6f4f;
+    -fx-background-color: rgba(42, 47, 55, 0.85);
     -fx-text-fill: white;
     -fx-font-weight: bold;
     -fx-background-radius: 5;
     -fx-padding: 4 14;
 }
-.hud-button:hover { -fx-background-color: #378058; }
+.hud-button:hover { -fx-background-color: #3a414c; }
+.hud-button.current, .hud-button.current:hover { -fx-background-color: #2f6f4f; }
 .crosshair { -fx-text-fill: rgba(255, 255, 255, 0.85); -fx-font-size: 26px; -fx-font-weight: bold; }
 
 /* ---- what the crosshair is on: wins over every selection state */
