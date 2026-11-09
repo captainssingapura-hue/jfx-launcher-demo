@@ -30,5 +30,6 @@
         <module>alt/local-launcher</module>
         <module>host-manager</module>
         <module>deployment-model</module>
+        <module>demo-estate</module>
     </modules>
 </project>
