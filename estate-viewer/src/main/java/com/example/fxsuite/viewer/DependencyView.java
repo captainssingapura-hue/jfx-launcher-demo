@@ -62,6 +62,12 @@ import java.util.stream.IntStream;
  * Tab goes back to orbiting the point ahead; F, R and the preset views also return to
  * orbiting. Keys act only while the 3D view has focus, which a click in it gives. A ground
  * grid under the estate keeps up and down clear in either mode.
+ *
+ * <p>While flying, the slate the crosshair is on is outlined and named in the readout, with
+ * its distance and tags. E selects it; F flies to read the selection, to the side of it the
+ * camera is on; [ and ] walk the selection's graph, flying to each release it runs with in
+ * turn; double-clicking a slate flies to it. A movement key or a drag takes over from any
+ * of these glides.
  */
 public final class DependencyView {
 
@@ -89,8 +95,8 @@ public final class DependencyView {
     private final Group content = new Group();
     private final Pane node;
 
-    /** A release's slate: what is restyled when the selection changes. */
-    private record Slate(Placed placed, PhongMaterial body, List<Region> faces) {
+    /** A release's slate: what is restyled when the selection changes, and how much it is scaled. */
+    private record Slate(Placed placed, PhongMaterial body, List<Region> faces, double factor) {
     }
 
     private final Map<Version<?>, Slate> cards = new HashMap<>();
@@ -125,6 +131,17 @@ public final class DependencyView {
     private Point3D roamLow = new Point3D(-5000, -5000, -5000);
     private Point3D roamHigh = new Point3D(5000, 5000, 5000);
     private double groundY;
+    /** What the crosshair is on, and the boxes it can be on. */
+    private final Aim lineOfSight = new Aim(20_000);
+    private List<Aim.Target<Version<?>>> targets = List.of();
+    private Version<?> targeted;
+    private double targetedAt;
+    /** Walking the selection's graph: the stops, and the one last flown to. */
+    private Tour tour;
+    private Version<?> stop;
+    /** How much of the screen's width a slate the biggest size takes up when read from its standpoint. */
+    private static final double READING_SHARE = 0.5;
+    private boolean scripted;
     private final Label hud = new Label();
     private final Label crosshair = new Label("+");
     private final javafx.scene.control.Button modeButton = new javafx.scene.control.Button();
@@ -242,9 +259,20 @@ public final class DependencyView {
                     resetView();
                 }
                 case F -> {
-                    toOrbit();
-                    glideTo(selected == null ? home() : framed(new Highlighter().of(layout, selected).members()));
+                    if (mode == Mode.FLY && selected != null) {
+                        goTo(selected);
+                    } else {
+                        toOrbit();
+                        glideTo(selected == null ? home() : framed(new Highlighter().of(layout, selected).members()));
+                    }
                 }
+                case E, ENTER -> {
+                    if (mode == Mode.FLY && targeted != null) {
+                        select(targeted);
+                    }
+                }
+                case OPEN_BRACKET -> walk(-1);
+                case CLOSE_BRACKET -> walk(1);
                 case DIGIT1 -> presetView("angled");
                 case DIGIT2 -> presetView("front");
                 case DIGIT3 -> presetView("side");
@@ -286,6 +314,13 @@ public final class DependencyView {
         offset = new Point3D(0, layout.maxRow() * ROW / 2, -layout.maxDepth() * LAYER / 2);
         content.getTransforms().setAll(new Translate(offset.getX(), offset.getY(), offset.getZ()));
         content.getChildren().add(0, ground(layout));
+        targets = cards.entrySet().stream().map(card -> {
+            final Slate slate = card.getValue();
+            final double f = slate.factor();
+            return new Aim.Target<Version<?>>(card.getKey(), centre(slate.placed()).add(offset),
+                    new Point3D(CARD_WIDTH * f / 2, CARD_HEIGHT * f / 2, (SLATE_DEPTH / 2 + FACE_GAP) * f));
+        }).toList();
+        targeted = null;
         stopGlide();
         stopFlight();
         mode = Mode.ORBIT;
@@ -294,7 +329,38 @@ public final class DependencyView {
         if ("fly".equals(System.getProperty("estate.mode"))) {
             toFly(entrance());
         }
+        final String at = System.getProperty("estate.at");
+        if (at != null) {
+            final double[] n = java.util.Arrays.stream(at.split(",")).mapToDouble(Double::parseDouble).toArray();
+            toFly(new FlyCamera(new Point3D(n[0], n[1], n[2]), n[3], n[4]));
+        }
         updateHud();
+        pressIfAsked();
+    }
+
+    /**
+     * When {@code -Destate.press=KEY,KEY,...} is set (JavaFX key names, such as E or
+     * CLOSE_BRACKET), presses them once, a second apart, after the first show. For runs without
+     * a keyboard, with {@code -Destate.snapshot}.
+     */
+    private void pressIfAsked() {
+        final String keys = System.getProperty("estate.press");
+        if (keys == null || scripted) {
+            return;
+        }
+        scripted = true;
+        final javafx.animation.Timeline presses = new javafx.animation.Timeline();
+        final String[] names = keys.split(",");
+        for (int i = 0; i < names.length; i++) {
+            final KeyCode code = KeyCode.valueOf(names[i].trim());
+            presses.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1 + i), e -> {
+                node.fireEvent(new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_PRESSED,
+                        "", "", code, false, false, false, false));
+                node.fireEvent(new javafx.scene.input.KeyEvent(javafx.scene.input.KeyEvent.KEY_RELEASED,
+                        "", "", code, false, false, false, false));
+            }));
+        }
+        presses.play();
     }
 
     /** Highlights what the release resolves to. Does nothing if it is not shown. */
@@ -310,14 +376,20 @@ public final class DependencyView {
                 highlight.lit().contains(edge) ? edgeLit
                         : highlight.raised().contains(edge) ? edgeRaised : edgeDim));
         selected = root;
+        tour = Tour.of(layout, highlight.members());
+        stop = root;
         if (mode == Mode.ORBIT) {
             glideTo(framed(highlight.members()));
         }
         onSelect.accept(highlight);
+        updateHud();
     }
 
     public void clear() {
         selected = null;
+        tour = null;
+        stop = null;
+        updateHud();
         cards.values().forEach(slate -> restyle(slate, null));
         edges.values().forEach(shape -> shape.setMaterial(edgeIdle));
         onClear.run();
@@ -421,7 +493,9 @@ public final class DependencyView {
         if (mode != Mode.FLY) {
             return;
         }
+        stopGlide();
         stopFlight();
+        aimAt(null, 0);
         mode = Mode.ORBIT;
         final double ahead = Point3D.ZERO.subtract(fly.position()).dotProduct(fly.forward());
         place(fly.toOrbit(ahead > 300 ? ahead : 800));
@@ -444,12 +518,118 @@ public final class DependencyView {
                 speed * (axis(KeyCode.W) - axis(KeyCode.S)),
                 speed * (axis(KeyCode.D) - axis(KeyCode.A)),
                 speed * (axis(KeyCode.SPACE) - axis(KeyCode.CONTROL)));
+        if (glide != null && !(wanted.ahead() == 0 && wanted.rightward() == 0 && wanted.upward() == 0)) {
+            // a movement key takes over from flying to a slate
+            stopGlide();
+        }
         velocity = velocity.toward(wanted, seconds);
         if (!velocity.isStill()) {
             fly = fly.moved(velocity.ahead() * seconds, velocity.rightward() * seconds, velocity.upward() * seconds)
                     .within(roamLow, roamHigh);
             aim(fly.position(), fly.yaw(), fly.pitch());
         }
+        sight();
+    }
+
+    /** Finds what the crosshair is on. */
+    private void sight() {
+        final Optional<Aim.Hit<Version<?>>> hit = lineOfSight.nearest(fly.position(), fly.forward(), targets);
+        aimAt(hit.<Version<?>>map(Aim.Hit::thing).orElse(null), hit.map(Aim.Hit::distance).orElse(0.0));
+    }
+
+    /** Marks the slate the crosshair is on, or none, and keeps the readout's name and distance current. */
+    private void aimAt(final Version<?> next, final double distance) {
+        final boolean changed = !java.util.Objects.equals(next, targeted);
+        final boolean moved = Math.round(distance / 10) != Math.round(targetedAt / 10);
+        if (changed) {
+            mark(targeted, false);
+            mark(next, true);
+            crosshair.getStyleClass().remove("on-target");
+            if (next != null) {
+                crosshair.getStyleClass().add("on-target");
+            }
+        }
+        targeted = next;
+        targetedAt = distance;
+        if (changed || moved) {
+            updateHud();
+        }
+    }
+
+    private void mark(final Version<?> release, final boolean on) {
+        final Slate slate = release == null ? null : cards.get(release);
+        if (slate == null) {
+            return;
+        }
+        for (final Region face : slate.faces()) {
+            face.getStyleClass().remove("targeted");
+            if (on) {
+                face.getStyleClass().add("targeted");
+            }
+            face.applyCss();
+        }
+    }
+
+    /** Flies to read a release, flying from the current view if orbiting. */
+    private void goTo(final Version<?> release) {
+        if (!cards.containsKey(release)) {
+            return;
+        }
+        if (mode == Mode.ORBIT) {
+            toFly(FlyCamera.from(orbit));
+        }
+        stop = release;
+        flyTo(standpoint(release));
+        updateHud();
+    }
+
+    /** One step along the selection's graph; with nothing selected, selects what the crosshair is on first. */
+    private void walk(final int by) {
+        if (selected == null) {
+            if (targeted == null) {
+                return;
+            }
+            select(targeted);
+        }
+        goTo(tour.step(stop, by));
+    }
+
+    /** Where to stand to read a release: in front of the face nearer the camera. */
+    private FlyCamera standpoint(final Version<?> release) {
+        final Slate slate = cards.get(release);
+        final double width = view.getWidth() > 0 ? view.getWidth() : 1060;
+        final double height = view.getHeight() > 0 ? view.getHeight() : 880;
+        // one reading distance, set by the biggest slates, so sizes still compare
+        return new Approach(FIELD_OF_VIEW, width / height, READING_SHARE)
+                .standpoint(centre(slate.placed()).add(offset), CARD_WIDTH * LogScale.LARGEST,
+                        CARD_HEIGHT * LogScale.LARGEST, fly.position())
+                .within(roamLow, roamHigh);
+    }
+
+    /** Glides the flying camera to {@code target}: longer trips take longer, up to a second and a half. */
+    private void flyTo(final FlyCamera target) {
+        stopGlide();
+        velocity = Velocity.STILL;
+        final FlyCamera from = fly;
+        final double seconds = Math.min(1.5, 0.4 + from.position().distance(target.position()) / 4000);
+        glide = new AnimationTimer() {
+            private long start = -1;
+
+            @Override
+            public void handle(final long now) {
+                if (start < 0) {
+                    start = now;
+                }
+                final double t = Math.min(1, (now - start) / 1e9 / seconds);
+                final double eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                fly = from.towards(target, eased);
+                aim(fly.position(), fly.yaw(), fly.pitch());
+                if (t >= 1) {
+                    stop();
+                }
+            }
+        };
+        glide.start();
     }
 
     private int axis(final KeyCode key) {
@@ -465,13 +645,39 @@ public final class DependencyView {
         final boolean flying = mode == Mode.FLY;
         modeButton.setText(flying ? "Orbit" : "Fly");
         crosshair.setVisible(flying);
+        final String walking = tour == null ? ""
+                : "\nWalking " + text.named(selected) + "'s graph: stop " + Math.max(1, tour.number(stop))
+                  + " of " + tour.size() + " \u00B7 [ back \u00B7 ] on";
         hud.setText(flying
                 ? "FLYING  \u00B7  speed " + Math.round(cruise) + "/s\n"
-                  + "W A S D move \u00B7 Space up \u00B7 Ctrl down \u00B7 Shift faster \u00B7 wheel: speed \u00B7 drag to look"
-                  + " \u00B7 Tab: orbit"
-                : "ORBIT\n"
+                  + onTarget() + walking + "\n"
+                  + "W A S D move \u00B7 Space up \u00B7 Ctrl down \u00B7 Shift faster \u00B7 wheel: speed \u00B7 drag to look\n"
+                  + "E select what the + is on \u00B7 F fly to the selection \u00B7 [ ] walk its graph"
+                  + " \u00B7 double-click: fly to \u00B7 Tab: orbit"
+                : "ORBIT" + walking + "\n"
                   + "drag turn \u00B7 right-drag pan \u00B7 wheel zoom \u00B7 1-5 views \u00B7 F frame \u00B7 R reset"
-                  + " \u00B7 Tab or W: fly \u00B7 6: walk in");
+                  + " \u00B7 Tab or W: fly \u00B7 6: walk in"
+                  + (selected == null ? "" : " \u00B7 [ ]: walk the selection's graph"));
+    }
+
+    /** {@code "+ AcmeCore 8.20261001.0 \u00B7 640 away \u00B7 \u26A0 CVE"}, or how to aim. */
+    private String onTarget() {
+        if (targeted == null) {
+            return "+ aim at a slate to name it";
+        }
+        final Placed placed = cards.get(targeted).placed();
+        final StringBuilder line = new StringBuilder("+ " + text.named(targeted) + "  \u00B7  "
+                + Math.round(targetedAt / 10) * 10 + " away");
+        if (placed.isVirtual()) {
+            line.append("  \u00B7  virtual");
+        }
+        if (security.flagged(placed)) {
+            line.append(placed.kind() == EstateLayout.Kind.BUNDLE ? "  \u00B7  \u26A0 CVE" : "  \u00B7  \u26A0 insecure");
+        }
+        if (targeted.equals(selected)) {
+            line.append("  \u00B7  selected");
+        }
+        return line.toString();
     }
 
     /**
@@ -571,11 +777,16 @@ public final class DependencyView {
         slate.setCursor(Cursor.HAND);
         slate.setOnMouseClicked(e -> {
             if (e.getButton() == MouseButton.PRIMARY && e.isStillSincePress()) {
-                select(placed.version());
+                if (e.getClickCount() >= 2) {
+                    // the first click has selected it: now go and read it
+                    goTo(placed.version());
+                } else {
+                    select(placed.version());
+                }
             }
             e.consume();
         });
-        cards.put(placed.version(), new Slate(placed, material, List.of(front, back)));
+        cards.put(placed.version(), new Slate(placed, material, List.of(front, back), factor));
         return slate;
     }
 
@@ -703,7 +914,8 @@ public final class DependencyView {
             lastX = e.getSceneX();
             lastY = e.getSceneY();
             if (mode == Mode.FLY) {
-                // look around: mouse right looks right, mouse up looks up
+                // look around: mouse right looks right, mouse up looks up; takes over from a glide
+                stopGlide();
                 fly = fly.looked(dx * 0.15, -dy * 0.15);
                 aim(fly.position(), fly.yaw(), fly.pitch());
                 return;
@@ -729,7 +941,8 @@ public final class DependencyView {
             place(orbit.zoomedToward(under, factor));
         });
         view.setOnMouseClicked(e -> {
-            if (e.getButton() == MouseButton.PRIMARY && e.isStillSincePress()) {
+            // while flying, a click in empty space is too easily a slip while looking round: Esc clears
+            if (e.getButton() == MouseButton.PRIMARY && e.isStillSincePress() && mode == Mode.ORBIT) {
                 onBackground.run();
             }
         });

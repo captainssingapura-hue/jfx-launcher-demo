@@ -49,6 +49,13 @@ public record FlyCamera(Point3D position, double yaw, double pitch) {
         return new FlyCamera(position.add(step), yaw, pitch);
     }
 
+    /** The camera a fraction {@code t} of the way to {@code target}, turning the short way round. */
+    public FlyCamera towards(final FlyCamera target, final double t) {
+        final double turn = ((target.yaw - yaw) % 360 + 540) % 360 - 180;
+        return new FlyCamera(position.add(target.position.subtract(position).multiply(t)),
+                yaw + turn * t, pitch + (target.pitch - pitch) * t);
+    }
+
     /** Kept inside a box, given as its two opposite corners. */
     public FlyCamera within(final Point3D low, final Point3D high) {
         final Point3D kept = new Point3D(

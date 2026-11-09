@@ -128,3 +128,11 @@
 }
 .hud-button:hover { -fx-background-color: #378058; }
 .crosshair { -fx-text-fill: rgba(255, 255, 255, 0.85); -fx-font-size: 26px; -fx-font-weight: bold; }
+
+/* ---- what the crosshair is on: wins over every selection state */
+.card.targeted, .card.targeted.member, .card.targeted.selected, .card.targeted.passed, .card.targeted.dim,
+.card.targeted.vulnerable, .card.targeted.insecure,
+.card.targeted.selected.vulnerable, .card.targeted.selected.insecure,
+.card.targeted.dim.vulnerable, .card.targeted.dim.insecure,
+.card.targeted.member.vulnerable, .card.targeted.member.insecure { -fx-border-color: #5ad1ff; -fx-border-width: 3.5; }
+.crosshair.on-target { -fx-text-fill: #5ad1ff; }

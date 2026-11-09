@@ -85,6 +85,8 @@ public final class ViewerChrome {
         return muted("Drag to orbit · right-drag to pan · scroll zooms toward the cursor\n"
                 + "1 angled · 2 front · 3 side · 4 top · 5 behind · F frames the selection · R resets\n"
                 + "Tab or W flies: drag to look, W A S D, Space and Ctrl, Shift faster · 6 walks in at ground level\n"
+                + "Flying: E selects what the + is on · F flies to the selection · [ ] walk its graph"
+                + " · double-click a slate to fly to it\n"
                 + extra);
     }
 
@@ -187,7 +189,8 @@ public final class ViewerChrome {
         if (path == null) {
             return;
         }
-        final PauseTransition settle = new PauseTransition(Duration.millis(600));
+        // -Destate.settle=<ms> waits longer, for example for -Destate.press to finish
+        final PauseTransition settle = new PauseTransition(Duration.millis(Long.getLong("estate.settle", 600)));
         settle.setOnFinished(e -> {
             try {
                 final WritableImage image = scene.snapshot(null);
