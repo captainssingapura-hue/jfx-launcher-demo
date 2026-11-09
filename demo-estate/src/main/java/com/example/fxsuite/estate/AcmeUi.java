@@ -42,4 +42,13 @@ public record AcmeUi() implements Library {
         @Override public V1_20261021_0 base() { return new V1_20261021_0(); }
         @Override public Dependencies changes() { return new Dependencies(new AcmeText.V3_20261020_1()); }
     }
+
+    /** Passes the Guava fix on. */
+    public record V1_20261021_2() implements VirtualVersion<AcmeUi, V1_20261021_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(1); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 21)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V1_20261021_1 base() { return new V1_20261021_1(); }
+        @Override public Dependencies changes() { return new Dependencies(new AcmeText.V3_20261020_2()); }
+    }
 }

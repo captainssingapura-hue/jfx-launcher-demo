@@ -19,19 +19,22 @@ import java.time.LocalDate;
  */
 public record AcmeJson() implements ExternalBundle {
 
-    /** Jackson 2.22.3. */
+    /**
+     * Jackson 2.22.2, which four HIGH advisories affect (CVE-2026-89407, CVE-2026-89425,
+     * CVE-2026-91776, CVE-2026-91777), all fixed in 2.22.3.
+     */
     public record V1_20260915_0() implements PhysicalVersion<AcmeJson>, BundleRelease {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 9, 15)); }
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(); }
         @Override public Members members() { return new Members(
-                new ExternalArtifact("com.fasterxml.jackson.core", "jackson-core", "2.22.3"),
-                new ExternalArtifact("com.fasterxml.jackson.core", "jackson-databind", "2.22.3"),
+                new ExternalArtifact("com.fasterxml.jackson.core", "jackson-core", "2.22.2"),
+                new ExternalArtifact("com.fasterxml.jackson.core", "jackson-databind", "2.22.2"),
                 new ExternalArtifact("com.fasterxml.jackson.core", "jackson-annotations", "2.22")); }
     }
 
-    /** Jackson 2.22.4. */
+    /** Jackson 2.22.4: the fix, as a virtual release. Nothing that uses it is rebuilt. */
     public record V1_20261020_0() implements VirtualVersion<AcmeJson, V1_20260915_0>, BundleRelease {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 20)); }

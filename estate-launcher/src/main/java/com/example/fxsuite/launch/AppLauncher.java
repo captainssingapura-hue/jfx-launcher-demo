@@ -1,12 +1,15 @@
 package com.example.fxsuite.launch;
 
+import com.example.fxsuite.deployment.Exposure;
 import com.example.fxsuite.deployment.Resolution;
 import com.example.fxsuite.deployment.Resolver;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
 import com.example.fxsuite.deployment.VersionUnit;
 import com.example.fxsuite.deployment.Violation;
+import com.example.fxsuite.deployment.VulnerabilityScanner;
 import com.example.fxsuite.deployment.Warning;
+import com.example.fxsuite.estate.KnownAdvisories;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,12 +60,18 @@ public final class AppLauncher {
      * @param releases    everything the app runs with
      * @param warnings    resolution warnings; empty for a nearest-wins classpath, which skips resolution
      * @param conflicts   if any, the release cannot be launched
+     * @param exposures   known vulnerabilities in the jars it would run; launching still works
      * @param jars        the exact jars, the app's own first
      * @param dir         where the release is installed
      * @param label       what the app calls itself while it runs
      */
     public record Prepared(Version<?> app, boolean nearestWins, List<Version<?>> releases, List<Warning> warnings,
-                           List<Violation> conflicts, List<Coordinates> jars, Path dir, String label) {
+                           List<Violation> conflicts, List<Exposure> exposures, List<Coordinates> jars, Path dir,
+                           String label) {
+
+        public boolean isInsecure() {
+            return !exposures.isEmpty();
+        }
 
         public boolean canLaunch() {
             return conflicts.isEmpty();
@@ -112,7 +121,8 @@ public final class AppLauncher {
         final String unit = new VersionUnit().of(app.getClass()).orElseThrow().getSimpleName();
         final Path dir = settings.appsDir().resolve(unit).resolve(text.number(app) + (nearestWins ? "-nearest-wins" : ""));
         final String label = text.named(app) + (nearestWins ? " [nearest-wins classpath]" : "");
-        return new Prepared(app, nearestWins, releases, warnings, conflicts, jars, dir, label);
+        final List<Exposure> exposures = new VulnerabilityScanner().scan(releases, new KnownAdvisories().all());
+        return new Prepared(app, nearestWins, releases, warnings, conflicts, exposures, jars, dir, label);
     }
 
     /**

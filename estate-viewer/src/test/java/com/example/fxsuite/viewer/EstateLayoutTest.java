@@ -47,8 +47,8 @@ class EstateLayoutTest {
 
     @Test
     void everyReleaseAndDeclaredDependencyIsPlaced() {
-        assertEquals(44, LAYOUT.placed().size());
-        assertEquals(102, LAYOUT.edges().size());
+        assertEquals(52, LAYOUT.placed().size());
+        assertEquals(129, LAYOUT.edges().size());
         assertEquals(16, LAYOUT.columns().size());
     }
 
@@ -88,7 +88,8 @@ class EstateLayoutTest {
         assertEquals(0, at(new AcmeCore.V8_20261001_0()).row());
         assertEquals(3, at(new AcmeCore.V8_20261106_1()).row());
         assertEquals(5, at(new AcmeCore.V9_20261120_0()).row());
-        assertEquals(5, LAYOUT.maxRow());
+        // AcmeText has the most releases: seven
+        assertEquals(6, LAYOUT.maxRow());
     }
 
     @Test
@@ -162,7 +163,8 @@ class EstateLayoutTest {
     void theApplicationsAreTheAppUnitsInCatalogueOrder() {
         assertEquals(List.of(Hello.class, Ledger.class, com.example.fxsuite.estate.Atlas.class,
                 com.example.fxsuite.estate.Courier.class), RELEASES.applications());
-        assertEquals(List.of(new Ledger.V1_20261101_0(), new Ledger.V1_20261101_1()), RELEASES.of(Ledger.class));
+        assertEquals(List.of(new Ledger.V1_20261101_0(), new Ledger.V1_20261101_1(), new Ledger.V1_20261101_2()),
+                RELEASES.of(Ledger.class));
     }
 
     // ---- a cycle leaves releases with no depth

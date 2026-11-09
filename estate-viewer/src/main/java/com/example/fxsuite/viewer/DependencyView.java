@@ -57,6 +57,7 @@ public final class DependencyView {
     private static final double START_YAW = -28;
 
     private final VersionText text = new VersionText();
+    private final SecurityMarks security;
     private final Group content = new Group();
     private final Pane node;
 
@@ -80,7 +81,9 @@ public final class DependencyView {
     private double lastX;
     private double lastY;
 
-    public DependencyView() {
+    /** @param security which releases to flag for known vulnerabilities */
+    DependencyView(final SecurityMarks security) {
+        this.security = security;
         final Group world = new Group(content);
         world.getTransforms().addAll(pitch, yaw);
 
@@ -240,11 +243,21 @@ public final class DependencyView {
         }
         final Label number = new Label(text.number(placed.version()));
         number.getStyleClass().add("number");
+        final Region gap = new Region();
+        HBox.setHgrow(gap, Priority.ALWAYS);
+        final HBox bottom = new HBox(6, number, gap);
 
-        final VBox card = new VBox(3, top, number);
+        final VBox card = new VBox(3, top, bottom);
         card.getStyleClass().addAll("card", placed.kind().name().toLowerCase());
         if (placed.isVirtual()) {
             card.getStyleClass().add("virtual");
+        }
+        if (security.flagged(placed)) {
+            final boolean bundle = placed.kind() == EstateLayout.Kind.BUNDLE;
+            final Label alert = new Label(bundle ? "⚠ CVE" : "⚠ insecure");
+            alert.getStyleClass().addAll("chip", "alert");
+            bottom.getChildren().add(alert);
+            card.getStyleClass().add(bundle ? "vulnerable" : "insecure");
         }
         card.setMinSize(CARD_WIDTH, CARD_HEIGHT);
         card.setPrefSize(CARD_WIDTH, CARD_HEIGHT);

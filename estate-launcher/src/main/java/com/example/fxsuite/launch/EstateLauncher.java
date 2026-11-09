@@ -1,6 +1,7 @@
 package com.example.fxsuite.launch;
 
 import com.example.fxsuite.deployment.DeploymentUnit;
+import com.example.fxsuite.deployment.Exposure;
 import com.example.fxsuite.deployment.Lineage;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
@@ -90,6 +91,12 @@ public final class EstateLauncher {
         }
         for (final Warning warning : prepared.warnings()) {
             System.out.println("\nWARNING " + warning.message());
+        }
+
+        for (final Exposure exposure : prepared.exposures()) {
+            System.out.println("\nINSECURE " + exposure.advisory().name() + " " + exposure.advisory().severity() + ": "
+                    + exposure.advisory().summary() + "\n  " + exposure.jar().coordinates() + " via "
+                    + text.named(exposure.bundle()) + ", fixed in " + exposure.fixedIn());
         }
 
         System.out.println("\nRuns with " + prepared.releases().size() + " releases:");

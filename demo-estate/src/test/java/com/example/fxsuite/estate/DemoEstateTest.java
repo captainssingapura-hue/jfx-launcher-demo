@@ -15,6 +15,7 @@ import com.example.fxsuite.deployment.Resolution;
 import com.example.fxsuite.deployment.Resolver;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionChecker;
+import com.example.fxsuite.deployment.VulnerabilityScanner;
 import com.example.fxsuite.deployment.Warning;
 
 import hue.captains.singapura.tao.ontology.enforcer.OntologyEnforcer;
@@ -211,5 +212,58 @@ class DemoEstateTest {
         assertFalse(resolution.isValid());
         assertTrue(resolution.conflicts().items().get(0).message().contains("needs AcmeCore on more than one line"),
                 resolution.conflicts().toString());
+    }
+    // ---- security: advisories from OSV, fixed only by virtual releases
+
+    private static final List<com.example.fxsuite.deployment.Advisory> ADVISORIES = new KnownAdvisories().all();
+
+    private static List<String> exposures(Version<?> release) {
+        return new VulnerabilityScanner().scan(release, ADVISORIES).stream()
+                .map(e -> e.jar().artifact() + " " + e.jar().version() + " " + e.advisory().id()).toList();
+    }
+
+    @Test
+    void thePhysicalJacksonBundleIsVulnerableAndItsVirtualRefreshIsNot() {
+        assertEquals(List.of(
+                "jackson-core 2.22.2 GHSA-7hhh-6rmp-j9qf",
+                "jackson-core 2.22.2 GHSA-p6pp-m3f8-5c89",
+                "jackson-databind 2.22.2 GHSA-cxp5-3px4-pw24",
+                "jackson-databind 2.22.2 GHSA-wv8q-qhhj-9h54"), exposures(new AcmeJson.V1_20260915_0()));
+        assertEquals(List.of(), exposures(new AcmeJson.V1_20261020_0()));
+        assertTrue(new AcmeJson.V1_20261020_0() instanceof com.example.fxsuite.deployment.VirtualVersion<?, ?>);
+    }
+
+    @Test
+    void guavaIsFixedOnlyByItsVirtualRelease() {
+        assertEquals(List.of("guava 33.4.8-jre GHSA-xxph-c9ww-hj94"), exposures(new AcmeGuava.V1_20261001_0()));
+        assertEquals(List.of("guava 33.5.0-jre GHSA-xxph-c9ww-hj94"), exposures(new AcmeGuava.V1_20261103_0()));
+        assertEquals(List.of(), exposures(new AcmeGuava.V1_20261124_0()));
+        assertEquals(new AcmeGuava.V1_20261001_0(), new Lineage().physicalOf(new AcmeGuava.V1_20261124_0()));
+    }
+
+    @Test
+    void ledgerBecomesSecureThroughVirtualReleasesAloneOnTheSameBinary() {
+        assertEquals(5, exposures(new Ledger.V1_20261101_0()).size(), "Jackson 2.22.2 and Guava");
+        assertEquals(List.of("guava 33.4.8-jre GHSA-xxph-c9ww-hj94"), exposures(new Ledger.V1_20261101_1()));
+        assertEquals(List.of(), exposures(new Ledger.V1_20261101_2()));
+        assertEquals(new Ledger.V1_20261101_0(), new Lineage().physicalOf(new Ledger.V1_20261101_2()));
+        assertTrue(RESOLVER.resolve(new Ledger.V1_20261101_2()).warnings().isEmpty());
+    }
+
+    @Test
+    void atlasBecomesSecureByAVirtualRelease() {
+        assertEquals(List.of("guava 33.5.0-jre GHSA-xxph-c9ww-hj94"), exposures(new Atlas.V1_20261121_1()));
+        assertEquals(List.of(), exposures(new Atlas.V1_20261121_2()));
+        assertTrue(RESOLVER.resolve(new Atlas.V1_20261121_2()).warnings().isEmpty());
+    }
+
+    @Test
+    void courierStaysInsecureBecauseItNeedsARebuild() {
+        assertEquals(List.of("guava 33.5.0-jre GHSA-xxph-c9ww-hj94"), exposures(new Courier.V1_20261107_0()));
+    }
+
+    @Test
+    void helloCarriesNoKnownVulnerability() {
+        assertEquals(List.of(), exposures(new Hello.V1_20261003_1()));
     }
 }

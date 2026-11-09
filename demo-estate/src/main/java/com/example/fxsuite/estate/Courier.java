@@ -11,7 +11,8 @@ import java.time.LocalDate;
 
 /**
  * Talks to Ledger through AcmeContract line 1. Uses AcmeCodegen, so it needs a rebuild for
- * dependency updates.
+ * dependency updates: the Guava fix cannot reach it as a virtual release, and it stays
+ * insecure until it is rebuilt.
  */
 public record Courier() implements Application {
 

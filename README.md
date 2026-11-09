@@ -352,6 +352,22 @@ java -jar estate-viewer/target/estate-viewer.jar                                
 java -cp estate-viewer/target/estate-viewer.jar com.example.fxsuite.viewer.AppsMain      # one app at a time, with a Launch button
 ```
 
+**Security fixes as virtual releases.** `demo-estate` carries a snapshot of the real OSV
+advisories that affect its jars (`KnownAdvisories`, taken 2026-11-09). AcmeJson's physical
+release brings Jackson 2.22.2, which four HIGH advisories affect, and AcmeGuava's physical
+release brings Guava 33.4.8 (GHSA-xxph-c9ww-hj94); both are fixed only by virtual releases
+(Jackson 2.22.4, Guava 33.7.2). The viewers flag vulnerable bundles (⚠ CVE) and insecure app
+releases (⚠ insecure) and list each advisory; the launcher prints them before launching.
+
+```bash
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.0   # 5 advisories: Jackson and Guava
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.1   # Jackson fixed; Guava still affected
+java -jar estate-launcher/target/estate-launcher.jar Ledger 1.20261101.2   # secure: the same binary, all fixes virtual
+```
+
+Courier uses AcmeCodegen, so it needs a rebuild for dependency updates: the Guava fix cannot
+reach it as a virtual release, and it stays flagged until it is rebuilt.
+
 Each app window lists the releases actually running, the result of each check (failures in
 red), and its exact classpath; the same lines go to `app.log` beside its jars. An installed
 release is reused only while every jar matches its recorded checksum, and the launcher

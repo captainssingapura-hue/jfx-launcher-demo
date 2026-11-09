@@ -5,6 +5,7 @@ import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
 import com.example.fxsuite.deployment.VirtualVersion;
 import com.example.fxsuite.estate.DemoEstate;
+import com.example.fxsuite.estate.KnownAdvisories;
 import com.example.fxsuite.launch.AppLauncher;
 
 import javafx.application.Application;
@@ -45,7 +46,8 @@ public final class AppDependenciesViewer extends Application {
     private final ViewerChrome chrome = new ViewerChrome();
     private final VersionText text = new VersionText();
     private final Releases releases = new Releases(new DemoEstate().units());
-    private final DependencyView view = new DependencyView();
+    private final SecurityMarks security = new SecurityMarks(new KnownAdvisories().all(), new KnownAdvisories().asOf());
+    private final DependencyView view = new DependencyView(security);
     private final VBox details = new VBox(10);
     private final Label counts = chrome.muted("");
     private final LaunchPanel launchPanel = new LaunchPanel(chrome, new AppLauncher(AppLauncher.Settings.defaults(
@@ -92,7 +94,7 @@ public final class AppDependenciesViewer extends Application {
         });
 
         view.setOnSelect(highlight -> chrome.details(details, highlight,
-                view.layout().of(highlight.root()).orElseThrow()));
+                view.layout().of(highlight.root()).orElseThrow(), security));
         view.setOnClear(() -> details.getChildren().setAll(chrome.muted("Pick an application and a version.")));
         view.setOnBackground(() -> {
             if (chosen != null) {

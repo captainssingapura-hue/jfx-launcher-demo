@@ -82,6 +82,11 @@ final class LaunchPanel {
             status.getChildren().setAll(chrome.muted("Not installed yet. Launching copies its "
                     + prepared.jars().size() + " jars into " + prepared.dir()));
         }
+        if (prepared.isInsecure()) {
+            final long advisories = prepared.exposures().stream().map(e -> e.advisory().id()).distinct().count();
+            status.getChildren().add(chrome.styled("⚠ Insecure: runs with " + advisories
+                    + " known vulnerabilities. Launching still works.", "insecure-text"));
+        }
         if (prepared.nearestWins()) {
             status.getChildren().add(chrome.styled("Uses the classpath a nearest-wins build tool would make,"
                     + " not the model's resolution.", "warning"));

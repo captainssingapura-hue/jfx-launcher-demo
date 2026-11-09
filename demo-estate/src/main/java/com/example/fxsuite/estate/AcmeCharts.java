@@ -30,4 +30,13 @@ public record AcmeCharts() implements Library {
         @Override public V2_20261022_0 base() { return new V2_20261022_0(); }
         @Override public Dependencies changes() { return new Dependencies(new AcmeUi.V1_20261021_1()); }
     }
+
+    /** Passes the Guava fix on. */
+    public record V2_20261022_2() implements VirtualVersion<AcmeCharts, V2_20261022_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(2); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 22)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V2_20261022_1 base() { return new V2_20261022_1(); }
+        @Override public Dependencies changes() { return new Dependencies(new AcmeUi.V1_20261021_2()); }
+    }
 }

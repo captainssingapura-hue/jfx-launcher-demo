@@ -1,6 +1,7 @@
 package com.example.fxsuite.viewer;
 
 import com.example.fxsuite.estate.DemoEstate;
+import com.example.fxsuite.estate.KnownAdvisories;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -24,11 +25,13 @@ public final class EstateViewer extends Application {
     public void start(final Stage stage) {
         final ViewerChrome chrome = new ViewerChrome();
         final Releases releases = new Releases(new DemoEstate().units());
-        final DependencyView view = new DependencyView();
+        final KnownAdvisories advisories = new KnownAdvisories();
+        final SecurityMarks security = new SecurityMarks(advisories.all(), advisories.asOf());
+        final DependencyView view = new DependencyView(security);
         final VBox details = new VBox(10);
 
         view.setOnSelect(highlight -> chrome.details(details, highlight,
-                view.layout().of(highlight.root()).orElseThrow()));
+                view.layout().of(highlight.root()).orElseThrow(), security));
         view.setOnClear(() -> details.getChildren().setAll(chrome.muted("Nothing selected.")));
         view.show(new EstateLayout(releases.all()));
 

@@ -51,4 +51,16 @@ public record Atlas() implements Application {
                 new AcmeNet.V6_20261112_1(),
                 new AcmeText.V4_20261113_1()); }
     }
+
+    /** The fixed Guava. Same binary. */
+    public record V1_20261121_2() implements VirtualVersion<Atlas, V1_20261121_1> {
+        @Override public Monotonic monotonic() { return new Monotonic(1); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 21)); }
+        @Override public Patch patch() { return new Patch(2); }
+        @Override public V1_20261121_1 base() { return new V1_20261121_1(); }
+        @Override public Dependencies changes() { return new Dependencies(
+                new AcmeText.V4_20261113_2(),
+                new AcmeGuava.V1_20261124_0(),
+                new AcmeJsonGuava.V1_20261124_0()); }
+    }
 }

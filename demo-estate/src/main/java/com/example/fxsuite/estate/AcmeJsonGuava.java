@@ -42,4 +42,14 @@ public record AcmeJsonGuava() implements ExternalBundle {
                 new AcmeGuava.V1_20261103_0()); }
         @Override public Members members() { return new Members(new ExternalArtifact("tools.jackson.datatype", "jackson-datatype-guava", "3.2.4")); }
     }
+
+    /** Moves to the fixed Guava. */
+    public record V1_20261124_0() implements VirtualVersion<AcmeJsonGuava, V1_20261105_0>, BundleRelease {
+        @Override public Monotonic monotonic() { return new Monotonic(1); }
+        @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 24)); }
+        @Override public Patch patch() { return new Patch(0); }
+        @Override public V1_20261105_0 base() { return new V1_20261105_0(); }
+        @Override public Dependencies changes() { return new Dependencies(new AcmeGuava.V1_20261124_0()); }
+        @Override public Members members() { return new Members(new ExternalArtifact("tools.jackson.datatype", "jackson-datatype-guava", "3.2.4")); }
+    }
 }

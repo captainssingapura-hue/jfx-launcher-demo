@@ -95,3 +95,16 @@
 .side .check-box { -fx-text-fill: #c3cad5; }
 .side .check-box .box { -fx-background-color: #2a2e36; -fx-border-color: #4a515d; -fx-border-radius: 3; }
 .side .running { -fx-text-fill: #6fd39a; -fx-font-weight: bold; }
+
+/* ---- known vulnerabilities */
+
+.card.vulnerable, .card.insecure { -fx-border-color: #ff5a5a; -fx-border-width: 2.5; }
+.card .chip.alert { -fx-background-color: #d93636; -fx-text-fill: white; -fx-font-weight: bold; }
+.card.dim .chip.alert { -fx-background-color: #6b2a2a; -fx-text-fill: #e2b4b4; }
+.swatch.vulnerable-sample { -fx-background-color: #2f6f4f; -fx-border-color: #ff5a5a; -fx-border-width: 2; }
+.swatch.insecure-sample { -fx-background-color: #8a3b2b; -fx-border-color: #ff5a5a; -fx-border-width: 2; }
+.side .insecure-text { -fx-text-fill: #ff7b7b; -fx-font-weight: bold; }
+.side .advisory { -fx-text-fill: #ffb0b0; -fx-font-weight: bold; }
+.side .secure { -fx-text-fill: #6fd39a; }
+.card.dim.vulnerable, .card.dim.insecure { -fx-border-color: #7a3434; -fx-border-width: 2; }
+.card.selected.vulnerable, .card.selected.insecure { -fx-border-color: #ffd166; -fx-border-width: 3; }
