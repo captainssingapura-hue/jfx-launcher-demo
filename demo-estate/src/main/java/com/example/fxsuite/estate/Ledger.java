@@ -27,7 +27,8 @@ public record Ledger() implements Application {
                 new AcmeCharts.V2_20261022_0(),
                 new AcmeContract.V1_20261030_0(),
                 new AcmeJson.V1_20260915_0(),
-                new AcmeFx.V1_20261002_0()); }
+                new AcmeFx.V1_20261002_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /**

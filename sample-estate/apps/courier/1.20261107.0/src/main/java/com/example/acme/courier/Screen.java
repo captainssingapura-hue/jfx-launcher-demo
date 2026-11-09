@@ -9,7 +9,8 @@ import java.util.Arrays;
 
 /**
  * How every Acme app shows itself: which release it is, what it runs with, the result of
- * each thing it tries, and the exact classpath it was started with.
+ * each thing it tries, and the exact classpath it was started with. Each line is also
+ * printed, so the launcher's log shows what the app saw.
  */
 final class Screen implements StatelessFunctionalObject {
 
@@ -24,6 +25,7 @@ final class Screen implements StatelessFunctionalObject {
      */
     Label heading(final String binary) {
         final String release = System.getProperty("acme.release", binary);
+        System.out.println("release: " + release + "  (binary " + binary + ")");
         final Label label = new Label(release.equals(binary) ? release : release + "   (binary " + binary + ")");
         label.setStyle("-fx-font-size: 22px; -fx-font-weight: bold;");
         return label;
@@ -36,14 +38,21 @@ final class Screen implements StatelessFunctionalObject {
     }
 
     Label check(final String what, final Check check) {
+        String result;
+        boolean failed;
         try {
-            return line(what + ":  " + check.run(), "#1d2b1f");
+            result = check.run();
+            failed = false;
         } catch (Exception | LinkageError e) {
-            return line(what + ":  FAILED  " + e, "#b3261e");
+            result = "FAILED  " + e;
+            failed = true;
         }
+        System.out.println(what + ": " + result);
+        return line(what + ":  " + result, failed ? "#b3261e" : "#1d2b1f");
     }
 
     Label failed(final String what, final Throwable error) {
+        System.out.println(what + ": FAILED " + error);
         return line(what + ":  FAILED  " + error, "#b3261e");
     }
 

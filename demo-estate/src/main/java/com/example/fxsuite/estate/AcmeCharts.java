@@ -17,7 +17,9 @@ public record AcmeCharts() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(2); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 22)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeUi.V1_20261021_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeUi.V1_20261021_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Passes the security floor on. */

@@ -30,7 +30,22 @@
         <!-- reproducible jars: the same code always gives the same bytes and checksum -->
         <project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>
         <jontology.version>0.1.0</jontology.version>
+        <!-- releases go to dist/acme-repo (deploy), never into the local Maven repository -->
+        <maven.install.skip>true</maven.install.skip>
     </properties>
+
+    <!--
+        mvn -f sample-estate/pom.xml deploy publishes every release to dist/acme-repo, laid out like
+        a Maven repository: the estate's own release repository, which the launcher reads. The
+        repository root is found through the .mvn folder at the top of this repository.
+    -->
+    <distributionManagement>
+        <repository>
+            <id>acme-repo</id>
+            <name>The demo estate's release repository</name>
+            <url>file:${maven.multiModuleProjectDirectory}/dist/acme-repo</url>
+        </repository>
+    </distributionManagement>
 
     <modules>
         <module>libs/acme-core/8.20261001.0</module>

@@ -34,7 +34,8 @@ public final class AtlasApp extends Application implements Mutable {
                 screen.check("AcmeCore", net::coreRelease),
                 screen.check("AcmeText", text::release),
                 screen.check("Jackson", () -> JsonMapper.class.getPackage().getImplementationVersion()),
-                screen.check("Guava", () -> ImmutableList.class.getPackage().getImplementationVersion()),
+                screen.check("Guava", () -> java.nio.file.Path.of(ImmutableList.class.getProtectionDomain()
+                        .getCodeSource().getLocation().toURI()).getFileName().toString()),
                 screen.section("Doing"),
                 screen.check("Payment", () -> net.send(new Amount(990))),
                 screen.check("Negative amounts", () -> net.acceptsNegativeAmounts()

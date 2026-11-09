@@ -18,7 +18,9 @@ public record AcmeNet() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(5); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 16)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V8_20261015_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V8_20261015_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-8 security floor. */
@@ -35,7 +37,9 @@ public record AcmeNet() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(6); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 12)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V9_20261110_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V9_20261110_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-9 security floor. */

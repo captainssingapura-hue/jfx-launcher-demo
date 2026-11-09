@@ -25,7 +25,8 @@ public record Courier() implements Application {
                 new AcmeJson.V2_20261005_0(),
                 new AcmeJsonGuava.V1_20261006_0(),
                 new AcmeGuava.V1_20261001_0(),
-                new AcmeFx.V1_20261002_0()); }
+                new AcmeFx.V1_20261002_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Moves to the newer Jackson and Guava. Rebuilt because of AcmeCodegen, so a new physical release. */
@@ -39,6 +40,7 @@ public record Courier() implements Application {
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
                 new AcmeGuava.V1_20261103_0(),
-                new AcmeFx.V1_20261102_0()); }
+                new AcmeFx.V1_20261102_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 }

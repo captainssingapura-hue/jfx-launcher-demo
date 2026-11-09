@@ -19,7 +19,8 @@ public record AcmeUi() implements Library {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeText.V3_20261005_0(),
-                new AcmeFx.V1_20261002_0()); }
+                new AcmeFx.V1_20261002_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Needs the newer AcmeText, which raises AcmeText for anything using this release. */
@@ -29,7 +30,8 @@ public record AcmeUi() implements Library {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeText.V3_20261020_0(),
-                new AcmeFx.V1_20261002_0()); }
+                new AcmeFx.V1_20261002_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Passes the security floor on, so its users do not pull in the unfixed AcmeText. */

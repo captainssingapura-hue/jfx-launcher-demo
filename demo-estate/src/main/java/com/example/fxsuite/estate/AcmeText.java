@@ -19,7 +19,8 @@ public record AcmeText() implements Library {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeCore.V8_20261001_0(),
-                new AcmeGuava.V1_20261001_0()); }
+                new AcmeGuava.V1_20261001_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Adds API. */
@@ -29,7 +30,8 @@ public record AcmeText() implements Library {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeCore.V8_20261001_0(),
-                new AcmeGuava.V1_20261001_0()); }
+                new AcmeGuava.V1_20261001_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-8 security floor, without a rebuild. */
@@ -48,7 +50,8 @@ public record AcmeText() implements Library {
         @Override public Patch patch() { return new Patch(0); }
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeCore.V9_20261110_0(),
-                new AcmeGuava.V1_20261103_0()); }
+                new AcmeGuava.V1_20261103_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Carries the AcmeCore line-9 security floor. */

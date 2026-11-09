@@ -22,7 +22,8 @@ public record Atlas() implements Application {
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
                 new AcmeGuava.V1_20261103_0(),
-                new AcmeFx.V1_20261102_0()); }
+                new AcmeFx.V1_20261102_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Starts using AcmeText. Code changed, so physical. */
@@ -36,7 +37,8 @@ public record Atlas() implements Application {
                 new AcmeJson.V2_20261105_0(),
                 new AcmeJsonGuava.V1_20261105_0(),
                 new AcmeGuava.V1_20261103_0(),
-                new AcmeFx.V1_20261102_0()); }
+                new AcmeFx.V1_20261102_0(),
+                new AcmeOntology.V1_20260901_0()); }
     }
 
     /** The AcmeCore line-9 security floor. */

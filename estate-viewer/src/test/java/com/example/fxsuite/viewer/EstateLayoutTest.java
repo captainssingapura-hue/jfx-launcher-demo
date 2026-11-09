@@ -48,7 +48,7 @@ class EstateLayoutTest {
     @Test
     void everyReleaseAndDeclaredDependencyIsPlaced() {
         assertEquals(44, LAYOUT.placed().size());
-        assertEquals(78, LAYOUT.edges().size());
+        assertEquals(102, LAYOUT.edges().size());
         assertEquals(16, LAYOUT.columns().size());
     }
 
@@ -74,11 +74,11 @@ class EstateLayoutTest {
                 Placed::unit, Collectors.mapping(Placed::lane, Collectors.toSet())));
         lanesByUnit.forEach((unit, lanes) -> assertEquals(1, lanes.size(), unit.getName()));
 
-        // depth 0 holds five bundles, spread -2..2; the lone unit in front sits in the middle
+        // depth 0 holds four bundles; depth 1 five units; the lone unit in front sits in the middle
         Map<Integer, Set<Double>> lanesByDepth = LAYOUT.placed().stream().collect(Collectors.groupingBy(
                 Placed::depth, Collectors.mapping(Placed::lane, Collectors.toSet())));
-        assertEquals(Set.of(-2.0, -1.0, 0.0, 1.0, 2.0), lanesByDepth.get(0));
-        assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), lanesByDepth.get(1));
+        assertEquals(Set.of(-1.5, -0.5, 0.5, 1.5), lanesByDepth.get(0));
+        assertEquals(Set.of(-2.0, -1.0, 0.0, 1.0, 2.0), lanesByDepth.get(1));
         assertEquals(Set.of(0.0), lanesByDepth.get(5));
         assertEquals(Ledger.class, LAYOUT.columns().get(LAYOUT.columns().size() - 1));
     }
