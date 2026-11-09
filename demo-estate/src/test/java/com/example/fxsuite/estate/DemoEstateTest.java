@@ -1,8 +1,11 @@
 package com.example.fxsuite.estate;
 
 import com.example.fxsuite.deployment.Application;
-import com.example.fxsuite.deployment.DeploymentUnit;
+import com.example.fxsuite.deployment.BundleRelease;
 import com.example.fxsuite.deployment.Dependencies;
+import com.example.fxsuite.deployment.DeploymentUnit;
+import com.example.fxsuite.deployment.ExternalArtifact;
+import com.example.fxsuite.deployment.ExternalBundle;
 import com.example.fxsuite.deployment.Lineage;
 import com.example.fxsuite.deployment.Monotonic;
 import com.example.fxsuite.deployment.Patch;
@@ -19,8 +22,11 @@ import hue.captains.singapura.tao.ontology.enforcer.OntologyEnforcer;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,11 +55,23 @@ class DemoEstateTest {
         return RESOLVER.resolve(root).resolved().on(unit).map(v -> (Version<?>) v);
     }
 
+    private static List<Version<?>> releasesOf(Class<?> unit) {
+        List<Version<?>> versions = new ArrayList<>();
+        for (Class<?> type : unit.getDeclaredClasses()) {
+            try {
+                versions.add((Version<?>) type.getDeclaredConstructor().newInstance());
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        }
+        return versions;
+    }
+
     // ---- the estate as a whole
 
     @Test
     void theCatalogueListsEachUnitOnce() {
-        assertEquals(14, UNITS.size());
+        assertEquals(16, UNITS.size());
         assertEquals(UNITS.size(), new HashSet<>(UNITS).size());
     }
 
@@ -87,6 +105,43 @@ class DemoEstateTest {
                 + "version it declares"), warnings);
     }
 
+    @Test
+    void eachExternalJarBelongsToExactlyOneBundle() {
+        Map<String, Class<?>> owner = new HashMap<>();
+        for (Class<? extends DeploymentUnit> unit : UNITS) {
+            if (!ExternalBundle.class.isAssignableFrom(unit)) {
+                continue;
+            }
+            for (Version<?> release : releasesOf(unit)) {
+                for (ExternalArtifact artifact : ((BundleRelease) release).members().artifacts()) {
+                    Class<?> earlier = owner.putIfAbsent(artifact.group() + ":" + artifact.artifact(), unit);
+                    assertTrue(earlier == null || earlier == unit,
+                            artifact.coordinates() + " is in both " + earlier + " and " + unit);
+                }
+            }
+        }
+    }
+
+    @Test
+    void noAppRunsWithTwoVersionsOfTheSameJar() {
+        for (Class<? extends DeploymentUnit> unit : UNITS) {
+            if (!Application.class.isAssignableFrom(unit)) {
+                continue;
+            }
+            for (Version<?> app : releasesOf(unit)) {
+                Map<String, ExternalArtifact> jars = new HashMap<>();
+                for (Version<?> release : RESOLVER.resolve(app).resolved().versions()) {
+                    if (release instanceof BundleRelease bundle) {
+                        for (ExternalArtifact jar : bundle.members().artifacts()) {
+                            ExternalArtifact other = jars.putIfAbsent(jar.key(), jar);
+                            assertTrue(other == null || other.equals(jar), app + ": " + jar + " and " + other);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // ---- the scenarios
 
     @Test
@@ -110,8 +165,18 @@ class DemoEstateTest {
         Version<?> atlas = new Atlas.V1_20261121_1();
         assertEquals(Optional.of(new AcmeCore.V8_20261106_1()), resolved(ledger, AcmeCore.class));
         assertEquals(Optional.of(new AcmeCore.V9_20261120_0()), resolved(atlas, AcmeCore.class));
+        // Jackson 2 for Ledger, Jackson 3 for Atlas
         assertEquals(1, resolved(ledger, AcmeJson.class).orElseThrow().monotonic().value());
         assertEquals(2, resolved(atlas, AcmeJson.class).orElseThrow().monotonic().value());
+    }
+
+    @Test
+    void theJacksonGuavaBundleGetsGuavaFromTheGuavaBundle() {
+        Version<?> atlas = new Atlas.V1_20261121_1();
+        assertEquals(Optional.of(new AcmeGuava.V1_20261103_0()), resolved(atlas, AcmeGuava.class));
+        assertEquals(Optional.of(new AcmeJsonGuava.V1_20261105_0()), resolved(atlas, AcmeJsonGuava.class));
+        assertTrue(new AcmeGuava.V1_20261103_0().members().artifacts()
+                .contains(new ExternalArtifact("com.google.guava", "guava", "33.5.0-jre")));
     }
 
     @Test
@@ -124,7 +189,7 @@ class DemoEstateTest {
     @Test
     void aBundleRefreshIsVirtualEvenWithANewDate() {
         assertEquals(new AcmeFx.V1_20261002_0(), new Lineage().physicalOf(new AcmeFx.V1_20261102_0()));
-        assertEquals(new AcmeJson.V2_20261005_0(), new Lineage().physicalOf(new AcmeJson.V2_20261105_1()));
+        assertEquals(new AcmeJson.V2_20261005_0(), new Lineage().physicalOf(new AcmeJson.V2_20261105_0()));
     }
 
     @Test
@@ -133,10 +198,9 @@ class DemoEstateTest {
             if (!Application.class.isAssignableFrom(unit)) {
                 continue;
             }
-            for (Class<?> type : unit.getDeclaredClasses()) {
-                Version<?> version = instance(type);
+            for (Version<?> version : releasesOf(unit)) {
                 Resolution resolution = RESOLVER.resolve(version);
-                assertTrue(resolution.isValid(), type.getName() + ": " + resolution.conflicts());
+                assertTrue(resolution.isValid(), version + ": " + resolution.conflicts());
             }
         }
     }
@@ -147,13 +211,5 @@ class DemoEstateTest {
         assertFalse(resolution.isValid());
         assertTrue(resolution.conflicts().items().get(0).message().contains("needs AcmeCore on more than one line"),
                 resolution.conflicts().toString());
-    }
-
-    private static Version<?> instance(Class<?> type) {
-        try {
-            return (Version<?>) type.getDeclaredConstructor().newInstance();
-        } catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
     }
 }

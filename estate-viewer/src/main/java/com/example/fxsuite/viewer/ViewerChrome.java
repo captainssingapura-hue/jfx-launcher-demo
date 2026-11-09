@@ -1,5 +1,7 @@
 package com.example.fxsuite.viewer;
 
+import com.example.fxsuite.deployment.BundleRelease;
+import com.example.fxsuite.deployment.ExternalArtifact;
 import com.example.fxsuite.deployment.Version;
 import com.example.fxsuite.deployment.VersionText;
 import com.example.fxsuite.deployment.Violation;
@@ -95,6 +97,13 @@ public final class ViewerChrome {
             into.getChildren().add(muted("No internal dependencies."));
         }
         declared.forEach(v -> into.getChildren().add(new Label(text.named(v))));
+
+        if (highlight.root() instanceof BundleRelease bundle) {
+            final List<String> jars = bundle.members().artifacts().stream()
+                    .map(ExternalArtifact::coordinates).sorted().toList();
+            into.getChildren().add(section("Brings " + jars.size() + " external jars"));
+            jars.forEach(jar -> into.getChildren().add(styled(jar, "jar")));
+        }
 
         final List<Version<?>> resolved = sorted(highlight.resolution().resolved().versions());
         into.getChildren().add(section("Runs with " + resolved.size() + " releases"));

@@ -19,38 +19,43 @@ class DependenciesTest {
     // ---- a small valid estate: two bundles, a library and an application
 
     record Json() implements ExternalBundle {
-        record V2_20260920_0() implements PhysicalVersion<Json> {
+        record V2_20260920_0() implements PhysicalVersion<Json>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(2); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 9, 20)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "json", "2.20260920.0")); }
             public Dependencies dependencies() { return new Dependencies(); }
         }
-        record V2_20261105_0() implements PhysicalVersion<Json> {
+        record V2_20261105_0() implements PhysicalVersion<Json>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(2); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 5)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "json", "2.20261105.0")); }
             public Dependencies dependencies() { return new Dependencies(); }
         }
-        record V3_20261201_0() implements PhysicalVersion<Json> {
+        record V3_20261201_0() implements PhysicalVersion<Json>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(3); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 12, 1)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "json", "3.20261201.0")); }
             public Dependencies dependencies() { return new Dependencies(); }
         }
     }
 
     /** A bundle that builds on another bundle. */
     record Web() implements ExternalBundle {
-        record V1_20260925_0() implements PhysicalVersion<Web> {
+        record V1_20260925_0() implements PhysicalVersion<Web>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 9, 25)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "web", "1.20260925.0")); }
             public Dependencies dependencies() { return new Dependencies(new Json.V2_20260920_0()); }
         }
-        record V1_20261020_0() implements PhysicalVersion<Web> {
+        record V1_20261020_0() implements PhysicalVersion<Web>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 20)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "web", "1.20261020.0")); }
             public Dependencies dependencies() { return new Dependencies(new Json.V2_20261105_0()); }
         }
     }
@@ -116,10 +121,11 @@ class DependenciesTest {
     }
 
     record BundleOnLibrary() implements ExternalBundle {
-        record V1_20261002_0() implements PhysicalVersion<BundleOnLibrary> {
+        record V1_20261002_0() implements PhysicalVersion<BundleOnLibrary>, BundleRelease {
             public Monotonic monotonic() { return new Monotonic(1); }
             public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 2)); }
             public Patch patch() { return new Patch(0); }
+            public Members members() { return new Members(new ExternalArtifact("org.example.upstream", "bundleonlibrary", "1.20261002.0")); }
             public Dependencies dependencies() { return new Dependencies(new Core.V8_20261001_0()); }
         }
     }

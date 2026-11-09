@@ -10,14 +10,16 @@ import com.example.fxsuite.deployment.VirtualVersion;
 
 import java.time.LocalDate;
 
-/** Text utilities on AcmeCore. One side of the diamond. */
+/** Text utilities on AcmeCore and Guava. One side of the diamond. */
 public record AcmeText() implements Library {
 
     public record V3_20261005_0() implements PhysicalVersion<AcmeText> {
         @Override public Monotonic monotonic() { return new Monotonic(3); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 5)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V8_20261001_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V8_20261001_0(),
+                new AcmeGuava.V1_20261001_0()); }
     }
 
     /** Adds API. */
@@ -25,7 +27,9 @@ public record AcmeText() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(3); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 20)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V8_20261001_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V8_20261001_0(),
+                new AcmeGuava.V1_20261001_0()); }
     }
 
     /** Carries the AcmeCore line-8 security floor, without a rebuild. */
@@ -42,7 +46,9 @@ public record AcmeText() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(4); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 13)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(new AcmeCore.V9_20261110_0()); }
+        @Override public Dependencies dependencies() { return new Dependencies(
+                new AcmeCore.V9_20261110_0(),
+                new AcmeGuava.V1_20261103_0()); }
     }
 
     /** Carries the AcmeCore line-9 security floor. */

@@ -11,7 +11,7 @@ import java.time.LocalDate;
 
 /**
  * Talks to Ledger through AcmeContract line 1. Uses AcmeCodegen, so it needs a rebuild for
- * dependency updates. Stays on AcmeWeb line 1 under a time-limited exception to its floor.
+ * dependency updates.
  */
 public record Courier() implements Application {
 
@@ -22,11 +22,12 @@ public record Courier() implements Application {
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeContract.V1_20261030_0(),
                 new AcmeCodegen.V1_20261009_0(),
-                new AcmeWeb.V1_20261008_0(),
-                new AcmeJson.V2_20261005_0()); }
+                new AcmeJson.V2_20261005_0(),
+                new AcmeJsonGuava.V1_20261006_0(),
+                new AcmeFx.V1_20261002_0()); }
     }
 
-    /** Picks up the jsonic fix. Rebuilt because of AcmeCodegen, so a new physical release. */
+    /** Moves to the newer Jackson and Guava. Rebuilt because of AcmeCodegen, so a new physical release. */
     public record V1_20261107_0() implements PhysicalVersion<Courier> {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 7)); }
@@ -34,7 +35,8 @@ public record Courier() implements Application {
         @Override public Dependencies dependencies() { return new Dependencies(
                 new AcmeContract.V1_20261030_0(),
                 new AcmeCodegen.V1_20261009_0(),
-                new AcmeWeb.V1_20261106_0(),
-                new AcmeJson.V2_20261105_1()); }
+                new AcmeJson.V2_20261105_0(),
+                new AcmeJsonGuava.V1_20261105_0(),
+                new AcmeFx.V1_20261102_0()); }
     }
 }

@@ -17,7 +17,7 @@ public record AcmeContract() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 12)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(); }
+        @Override public Dependencies dependencies() { return new Dependencies(new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Adds a message type. */
@@ -25,7 +25,7 @@ public record AcmeContract() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 10, 30)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(); }
+        @Override public Dependencies dependencies() { return new Dependencies(new AcmeOntology.V1_20260901_0()); }
     }
 
     /** Changes WIRE_VERSION. Consumers copy the constant into their own code, so this is breaking. */
@@ -33,6 +33,6 @@ public record AcmeContract() implements Library {
         @Override public Monotonic monotonic() { return new Monotonic(2); }
         @Override public ReleaseDate date() { return new ReleaseDate(LocalDate.of(2026, 11, 15)); }
         @Override public Patch patch() { return new Patch(0); }
-        @Override public Dependencies dependencies() { return new Dependencies(); }
+        @Override public Dependencies dependencies() { return new Dependencies(new AcmeOntology.V1_20260901_0()); }
     }
 }

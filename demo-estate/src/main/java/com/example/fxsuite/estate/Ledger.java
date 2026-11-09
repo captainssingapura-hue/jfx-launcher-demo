@@ -10,7 +10,7 @@ import com.example.fxsuite.deployment.VirtualVersion;
 
 import java.time.LocalDate;
 
-/** Stays on AcmeCore line 8 and AcmeJson line 1. Talks to Courier through AcmeContract. */
+/** Stays on AcmeCore line 8 and Jackson 2. Talks to Courier through AcmeContract. */
 public record Ledger() implements Application {
 
     /**
@@ -26,12 +26,13 @@ public record Ledger() implements Application {
                 new AcmeNet.V5_20261016_0(),
                 new AcmeCharts.V2_20261022_0(),
                 new AcmeContract.V1_20261030_0(),
-                new AcmeJson.V1_20260915_0()); }
+                new AcmeJson.V1_20260915_0(),
+                new AcmeFx.V1_20261002_0()); }
     }
 
     /**
-     * The AcmeCore security floor, reached through virtual versions of the libraries in between.
-     * Every path now asks for the same AcmeCore, so the diamond warning is gone.
+     * The AcmeCore security floor, reached through virtual versions of the libraries in between,
+     * and a newer Jackson 2. Every path now asks for the same AcmeCore, so the diamond warning is gone.
      */
     public record V1_20261101_1() implements VirtualVersion<Ledger, V1_20261101_0> {
         @Override public Monotonic monotonic() { return new Monotonic(1); }
@@ -41,6 +42,7 @@ public record Ledger() implements Application {
         @Override public Dependencies changes() { return new Dependencies(
                 new AcmeText.V3_20261020_1(),
                 new AcmeNet.V5_20261016_1(),
-                new AcmeCharts.V2_20261022_1()); }
+                new AcmeCharts.V2_20261022_1(),
+                new AcmeJson.V1_20261020_0()); }
     }
 }

@@ -14,9 +14,11 @@ public final class DemoEstate implements StatelessFunctionalObject {
 
     public List<Class<? extends DeploymentUnit>> units() {
         return List.of(
+                AcmeOntology.class,
                 AcmeFx.class,
                 AcmeJson.class,
-                AcmeWeb.class,
+                AcmeGuava.class,
+                AcmeJsonGuava.class,
                 AcmeCore.class,
                 AcmeText.class,
                 AcmeNet.class,
