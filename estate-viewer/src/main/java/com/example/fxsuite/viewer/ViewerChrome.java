@@ -70,14 +70,15 @@ public final class ViewerChrome {
                 + (layout.placed().isEmpty() ? 0 : layout.maxDepth() + 1) + " layers";
     }
 
-    public VBox legend() {
+    public VBox legend(final SizeProvider sizes) {
         return new VBox(6,
                 swatch("bundle", "Bundle of external libraries"),
                 swatch("library", "Internal library"),
                 swatch("application", "Application"),
                 swatch("virtual-sample", "Virtual release: same binary, newer dependencies"),
                 swatch("vulnerable-sample", "⚠ CVE: a bundle bringing a jar with a known vulnerability"),
-                swatch("insecure-sample", "⚠ insecure: an app release that runs with one"));
+                swatch("insecure-sample", "⚠ insecure: an app release that runs with one"),
+                swatch("size-sample", "Size: the logarithm of the artifact's size (" + sizes.source() + ")"));
     }
 
     public Label help(final String extra) {
@@ -85,14 +86,17 @@ public final class ViewerChrome {
     }
 
     /** Fills {@code into} with what the highlight says about its release, and its known vulnerabilities. */
-    public void details(final VBox into, final Highlight highlight, final Placed placed, final SecurityMarks security) {
+    public void details(final VBox into, final Highlight highlight, final Placed placed, final SecurityMarks security,
+                        final SizeProvider sizes) {
         final String kind = switch (placed.kind()) {
             case BUNDLE -> "Bundle";
             case LIBRARY -> "Library";
             case APPLICATION -> "Application";
         };
         into.getChildren().setAll(styled(text.named(highlight.root()), "selection"),
-                muted(kind + " · depth " + placed.depth() + (placed.isVirtual() ? " · virtual release" : "")));
+                muted(kind + " · depth " + placed.depth() + (placed.isVirtual() ? " · virtual release" : "")),
+                muted((placed.kind() == EstateLayout.Kind.BUNDLE ? "Its jars: " : "Artifact: ")
+                        + size(sizes.bytes(highlight.root())) + " (" + sizes.source() + ")"));
 
         security(into, highlight.root(), placed, security);
 
@@ -146,6 +150,14 @@ public final class ViewerChrome {
                             + (bundle ? "" : " via " + text.named(exposure.bundle()))
                             + " · fixed in " + exposure.fixedIn(), "jar"));
         }
+    }
+
+    /** {@code 1.7 MB}, {@code 48 KB} */
+    public String size(final long bytes) {
+        if (bytes >= 1_000_000) {
+            return String.format("%.1f MB", bytes / 1_000_000.0);
+        }
+        return bytes >= 1_000 ? Math.round(bytes / 1_000.0) + " KB" : bytes + " bytes";
     }
 
     public Label section(final String title) {

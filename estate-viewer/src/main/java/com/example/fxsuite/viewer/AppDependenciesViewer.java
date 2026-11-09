@@ -47,7 +47,8 @@ public final class AppDependenciesViewer extends Application {
     private final VersionText text = new VersionText();
     private final Releases releases = new Releases(new DemoEstate().units());
     private final SecurityMarks security = new SecurityMarks(new KnownAdvisories().all(), new KnownAdvisories().asOf());
-    private final DependencyView view = new DependencyView(security);
+    private final SizeProvider sizes = new SimulatedSizes();
+    private final DependencyView view = new DependencyView(security, sizes);
     private final VBox details = new VBox(10);
     private final Label counts = chrome.muted("");
     private final LaunchPanel launchPanel = new LaunchPanel(chrome, new AppLauncher(AppLauncher.Settings.defaults(
@@ -94,7 +95,7 @@ public final class AppDependenciesViewer extends Application {
         });
 
         view.setOnSelect(highlight -> chrome.details(details, highlight,
-                view.layout().of(highlight.root()).orElseThrow(), security));
+                view.layout().of(highlight.root()).orElseThrow(), security, sizes));
         view.setOnClear(() -> details.getChildren().setAll(chrome.muted("Pick an application and a version.")));
         view.setOnBackground(() -> {
             if (chosen != null) {
@@ -111,7 +112,7 @@ public final class AppDependenciesViewer extends Application {
                 chrome.section("Version"), versions,
                 chrome.section("Launch"), launchPanel.node(),
                 counts,
-                chrome.legend(),
+                chrome.legend(sizes),
                 chrome.help("Click a release to see its own resolution · Esc goes back to the app"),
                 new Region(),
                 details));

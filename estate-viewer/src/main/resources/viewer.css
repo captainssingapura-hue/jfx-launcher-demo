@@ -61,7 +61,7 @@
 .card.dim { -fx-background-color: #24272e; -fx-border-color: #363b44; }
 .card.dim .unit, .card.dim .number, .card.dim .chip { -fx-text-fill: #59606b; }
 
-.layer { -fx-text-fill: #7f8896; -fx-font-size: 18px; }
+.layer { -fx-text-fill: #8b94a3; -fx-font-size: 16px; }
 
 /* ---- pickers in the side panel */
 
@@ -108,3 +108,4 @@
 .side .secure { -fx-text-fill: #6fd39a; }
 .card.dim.vulnerable, .card.dim.insecure { -fx-border-color: #7a3434; -fx-border-width: 2; }
 .card.selected.vulnerable, .card.selected.insecure { -fx-border-color: #ffd166; -fx-border-width: 3; }
+.swatch.size-sample { -fx-background-color: #3a3f48; -fx-min-width: 14; -fx-max-width: 14; -fx-min-height: 9; -fx-max-height: 9; -fx-translate-x: 4; }
