@@ -1,0 +1,78 @@
+.root {
+    -fx-font-family: "Segoe UI";
+    -fx-background-color: #15171c;
+}
+
+/* ---- side panel */
+
+.side-scroll, .side-scroll > .viewport {
+    -fx-background-color: #1d2026;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.side {
+    -fx-background-color: #1d2026;
+    -fx-padding: 18 18 24 18;
+}
+.side .label { -fx-text-fill: #d6dbe2; -fx-font-size: 13px; }
+.side .title { -fx-text-fill: #f3f5f8; -fx-font-size: 21px; -fx-font-weight: bold; }
+.side .selection { -fx-text-fill: #ffd166; -fx-font-size: 17px; -fx-font-weight: bold; }
+.side .muted { -fx-text-fill: #8f98a6; }
+.side .section { -fx-text-fill: #8f98a6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 6 0 0 0; }
+.side .warning { -fx-text-fill: #f0b429; }
+.side .conflict { -fx-text-fill: #ff6b6b; }
+
+.swatch {
+    -fx-min-width: 22; -fx-min-height: 14; -fx-max-width: 22; -fx-max-height: 14;
+    -fx-background-radius: 3; -fx-border-radius: 3;
+    -fx-border-color: rgba(255, 255, 255, 0.55);
+}
+.swatch.bundle { -fx-background-color: #2f6f4f; }
+.swatch.library { -fx-background-color: #2b5c8a; }
+.swatch.application { -fx-background-color: #8a3b2b; }
+.swatch.virtual-sample { -fx-background-color: #3a3f48; -fx-border-color: white; -fx-border-style: segments(4, 3); }
+
+/* ---- release panels */
+
+.card {
+    -fx-padding: 7 11;
+    -fx-background-radius: 7;
+    -fx-border-radius: 7;
+    -fx-border-width: 1.5;
+    -fx-border-color: rgba(255, 255, 255, 0.5);
+}
+.card.bundle { -fx-background-color: #2f6f4f; }
+.card.library { -fx-background-color: #2b5c8a; }
+.card.application { -fx-background-color: #8a3b2b; }
+.card.virtual { -fx-border-color: white; -fx-border-style: segments(6, 4); }
+
+.card .unit { -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; }
+.card .number { -fx-text-fill: #e9edf2; -fx-font-size: 13px; -fx-font-family: "Consolas"; }
+.card .chip {
+    -fx-text-fill: white; -fx-font-size: 10px;
+    -fx-background-color: rgba(0, 0, 0, 0.35); -fx-background-radius: 8; -fx-padding: 0 6;
+}
+
+/* selection states */
+.card.member { -fx-border-color: white; -fx-border-width: 2; }
+.card.selected { -fx-border-color: #ffd166; -fx-border-width: 3; }
+.card.passed { -fx-background-color: #3d3420; -fx-border-color: #f0b429; }
+.card.passed .unit, .card.passed .number, .card.passed .chip { -fx-text-fill: #f0c86a; }
+.card.dim { -fx-background-color: #24272e; -fx-border-color: #363b44; }
+.card.dim .unit, .card.dim .number, .card.dim .chip { -fx-text-fill: #59606b; }
+
+.layer { -fx-text-fill: #7f8896; -fx-font-size: 18px; }
+
+/* ---- pickers in the side panel */
+
+.side .combo-box {
+    -fx-background-color: #2a2e36;
+    -fx-background-radius: 5;
+    -fx-border-color: #3c424d;
+    -fx-border-radius: 5;
+}
+.side .combo-box .list-cell { -fx-text-fill: #e6e9ee; -fx-font-size: 14px; }
+.side .combo-box .arrow { -fx-background-color: #aab2bf; }
+.combo-box-popup .list-view { -fx-background-color: #2a2e36; }
+.combo-box-popup .list-cell { -fx-background-color: #2a2e36; -fx-text-fill: #e6e9ee; }
+.combo-box-popup .list-cell:hover, .combo-box-popup .list-cell:selected { -fx-background-color: #3b5b85; }
