@@ -57,14 +57,16 @@ public final class AvatarDemo extends Application {
 
     private final Set<KeyCode> held = EnumSet.noneOf(KeyCode.class);
     private final BoxRig rig = new BoxRig();
-    private final World world = new World();
+    private final Course course = new Course();
+    private final Obstacles obstacles = course.obstacles();
+    private final World world = new World(course);
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
     private final Label status = new Label();
 
-    private Body body = Body.standing(Point3D.ZERO, 30);
+    private Body body = Body.standing(Point3D.ZERO, Course.START_YAW);
     private Chase chase = Chase.behind(eyeOf(body), body.yaw());
     private MouseLook look;
     /** Degrees per second the script is turning, as the mouse would. */
@@ -138,7 +140,7 @@ public final class AvatarDemo extends Application {
                 look.takeTurn() + scriptedTurn * seconds,
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
                 held.contains(KeyCode.SHIFT));
-        body = body.step(controls, seconds);
+        body = body.step(controls, seconds, obstacles);
         final double tilt = look.takeTilt();
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
         if (tilt != 0 || circling != 0) {
@@ -147,7 +149,7 @@ public final class AvatarDemo extends Application {
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
         rig.show(body, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
-        world.shadowUnder(body);
+        world.shadowUnder(body, obstacles);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()

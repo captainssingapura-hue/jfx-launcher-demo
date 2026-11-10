@@ -380,9 +380,13 @@ a release never changes.
 that walks, runs, jumps and flies (with a jetpack) around a world of pillars and floating
 gates, followed by a chase camera. There is no mesh or skin. Each limb is a rigid part hung
 from a joint, and the animation is worked out each frame from how the body moves, the way
-blocky game characters are animated. The movement, the pose and the camera are pure maths
-(`Body`, `Gait`, `Chase`) and are unit-tested. `BoxRig` and `World` are the only scene-graph
-code.
+blocky game characters are animated. Everything in the world is solid: the avatar slides
+along what it runs into, stands on top of blocks, jumps up onto the lower crates (try the
+staircase straight ahead of the start), falls off edges, and lands on pillars it flies down
+onto. The world's layout (`Course`) is plain data that is both drawn and collided with, so
+what you see is what stops you. The movement and collision, the pose and the camera are
+pure maths (`Body`, `Obstacles`, `Gait`, `Chase`) and are unit-tested. `BoxRig` and `World`
+are the only scene-graph code.
 
 ```bash
 mvn -pl avatar-demo -am package

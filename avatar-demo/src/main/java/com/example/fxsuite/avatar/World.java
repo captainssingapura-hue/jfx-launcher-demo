@@ -11,25 +11,27 @@ import javafx.scene.shape.Box;
 import javafx.scene.shape.Cylinder;
 import javafx.scene.transform.Rotate;
 
-import java.util.Random;
-
 /**
- * Somewhere to move around: a ground with a metre grid, pillars of different heights to walk
- * between and fly over, and glowing gates up in the air to fly through. The same every run.
+ * The world drawn: a ground with a metre grid, and each block of the {@link Course} as a box,
+ * coloured by what it is. The course is also what blocks the avatar, so what you see is what
+ * stops you.
  *
- * <p>JavaFX 3D has no shadows, so the avatar gets a blob: a dark disc on the ground under it
- * that shrinks as it climbs. It is enough to tell how high something is.
+ * <p>JavaFX 3D has no shadows, so the avatar gets a blob: a dark disc on whatever is under it,
+ * the ground or a block's top, that shrinks as it climbs. It is enough to tell how high
+ * something is, and where it will land.
  */
 final class World {
 
     static final Color SKY = Color.web("#9fb8c9");
     private static final double GROUND = 18000;
     private static final double GRID = 500;
+    /** The disc lies this far above whatever it is on. */
+    private static final double SHADOW_LIFT = 1.8;
 
     private final Group root = new Group();
     private final Cylinder shadow = new Cylinder(46, 1, 24);
 
-    World() {
+    World(final Course course) {
         final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
         ground.setTranslateY(1);
         ground.setMaterial(BoxRig.matte("#66775c"));
@@ -41,34 +43,19 @@ final class World {
             root.getChildren().add(flat(new Box(GROUND * 2, 1, 4), 0, at, line));
         }
 
-        final Random random = new Random(7);
-        final String[] stone = {"#8d8577", "#a29a8b", "#7b8590", "#9a8f9e"};
-        for (int i = 0; i < 170; i++) {
-            final double x = (random.nextDouble() * 2 - 1) * (Body.EDGE - 400);
-            final double z = (random.nextDouble() * 2 - 1) * (Body.EDGE - 400);
-            if (Math.hypot(x, z) < 900) {
-                continue;  // keep the start clear
-            }
-            final double size = 120 + random.nextDouble() * 200;
-            final double height = 150 + Math.pow(random.nextDouble(), 2) * 2400;
-            final Box pillar = new Box(size, height, size);
-            pillar.setTranslateX(x);
-            pillar.setTranslateY(-height / 2);
-            pillar.setTranslateZ(z);
-            pillar.setMaterial(BoxRig.matte(stone[random.nextInt(stone.length)]));
-            root.getChildren().add(pillar);
-        }
-
-        final String[] lit = {"#ffd166", "#7df9ff", "#ff8fab"};
-        for (int i = 0; i < 14; i++) {
-            final double angle = i * 2 * Math.PI / 14 + 0.4;
-            final double reach = 1800 + random.nextDouble() * 8000;
-            root.getChildren().add(gate(Math.sin(angle) * reach, 500 + random.nextDouble() * 1500,
-                    Math.cos(angle) * reach, random.nextDouble() * 180, BoxRig.glow(lit[i % lit.length])));
+        final PhongMaterial[] stone = materials(false, "#8d8577", "#a29a8b", "#7b8590", "#9a8f9e");
+        final PhongMaterial[] crate = materials(false, "#b38b5d", "#a07a4e", "#c79f6b");
+        final PhongMaterial[] lit = materials(true, "#ffd166", "#7df9ff", "#ff8fab");
+        for (final Course.Piece piece : course.pieces()) {
+            final PhongMaterial[] kind = switch (piece.kind()) {
+                case PILLAR -> stone;
+                case CRATE -> crate;
+                case GATE -> lit;
+            };
+            root.getChildren().add(box(piece.block(), kind[piece.tint() % kind.length]));
         }
 
         shadow.setMaterial(BoxRig.matte("#45533e"));
-        shadow.setTranslateY(-1.8);
         root.getChildren().add(shadow);
 
         final AmbientLight ambient = new AmbientLight(Color.web("#8b939c"));
@@ -81,37 +68,36 @@ final class World {
         return root;
     }
 
-    /** Moves the blob shadow under the body, smaller the higher it is. */
-    void shadowUnder(final Body body) {
-        shadow.setTranslateX(body.position().getX());
-        shadow.setTranslateZ(body.position().getZ());
-        final double scale = Math.max(0.25, 1 / (1 + body.height() / 500));
+    /** Moves the blob shadow onto whatever is under the body, smaller the higher it is above it. */
+    void shadowUnder(final Body body, final Obstacles obstacles) {
+        final double x = body.position().getX();
+        final double z = body.position().getZ();
+        final double floor = obstacles.floor(x, z, Body.FOOTING, body.height() + 1e-6);
+        shadow.setTranslateX(x);
+        shadow.setTranslateY(-floor - SHADOW_LIFT);
+        shadow.setTranslateZ(z);
+        final double scale = Math.max(0.25, 1 / (1 + (body.height() - floor) / 500));
         shadow.setScaleX(scale);
         shadow.setScaleZ(scale);
     }
 
-    /** A square frame standing up in the air, to fly through. */
-    private static Group gate(final double x, final double height, final double z, final double yaw,
-                              final PhongMaterial material) {
-        final double span = 600;
-        final double bar = 36;
-        final Group gate = new Group(
-                at(new Box(span + bar, bar, bar), 0, -span / 2, material),
-                at(new Box(span + bar, bar, bar), 0, span / 2, material),
-                at(new Box(bar, span, bar), -span / 2, 0, material),
-                at(new Box(bar, span, bar), span / 2, 0, material));
-        gate.setTranslateX(x);
-        gate.setTranslateY(-height);
-        gate.setTranslateZ(z);
-        gate.getTransforms().add(new Rotate(yaw, Rotate.Y_AXIS));
-        return gate;
-    }
-
-    private static Box at(final Box box, final double x, final double y, final PhongMaterial material) {
-        box.setTranslateX(x);
-        box.setTranslateY(y);
+    /** A block as a box: centred on its footprint, between its bottom and top, turned with it. */
+    private static Box box(final Block block, final PhongMaterial material) {
+        final Box box = new Box(block.halfWidth() * 2, block.top() - block.bottom(), block.halfDepth() * 2);
+        box.setTranslateX(block.x());
+        box.setTranslateY(-(block.top() + block.bottom()) / 2);
+        box.setTranslateZ(block.z());
+        box.getTransforms().add(new Rotate(block.yaw(), Rotate.Y_AXIS));
         box.setMaterial(material);
         return box;
+    }
+
+    private static PhongMaterial[] materials(final boolean glowing, final String... colours) {
+        final PhongMaterial[] materials = new PhongMaterial[colours.length];
+        for (int i = 0; i < colours.length; i++) {
+            materials[i] = glowing ? BoxRig.glow(colours[i]) : BoxRig.matte(colours[i]);
+        }
+        return materials;
     }
 
     private static Box flat(final Box box, final double x, final double z, final PhongMaterial material) {
