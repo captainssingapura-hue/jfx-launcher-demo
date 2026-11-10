@@ -57,10 +57,12 @@ import java.util.stream.IntStream;
  * release frames its graph. Keys: 1 angled, 2 front, 3 side, 4 top, 5 behind, F frames the
  * selection, R resets. Every change of view glides rather than jumps.
  *
- * <p>Tab (or W) switches to flying, as a spectator does: drag to look, W A S D to move along
- * the view, Space and Ctrl to rise and sink, Shift to go faster, the wheel to change speed.
- * Tab goes back to orbiting the point ahead; F, R and the preset views also return to
- * orbiting. Keys act only while the 3D view has focus, which a click in it gives. A ground
+ * <p>Tab steps through orbit, fly and drone; the buttons top left choose one directly, and W
+ * starts whichever of fly and drone was used last. Flying is as a spectator does: drag to
+ * look, W A S D to move along the view, Space and Ctrl to rise and sink, Shift to go faster,
+ * the wheel to change speed. A drone moves the same way but level along its heading, so only
+ * Space and Ctrl change its height, however it is tilted. Going back to orbit turns around
+ * the point ahead; F, R and the preset views also return to orbiting. Keys act only while the 3D view has focus, which a click in it gives. A ground
  * grid under the estate keeps up and down clear in either mode.
  *
  * <p>While flying, the slate the crosshair is on is outlined and named in the readout, with
@@ -118,9 +120,18 @@ public final class DependencyView {
     private Point3D offset = Point3D.ZERO;
     private Version<?> selected;
 
-    private enum Mode { ORBIT, FLY }
+    /**
+     * Orbit turns around a point; fly and drone are free cameras that move with the keys. Flying
+     * moves along the view, up or down included; a drone moves level along its heading, so only
+     * Space and Ctrl change its height, whatever it looks at.
+     */
+    private enum Mode { ORBIT, FLY, DRONE }
 
     private Mode mode = Mode.ORBIT;
+    /** The free mode last used, which W and 6 return to from orbiting. */
+    private Mode free = Mode.FLY;
+    /** The altitude the readout shows, in tens, so it is redrawn only when that changes. */
+    private long shownAltitude = Long.MIN_VALUE;
     private FlyCamera fly = FlyCamera.from(orbit);
     private Velocity velocity = Velocity.STILL;
     /** Flying speed, world units per second; Shift goes four times faster. */
@@ -144,7 +155,7 @@ public final class DependencyView {
     private boolean scripted;
     private final Label hud = new Label();
     private final Label crosshair = new Label("+");
-    private final javafx.scene.control.Button modeButton = new javafx.scene.control.Button();
+    private final Map<Mode, javafx.scene.control.Button> modeButtons = new java.util.EnumMap<>(Mode.class);
 
     private EstateLayout layout = new EstateLayout(List.of());
     private Consumer<Highlight> onSelect = highlight -> { };
@@ -181,9 +192,16 @@ public final class DependencyView {
         view.setCamera(eye);
         hud.getStyleClass().add("hud");
         hud.setMouseTransparent(true);
-        modeButton.getStyleClass().add("hud-button");
-        modeButton.setFocusTraversable(false);
-        final VBox overlay = new VBox(6, modeButton, hud);
+        final HBox modes = new HBox(4);
+        for (final Mode each : Mode.values()) {
+            final String name = each.name().charAt(0) + each.name().substring(1).toLowerCase();
+            final javafx.scene.control.Button button = new javafx.scene.control.Button(name);
+            button.getStyleClass().add("hud-button");
+            button.setFocusTraversable(false);
+            modeButtons.put(each, button);
+            modes.getChildren().add(button);
+        }
+        final VBox overlay = new VBox(6, modes, hud);
         overlay.setPickOnBounds(false);
         overlay.relocate(14, 12);
         crosshair.getStyleClass().add("crosshair");
@@ -195,10 +213,10 @@ public final class DependencyView {
         crosshair.layoutXProperty().bind(node.widthProperty().subtract(crosshair.widthProperty()).divide(2));
         crosshair.layoutYProperty().bind(node.heightProperty().subtract(crosshair.heightProperty()).divide(2));
         node.setFocusTraversable(true);
-        modeButton.setOnAction(e -> {
-            toggleMode();
+        modeButtons.forEach((each, button) -> button.setOnAction(e -> {
+            switchTo(each);
             node.requestFocus();
-        });
+        }));
         node.focusedProperty().addListener((obs, was, is) -> {
             if (!is) {
                 held.clear();
@@ -247,7 +265,7 @@ public final class DependencyView {
         node.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.TAB) {
                 // otherwise Tab moves focus to the side panel
-                toggleMode();
+                nextMode();
                 e.consume();
             }
         });
@@ -259,7 +277,7 @@ public final class DependencyView {
                     resetView();
                 }
                 case F -> {
-                    if (mode == Mode.FLY && selected != null) {
+                    if (mode != Mode.ORBIT && selected != null) {
                         goTo(selected);
                     } else {
                         toOrbit();
@@ -267,7 +285,7 @@ public final class DependencyView {
                     }
                 }
                 case E, ENTER -> {
-                    if (mode == Mode.FLY && targeted != null) {
+                    if (mode != Mode.ORBIT && targeted != null) {
                         select(targeted);
                     }
                 }
@@ -326,8 +344,9 @@ public final class DependencyView {
         mode = Mode.ORBIT;
         place(home());
         clear();
-        if ("fly".equals(System.getProperty("estate.mode"))) {
-            toFly(entrance());
+        final String startMode = System.getProperty("estate.mode", "orbit");
+        if (!"orbit".equals(startMode)) {
+            toFree(Mode.valueOf(startMode.toUpperCase()), entrance());
         }
         final String at = System.getProperty("estate.at");
         if (at != null) {
@@ -457,18 +476,42 @@ public final class DependencyView {
         glideTo(preset(name));
     }
 
-    private void toggleMode() {
-        if (mode == Mode.FLY) {
+    /** Tab: orbit, then fly, then drone, and round again. */
+    private void nextMode() {
+        switchTo(switch (mode) {
+            case ORBIT -> Mode.FLY;
+            case FLY -> Mode.DRONE;
+            case DRONE -> Mode.ORBIT;
+        });
+    }
+
+    /** Into a mode, keeping the view exactly as it is. */
+    private void switchTo(final Mode next) {
+        if (next == mode) {
+            return;
+        }
+        if (next == Mode.ORBIT) {
             toOrbit();
+        } else if (mode == Mode.ORBIT) {
+            toFree(next, FlyCamera.from(orbit));
         } else {
-            toFly(FlyCamera.from(orbit));
+            // fly and drone share the camera: only how the keys move it changes
+            mode = next;
+            free = next;
+            updateHud();
         }
     }
 
-    /** Starts flying from the given camera, which is normally the current view, so nothing jumps. */
+    /** Starts the free mode last used from the given camera. */
     private void toFly(final FlyCamera from) {
+        toFree(free, from);
+    }
+
+    /** Starts flying or droning from the given camera, which is normally the current view, so nothing jumps. */
+    private void toFree(final Mode which, final FlyCamera from) {
         stopGlide();
-        mode = Mode.FLY;
+        mode = which;
+        free = which;
         fly = from.within(roamLow, roamHigh);
         velocity = Velocity.STILL;
         aim(fly.position(), fly.yaw(), fly.pitch());
@@ -490,7 +533,7 @@ public final class DependencyView {
 
     /** Back to orbiting, around the point straight ahead at about the estate's distance: the same view. */
     private void toOrbit() {
-        if (mode != Mode.FLY) {
+        if (mode == Mode.ORBIT) {
             return;
         }
         stopGlide();
@@ -524,11 +567,22 @@ public final class DependencyView {
         }
         velocity = velocity.toward(wanted, seconds);
         if (!velocity.isStill()) {
-            fly = fly.moved(velocity.ahead() * seconds, velocity.rightward() * seconds, velocity.upward() * seconds)
+            final double ahead = velocity.ahead() * seconds;
+            final double rightward = velocity.rightward() * seconds;
+            final double upward = velocity.upward() * seconds;
+            fly = (mode == Mode.DRONE ? fly.cruised(ahead, rightward, upward) : fly.moved(ahead, rightward, upward))
                     .within(roamLow, roamHigh);
             aim(fly.position(), fly.yaw(), fly.pitch());
         }
+        if (mode == Mode.DRONE && Math.round(altitude() / 10) != shownAltitude) {
+            updateHud();
+        }
         sight();
+    }
+
+    /** Height above the ground grid; y points down. */
+    private double altitude() {
+        return groundY - fly.position().getY();
     }
 
     /** Finds what the crosshair is on. */
@@ -642,22 +696,33 @@ public final class DependencyView {
     }
 
     private void updateHud() {
-        final boolean flying = mode == Mode.FLY;
-        modeButton.setText(flying ? "Orbit" : "Fly");
-        crosshair.setVisible(flying);
+        modeButtons.forEach((each, button) -> {
+            button.getStyleClass().remove("current");
+            if (each == mode) {
+                button.getStyleClass().add("current");
+            }
+        });
+        crosshair.setVisible(mode != Mode.ORBIT);
         final String walking = tour == null ? ""
                 : "\nWalking " + text.named(selected) + "'s graph: stop " + Math.max(1, tour.number(stop))
                   + " of " + tour.size() + " \u00B7 [ back \u00B7 ] on";
-        hud.setText(flying
-                ? "FLYING  \u00B7  speed " + Math.round(cruise) + "/s\n"
-                  + onTarget() + walking + "\n"
-                  + "W A S D move \u00B7 Space up \u00B7 Ctrl down \u00B7 Shift faster \u00B7 wheel: speed \u00B7 drag to look\n"
-                  + "E select what the + is on \u00B7 F fly to the selection \u00B7 [ ] walk its graph"
-                  + " \u00B7 double-click: fly to \u00B7 Tab: orbit"
-                : "ORBIT" + walking + "\n"
-                  + "drag turn \u00B7 right-drag pan \u00B7 wheel zoom \u00B7 1-5 views \u00B7 F frame \u00B7 R reset"
-                  + " \u00B7 Tab or W: fly \u00B7 6: walk in"
-                  + (selected == null ? "" : " \u00B7 [ ]: walk the selection's graph"));
+        final String aiming = "E select what the + is on \u00B7 F fly to the selection \u00B7 [ ] walk its graph"
+                + " \u00B7 double-click: fly to \u00B7 Tab: next mode";
+        shownAltitude = Math.round(altitude() / 10);
+        hud.setText(switch (mode) {
+            case FLY -> "FLYING  \u00B7  speed " + Math.round(cruise) + "/s\n"
+                    + onTarget() + walking + "\n"
+                    + "W A S D move along the view \u00B7 Space up \u00B7 Ctrl down \u00B7 Shift faster"
+                    + " \u00B7 wheel: speed \u00B7 drag to look\n" + aiming;
+            case DRONE -> "DRONE  \u00B7  altitude " + shownAltitude * 10 + "  \u00B7  speed " + Math.round(cruise) + "/s\n"
+                    + onTarget() + walking + "\n"
+                    + "W A S D move level \u00B7 Space climb \u00B7 Ctrl descend \u00B7 Shift faster"
+                    + " \u00B7 wheel: speed \u00B7 drag to look\n" + aiming;
+            case ORBIT -> "ORBIT" + walking + "\n"
+                    + "drag turn \u00B7 right-drag pan \u00B7 wheel zoom \u00B7 1-5 views \u00B7 F frame \u00B7 R reset"
+                    + " \u00B7 Tab: next mode \u00B7 W: " + free.name().toLowerCase() + " \u00B7 6: walk in"
+                    + (selected == null ? "" : " \u00B7 [ ]: walk the selection's graph");
+        });
     }
 
     /** {@code "+ AcmeCore 8.20261001.0 \u00B7 640 away \u00B7 \u26A0 CVE"}, or how to aim. */
@@ -913,7 +978,7 @@ public final class DependencyView {
             final double dy = e.getSceneY() - lastY;
             lastX = e.getSceneX();
             lastY = e.getSceneY();
-            if (mode == Mode.FLY) {
+            if (mode != Mode.ORBIT) {
                 // look around: mouse right looks right, mouse up looks up; takes over from a glide
                 stopGlide();
                 fly = fly.looked(dx * 0.15, -dy * 0.15);
@@ -930,8 +995,8 @@ public final class DependencyView {
             }
         });
         view.setOnScroll(e -> {
-            if (mode == Mode.FLY) {
-                cruise = Math.max(40, Math.min(6000, cruise * (e.getDeltaY() > 0 ? 1.25 : 0.8)));
+            if (mode != Mode.ORBIT) {
+                cruise =Math.max(40, Math.min(6000, cruise * (e.getDeltaY() > 0 ? 1.25 : 0.8)));
                 updateHud();
                 return;
             }

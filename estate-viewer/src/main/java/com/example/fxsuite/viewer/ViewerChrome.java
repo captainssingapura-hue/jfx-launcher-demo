@@ -84,8 +84,10 @@ public final class ViewerChrome {
     public Label help(final String extra) {
         return muted("Drag to orbit · right-drag to pan · scroll zooms toward the cursor\n"
                 + "1 angled · 2 front · 3 side · 4 top · 5 behind · F frames the selection · R resets\n"
-                + "Tab or W flies: drag to look, W A S D, Space and Ctrl, Shift faster · 6 walks in at ground level\n"
-                + "Flying: E selects what the + is on · F flies to the selection · [ ] walk its graph"
+                + "Tab steps through orbit, fly and drone · W flies: drag to look, W A S D, Space and Ctrl,"
+                + " Shift faster · 6 walks in at ground level\n"
+                + "Drone: W A S D move level, so only Space and Ctrl change height, however you tilt\n"
+                + "Flying or droning: E selects what the + is on · F flies to the selection · [ ] walk its graph"
                 + " · double-click a slate to fly to it\n"
                 + extra);
     }
