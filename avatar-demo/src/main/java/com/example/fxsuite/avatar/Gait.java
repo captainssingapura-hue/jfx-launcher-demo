@@ -46,10 +46,11 @@ public final class Gait {
         final double spread = Math.abs(Math.sin(body.phase())) * amplitude * 0.45 * Math.abs(across);
         final double cos = Math.cos(body.phase());
         final double breath = Math.sin(t * 1.8);
+        // the lift is never below standing height, so the feet never dip into the ground
         return new Pose(
                 ahead >= 0 ? 2 + 10 * pace * ahead : 2 + 5 * pace * ahead,
                 Body.clamp(body.turnRate() / Body.TURN, -1, 1) * 6 * pace + across * 7 * pace,
-                pace * 5 * cos * cos + breath * 0.8,
+                pace * 5 * cos * cos + (breath + 1) * 0.4,
                 -swing * 0.8, swing * 0.8, 3 + breath + 10 * Math.abs(across) * pace,
                 swing, -swing, spread,
                 0, 0, 0);

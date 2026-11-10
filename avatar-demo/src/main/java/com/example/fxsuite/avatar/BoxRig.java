@@ -36,6 +36,8 @@ final class BoxRig {
     static final double MIDDLE = 105;
     /** Where the chase camera looks: about the head. */
     static final double EYE_HEIGHT = 160;
+    /** How far the soles stand clear of the ground, above the blob shadow on it. */
+    static final double SOLE = 3;
 
     private static final double HIP = 80;
     private static final double SHOULDER = 144;
@@ -110,7 +112,9 @@ final class BoxRig {
         at.setY(where.position().getY());
         at.setZ(where.position().getZ());
         turn.setAngle(where.yaw());
-        raise.setY(-pose.lift());
+        // the soles hover a hair above the ground and its blob shadow: a sole lying in the same
+        // plane as the ground flickers, as the renderer cannot tell which is in front
+        raise.setY(-(pose.lift() + SOLE));
         // forward lean tips the top toward +z, a negative turn about x; right bank drops +x, positive about z
         lean.setAngle(-pose.lean());
         bank.setAngle(pose.bank());
@@ -150,7 +154,7 @@ final class BoxRig {
         return new Group(
                 box(24, 72, 26, 0, 38, 0, shell),
                 box(26, 8, 28, 0, 40, 0, joint),                           // knee band
-                box(26, 12, 34, 0, 74, 4, joint));                         // foot
+                box(26, 12, 34, 0, 74, 5, joint));                         // foot, its heel inside the leg
     }
 
     private static Group arm(final PhongMaterial shell, final PhongMaterial joint) {

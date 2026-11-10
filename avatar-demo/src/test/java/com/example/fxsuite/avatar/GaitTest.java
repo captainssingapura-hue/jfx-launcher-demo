@@ -38,6 +38,18 @@ class GaitTest {
     }
 
     @Test
+    void theBodyNeverSinksBelowStandingHeight() {
+        // a negative lift would push the feet into the ground, where they flicker against it
+        for (int i = 0; i < 400; i++) {
+            final double t = i * 0.05;
+            final Body standing = new Body(Point3D.ZERO, 0, 0, 0, 0, 0, false, 0, t);
+            final Body walking = new Body(Point3D.ZERO, 0, Body.WALK, 0, 0, 0, false, i * 0.3, t);
+            assertTrue(Gait.of(standing, 0, 0).lift() >= 0, "standing at " + t);
+            assertTrue(Gait.of(walking, 0, 0).lift() >= 0, "walking at " + t);
+        }
+    }
+
+    @Test
     void legsSwingOppositeEachOtherAndArmsOppositeTheirLeg() {
         final Pose pose = Gait.of(walking(Body.WALK, Math.PI / 2), 0, 0);
         assertTrue(pose.leftLeg() > 10, "left leg forward: " + pose.leftLeg());
