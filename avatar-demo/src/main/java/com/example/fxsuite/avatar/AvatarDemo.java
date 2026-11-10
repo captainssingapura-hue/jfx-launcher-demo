@@ -36,14 +36,17 @@ import java.util.Set;
 /**
  * A box-rig avatar in a small world, followed by a chase camera.
  *
- * <p>W/S move, A/D turn, Shift runs (or boosts), Space jumps (or climbs while flying), Ctrl
- * descends, F takes off or stops flying. Drag, or hold Q or E, to circle the camera round the
- * avatar; C puts it back behind. Scroll to zoom.
+ * <p>The keys move the avatar without turning it: W/S ahead and back, A/D sideways, Shift runs
+ * (or boosts), Space jumps (or climbs while flying), Ctrl descends, F takes off or stops flying.
+ * The mouse turns it, with no button held ({@link MouseLook}); clicks are kept for actions.
+ * Esc frees the mouse or takes it back. Hold Q or E to swing the camera round the avatar; C
+ * puts it back behind. Scroll to zoom.
  *
  * <p>For runs without a keyboard: {@code -Davatar.script="F;W+SHIFT:2;W+D:1.5"} holds each
- * step's keys for its seconds (a step without seconds is a tap, and {@code :1} just waits), and
- * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits.
- * {@code -Davatar.settle=<ms>} picks the moment instead.
+ * step's keys for its seconds (a step without seconds is a tap, and {@code :1} just waits); an
+ * {@code @90} among a step's keys turns 90° over the step, as the mouse would.
+ * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
+ * {@code -Davatar.settle=<ms>} picks the moment instead. Either leaves the mouse alone.
  */
 public final class AvatarDemo extends Application {
 
@@ -63,9 +66,9 @@ public final class AvatarDemo extends Application {
 
     private Body body = Body.standing(Point3D.ZERO, 30);
     private Chase chase = Chase.behind(eyeOf(body), body.yaw());
-    private boolean dragging;
-    private double dragX;
-    private double dragY;
+    private MouseLook look;
+    /** Degrees per second the script is turning, as the mouse would. */
+    private double scriptedTurn;
     private double fieldOfView = FIELD_OF_VIEW;
     private String shown = "";
 
@@ -80,11 +83,12 @@ public final class AvatarDemo extends Application {
                 SceneAntialiasing.BALANCED);
         view.setFill(World.SKY);
         view.setCamera(eye);
-        lookAround(view);
+        view.setOnScroll(e -> chase = chase.zoomed(Math.pow(1.0015, -e.getDeltaY())));
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
-        final Label help = new Label("W/S move · A/D turn · Shift run or boost · Space jump or climb · "
-                + "Ctrl descend · F fly or land · drag or Q/E circle the camera · C camera behind · scroll to zoom");
+        final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift run or boost · "
+                + "Space jump or climb · Ctrl descend · F fly or land · Q/E look round · C camera behind · "
+                + "scroll to zoom · Esc frees the mouse");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         final VBox hud = new VBox(4, status, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
@@ -105,6 +109,10 @@ public final class AvatarDemo extends Application {
         stage.setTitle("FxSuite · Avatar");
         stage.setScene(scene);
         stage.show();
+        // unattended runs leave the real mouse alone
+        final boolean unattended = System.getProperty("avatar.script") != null
+                || System.getProperty("avatar.snapshot") != null;
+        look = new MouseLook(stage, scene, !unattended);
 
         frame(0);
         new AnimationTimer() {
@@ -127,15 +135,16 @@ public final class AvatarDemo extends Application {
         final Controls controls = new Controls(
                 axis(KeyCode.W) - axis(KeyCode.S),
                 axis(KeyCode.D) - axis(KeyCode.A),
+                look.takeTurn() + scriptedTurn * seconds,
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
                 held.contains(KeyCode.SHIFT));
         body = body.step(controls, seconds);
-        final double moving = Body.clamp(Math.abs(body.speed()) / Body.WALK, 0, 1);
+        final double tilt = look.takeTilt();
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
-        if (circling != 0) {
-            chase = chase.turned(circling * CIRCLE * seconds, 0);
+        if (tilt != 0 || circling != 0) {
+            chase = chase.turned(circling * CIRCLE * seconds, tilt);
         }
-        chase = chase.follow(eyeOf(body), body.yaw(), moving, seconds, dragging || circling != 0);
+        chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
         rig.show(body, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         world.shadowUnder(body);
@@ -156,13 +165,17 @@ public final class AvatarDemo extends Application {
     }
 
     private void showStatus() {
-        final double metres = Math.abs(body.speed()) / 100;
+        final double metres = body.groundSpeed() / 100;
+        // measured against the top speed each way, so a diagonal is not mistaken for a sprint
+        final double pace = Math.max(Math.abs(body.speed()), Math.abs(body.drift()) / Body.SIDESTEP);
         final String what = body.flying()
-                ? (body.speed() > Body.FLY * 1.1 ? "Boosting" : "Flying")
+                ? (pace > Body.FLY * 1.1 ? "Boosting" : "Flying")
                 : !body.grounded() ? "In the air"
                 : metres < 0.1 ? "Standing"
-                : Math.abs(body.speed()) > Body.WALK * 1.2 ? "Running" : "Walking";
-        final String text = String.format("%s · %.1f m/s · %.1f m up", what, metres, body.height() / 100);
+                : Math.abs(body.drift()) > Math.abs(body.speed()) ? "Side-stepping"
+                : pace > Body.WALK * 1.2 ? "Running" : "Walking";
+        final String text = String.format("%s · %.1f m/s · %.1f m up%s", what, metres, body.height() / 100,
+                look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
             status.setText(text);
@@ -177,6 +190,7 @@ public final class AvatarDemo extends Application {
             case SPACE -> body = body.jumped();
             case F -> body = body.toggledFlight();
             case C -> chase = Chase.behind(chase.pivot(), body.yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
+            case ESCAPE -> look.toggle();
             default -> {
             }
         }
@@ -188,22 +202,6 @@ public final class AvatarDemo extends Application {
 
     private double axis(final KeyCode code) {
         return held.contains(code) ? 1 : 0;
-    }
-
-    /** Drag to turn the camera round the avatar, scroll to zoom. */
-    private void lookAround(final SubScene view) {
-        view.setOnMousePressed(e -> {
-            dragging = true;
-            dragX = e.getSceneX();
-            dragY = e.getSceneY();
-        });
-        view.setOnMouseDragged(e -> {
-            chase = chase.turned((e.getSceneX() - dragX) * 0.3, -(e.getSceneY() - dragY) * 0.25);
-            dragX = e.getSceneX();
-            dragY = e.getSceneY();
-        });
-        view.setOnMouseReleased(e -> dragging = false);
-        view.setOnScroll(e -> chase = chase.zoomed(Math.pow(1.0015, -e.getDeltaY())));
     }
 
     private static Point3D eyeOf(final Body body) {
@@ -227,6 +225,12 @@ public final class AvatarDemo extends Application {
             final double hold = parts.length > 1 ? Double.parseDouble(parts[1].trim()) : 0.15;
             if (!parts[0].isBlank()) {
                 for (final String name : parts[0].split("\\+")) {
+                    if (name.trim().startsWith("@")) {
+                        final double rate = Double.parseDouble(name.trim().substring(1)) / hold;
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTurn = rate));
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTurn = 0));
+                        continue;
+                    }
                     final KeyCode code = KeyCode.valueOf(name.trim().toUpperCase());
                     steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> press(code)));
                     steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> release(code)));

@@ -24,7 +24,7 @@ import javafx.scene.transform.Translate;
  * <pre>
  * root    at, turn                       where it stands, which way it faces
  *  └ body raise, bank, lean              tipped about its middle
- *     ├ hips ─ left leg, right leg       swing at the hips
+ *     ├ hips ─ left leg, right leg       swing and spread at the hips
  *     ├ torso, jetpack, flames
  *     ├ shoulders ─ left arm, right arm  swing and spread at the shoulders
  *     └ neck ─ head                      turns and tips at the neck
@@ -52,6 +52,8 @@ final class BoxRig {
 
     private final Rotate leftLeg = new Rotate(0, Rotate.X_AXIS);
     private final Rotate rightLeg = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate leftLegOut = new Rotate(0, Rotate.Z_AXIS);
+    private final Rotate rightLegOut = new Rotate(0, Rotate.Z_AXIS);
     private final Rotate leftArm = new Rotate(0, Rotate.X_AXIS);
     private final Rotate rightArm = new Rotate(0, Rotate.X_AXIS);
     private final Rotate leftSpread = new Rotate(0, Rotate.Z_AXIS);
@@ -75,8 +77,8 @@ final class BoxRig {
         body.getTransforms().addAll(raise, bank, lean);
 
         body.getChildren().addAll(
-                limb(-15, -HIP, leftLeg, null, leg(shell, joint)),
-                limb(15, -HIP, rightLeg, null, leg(shell, joint)),
+                limb(-15, -HIP, leftLeg, leftLegOut, leg(shell, joint)),
+                limb(15, -HIP, rightLeg, rightLegOut, leg(shell, joint)),
                 box(56, 16, 30, 0, -84, 0, joint),                        // pelvis
                 box(64, 60, 34, 0, -120, 0, trim),                         // torso
                 box(40, 22, 2, 0, -128, 17.5, shell),                      // chest plate
@@ -115,9 +117,12 @@ final class BoxRig {
         // a limb hangs along +y, so a positive turn about x swings it forward
         leftLeg.setAngle(pose.leftLeg());
         rightLeg.setAngle(pose.rightLeg());
+        leftLegOut.setAngle(pose.legSpread());
+        rightLegOut.setAngle(-pose.legSpread());
         leftArm.setAngle(pose.leftArm());
         rightArm.setAngle(pose.rightArm());
-        // out to the side is toward -x on the left, a positive turn about z, and the mirror on the right
+        // (for the legs above and the arms below, out to the side is toward -x on the left, a
+        // positive turn about z, and the mirror on the right)
         leftSpread.setAngle(pose.armSpread());
         rightSpread.setAngle(-pose.armSpread());
         headTurn.setAngle(pose.headYaw());

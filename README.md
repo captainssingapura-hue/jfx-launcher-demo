@@ -389,10 +389,13 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-W/S move, A/D turn, Shift runs or boosts, Space jumps (or climbs while flying), Ctrl
-descends, F takes off or stops flying. Drag, or hold Q/E, to circle the camera; C puts it
-behind; scroll to zoom. For an unattended picture:
-`-Davatar.script="F;SPACE:1.2;W+SHIFT:2" -Davatar.snapshot=out.png`.
+The mouse turns the avatar with no button held, as in games: the cursor is hidden and kept
+in the window, so clicks stay free for actions, and Esc frees the mouse or takes it back.
+The keys move without turning: W/S ahead and back, A/D sideways, Shift runs or boosts,
+Space jumps (or climbs while flying), Ctrl descends, F takes off or stops flying. Hold Q/E
+to look round; C puts the camera behind; scroll to zoom. For an unattended picture, which
+leaves the mouse alone: `-Davatar.script="F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
+(`@90` turns 90° over the step, as the mouse would).
 
 ## Roadmap (next)
 

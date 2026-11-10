@@ -10,8 +10,8 @@ import javafx.geometry.Point3D;
  * order its transforms are applied in, the same convention as the estate viewer's orbit.
  *
  * <p>Each frame it {@linkplain #follow follows}: the pivot eases toward the avatar quickly,
- * and while the avatar moves the heading swings round behind it, unless the player is
- * holding the view with the mouse. Standing still, the player can look all round.
+ * and the heading swings round behind the avatar as it moves or turns, unless the player is
+ * holding the view to look round.
  */
 public record Chase(Point3D pivot, double yaw, double pitch, double distance) {
 
@@ -24,7 +24,7 @@ public record Chase(Point3D pivot, double yaw, double pitch, double distance) {
     public static final double CLEARANCE = 25;
     /** How quickly the pivot catches up with the avatar, and the heading swings round. */
     public static final double CATCH_UP = 14;
-    public static final double SWING = 2.5;
+    public static final double SWING = 6;
 
     public Chase {
         pitch = Body.clamp(pitch, -MAX_PITCH, MAX_PITCH);
