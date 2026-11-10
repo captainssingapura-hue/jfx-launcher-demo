@@ -90,7 +90,7 @@ class CourseTest {
         final Point3D ahead = Body.heading(yaw);
         final Point3D side = Body.right(yaw);
         final Point3D start = new Point3D(bar.x(), -feet, bar.z()).subtract(ahead.multiply(400)).add(side.multiply(across));
-        Body body = new Body(start, yaw, Body.FLY, 0, 0, 0, true, false, 0, 0);
+        Body body = new Body(start, yaw, yaw, Body.FLY, 0, 0, 0, true, false, 0, 0);
         for (int i = 0; i < 60; i++) {
             body = body.step(new Controls(1, 0, 0, 0, false), FRAME, gate);
         }

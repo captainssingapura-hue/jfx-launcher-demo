@@ -115,7 +115,7 @@ class BlockingTest {
     @Test
     void aBoostAtASlowFrameRateStillCannotPassAThinBar() {
         final Obstacles bar = world(Block.standing(300, 0, 10, 4000, 1000, 0));
-        Body body = new Body(new Point3D(0, -100, 0), 90, Body.BOOST, 0, 0, 0, true, false, 0, 0);
+        Body body = new Body(new Point3D(0, -100, 0), 90, 90, Body.BOOST, 0, 0, 0, true, false, 0, 0);
         for (int i = 0; i < 10; i++) {
             body = body.step(new Controls(1, 0, 0, 0, true), 0.1, bar);
         }

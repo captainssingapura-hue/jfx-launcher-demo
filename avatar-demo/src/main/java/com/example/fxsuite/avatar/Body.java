@@ -23,16 +23,25 @@ import javafx.geometry.Point3D;
  * into it. Each step moves in sub-steps of at most {@link #SUBSTEP}, so not even a boost at a
  * slow frame rate carries it through a thin bar.
  *
- * @param speed    world units per second along the heading (negative backs up)
- * @param drift    world units per second to the right (negative to the left)
+ * <p>A jump is a state of its own, from leaving its feet to landing, whether by jumping, walking
+ * off an edge or dropping out of flight. Its momentum then keeps to the heading it left on,
+ * {@code travel}, whatever way it is turned to face: turning in mid-air turns only the body,
+ * never the path. The keys can still nudge the path, gently and reckoned along that same
+ * heading, and letting go of them keeps the momentum rather than braking it. On landing,
+ * walking goes back to following the facing.
+ *
+ * @param travel   the heading that {@code speed} and {@code drift} are reckoned along: the
+ *                 facing, except in a jump, when it is the heading it left its feet on
+ * @param speed    world units per second along {@code travel} (negative backs up)
+ * @param drift    world units per second to the right of {@code travel} (negative to the left)
  * @param turnRate degrees per second, right when positive, smoothed
  * @param climb    world units per second upward
  * @param onGround standing on something: the ground or a block
  * @param phase    the walk cycle, in radians: advances with distance covered on its feet
  * @param time     seconds since the start, for idle and hover motion
  */
-public record Body(Point3D position, double yaw, double speed, double drift, double turnRate, double climb,
-                   boolean flying, boolean onGround, double phase, double time) {
+public record Body(Point3D position, double yaw, double travel, double speed, double drift, double turnRate,
+                   double climb, boolean flying, boolean onGround, double phase, double time) {
 
     /** World units per second. 100 units is a metre. */
     public static final double WALK = 320;
@@ -60,9 +69,11 @@ public record Body(Point3D position, double yaw, double speed, double drift, dou
     public static final double FOOTING = 16;
     /** The most it moves in one sub-step, in any direction. */
     public static final double SUBSTEP = 20;
+    /** How quickly the keys can nudge a jump's path: gently, next to {@code 10} on its feet. */
+    public static final double AIR_GRIP = 3;
 
     public static Body standing(final Point3D at, final double yaw) {
-        return new Body(at, yaw, 0, 0, 0, 0, false, true, 0, 0);
+        return new Body(at, yaw, yaw, 0, 0, 0, 0, false, true, 0, 0);
     }
 
     public double height() {
@@ -72,6 +83,11 @@ public record Body(Point3D position, double yaw, double speed, double drift, dou
     /** On its feet: not flying, and standing on something. */
     public boolean grounded() {
         return !flying && onGround;
+    }
+
+    /** In a jump: off its feet and not flying, so its path is its own, whichever way it faces. */
+    public boolean inJump() {
+        return !flying && !onGround;
     }
 
     /** How fast it is going across the ground, ahead and sideways together. */
@@ -90,21 +106,34 @@ public record Body(Point3D position, double yaw, double speed, double drift, dou
 
     /** After {@code seconds} of the given controls, among the given obstacles. */
     public Body step(final Controls controls, final double seconds, final Obstacles world) {
+        final boolean leaping = inJump();
+        // out of a jump, the momentum is reckoned along the facing again
+        final double[] own = leaping ? new double[] {speed, drift} : reframed(speed, drift, travel, yaw);
+        final double newYaw = wrap(yaw + controls.turn());
+        final double newTurn = seconds > 0 ? ease(turnRate, controls.turn() / seconds, 8, seconds) : turnRate;
+        // in a jump the path keeps to the heading it left on; otherwise it follows the facing
+        final double frame = leaping ? travel : newYaw;
+
         final double top = flying ? (controls.run() ? BOOST : FLY) : (controls.run() ? RUN : WALK);
         // backing up is slower than going ahead
         final double wanted = controls.forward() * top * (controls.forward() < 0 ? 0.5 : 1);
-        // in the air it still steers, but more slowly than on its feet
-        final double grip = flying ? 2.5 : grounded() ? 10 : 3;
-        final double newSpeed = ease(speed, wanted, grip, seconds);
-        final double newDrift = ease(drift, controls.sideways() * top * SIDESTEP, grip, seconds);
-        final double newYaw = wrap(yaw + controls.turn());
-        final double newTurn = seconds > 0 ? ease(turnRate, controls.turn() / seconds, 8, seconds) : turnRate;
+        final double wantedDrift = controls.sideways() * top * SIDESTEP;
+        final double newSpeed;
+        final double newDrift;
+        if (leaping) {
+            newSpeed = nudged(own[0], wanted, seconds);
+            newDrift = nudged(own[1], wantedDrift, seconds);
+        } else {
+            final double grip = flying ? 2.5 : 10;
+            newSpeed = ease(own[0], wanted, grip, seconds);
+            newDrift = ease(own[1], wantedDrift, grip, seconds);
+        }
         double newClimb = flying
                 ? ease(climb, controls.lift() * LIFT * (controls.run() ? 1.6 : 1), 4, seconds)
                 : climb - GRAVITY * seconds;
 
-        final Point3D ahead = heading(newYaw);
-        final Point3D right = right(newYaw);
+        final Point3D ahead = heading(frame);
+        final Point3D right = right(frame);
         double vx = ahead.getX() * newSpeed + right.getX() * newDrift;
         double vz = ahead.getZ() * newSpeed + right.getZ() * newDrift;
         // the average climb over the frame: exact under constant gravity, so a jump reaches the
@@ -154,28 +183,54 @@ public record Body(Point3D position, double yaw, double speed, double drift, dou
             vz = contact.vz();
         }
 
-        // what is left of the velocity, back in the avatar's own terms
+        // what is left of the velocity, reckoned along the frame it moved in; still in a jump, it
+        // keeps that frame, and otherwise it goes back to the facing
         final double keptSpeed = vx * ahead.getX() + vz * ahead.getZ();
         final double keptDrift = vx * right.getX() + vz * right.getZ();
-        final double ground = Math.hypot(keptSpeed, keptDrift);
+        final boolean stillLeaping = !stillFlying && !footing;
+        final double newTravel = stillLeaping ? frame : newYaw;
+        final double[] kept = reframed(keptSpeed, keptDrift, frame, newTravel);
+        final double ground = Math.hypot(kept[0], kept[1]);
         final double newPhase = footing
                 ? (phase + ground * seconds / stride(ground) * 2 * Math.PI) % (2 * Math.PI)
                 : phase;
-        return new Body(new Point3D(x, -height, z), newYaw, keptSpeed, keptDrift, newTurn, newClimb, stillFlying,
-                footing, newPhase, time + seconds);
+        return new Body(new Point3D(x, -height, z), newYaw, newTravel, kept[0], kept[1], newTurn, newClimb,
+                stillFlying, footing, newPhase, time + seconds);
     }
 
-    /** Up off whatever it stands on, if standing; otherwise unchanged. */
+    /** Up off whatever it stands on, if standing; otherwise unchanged. The jump keeps to its heading now. */
     public Body jumped() {
-        return grounded() ? new Body(position, yaw, speed, drift, turnRate, JUMP, false, false, phase, time) : this;
+        return grounded()
+                ? new Body(position, yaw, yaw, speed, drift, turnRate, JUMP, false, false, phase, time)
+                : this;
     }
 
     /** Takes off with a little lift, or stops flying and falls, keeping its momentum. */
     public Body toggledFlight() {
         return flying
-                ? new Body(position, yaw, speed, drift, turnRate, climb, false, false, phase, time)
-                : new Body(position, yaw, speed, drift, turnRate, Math.max(climb, LIFT * 0.7), true, false,
+                ? new Body(position, yaw, travel, speed, drift, turnRate, climb, false, false, phase, time)
+                : new Body(position, yaw, travel, speed, drift, turnRate, Math.max(climb, LIFT * 0.7), true, false,
                         phase, time);
+    }
+
+    /**
+     * A jump's velocity along one axis after the keys have had their say: they can push it toward
+     * what they ask for, but letting go never brakes it, and nor does asking for less than it has.
+     */
+    static double nudged(final double value, final double wanted, final double seconds) {
+        if (wanted == 0 || (Math.signum(wanted) == Math.signum(value) && Math.abs(value) >= Math.abs(wanted))) {
+            return value;
+        }
+        return ease(value, wanted, AIR_GRIP, seconds);
+    }
+
+    /** A velocity of {@code speed} ahead and {@code drift} right along heading {@code from}, as seen along {@code to}. */
+    static double[] reframed(final double speed, final double drift, final double from, final double to) {
+        if (from == to) {
+            return new double[] {speed, drift};
+        }
+        final Point3D v = heading(from).multiply(speed).add(right(from).multiply(drift));
+        return new double[] {v.dotProduct(heading(to)), v.dotProduct(right(to))};
     }
 
     /** One full walk cycle, two steps, in world units: longer strides when running. */
