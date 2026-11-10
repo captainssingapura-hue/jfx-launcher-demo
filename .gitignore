@@ -6,6 +6,7 @@ dist/
 
 # Local-only notes / scratch
 .local/
+docs/
 
 # Signing keys — generated locally by tools/KeyGen.java, never committed.
 # Globs, not exact names: per-environment keys are suffixed (…-prod, …-uat, …).
