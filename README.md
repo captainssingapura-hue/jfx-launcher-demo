@@ -374,6 +374,26 @@ release is reused only while every jar matches its recorded checksum, and the la
 refuses to run if the repository now holds different bytes for a release it already has —
 a release never changes.
 
+## Avatar demo
+
+`avatar-demo` is a standalone experiment in plain JavaFX 3D: a small robot built from boxes
+that walks, runs, jumps and flies (with a jetpack) around a world of pillars and floating
+gates, followed by a chase camera. There is no mesh or skin. Each limb is a rigid part hung
+from a joint, and the animation is worked out each frame from how the body moves, the way
+blocky game characters are animated. The movement, the pose and the camera are pure maths
+(`Body`, `Gait`, `Chase`) and are unit-tested. `BoxRig` and `World` are the only scene-graph
+code.
+
+```bash
+mvn -pl avatar-demo -am package
+java -jar avatar-demo/target/avatar-demo.jar
+```
+
+W/S move, A/D turn, Shift runs or boosts, Space jumps (or climbs while flying), Ctrl
+descends, F takes off or stops flying. Drag, or hold Q/E, to circle the camera; C puts it
+behind; scroll to zoom. For an unattended picture:
+`-Davatar.script="F;SPACE:1.2;W+SHIFT:2" -Davatar.snapshot=out.png`.
+
 ## Roadmap (next)
 
 - **One-time use:** burn the token's `jti` nonce server-side (a launcher→backend
