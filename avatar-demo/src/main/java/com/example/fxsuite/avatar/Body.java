@@ -124,7 +124,8 @@ public record Body(Point3D position, double yaw, double travel, double speed, do
             newSpeed = nudged(own[0], wanted, seconds);
             newDrift = nudged(own[1], wantedDrift, seconds);
         } else {
-            final double grip = flying ? 2.5 : 10;
+            // flying, it holds its place as a drone does: it brakes briskly once let go
+            final double grip = flying ? 4 : 10;
             newSpeed = ease(own[0], wanted, grip, seconds);
             newDrift = ease(own[1], wantedDrift, grip, seconds);
         }

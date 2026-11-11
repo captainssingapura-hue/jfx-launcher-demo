@@ -74,15 +74,19 @@ class GaitTest {
     }
 
     @Test
-    void flyingFasterLeansFurther() {
-        assertTrue(Gait.of(flying(Body.BOOST, 0, 0), 0, 0).lean()
-                > Gait.of(flying(Body.FLY, 0, 0), 0, 0).lean() + 20);
+    void fliesUprightAsADroneTippingGentlyWithSpeed() {
+        final double hovering = Gait.of(flying(0, 0, 0), 0, 0).lean();
+        final double cruising = Gait.of(flying(Body.FLY, 0, 0), 0, 0).lean();
+        final double boosting = Gait.of(flying(Body.BOOST, 0, 0), 0, 0).lean();
+        assertEquals(0, hovering, 1e-9, "hovering, it stands upright");
+        assertTrue(cruising > 10 && cruising < boosting, "tips further the faster: " + cruising + ", " + boosting);
+        assertEquals(Gait.DRONE_LEAN, boosting, 1e-9, "and never past a drone's gentle tilt");
     }
 
     @Test
     void banksIntoTheTurnAndIntoSidewaysDrift() {
-        assertTrue(Gait.of(flying(Body.FLY, 0, Body.TURN), 0, 0).bank() > 20, "right turn, right side down");
-        assertTrue(Gait.of(flying(Body.FLY, 0, -Body.TURN), 0, 0).bank() < -20);
+        assertTrue(Gait.of(flying(Body.FLY, 0, Body.TURN), 0, 0).bank() > 10, "right turn, right side down");
+        assertTrue(Gait.of(flying(Body.FLY, 0, -Body.TURN), 0, 0).bank() < -10);
         assertTrue(Gait.of(flying(0, Body.FLY, 0), 0, 0).bank() > 15, "drifting right, right side down");
     }
 
@@ -104,6 +108,6 @@ class GaitTest {
     @Test
     void theHeadHoldsUpAgainstAFlyingLean() {
         final Pose boosting = Gait.of(flying(Body.BOOST, 0, 0), 0, 0);
-        assertTrue(boosting.headPitch() > 20, "looks ahead, not at the ground: " + boosting.headPitch());
+        assertTrue(boosting.headPitch() > Gait.DRONE_LEAN / 2, "looks ahead, not at the ground: " + boosting.headPitch());
     }
 }
