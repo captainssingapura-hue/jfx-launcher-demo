@@ -1,5 +1,17 @@
 package com.example.fxsuite.avatar;
 
+import com.example.fxsuite.avatar.look.BoxRig;
+import com.example.fxsuite.avatar.look.Gait;
+import com.example.fxsuite.avatar.look.World;
+import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Controls;
+import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Obstacles;
+import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.view.Chase;
+
 import javafx.animation.AnimationTimer;
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
@@ -7,7 +19,6 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
-import javafx.geometry.Point3D;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
@@ -68,7 +79,7 @@ public final class AvatarDemo extends Application {
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
     private final Label status = new Label();
 
-    private Avatar avatar = new Avatar(Body.standing(Point3D.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
+    private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
     private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw());
     private MouseLook look;
     /** Degrees per second the script is turning, as the mouse would. */
@@ -152,22 +163,24 @@ public final class AvatarDemo extends Application {
         }
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
-        rig.show(body, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH), avatar.wearingPack());
+        rig.show(avatar, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         world.shadowUnder(body, obstacles);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
-                ? Body.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
-        fieldOfView = Body.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
+                ? Num.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
+        fieldOfView = Num.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
-        final Point3D at = chase.position();
-        eyeAt.setX(at.getX());
-        eyeAt.setY(at.getY());
-        eyeAt.setZ(at.getZ());
+        final Vec3 at = chase.position();
+        eyeAt.setX(at.x());
+        eyeAt.setY(at.y());
+        eyeAt.setZ(at.z());
         eyeYaw.setAngle(chase.yaw());
         eyePitch.setAngle(chase.pitch());
 
         showStatus();
+        // every output has seen this frame's events; what happens next starts a fresh list
+        avatar = avatar.delivered();
     }
 
     private void showStatus() {
@@ -213,8 +226,8 @@ public final class AvatarDemo extends Application {
         return held.contains(code) ? 1 : 0;
     }
 
-    private static Point3D eyeOf(final Body body) {
-        return body.position().add(0, -BoxRig.EYE_HEIGHT, 0);
+    private static Vec3 eyeOf(final Body body) {
+        return body.position().add(0, -Chase.EYE_HEIGHT, 0);
     }
 
     /**

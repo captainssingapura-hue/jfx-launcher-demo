@@ -386,9 +386,22 @@ blocky game characters are animated. Everything in the world is solid: the avata
 along what it runs into, stands on top of blocks, jumps up onto the lower crates (try the
 staircase straight ahead of the start), falls off edges, and lands on pillars it flies down
 onto. The world's layout (`Course`) is plain data that is both drawn and collided with, so
-what you see is what stops you. The movement and collision, the pose and the camera are
-pure maths (`Avatar`, `Body`, `Obstacles`, `Gait`, `Chase`) and are unit-tested. `BoxRig`,
-`JetPack` and `World` are the only scene-graph code.
+what you see is what stops you.
+
+The code is layered so that each output reads one shared simulation and none writes to it:
+
+| Package | What it is |
+|---|---|
+| `sim` | The one truth: the avatar (`Avatar`, `Body`), the world (`Course`, `Block`, `Obstacles`), the gates' openings (`Gate`), and the `Event`s each step reports (footfalls and landings, how hard and on what, the ground or a block; jumps, bumps, take-offs, the pack, and each gate flown through). Pure maths, with its own `Vec3`: no JavaFX at all |
+| `view` | The viewpoint (`Chase`): the camera for the graphics, and the listener for sound to come. Pure |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`; `BoxRig`, `JetPack` and `World` draw it in JavaFX |
+| `sound` | What is heard. `Sound` lists what can be heard; a `Profile` decides how all of it sounds, made from noise, filters and tones, and how the loops follow thrust and speed. Two so far (`Profiles`): `Robot` (metal and motors, as real as can be made) and `Arcade` (an old console's sound chip). Pure: no JavaFX, no sound library |
+| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). One spatial model (`Space`) for all; for Java Sound, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
+| `bench` | The sound bench (below) |
+| (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
+
+All but the drawing, the devices and the app is unit-tested, and a test keeps the layers to
+these imports.
 
 ```bash
 mvn -pl avatar-demo -am package
@@ -404,6 +417,30 @@ round; C puts the camera behind; scroll to zoom. For an unattended picture, whic
 mouse alone: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
 (`@90` turns 90° over the step, as the mouse would; `-Davatar.pack=true` starts with the
 pack on).
+
+### Sound bench
+
+The sounds get worked on separately from the game, on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --bench
+```
+
+Choose a profile, Robot or Arcade, and every sound and loop changes character with it.
+Pick a sound and play it (Space or Enter) softer or harder, take after take, from any
+direction and distance round the listener, at any pitch. Run the jet and wind loops and drive
+them with thrust and speed sliders, by the same rules the game will use. See each waveform with
+its length and loudness, and save one sound, or all of them, as WAV files. The output can be
+switched while the bench runs. OpenAL is tried first. If LWJGL is missing from the build, its
+native library won't load, or there is no device, the bench says why and falls back to Java
+Sound, which ships with Java. If that fails too, it falls back to silence, where everything can
+still be seen and saved. `-Davatar.audio=javasound` (or `silent`) picks the output to start with.
+`-Davatar.sounds=arcade` picks the profile.
+
+With no window or sound card at all, `--sounds [folder]` writes every sound of every profile
+to WAV files, a folder for each. It
+also writes two scenes mixed in stereo (footsteps walking past, the jets flying by) and says
+which outputs this machine can open.
 
 ## Roadmap (next)
 
