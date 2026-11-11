@@ -1,5 +1,7 @@
 package com.example.fxsuite.avatar;
 
+import com.example.fxsuite.avatar.audio.Speakers;
+import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.World;
@@ -82,6 +84,7 @@ public final class AvatarDemo extends Application {
     private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
     private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw());
     private MouseLook look;
+    private Hearing hearing;
     /** Degrees per second the script is turning, as the mouse would. */
     private double scriptedTurn;
     private double fieldOfView = FIELD_OF_VIEW;
@@ -104,7 +107,8 @@ public final class AvatarDemo extends Application {
         final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift run or boost · "
                 + "Space jump or climb · Ctrl descend\n"
                 + "J jet-pack on or off · F fly or land (with the jet-pack) · "
-                + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse");
+                + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
+                + "M mute · P sound profile");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         final VBox hud = new VBox(4, status, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
@@ -129,6 +133,7 @@ public final class AvatarDemo extends Application {
         final boolean unattended = System.getProperty("avatar.script") != null
                 || System.getProperty("avatar.snapshot") != null;
         look = new MouseLook(stage, scene, !unattended);
+        hearing = Hearing.open(unattended);
 
         frame(0);
         new AnimationTimer() {
@@ -146,7 +151,14 @@ public final class AvatarDemo extends Application {
         snapshotIfAsked(scene, scripted);
     }
 
-    /** One frame: move the body, follow with the camera, pose the figure. */
+    @Override
+    public void stop() {
+        if (hearing != null) {
+            hearing.close();
+        }
+    }
+
+    /** One frame: move the body, follow with the camera, pose the figure, hear it. */
     private void frame(final double seconds) {
         final Controls controls = new Controls(
                 axis(KeyCode.W) - axis(KeyCode.S),
@@ -165,6 +177,7 @@ public final class AvatarDemo extends Application {
 
         rig.show(avatar, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         world.shadowUnder(body, obstacles);
+        hearing.hear(avatar, chase);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -194,8 +207,10 @@ public final class AvatarDemo extends Application {
                 : metres < 0.1 ? "Standing"
                 : Math.abs(body.drift()) > Math.abs(body.speed()) ? "Side-stepping"
                 : pace > Body.WALK * 1.2 ? "Running" : "Walking";
-        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s", what, metres, body.height() / 100,
-                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
+        final String sound = hearing.output() == Speakers.Kind.SILENT ? "no sound"
+                : hearing.muted() ? "sound muted" : hearing.profile().title() + " sounds";
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s · %s%s", what, metres, body.height() / 100,
+                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", sound,
                 look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
@@ -213,6 +228,8 @@ public final class AvatarDemo extends Application {
             case J -> avatar = avatar.toggledPack();
             case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
+            case M -> hearing.toggleMute();
+            case P -> hearing.nextProfile();
             default -> {
             }
         }

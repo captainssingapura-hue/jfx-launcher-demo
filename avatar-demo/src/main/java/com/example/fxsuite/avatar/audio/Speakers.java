@@ -51,7 +51,7 @@ public interface Speakers extends AutoCloseable {
     interface Loop {
         void set(double gain, double pitch);
 
-        /** Puts it somewhere in the world; until then it plays at the listener. */
+        /** Puts it somewhere in the world; until then, or given null, it plays at the listener. */
         void place(Vec3 at);
 
         void stop();

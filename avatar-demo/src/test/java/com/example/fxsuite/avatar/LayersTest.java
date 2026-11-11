@@ -25,13 +25,15 @@ class LayersTest {
     void eachLayerImportsOnlyWhatItMay() throws IOException {
         final List<String> wrong = new ArrayList<>();
         forbid(wrong, "sim", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "view",
-                BASE + "sound", BASE + "audio", BASE + "bench");
+                BASE + "sound", BASE + "audio", BASE + "bench", BASE + "hear");
         forbid(wrong, "view", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "sound",
                 BASE + "audio", BASE + "bench");
         forbid(wrong, "sound", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "view",
                 BASE + "audio", BASE + "bench");
         forbid(wrong, "audio", "javafx.", BASE + "look", BASE + "view", BASE + "bench");
-        forbid(wrong, "look", "javax.sound", "org.lwjgl", BASE + "sound", BASE + "audio", BASE + "bench");
+        forbid(wrong, "hear", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "bench");
+        forbid(wrong, "look", "javax.sound", "org.lwjgl", BASE + "sound", BASE + "audio", BASE + "hear",
+                BASE + "bench");
         assertEquals(List.of(), wrong);
     }
 

@@ -393,10 +393,11 @@ The code is layered so that each output reads one shared simulation and none wri
 | Package | What it is |
 |---|---|
 | `sim` | The one truth: the avatar (`Avatar`, `Body`), the world (`Course`, `Block`, `Obstacles`), the gates' openings (`Gate`), and the `Event`s each step reports (footfalls and landings, how hard and on what, the ground or a block; jumps, bumps, take-offs, the pack, and each gate flown through). Pure maths, with its own `Vec3`: no JavaFX at all |
-| `view` | The viewpoint (`Chase`): the camera for the graphics, and the listener for sound to come. Pure |
+| `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`; `BoxRig`, `JetPack` and `World` draw it in JavaFX |
-| `sound` | What is heard. `Sound` lists what can be heard; a `Profile` decides how all of it sounds, made from noise, filters and tones, and how the loops follow thrust and speed. Two so far (`Profiles`): `Robot` (metal and motors, as real as can be made) and `Arcade` (an old console's sound chip). Pure: no JavaFX, no sound library |
+| `sound` | What is heard. `Sound` lists what can be heard; a `Profile` decides how all of it sounds, made from noise, filters and tones, and how the loops follow thrust and speed. Two so far (`Profiles`): `Robot` (metal and motors, as real as can be made) and `Arcade` (an old console's sound chip). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). One spatial model (`Space`) for all; for Java Sound, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
+| `hear` | The game's sound, as `look` is its graphics (`Hearing`): each frame it plays what `Cues` says, keeps the made clips, and steers the loops. The listener stands at the avatar and faces the way the camera does, so the avatar always sounds near and left and right match the screen. No JavaFX |
 | `bench` | The sound bench (below) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
@@ -413,8 +414,13 @@ in the window, so clicks stay free for actions, and Esc frees the mouse or takes
 The keys move without turning: W/S ahead and back, A/D sideways, Shift runs or boosts,
 Space jumps (or climbs while flying), Ctrl descends. J puts the jet-pack on or takes it off
 (off in flight, the avatar falls); wearing it, F takes off or stops flying. Hold Q/E to look
-round; C puts the camera behind; scroll to zoom. For an unattended picture, which leaves the
-mouse alone: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
+round; C puts the camera behind; scroll to zoom. M mutes the sound, and P changes the sound
+profile (Robot or Arcade). `-Davatar.sounds=arcade` starts with Arcade, and
+`-Davatar.audio=javasound` (or `silent`) picks the output, as on the bench. Every footfall is
+heard, on the ground or a block, along with each jump, landing, bump and gate flown through,
+the pack and its wings. The jets roar as hard as they fire, and the wind rises with speed. For
+an unattended picture, which leaves the mouse alone and the sound off unless
+`-Davatar.audio` names an output: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
 (`@90` turns 90° over the step, as the mouse would; `-Davatar.pack=true` starts with the
 pack on).
 
