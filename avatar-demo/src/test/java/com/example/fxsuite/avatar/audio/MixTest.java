@@ -114,8 +114,10 @@ class MixTest {
     }
 
     @Test
-    void sideIgnoresHeightAndKnowsLeftFromRight() {
-        assertEquals(1, Space.side(Vec3.ZERO, 0, new Vec3(100, -500, 0)), 1e-9);
+    void sideKnowsLeftFromRightAndCountsHeight() {
+        // a foot 10 to the right but 160 below the ear is nearly in the middle, as OpenAL hears it
+        assertEquals(10 / Math.hypot(10, 160), Space.side(Vec3.ZERO, 0, new Vec3(10, 160, 0)), 1e-9);
+        assertEquals(1, Space.side(Vec3.ZERO, 0, new Vec3(100, 0, 0)), 1e-9);
         assertEquals(-1, Space.side(Vec3.ZERO, 0, new Vec3(-100, 0, 0)), 1e-9);
         assertEquals(0, Space.side(Vec3.ZERO, 0, new Vec3(0, 0, 100)), 1e-9, "ahead");
         assertEquals(0, Space.side(Vec3.ZERO, 0, new Vec3(0, -300, 0)), 1e-9, "overhead");

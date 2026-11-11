@@ -31,6 +31,7 @@ class OutputsTest {
                 case OPENAL -> throw new NoClassDefFoundError("org/lwjgl/openal/ALC10");
                 case JAVA_SOUND -> throw new LineUnavailableException("no line");
                 case SILENT -> new SilentSpeakers();
+                case RECORD -> throw new AssertionError("not tried unless asked for");
             };
         });
         assertEquals(Kind.SILENT, opened.speakers().kind());

@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.audio;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -16,9 +17,12 @@ import java.util.Locale;
  */
 public interface Speakers extends AutoCloseable {
 
-    /** The kinds of output, in the order they are tried. */
+    /**
+     * The kinds of output. The first three are devices, tried in this order; the last only
+     * when asked for, as it plays nothing: it records what would have played to a file.
+     */
     enum Kind {
-        OPENAL("OpenAL"), JAVA_SOUND("Java Sound"), SILENT("Silent");
+        OPENAL("OpenAL"), JAVA_SOUND("Java Sound"), SILENT("Silent"), RECORD("Recording");
 
         private final String title;
 
@@ -30,13 +34,22 @@ public interface Speakers extends AutoCloseable {
             return title;
         }
 
-        /** From {@code -Davatar.audio=openal|javasound|silent}; OpenAL if unset. */
+        /** The outputs that play (or, silent, do not), in the order they are tried: all but recording. */
+        public static List<Kind> devices() {
+            return List.of(OPENAL, JAVA_SOUND, SILENT);
+        }
+
+        /**
+         * From {@code -Davatar.audio=openal|javasound|silent|record}; OpenAL if unset. A
+         * recording goes to {@code -Davatar.record} ("avatar-sound.wav" if unset).
+         */
         public static Kind fromSettings() {
             final String asked = System.getProperty("avatar.audio", "openal")
                     .toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
             return switch (asked) {
                 case "javasound", "java" -> JAVA_SOUND;
                 case "silent", "none", "off" -> SILENT;
+                case "record", "recording" -> RECORD;
                 default -> OPENAL;
             };
         }

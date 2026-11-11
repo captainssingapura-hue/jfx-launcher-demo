@@ -46,7 +46,7 @@ public final class Outputs {
     /** The kind asked for, then the others in their usual order. */
     static List<Speakers.Kind> order(final Speakers.Kind preferred) {
         final List<Speakers.Kind> order = new ArrayList<>(List.of(preferred));
-        for (final Speakers.Kind kind : Speakers.Kind.values()) {
+        for (final Speakers.Kind kind : Speakers.Kind.devices()) {
             if (kind != preferred) {
                 order.add(kind);
             }
@@ -71,6 +71,7 @@ public final class Outputs {
             case OPENAL -> OpenAlSpeakers.open();
             case JAVA_SOUND -> JavaSoundSpeakers.open();
             case SILENT -> new SilentSpeakers();
+            case RECORD -> RecordingSpeakers.open(java.nio.file.Path.of(System.getProperty("avatar.record", "avatar-sound.wav")));
         };
     }
 

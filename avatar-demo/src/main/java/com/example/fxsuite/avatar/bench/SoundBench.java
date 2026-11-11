@@ -116,7 +116,7 @@ public final class SoundBench extends Application {
 
     @Override
     public void start(final Stage stage) {
-        output.getItems().setAll(Speakers.Kind.values());
+        output.getItems().setAll(Speakers.Kind.devices());
         output.setOnAction(e -> {
             if (!switching) {
                 openOutput(output.getValue());

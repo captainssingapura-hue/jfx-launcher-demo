@@ -16,9 +16,15 @@ import javafx.scene.transform.Translate;
 
 /**
  * The jet-pack, worn on the avatar's back: a harness with straps over the chest, twin jet
- * engines side by side, and a pair of small wings. The wings lie folded down along the engines
- * until it flies, then swing out level, a little swept back and tipped up. Each engine has its
- * own flame, as long as the thrust. Hidden entirely when not worn.
+ * engines side by side, and a pair of swing wings. Each engine has its own flame, as long as
+ * the thrust. Hidden entirely when not worn.
+ *
+ * <p>Avatar and pack together are drawn as a fighter jet standing on its tail: the nose at the
+ * head, the engines pointing down, held up by their thrust rather than by its wings. So the wings
+ * lie in the plane of the back, leading edges up, and swing in that plane about pivots in fixed
+ * gloves beside the engines, as a variable-sweep fighter's do. Like that fighter's, their sweep
+ * follows the speed (see {@link #sweepFor}): tucked down along the engines on the ground,
+ * spread wide to hover and fly slowly, and swept back further the faster it flies.
  *
  * <p>In the figure's frame: it faces +z, so the pack hangs behind the torso, toward -z, with up
  * as -y.
@@ -36,20 +42,28 @@ final class JetPack {
     private static final double MAX_FLAME = 80;
     /** Where each wing is hinged, on its engine's outer side. */
     private static final double HINGE_Y = 132;
-    private static final double WING_SPAN = 62;
-    /** Folded, the wings hang this far down from level; open, they tip up this much. */
-    private static final double FOLDED = 88;
-    private static final double DIHEDRAL = 8;
-    private static final double SWEEP = 16;
-    /** How quickly the wings open or fold: about two thirds of a second. */
-    private static final double UNFOLD = 6;
+    /** How far out from the engine's side the pivot sits, in its glove. */
+    private static final double GLOVE = 4;
+    /** The wing: a broad inner panel, a narrower outer one, their leading edges in line. */
+    private static final double INNER_SPAN = 38;
+    private static final double OUTER_SPAN = 26;
+    private static final double ROOT_CHORD = 28;
+    private static final double TIP_CHORD = 18;
+    /** Degrees back from straight out to the side: stowed, spread, and fully swept. */
+    static final double STOWED = 75;
+    static final double SPREAD = 20;
+    static final double SWEPT = 68;
+    /** Below this forward speed the wings stay spread; by full boost they are fully swept. */
+    static final double SLOW = 0.3 * Body.FLY;
+    /** How quickly the wings swing: about a sixth of a second to most of the way. */
+    private static final double SWING = 6;
 
     private final Group root = new Group();
-    private final Rotate leftFold = new Rotate(0, Rotate.Z_AXIS);
-    private final Rotate rightFold = new Rotate(0, Rotate.Z_AXIS);
+    private final Rotate leftSweep = new Rotate(0, Rotate.Z_AXIS);
+    private final Rotate rightSweep = new Rotate(0, Rotate.Z_AXIS);
     private final Group flames = new Group();
     private final Scale flameLength = new Scale(1, 1, 1);
-    private double open;
+    private double sweep = STOWED;
     private double lastTime = Double.NaN;
 
     JetPack() {
@@ -76,9 +90,14 @@ final class JetPack {
             // each flame is a unit long until scaled, hanging down from its nozzle
             flames.getChildren().add(cylinder(6.5, 1, side, 0.5, 0, flame));
         }
+        for (final int side : new int[] {-1, 1}) {
+            // the glove: a fixed fairing on the engine's outer side, holding the wing's pivot
+            root.getChildren().add(box(GLOVE + 8, ROOT_CHORD + 6, 8,
+                    side * (ENGINE_X + ENGINE_RADIUS + GLOVE / 2 - 2), -HINGE_Y, ENGINE_Z, casing));
+        }
         root.getChildren().addAll(
-                wing(-1, leftFold, wing),
-                wing(1, rightFold, wing),
+                wing(-1, leftSweep, wing, dark),
+                wing(1, rightSweep, wing, dark),
                 flames);
         flames.getTransforms().addAll(new Translate(0, -EXHAUST, ENGINE_Z), flameLength);
         flames.setVisible(false);
@@ -90,8 +109,8 @@ final class JetPack {
     }
 
     /**
-     * Shows or hides the pack; opens the wings while flying and folds them otherwise, easing
-     * between; and lights the engines as hard as the jet is firing.
+     * Shows or hides the pack; swings the wings toward the sweep the flight calls for, easing
+     * there; and lights the engines as hard as the jet is firing.
      */
     void show(final Avatar avatar) {
         final boolean worn = avatar.wearingPack();
@@ -100,12 +119,11 @@ final class JetPack {
         root.setVisible(worn);
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, body.time() - lastTime);
         lastTime = body.time();
-        open = Num.ease(open, worn && body.flying() ? 1 : 0, UNFOLD, seconds);
-        // folded, the left wing's tip hangs down (+y), a negative turn about z for a tip at -x;
-        // open, it tips up a little, a positive one. The right wing mirrors it.
-        final double angle = -FOLDED + (FOLDED + DIHEDRAL) * open;
-        leftFold.setAngle(angle);
-        rightFold.setAngle(-angle);
+        sweep = Num.ease(sweep, sweepFor(avatar), SWING, seconds);
+        // swept back, the left wing's tip goes down (+y): a negative turn about z for a tip at
+        // -x. The right wing mirrors it.
+        leftSweep.setAngle(-sweep);
+        rightSweep.setAngle(sweep);
 
         flames.setVisible(thrust > 0);
         // a little flicker, from the clock, so the flames look alive
@@ -113,25 +131,50 @@ final class JetPack {
         flameLength.setY(Math.max(1, MAX_FLAME * thrust * flicker));
     }
 
-    /** How far the wings are open, 0 folded to 1 level. */
-    double open() {
-        return open;
+    /**
+     * The sweep the flight calls for, in degrees back from straight out to the side, as a
+     * variable-sweep fighter's wings are scheduled by speed:
+     * <ul>
+     *   <li>stowed, tucked down along the engines, when not flying;</li>
+     *   <li>spread wide when hovering upright on the jets or flying slowly;</li>
+     *   <li>swept back more and more as it speeds up, fully at full boost.</li>
+     * </ul>
+     */
+    static double sweepFor(final Avatar avatar) {
+        final Body body = avatar.body();
+        if (!avatar.wearingPack() || !body.flying()) {
+            return STOWED;
+        }
+        final double fast = Num.clamp((body.speed() - SLOW) / (Body.BOOST - SLOW), 0, 1);
+        return SPREAD + (SWEPT - SPREAD) * fast * fast * (3 - 2 * fast);
+    }
+
+    /** The wings' sweep just now, in degrees, easing toward {@link #sweepFor}. */
+    double sweep() {
+        return sweep;
     }
 
     /**
-     * One wing, hinged on its engine's outer side: on the left for {@code side} -1, the right
-     * for 1. Swept back about the vertical, then folded about the body's length.
+     * One wing, lying in the plane of the back with its leading edge up: on the left for
+     * {@code side} -1, the right for 1. A broad inner panel and a narrower outer one with a
+     * dark tip, all turning about the pivot in the glove.
      */
-    private static Group wing(final int side, final Rotate fold, final PhongMaterial material) {
-        // a tip at -x sweeps back (-z) with a negative turn about y; at +x, a positive one
+    private static Group wing(final int side, final Rotate sweep, final PhongMaterial material,
+                              final PhongMaterial dark) {
+        // in the wing's own frame: span along x, chord along y (leading edge at -y, up), thin in z
+        final double lead = -ROOT_CHORD / 2;
+        final double outerFrom = INNER_SPAN - 2;          // the panels overlap a little, never flush
+        final double tip = outerFrom + OUTER_SPAN;
         final Group wing = new Group(
-                box(WING_SPAN, 4, 26, side * WING_SPAN / 2, 0, 0, material),
-                // the cap stands 2 past the wing's end: flush, the two end faces would flicker
-                box(10, 5, 28, side * (WING_SPAN - 3), 0, 0, BoxRig.matte("#2a2e35")));     // wingtip
+                box(INNER_SPAN, ROOT_CHORD, 4, side * INNER_SPAN / 2, 0, 0, material),
+                // its leading edge half a unit below the inner panel's, so the tops never lie flush
+                box(OUTER_SPAN, TIP_CHORD, 3.6, side * (outerFrom + OUTER_SPAN / 2),
+                        lead + 0.5 + TIP_CHORD / 2, 0, material),
+                // the tip cap stands 2 past the wing's end: flush, the two end faces would flicker
+                box(4, TIP_CHORD + 1, 4.4, side * tip, lead + (TIP_CHORD + 1) / 2, 0, dark));
         wing.getTransforms().addAll(
-                new Translate(side * (ENGINE_X + ENGINE_RADIUS), -HINGE_Y, ENGINE_Z),
-                new Rotate(side * SWEEP, Rotate.Y_AXIS),
-                fold);
+                new Translate(side * (ENGINE_X + ENGINE_RADIUS + GLOVE), -HINGE_Y, ENGINE_Z),
+                sweep);
         return wing;
     }
 

@@ -21,6 +21,16 @@ public final class Wav {
     public static byte[] of(final float[] samples, final int channels) {
         final int data = samples.length * 2;
         final ByteBuffer out = ByteBuffer.allocate(44 + data).order(ByteOrder.LITTLE_ENDIAN);
+        out.put(header(data, channels));
+        for (final float s : samples) {
+            out.putShort(toShort(s));
+        }
+        return out.array();
+    }
+
+    /** The 44 bytes that start a WAV file of {@code data} bytes of 16-bit sound. */
+    public static byte[] header(final int data, final int channels) {
+        final ByteBuffer out = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
         out.put(ascii("RIFF")).putInt(36 + data).put(ascii("WAVE"));
         out.put(ascii("fmt ")).putInt(16)
                 .putShort((short) 1)                              // PCM
@@ -30,9 +40,6 @@ public final class Wav {
                 .putShort((short) (channels * 2))                 // bytes a frame
                 .putShort((short) 16);
         out.put(ascii("data")).putInt(data);
-        for (final float s : samples) {
-            out.putShort(toShort(s));
-        }
         return out.array();
     }
 

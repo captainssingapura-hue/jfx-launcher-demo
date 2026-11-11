@@ -378,9 +378,11 @@ a release never changes.
 
 `avatar-demo` is a standalone experiment in plain JavaFX 3D: a small robot built from boxes
 that walks, runs and jumps around a world of pillars, crates and floating gates, followed by
-a chase camera. Put on its jet-pack (twin jet engines and a pair of small wings that open in
-flight) and it flies as a drone does: upright, tipped gently toward where it goes, holding
-its place when let go. There is no mesh or skin. Each limb is a rigid part hung
+a chase camera. Put on its jet-pack and it flies as a drone does: upright, tipped gently
+toward where it goes, holding its place when let go. Avatar and pack are drawn as a fighter
+jet standing on its tail, held up by the thrust of its twin engines. Its swing wings lie in the
+plane of the back and pivot there as a variable-sweep fighter's do: tucked along the engines
+on the ground, spread wide to hover, and swept further back the faster it flies. There is no mesh or skin. Each limb is a rigid part hung
 from a joint, and the animation is worked out each frame from how the body moves, the way
 blocky game characters are animated. Everything in the world is solid: the avatar slides
 along what it runs into, stands on top of blocks, jumps up onto the lower crates (try the
@@ -396,7 +398,7 @@ The code is layered so that each output reads one shared simulation and none wri
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`; `BoxRig`, `JetPack` and `World` draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard; a `Profile` decides how all of it sounds, made from noise, filters and tones, and how the loops follow thrust and speed. Two so far (`Profiles`): `Robot` (metal and motors, as real as can be made) and `Arcade` (an old console's sound chip). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
-| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). One spatial model (`Space`) for all; for Java Sound, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
+| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`); or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) for all; for Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`): each frame it plays what `Cues` says, keeps the made clips, and steers the loops. The listener stands at the avatar and faces the way the camera does, so the avatar always sounds near and left and right match the screen. No JavaFX |
 | `bench` | The sound bench (below) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
@@ -423,6 +425,14 @@ an unattended picture, which leaves the mouse alone and the sound off unless
 `-Davatar.audio` names an output: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
 (`@90` turns 90° over the step, as the mouse would; `-Davatar.pack=true` starts with the
 pack on).
+
+To hear a run afterwards, or check it without speakers, record its sound instead of playing
+it. `-Davatar.audio=record -Davatar.record=flight.wav` writes a stereo WAV of exactly what
+would have played, kept in time with the game, and pairs well with a script:
+
+```bash
+java -Davatar.audio=record -Davatar.record=flight.wav -Davatar.script="W:1.6;J:0.6;F:0.3;SPACE:1.2;W+SHIFT:2.5;CONTROL:3.5;:1" -Davatar.snapshot=flight.png -jar avatar-demo/target/avatar-demo.jar
+```
 
 ### Sound bench
 

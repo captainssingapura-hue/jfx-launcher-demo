@@ -30,10 +30,12 @@ public final class Space {
 
     /**
      * Which side a sound is on, for a listener at {@code ear} facing {@code yaw}: -1 hard left,
-     * 0 ahead, behind or right on top of the listener, 1 hard right. Height does not count.
+     * 0 ahead, behind, above or below, 1 hard right. Worked out from the whole direction, height
+     * and all, as OpenAL does: a foot just to the side but well below the ear is nearly in the
+     * middle, not in one ear.
      */
     public static double side(final Vec3 ear, final double yaw, final Vec3 at) {
-        final Vec3 to = new Vec3(at.x() - ear.x(), 0, at.z() - ear.z());
+        final Vec3 to = at.subtract(ear);
         final double length = to.magnitude();
         return length < 1e-6 ? 0 : Num.clamp(to.dotProduct(Num.right(yaw)) / length, -1, 1);
     }

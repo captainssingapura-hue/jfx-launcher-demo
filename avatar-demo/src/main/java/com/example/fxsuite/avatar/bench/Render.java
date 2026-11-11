@@ -38,7 +38,7 @@ public final class Render {
         final List<Path> written = all(folder);
         System.out.println("wrote " + written.size() + " files to " + folder.toAbsolutePath()
                 + ", a folder for each profile: " + Profiles.all().stream().map(Profile::id).toList());
-        for (final Speakers.Kind kind : Speakers.Kind.values()) {
+        for (final Speakers.Kind kind : Speakers.Kind.devices()) {
             System.out.println("  " + Outputs.probe(kind));
         }
     }
