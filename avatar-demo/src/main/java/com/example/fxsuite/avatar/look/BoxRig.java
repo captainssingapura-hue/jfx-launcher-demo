@@ -28,7 +28,7 @@ import javafx.scene.transform.Translate;
  *  └ body raise, bank, lean              tipped about its middle
  *     ├ hips ─ left leg, right leg       swing and spread at the hips
  *     ├ torso, and the jet-pack when worn
- *     ├ shoulders ─ left arm, right arm  swing and spread at the shoulders
+ *     ├ shoulders ─ left arm, right arm  swing and spread at the shoulders, holding the weapons
  *     └ neck ─ head                      turns and tips at the neck
  * </pre>
  */
@@ -42,6 +42,8 @@ public final class BoxRig {
     private static final double HIP = 80;
     private static final double SHOULDER = 144;
     private static final double NECK = 156;
+    /** From the shoulder down to the elbow. */
+    private static final double UPPER_ARM = 30;
 
     private final Group root = new Group();
     private final Translate at = new Translate();
@@ -58,10 +60,13 @@ public final class BoxRig {
     private final Rotate rightArm = new Rotate(0, Rotate.X_AXIS);
     private final Rotate leftSpread = new Rotate(0, Rotate.Z_AXIS);
     private final Rotate rightSpread = new Rotate(0, Rotate.Z_AXIS);
+    private final Rotate leftElbow = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate rightElbow = new Rotate(0, Rotate.X_AXIS);
     private final Rotate headTurn = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate headTip = new Rotate(0, Rotate.X_AXIS);
 
     private final JetPack pack = new JetPack();
+    private final Arsenal arsenal = new Arsenal();
 
     public BoxRig() {
         final PhongMaterial shell = matte("#e9e4da");
@@ -80,8 +85,8 @@ public final class BoxRig {
                 box(64, 60, 34, 0, -120, 0, trim),                         // torso
                 box(40, 22, 2, 0, -128, 17.5, shell),                      // chest plate
                 pack.node(),
-                limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint)),
-                limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint)),
+                limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint, leftElbow, arsenal.leftHand())),
+                limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint, rightElbow, arsenal.rightHand())),
                 box(18, 10, 18, 0, -152, 0, joint),                        // neck
                 head(shell, joint, visor, beacon));
 
@@ -91,6 +96,11 @@ public final class BoxRig {
 
     public Node node() {
         return root;
+    }
+
+    /** What the weapons throw off into the world (spent casings), to add to the scene beside the rig. */
+    public Node effects() {
+        return arsenal.effects();
     }
 
     /** Puts the figure where the avatar is, holding the pose, with the jet-pack on its back or not. */
@@ -115,12 +125,16 @@ public final class BoxRig {
         rightArm.setAngle(pose.rightArm());
         // (for the legs above and the arms below, out to the side is toward -x on the left, a
         // positive turn about z, and the mirror on the right)
-        leftSpread.setAngle(pose.armSpread());
-        rightSpread.setAngle(-pose.armSpread());
+        leftSpread.setAngle(pose.leftSpread());
+        rightSpread.setAngle(-pose.rightSpread());
+        // a forearm hangs on along +y from the elbow, so it too bends forward with a positive turn
+        leftElbow.setAngle(pose.leftElbow());
+        rightElbow.setAngle(pose.rightElbow());
         headTurn.setAngle(pose.headYaw());
         headTip.setAngle(pose.headPitch());
 
         pack.show(avatar);
+        arsenal.show(avatar, pose);
     }
 
     private Group head(final PhongMaterial shell, final PhongMaterial joint, final PhongMaterial visor,
@@ -142,11 +156,22 @@ public final class BoxRig {
                 box(26, 12, 34, 0, 74, 5, joint));                         // foot, its heel inside the leg
     }
 
-    private static Group arm(final PhongMaterial shell, final PhongMaterial joint) {
+    /**
+     * An arm: the upper arm from the shoulder, and the forearm bending forward at the elbow, with
+     * the hand at its end and what the hand holds.
+     */
+    private static Group arm(final PhongMaterial shell, final PhongMaterial joint, final Rotate elbow,
+                             final Node held) {
+        final Group forearm = new Group(
+                box(17, 8, 17, 0, 0, 0, joint),                            // elbow
+                box(18, 26, 18, 0, 15, 0, shell),
+                box(16, 14, 16, 0, Arsenal.HAND, 0, joint),                // hand
+                held);
+        forearm.getTransforms().addAll(new Translate(0, UPPER_ARM, 0), elbow);
         return new Group(
                 box(22, 18, 22, 0, 0, 0, joint),                           // shoulder
-                box(18, 56, 18, 0, 30, 0, shell),
-                box(16, 14, 16, 0, 62, 0, joint));                         // hand
+                box(18, 30, 18, 0, 15, 0, shell),                          // upper arm
+                forearm);
     }
 
     /** A part hung from a joint at (x, y): it swings about x, then spreads about z. */

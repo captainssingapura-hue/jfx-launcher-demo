@@ -56,6 +56,11 @@ public final class Arcade implements Profile {
             case IGNITION -> ignition(variant);
             case CUT -> cut(variant);
             case GATE -> gate(amount, variant);
+            case RIFLE_SHOT -> rifleShot(variant);
+            case RIFLES_DRAWN -> riflesDrawn(variant);
+            case GLAIVE_CLEAVE -> glaiveStroke(true, variant);
+            case GLAIVE_SWEEP -> glaiveStroke(false, variant);
+            case GLAIVE_DRAWN -> arpeggio("glaive-drawn", new double[] {659.25, 987.77, 1318.51, 1975.53}, variant);
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
             case JET_HISS -> noiseLoop("jet-hiss", 14_000, 9400, 0.25, false);
             case JET_WHINE -> jetWhine();
@@ -262,6 +267,62 @@ public final class Arcade implements Profile {
             y[i] = (square(phase, 0.5) * volume(1 - tick(t) / 0.9) + 0.6 * noise.next(3000) * fall(t, 6)) * onset(t);
         }
         return clip("cut", 1, variant, y, 0.55);
+    }
+
+    // ---- the weapons
+
+    /** A round: a burst of noise falling fast in pitch, over a low square thump. */
+    private static Clip rifleShot(final int variant) {
+        final Chip noise = new Chip(new Noise(11_000L + variant));
+        final double tune = tune(variant);
+        final double[] y = new double[samples(0.13)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double rate = 12_000 * tune * Math.pow(0.25, Math.min(1, tick(t) / (5 * FRAME)));
+            phase += 140 * tune * (1 - 0.5 * Math.min(1, tick(t) / (4 * FRAME))) / Dsp.RATE;
+            y[i] = (noise.next(rate) * fall(t, 7) + 0.6 * square(phase, 0.5) * fall(t, 4)) * onset(t);
+        }
+        return clip("rifle-shot", 1, variant, y, 0.6);
+    }
+
+    /** Drawing the rifles: two short clicks each, a high one and a lower one, one rifle then the other. */
+    private static Clip riflesDrawn(final int variant) {
+        final double tune = tune(variant);
+        final double[] y = new double[samples(0.4)];
+        final double[] at = {0, 0.07, 0.2, 0.27};
+        final double[] pitch = {1320, 880, 1320, 880};
+        final double[] phases = new double[at.length];
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            double s = 0;
+            for (int k = 0; k < at.length; k++) {
+                if (t >= at[k] && t < at[k] + 2 * FRAME) {
+                    phases[k] += pitch[k] * tune / Dsp.RATE;
+                    s += square(phases[k], 0.25) * fall(t - at[k], 2);
+                }
+            }
+            y[i] = s * onset(t);
+        }
+        return clip("rifles-drawn", 1, variant, y, 0.35);
+    }
+
+    /**
+     * The glaive's swing: chip noise sweeping up and back down as the blade comes through, a
+     * frame at a time. The cleave sweeps lower and longer than the sweep.
+     */
+    private static Clip glaiveStroke(final boolean cleave, final int variant) {
+        final Chip noise = new Chip(new Noise((cleave ? 13_000L : 13_500L) + variant));
+        final double tune = tune(variant);
+        final double length = cleave ? 0.3 : 0.24;
+        final double base = (cleave ? 1800 : 2800) * tune;
+        final double[] y = new double[samples(length + 2 * FRAME)];
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double through = Math.sin(Math.PI * Math.min(1, tick(t) / length));
+            y[i] = noise.next(base * (1 + 3 * through)) * volume(through) * onset(t);
+        }
+        return clip(cleave ? "glaive-cleave" : "glaive-sweep", 1, variant, y, cleave ? 0.45 : 0.38);
     }
 
     // ---- the loops

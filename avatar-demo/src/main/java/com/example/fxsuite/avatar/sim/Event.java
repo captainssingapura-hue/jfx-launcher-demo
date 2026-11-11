@@ -42,4 +42,16 @@ public sealed interface Event {
     /** It went through a gate's opening, at {@code speed}, either way. */
     record PassedGate(double speed) implements Event {
     }
+
+    /** A weapon was drawn into the hands, or (for {@link Weapon#NONE}) the hands emptied. */
+    record Drew(Weapon weapon) implements Event {
+    }
+
+    /** A rifle fired a round: the one in the left hand, or the right. */
+    record Fired(boolean left) implements Event {
+    }
+
+    /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */
+    record Swung(int stroke) implements Event {
+    }
 }

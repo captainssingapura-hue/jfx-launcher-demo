@@ -58,6 +58,11 @@ public final class Robot implements Profile {
             case IGNITION -> ignition(variant);
             case CUT -> cut(variant);
             case GATE -> gate(amount, variant);
+            case RIFLE_SHOT -> rifleShot(variant);
+            case RIFLES_DRAWN -> riflesDrawn(variant);
+            case GLAIVE_CLEAVE -> glaiveStroke(true, variant);
+            case GLAIVE_SWEEP -> glaiveStroke(false, variant);
+            case GLAIVE_DRAWN -> glaiveDrawn(variant);
             case JET_RUMBLE -> jetRumble();
             case JET_HISS -> jetHiss();
             case JET_WHINE -> jetWhine();
@@ -318,6 +323,118 @@ public final class Robot implements Profile {
                     + 1.5 * rumble.low * hit(t, 0.005, 0.35);
         }
         return new Clip(name("cut", 1, variant), Dsp.finish(y, 0.6), false);
+    }
+
+    // ---- the weapons
+
+    /**
+     * A rifle round: the sharp crack of the shot, the boom of its blast, the bolt slamming
+     * back and home, and the shot's tail rolling away.
+     */
+    public static Clip rifleShot(final int variant) {
+        final Noise noise = new Noise(11_000L + variant);
+        final double tune = 1 + 0.05 * noise.next();
+        final double[] y = new double[samples(0.4)];
+        final Filter boom = new Filter(260 * tune, 0.8);
+        final Filter crack = new Filter(3500 * tune, 0.9);
+        final Filter tail = new Filter(900 * tune, 0.6);
+        final Filter bolt = new Filter(2400 * tune, 6);
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            boom.push(w);
+            crack.push(w);
+            tail.push(w);
+            bolt.push(w * (hit(t - 0.028, 0.0003, 0.002) + 0.7 * hit(t - 0.062, 0.0003, 0.002)));
+            phase += TAU * (55 + 90 * Math.exp(-t / 0.02)) / Dsp.RATE;
+            y[i] = 1.6 * crack.band * hit(t, 0.0002, 0.006)
+                    + 2.2 * boom.low * hit(t, 0.0008, 0.035)
+                    + 0.8 * Math.sin(phase) * hit(t, 0.001, 0.04)
+                    + 0.5 * tail.band * hit(t - 0.01, 0.02, 0.12)
+                    + 1.5 * bolt.band;
+        }
+        return new Clip(name("rifle-shot", 1, variant), Dsp.finish(y, 0.85), false);
+    }
+
+    /** Drawing the rifles: each charging handle pulled back with a scrape, and let fly home. */
+    public static Clip riflesDrawn(final int variant) {
+        final Noise noise = new Noise(12_000L + variant);
+        final double tune = 1 + 0.04 * noise.next();
+        final double[] y = new double[samples(0.6)];
+        final Filter slide = new Filter(1800 * tune, 1.4);
+        final Filter thunk = new Filter(600, 0.8);
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            slide.push(w);
+            thunk.push(w);
+            // one rifle, then the other a moment later
+            double s = 0;
+            for (final double at : new double[] {0, 0.24}) {
+                final double u = t - at;
+                if (u >= 0) {
+                    s += 0.5 * slide.band * (u < 0.07 ? Math.sin(Math.PI * u / 0.07) : 0)
+                            + click(u - 0.07, 1900 * tune, w)
+                            + click(u - 0.13, 2600 * tune, w)
+                            + 0.9 * thunk.low * hit(u - 0.13, 0.001, 0.02);
+                }
+            }
+            y[i] = s;
+        }
+        return new Clip(name("rifles-drawn", 1, variant), Dsp.finish(y, 0.5), false);
+    }
+
+    /**
+     * The glaive's blade going through the air: a heavy, rushing whoosh, rising and falling as it
+     * passes. A cleave, falling with its weight behind it, is deeper and fuller than a sweep.
+     */
+    public static Clip glaiveStroke(final boolean cleave, final int variant) {
+        final Noise noise = new Noise((cleave ? 13_000L : 13_500L) + variant);
+        final double tune = 1 + 0.06 * noise.next();
+        final double length = cleave ? 0.42 : 0.5;
+        final double low = (cleave ? 180 : 260) * tune;
+        final double[] y = new double[samples(length + 0.08)];
+        final Filter rush = new Filter(low, 1.6);
+        final Filter edge = new Filter(low * 6, 2.5);
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double u = Math.min(1, t / length);
+            // the pitch rises as the blade comes through, and falls as it goes on
+            final double sweep = Math.sin(Math.PI * u);
+            final double w = noise.next();
+            rush.tune(low * (1 + 2.2 * sweep), 1.6).push(w);
+            edge.tune(low * 6 * (1 + sweep), 2.5).push(w);
+            phase += TAU * low * 0.5 * (1 + sweep) / Dsp.RATE;
+            final double swell = Math.pow(sweep, 2.2);
+            y[i] = (1.4 * rush.band + 0.35 * edge.band + (cleave ? 0.4 : 0.2) * Math.sin(phase)) * swell
+                    * Math.min(1, t / 0.01);
+        }
+        return new Clip(name(cleave ? "glaive-cleave" : "glaive-sweep", 1, variant),
+                Dsp.finish(y, cleave ? 0.6 : 0.5), false);
+    }
+
+    /** Drawing the glaive: a scrape of steel, then the long blade ringing out. */
+    public static Clip glaiveDrawn(final int variant) {
+        final Noise noise = new Noise(14_000L + variant);
+        final double tune = 1 + 0.03 * noise.next();
+        final double[] y = new double[samples(1.4)];
+        final Filter scrape = new Filter(4200 * tune, 2);
+        // a bar of steel rings at partials that are not quite harmonic
+        final double[] partials = {1, 2.76, 5.40, 8.93};
+        final double[] decays = {0.9, 0.5, 0.25, 0.12};
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            scrape.tune(4200 * tune * (1 + 0.6 * Math.min(1, t / 0.18)), 2).push(noise.next());
+            double ring = 0;
+            for (int k = 0; k < partials.length; k++) {
+                ring += Math.sin(TAU * 620 * tune * partials[k] * (t - 0.16)) * hit(t - 0.16, 0.002, decays[k])
+                        / (k + 1);
+            }
+            y[i] = 0.5 * scrape.band * (t < 0.18 ? Math.sin(Math.PI * t / 0.18) : 0) + 0.6 * ring;
+        }
+        return new Clip(name("glaive-drawn", 1, variant), Dsp.finish(y, 0.5), false);
     }
 
     // ---- the loops, two to four seconds each; how loud and how high they play is set live

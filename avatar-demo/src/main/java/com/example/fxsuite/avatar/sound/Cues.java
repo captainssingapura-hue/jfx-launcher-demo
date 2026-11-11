@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.sound;
 
+import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Event;
@@ -27,6 +28,14 @@ public final class Cues {
     /** Where the pack sits: up the back, and behind it (as {@code JetPack} draws it). */
     static final double PACK_HEIGHT = 120;
     static final double PACK_BEHIND = 36;
+    /** Where the hands are, in front of the chest. */
+    static final double HANDS_HEIGHT = 130;
+    /** A rifle's muzzle, held from the hip: how high, how far out to the side, how far ahead. */
+    static final double MUZZLE_HEIGHT = 130;
+    static final double MUZZLE_OUT = 32;
+    static final double MUZZLE_AHEAD = 93;
+    /** The glaive's blade as it comes through, ahead of the chest. */
+    static final double BLADE_AHEAD = 120;
 
     private Cues() {
     }
@@ -81,6 +90,17 @@ public final class Cues {
                 case Event.PackOff _ -> plays.add(new Play(Sound.PACK_OFF, 1, pack));
                 // a reward, for the player rather than the world: heard as if close by
                 case Event.PassedGate g -> plays.add(new Play(Sound.GATE, Num.clamp(g.speed() / Body.BOOST, 0, 1), null));
+                case Event.Drew d -> {
+                    switch (d.weapon()) {
+                        case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
+                        case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
+                        case NONE -> {
+                        }
+                    }
+                }
+                case Event.Fired f -> plays.add(new Play(Sound.RIFLE_SHOT, 1, muzzle(body, f.left())));
+                case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
+                        : Sound.GLAIVE_SWEEP, 1, hands(body, BLADE_AHEAD)));
             }
         }
         final double thrust = avatar.thrust();
@@ -96,5 +116,17 @@ public final class Cues {
     /** The middle of the jet-pack, on the avatar's back. */
     static Vec3 pack(final Body body) {
         return body.position().add(0, -PACK_HEIGHT, 0).subtract(Num.heading(body.yaw()).multiply(PACK_BEHIND));
+    }
+
+    /** A rifle's muzzle, held from the hip: in the left hand, or the right. */
+    static Vec3 muzzle(final Body body, final boolean left) {
+        return body.position().add(0, -MUZZLE_HEIGHT, 0)
+                .add(Num.right(body.yaw()).multiply(left ? -MUZZLE_OUT : MUZZLE_OUT))
+                .add(Num.heading(body.yaw()).multiply(MUZZLE_AHEAD));
+    }
+
+    /** In front of the chest, {@code ahead} further out: the hands, or where a stroke goes through. */
+    static Vec3 hands(final Body body, final double ahead) {
+        return body.position().add(0, -HANDS_HEIGHT, 0).add(Num.heading(body.yaw()).multiply(20 + ahead));
     }
 }

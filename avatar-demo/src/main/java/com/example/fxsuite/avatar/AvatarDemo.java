@@ -12,6 +12,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
@@ -32,6 +33,8 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.transform.Rotate;
@@ -88,6 +91,9 @@ public final class AvatarDemo extends Application {
     private Hearing hearing;
     /** Degrees per second the script is turning, as the mouse would. */
     private double scriptedTurn;
+    /** The trigger: the left mouse button held while the mouse is captured, or a script's FIRE. */
+    private boolean clicking;
+    private boolean scriptedTrigger;
     private double fieldOfView = FIELD_OF_VIEW;
     private String shown = "";
 
@@ -98,7 +104,7 @@ public final class AvatarDemo extends Application {
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
-        final SubScene view = new SubScene(new Group(world.node(), rig.node(), eye), 0, 0, true,
+        final SubScene view = new SubScene(new Group(world.node(), rig.node(), rig.effects(), eye), 0, 0, true,
                 SceneAntialiasing.BALANCED);
         view.setFill(World.SKY);
         view.setCamera(eye);
@@ -109,7 +115,8 @@ public final class AvatarDemo extends Application {
                 + "Space jump or climb · Ctrl descend\n"
                 + "J jet-pack on or off · F fly or land (with the jet-pack) · "
                 + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
-                + "M mute · P sound profile");
+                + "M mute · P sound profile\n"
+                + "1 twin rifles · 2 glaive (again to put away) · click to fire or swing");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         final VBox hud = new VBox(4, status, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
@@ -126,6 +133,16 @@ public final class AvatarDemo extends Application {
         final Scene scene = new Scene(root, 1280, 800);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> press(e.getCode()));
         scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> release(e.getCode()));
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+            if (e.getButton() == MouseButton.PRIMARY && look.captured()) {
+                clicking = true;
+            }
+        });
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
+            if (e.getButton() == MouseButton.PRIMARY) {
+                clicking = false;
+            }
+        });
 
         stage.setTitle("FxSuite · Avatar");
         stage.setScene(scene);
@@ -167,7 +184,8 @@ public final class AvatarDemo extends Application {
                 look.takeTurn() + scriptedTurn * seconds,
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
                 // full speed by default, as in most shooters; Shift held to go carefully
-                !held.contains(KeyCode.SHIFT));
+                !held.contains(KeyCode.SHIFT),
+                clicking || scriptedTrigger);
         avatar = avatar.step(controls, seconds, obstacles);
         final Body body = avatar.body();
         final double tilt = look.takeTilt();
@@ -177,7 +195,7 @@ public final class AvatarDemo extends Application {
         }
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
-        rig.show(avatar, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
+        rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         world.shadowUnder(body, obstacles);
         hearing.hear(avatar, chase);
 
@@ -211,8 +229,9 @@ public final class AvatarDemo extends Application {
                 : pace > Body.WALK * 1.2 ? "Running" : "Walking";
         final String sound = hearing.output() == Speakers.Kind.SILENT ? "no sound"
                 : hearing.muted() ? "sound muted" : hearing.profile().title() + " sounds";
-        final String text = String.format("%s · %.1f m/s · %.1f m up · %s · %s%s", what, metres, body.height() / 100,
-                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", sound,
+        final String weapon = avatar.holding() == Weapon.NONE ? "" : " · " + avatar.holding().title();
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s · %s%s", what, metres, body.height() / 100,
+                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon, sound,
                 look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
@@ -228,6 +247,8 @@ public final class AvatarDemo extends Application {
             case SPACE -> avatar = avatar.jumped();
             case F -> avatar = avatar.toggledFlight();
             case J -> avatar = avatar.toggledPack();
+            case DIGIT1 -> avatar = avatar.drawn(Weapon.RIFLES);
+            case DIGIT2 -> avatar = avatar.drawn(Weapon.GLAIVE);
             case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
             case M -> hearing.toggleMute();
@@ -266,6 +287,12 @@ public final class AvatarDemo extends Application {
             final double hold = parts.length > 1 ? Double.parseDouble(parts[1].trim()) : 0.15;
             if (!parts[0].isBlank()) {
                 for (final String name : parts[0].split("\\+")) {
+                    if (name.trim().equalsIgnoreCase("FIRE")) {
+                        // the trigger, as the left mouse button held
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTrigger = true));
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTrigger = false));
+                        continue;
+                    }
                     if (name.trim().startsWith("@")) {
                         final double rate = Double.parseDouble(name.trim().substring(1)) / hold;
                         steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTurn = rate));
