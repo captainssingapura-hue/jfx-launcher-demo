@@ -67,7 +67,8 @@ final class JetPack {
             root.getChildren().addAll(
                     cylinder(ENGINE_RADIUS, ENGINE_LENGTH, side, -(ENGINE_TOP - ENGINE_LENGTH / 2), ENGINE_Z, casing),
                     cylinder(ENGINE_RADIUS + 1.5, 6, side, -(ENGINE_TOP - 3), ENGINE_Z, dark),      // intake ring
-                    cylinder(ENGINE_RADIUS - 3, 12, side, -(ENGINE_TOP - ENGINE_LENGTH - 6), ENGINE_Z, dark));
+                    // the nozzle reaches up into the engine, so their ends never lie flush
+                    cylinder(ENGINE_RADIUS - 3, 14, side, -(ENGINE_TOP - ENGINE_LENGTH - 5), ENGINE_Z, dark));
             // each flame is a unit long until scaled, hanging down from its nozzle
             flames.getChildren().add(cylinder(6.5, 1, side, 0.5, 0, flame));
         }
@@ -118,7 +119,8 @@ final class JetPack {
         // a tip at -x sweeps back (-z) with a negative turn about y; at +x, a positive one
         final Group wing = new Group(
                 box(WING_SPAN, 4, 26, side * WING_SPAN / 2, 0, 0, material),
-                box(10, 5, 28, side * (WING_SPAN - 5), 0, 0, BoxRig.matte("#2a2e35")));     // wingtip
+                // the cap stands 2 past the wing's end: flush, the two end faces would flicker
+                box(10, 5, 28, side * (WING_SPAN - 3), 0, 0, BoxRig.matte("#2a2e35")));     // wingtip
         wing.getTransforms().addAll(
                 new Translate(side * (ENGINE_X + ENGINE_RADIUS), -HINGE_Y, ENGINE_Z),
                 new Rotate(side * SWEEP, Rotate.Y_AXIS),
