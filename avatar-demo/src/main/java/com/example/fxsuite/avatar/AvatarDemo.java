@@ -49,15 +49,16 @@ import java.util.Set;
 /**
  * A box-rig avatar in a small world, followed by a chase camera.
  *
- * <p>The keys move the avatar without turning it: W/S ahead and back, A/D sideways, Shift runs
- * (or boosts), Space jumps (or climbs while flying), Ctrl descends. J puts the {@link JetPack}
- * on or takes it off; wearing it, F takes off and flies as a drone does, or stops flying. It
+ * <p>The keys move the avatar without turning it: W/S ahead and back, A/D sideways. It goes
+ * at full speed, a run (or full boost), unless Shift is held, which walks (or flies at cruising
+ * speed), as in most shooters. Space jumps (or climbs while flying), Ctrl descends. J puts the
+ * {@link JetPack} on or takes it off; wearing it, F takes off and flies as a drone does, or stops flying. It
  * starts without the pack; {@code -Davatar.pack=true} starts with it on.
  * The mouse turns it, with no button held ({@link MouseLook}); clicks are kept for actions.
  * Esc frees the mouse or takes it back. Hold Q or E to swing the camera round the avatar; C
  * puts it back behind. Scroll to zoom.
  *
- * <p>For runs without a keyboard: {@code -Davatar.script="F;W+SHIFT:2;W+D:1.5"} holds each
+ * <p>For runs without a keyboard: {@code -Davatar.script="F;W:2;W+D+SHIFT:1.5"} holds each
  * step's keys for its seconds (a step without seconds is a tap, and {@code :1} just waits); an
  * {@code @90} among a step's keys turns 90° over the step, as the mouse would.
  * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
@@ -104,7 +105,7 @@ public final class AvatarDemo extends Application {
         view.setOnScroll(e -> chase = chase.zoomed(Math.pow(1.0015, -e.getDeltaY())));
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
-        final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift run or boost · "
+        final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
                 + "Space jump or climb · Ctrl descend\n"
                 + "J jet-pack on or off · F fly or land (with the jet-pack) · "
                 + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
@@ -165,7 +166,8 @@ public final class AvatarDemo extends Application {
                 axis(KeyCode.D) - axis(KeyCode.A),
                 look.takeTurn() + scriptedTurn * seconds,
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
-                held.contains(KeyCode.SHIFT));
+                // full speed by default, as in most shooters; Shift held to go carefully
+                !held.contains(KeyCode.SHIFT));
         avatar = avatar.step(controls, seconds, obstacles);
         final Body body = avatar.body();
         final double tilt = look.takeTilt();

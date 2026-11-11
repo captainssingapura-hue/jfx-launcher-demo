@@ -413,8 +413,9 @@ java -jar avatar-demo/target/avatar-demo.jar
 
 The mouse turns the avatar with no button held, as in games: the cursor is hidden and kept
 in the window, so clicks stay free for actions, and Esc frees the mouse or takes it back.
-The keys move without turning: W/S ahead and back, A/D sideways, Shift runs or boosts,
-Space jumps (or climbs while flying), Ctrl descends. J puts the jet-pack on or takes it off
+The keys move without turning: W/S ahead and back, A/D sideways. As in most shooters, it
+goes at full speed (a run, or full boost in flight) unless Shift is held, which walks (or
+flies at cruising speed). Space jumps (or climbs while flying), Ctrl descends. J puts the jet-pack on or takes it off
 (off in flight, the avatar falls); wearing it, F takes off or stops flying. Hold Q/E to look
 round; C puts the camera behind; scroll to zoom. M mutes the sound, and P changes the sound
 profile (Robot or Arcade). `-Davatar.sounds=arcade` starts with Arcade, and
@@ -422,7 +423,7 @@ profile (Robot or Arcade). `-Davatar.sounds=arcade` starts with Arcade, and
 heard, on the ground or a block, along with each jump, landing, bump and gate flown through,
 the pack and its wings. The jets roar as hard as they fire, and the wind rises with speed. For
 an unattended picture, which leaves the mouse alone and the sound off unless
-`-Davatar.audio` names an output: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
+`-Davatar.audio` names an output: `-Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png`
 (`@90` turns 90° over the step, as the mouse would; `-Davatar.pack=true` starts with the
 pack on).
 
@@ -431,7 +432,7 @@ it. `-Davatar.audio=record -Davatar.record=flight.wav` writes a stereo WAV of ex
 would have played, kept in time with the game, and pairs well with a script:
 
 ```bash
-java -Davatar.audio=record -Davatar.record=flight.wav -Davatar.script="W:1.6;J:0.6;F:0.3;SPACE:1.2;W+SHIFT:2.5;CONTROL:3.5;:1" -Davatar.snapshot=flight.png -jar avatar-demo/target/avatar-demo.jar
+java -Davatar.audio=record -Davatar.record=flight.wav -Davatar.script="W+SHIFT:1.6;J:0.6;F:0.3;SPACE:1.2;W:2.5;CONTROL:3.5;:1" -Davatar.snapshot=flight.png -jar avatar-demo/target/avatar-demo.jar
 ```
 
 ### Sound bench
