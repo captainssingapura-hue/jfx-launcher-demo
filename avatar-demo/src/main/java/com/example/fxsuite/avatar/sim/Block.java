@@ -61,6 +61,47 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         return new Vec2(plx * c + plz * s, -plx * s + plz * c);
     }
 
+    /**
+     * How far a stroke must move to clear the footprint: a straight line from (ax, az) to (bx, bz),
+     * {@code radius} thick each side, rounded at its ends; {@code null} if it already does. The
+     * push is out of the face or corner nearest the line. So a line meeting a face square on is
+     * pushed straight back, and only one caught on a corner slides round it.
+     */
+    public Vec2 push(final double ax, final double az, final double bx, final double bz, final double radius) {
+        // most blocks are nowhere near: the line's nearest approach to the block's middle says so
+        final double ex = bx - ax;
+        final double ez = bz - az;
+        final double along = Num.clamp(((x - ax) * ex + (z - az) * ez) / (ex * ex + ez * ez), 0, 1);
+        if (Math.hypot(ax + ex * along - x, az + ez * along - z) > Math.hypot(halfWidth, halfDepth) + radius) {
+            return null;
+        }
+        // the gap from the footprint is convex along the line: home in on its smallest
+        double lo = 0;
+        double hi = 1;
+        for (int i = 0; i < 40; i++) {
+            final double m1 = lo + (hi - lo) / 3;
+            final double m2 = hi - (hi - lo) / 3;
+            if (gap(ax + (bx - ax) * m1, az + (bz - az) * m1) <= gap(ax + (bx - ax) * m2, az + (bz - az) * m2)) {
+                hi = m2;
+            } else {
+                lo = m1;
+            }
+        }
+        final double t = (lo + hi) / 2;
+        return push(ax + (bx - ax) * t, az + (bz - az) * t, radius);
+    }
+
+    /** How far, across the ground, a point is from the footprint; 0 inside. */
+    private double gap(final double px, final double pz) {
+        final double c = Math.cos(Math.toRadians(yaw));
+        final double s = Math.sin(Math.toRadians(yaw));
+        final double dx = px - x;
+        final double dz = pz - z;
+        final double lx = dx * c - dz * s;
+        final double lz = dx * s + dz * c;
+        return Math.hypot(lx - Num.clamp(lx, -halfWidth, halfWidth), lz - Num.clamp(lz, -halfDepth, halfDepth));
+    }
+
     /** Whether a circle at ({@code px}, {@code pz}) overlaps the footprint. */
     public boolean covers(final double px, final double pz, final double radius) {
         return push(px, pz, radius) != null;

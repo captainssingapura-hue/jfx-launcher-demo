@@ -1,8 +1,7 @@
 package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
-import com.example.fxsuite.avatar.sim.Body;
-import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Wings;
 
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -23,8 +22,9 @@ import javafx.scene.transform.Translate;
  * head, the engines pointing down, held up by their thrust rather than by its wings. So the wings
  * lie in the plane of the back, leading edges up, and swing in that plane about pivots in fixed
  * gloves beside the engines, as a variable-sweep fighter's do. Like that fighter's, their sweep
- * follows the speed (see {@link #sweepFor}): tucked down along the engines on the ground,
- * spread wide to hover and fly slowly, and swept back further the faster it flies.
+ * follows the speed: tucked down along the engines on the ground, spread wide to hover and fly
+ * slowly, and swept back further the faster it flies. The wings' sizes, pivots and sweep are
+ * the simulation's ({@link Wings}), so what is drawn is exactly what collides.
  *
  * <p>In the figure's frame: it faces +z, so the pack hangs behind the torso, toward -z, with up
  * as -y.
@@ -33,7 +33,7 @@ final class JetPack {
 
     /** Across the back, the engines' centres, and how far behind the body they sit. */
     private static final double ENGINE_X = 17;
-    private static final double ENGINE_Z = -36;
+    private static final double ENGINE_Z = -Wings.PIVOT_BEHIND;
     private static final double ENGINE_TOP = 148;
     private static final double ENGINE_LENGTH = 58;
     private static final double ENGINE_RADIUS = 11;
@@ -41,30 +41,20 @@ final class JetPack {
     private static final double EXHAUST = ENGINE_TOP - ENGINE_LENGTH - 12;
     private static final double MAX_FLAME = 80;
     /** Where each wing is hinged, on its engine's outer side. */
-    private static final double HINGE_Y = 132;
+    private static final double HINGE_Y = Wings.PIVOT_HEIGHT;
     /** How far out from the engine's side the pivot sits, in its glove. */
-    private static final double GLOVE = 4;
+    private static final double GLOVE = Wings.PIVOT_OUT - ENGINE_X - ENGINE_RADIUS;
     /** The wing: a broad inner panel, a narrower outer one, their leading edges in line. */
     private static final double INNER_SPAN = 38;
-    private static final double OUTER_SPAN = 26;
-    private static final double ROOT_CHORD = 28;
+    private static final double OUTER_SPAN = Wings.SPAN - INNER_SPAN + 2;
+    private static final double ROOT_CHORD = Wings.ROOT_CHORD;
     private static final double TIP_CHORD = 18;
-    /** Degrees back from straight out to the side: stowed, spread, and fully swept. */
-    static final double STOWED = 75;
-    static final double SPREAD = 20;
-    static final double SWEPT = 68;
-    /** Below this forward speed the wings stay spread; by full boost they are fully swept. */
-    static final double SLOW = 0.3 * Body.FLY;
-    /** How quickly the wings swing: about a sixth of a second to most of the way. */
-    private static final double SWING = 6;
 
     private final Group root = new Group();
     private final Rotate leftSweep = new Rotate(0, Rotate.Z_AXIS);
     private final Rotate rightSweep = new Rotate(0, Rotate.Z_AXIS);
     private final Group flames = new Group();
     private final Scale flameLength = new Scale(1, 1, 1);
-    private double sweep = STOWED;
-    private double lastTime = Double.NaN;
 
     JetPack() {
         final PhongMaterial casing = BoxRig.matte("#5b6470");
@@ -108,18 +98,13 @@ final class JetPack {
         return root;
     }
 
-    /**
-     * Shows or hides the pack; swings the wings toward the sweep the flight calls for, easing
-     * there; and lights the engines as hard as the jet is firing.
-     */
+    /** Shows or hides the pack; sets the wings to the avatar's sweep; lights the engines as hard as they fire. */
     void show(final Avatar avatar) {
         final boolean worn = avatar.wearingPack();
-        final Body body = avatar.body();
         final double thrust = avatar.thrust();
+        final double time = avatar.body().time();
         root.setVisible(worn);
-        final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, body.time() - lastTime);
-        lastTime = body.time();
-        sweep = Num.ease(sweep, sweepFor(avatar), SWING, seconds);
+        final double sweep = avatar.sweep();
         // swept back, the left wing's tip goes down (+y): a negative turn about z for a tip at
         // -x. The right wing mirrors it.
         leftSweep.setAngle(-sweep);
@@ -127,31 +112,8 @@ final class JetPack {
 
         flames.setVisible(thrust > 0);
         // a little flicker, from the clock, so the flames look alive
-        final double flicker = 1 + 0.12 * Math.sin(body.time() * 31) + 0.06 * Math.sin(body.time() * 53);
+        final double flicker = 1 + 0.12 * Math.sin(time * 31) + 0.06 * Math.sin(time * 53);
         flameLength.setY(Math.max(1, MAX_FLAME * thrust * flicker));
-    }
-
-    /**
-     * The sweep the flight calls for, in degrees back from straight out to the side, as a
-     * variable-sweep fighter's wings are scheduled by speed:
-     * <ul>
-     *   <li>stowed, tucked down along the engines, when not flying;</li>
-     *   <li>spread wide when hovering upright on the jets or flying slowly;</li>
-     *   <li>swept back more and more as it speeds up, fully at full boost.</li>
-     * </ul>
-     */
-    static double sweepFor(final Avatar avatar) {
-        final Body body = avatar.body();
-        if (!avatar.wearingPack() || !body.flying()) {
-            return STOWED;
-        }
-        final double fast = Num.clamp((body.speed() - SLOW) / (Body.BOOST - SLOW), 0, 1);
-        return SPREAD + (SWEPT - SPREAD) * fast * fast * (3 - 2 * fast);
-    }
-
-    /** The wings' sweep just now, in degrees, easing toward {@link #sweepFor}. */
-    double sweep() {
-        return sweep;
     }
 
     /**

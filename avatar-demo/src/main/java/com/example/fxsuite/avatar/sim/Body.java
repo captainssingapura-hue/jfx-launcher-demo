@@ -137,6 +137,15 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
      * on the way: each foot that came down, a landing and how hard, a bump and how hard.
      */
     public Moved move(final Controls controls, final double seconds, final Obstacles world) {
+        return move(controls, seconds, world, null);
+    }
+
+    /**
+     * As {@link #move(Controls, double, Obstacles)}, with {@code wings} spread from the back
+     * (null for none): they stop against what they meet, as the body does, so the whole body is
+     * pushed clear of whatever a wing runs into.
+     */
+    public Moved move(final Controls controls, final double seconds, final Obstacles world, final Wings wings) {
         final List<Event> events = new ArrayList<>();
         double bump = 0;
         final boolean leaping = inJump();
@@ -175,7 +184,8 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         double rise = (climb + newClimb) / 2;
 
         final double reach = Math.max(Math.hypot(vx, vz), Math.abs(rise)) * seconds;
-        final int substeps = Math.max(1, (int) Math.ceil(reach / SUBSTEP));
+        // with wings out, finer steps: a wing is thin, and must not get into a bar between them
+        final int substeps = Math.max(1, (int) Math.ceil(reach / (wings == null ? SUBSTEP : Wings.STEP)));
         final double dt = seconds / substeps;
         double x = position.x();
         double z = position.z();
@@ -223,6 +233,27 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
             z = contact.z();
             vx = contact.vx();
             vz = contact.vz();
+            // and each wing, a stroke behind the shoulders: where one is pushed clear of
+            // something, the whole body goes with it
+            if (wings != null) {
+                final Vec3 side = Num.right(newYaw);
+                final Vec3 back = Num.heading(newYaw).multiply(-1);
+                for (final Wings.Span span : wings.spans()) {
+                    final double bx = x + back.x() * span.behind();
+                    final double bz = z + back.z() * span.behind();
+                    final Obstacles.Shift wing = world.slide(
+                            bx + side.x() * span.from(), bz + side.z() * span.from(),
+                            bx + side.x() * span.to(), bz + side.z() * span.to(),
+                            vx, vz, Wings.REACH, height + span.bottom(), height + span.top());
+                    if (wing.blocked()) {
+                        bump = Math.max(bump, Math.hypot(vx - wing.vx(), vz - wing.vz()));
+                        x += wing.dx();
+                        z += wing.dz();
+                        vx = wing.vx();
+                        vz = wing.vz();
+                    }
+                }
+            }
         }
 
         // what is left of the velocity, reckoned along the frame it moved in; still in a jump, it

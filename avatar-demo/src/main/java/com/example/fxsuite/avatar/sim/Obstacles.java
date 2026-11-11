@@ -37,6 +37,10 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
     public record Contact(double x, double z, double vx, double vz, boolean blocked) {
     }
 
+    /** How far a stroke was moved to slide clear, and its velocity with the part into anything removed. */
+    public record Shift(double dx, double dz, double vx, double vz, boolean blocked) {
+    }
+
     /**
      * The highest surface a circle at ({@code x}, {@code z}) can stand on, no higher than
      * {@code within}: the top of a block under it, or the ground.
@@ -78,19 +82,34 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
      */
     public Contact slide(double x, double z, double vx, double vz, final double radius,
                          final double feet, final double head) {
+        final Shift shift = slide(x, z, x, z, vx, vz, radius, feet, head);
+        return new Contact(x + shift.dx(), z + shift.dz(), shift.vx(), shift.vz(), shift.blocked());
+    }
+
+    /**
+     * As {@link #slide(double, double, double, double, double, double, double)}, for a stroke:
+     * a line from (ax, az) to (bx, bz), {@code radius} thick, such as a wing seen from above.
+     * Says how far it moved, rather than where it ended up.
+     */
+    public Shift slide(final double ax, final double az, final double bx, final double bz, double vx, double vz,
+                       final double radius, final double feet, final double head) {
+        double dx = 0;
+        double dz = 0;
         boolean blocked = false;
         for (int pass = 0; pass < 2; pass++) {
             for (final Block block : blocks) {
                 if (block.top() <= feet || block.bottom() >= head) {
                     continue;
                 }
-                final Vec2 push = block.push(x, z, radius);
+                final boolean point = ax == bx && az == bz;
+                final Vec2 push = point ? block.push(ax + dx, az + dz, radius)
+                        : block.push(ax + dx, az + dz, bx + dx, bz + dz, radius);
                 if (push == null) {
                     continue;
                 }
                 blocked = true;
-                x += push.x();
-                z += push.z();
+                dx += push.x();
+                dz += push.z();
                 final double length = push.magnitude();
                 final double nx = push.x() / length;
                 final double nz = push.z() / length;
@@ -101,6 +120,6 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
                 }
             }
         }
-        return new Contact(x, z, vx, vz, blocked);
+        return new Shift(dx, dz, vx, vz, blocked);
     }
 }

@@ -382,7 +382,9 @@ a chase camera. Put on its jet-pack and it flies as a drone does: upright, tippe
 toward where it goes, holding its place when let go. Avatar and pack are drawn as a fighter
 jet standing on its tail, held up by the thrust of its twin engines. Its swing wings lie in the
 plane of the back and pivot there as a variable-sweep fighter's do: tucked along the engines
-on the ground, spread wide to hover, and swept further back the faster it flies. There is no mesh or skin. Each limb is a rigid part hung
+on the ground, spread wide to hover, and swept further back the faster it flies. The wings
+are as solid as the body: a wing that meets a post stops the flight, and one that clips an
+edge glances off. There is no mesh or skin. Each limb is a rigid part hung
 from a joint, and the animation is worked out each frame from how the body moves, the way
 blocky game characters are animated. Everything in the world is solid: the avatar slides
 along what it runs into, stands on top of blocks, jumps up onto the lower crates (try the
