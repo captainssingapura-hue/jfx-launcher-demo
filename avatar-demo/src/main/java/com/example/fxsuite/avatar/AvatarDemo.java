@@ -37,7 +37,9 @@ import java.util.Set;
  * A box-rig avatar in a small world, followed by a chase camera.
  *
  * <p>The keys move the avatar without turning it: W/S ahead and back, A/D sideways, Shift runs
- * (or boosts), Space jumps (or climbs while flying), Ctrl descends, F takes off or stops flying.
+ * (or boosts), Space jumps (or climbs while flying), Ctrl descends. J puts the {@link JetPack}
+ * on or takes it off; wearing it, F takes off and flies as a drone does, or stops flying. It
+ * starts without the pack; {@code -Davatar.pack=true} starts with it on.
  * The mouse turns it, with no button held ({@link MouseLook}); clicks are kept for actions.
  * Esc frees the mouse or takes it back. Hold Q or E to swing the camera round the avatar; C
  * puts it back behind. Scroll to zoom.
@@ -57,15 +59,17 @@ public final class AvatarDemo extends Application {
 
     private final Set<KeyCode> held = EnumSet.noneOf(KeyCode.class);
     private final BoxRig rig = new BoxRig();
-    private final World world = new World();
+    private final Course course = new Course();
+    private final Obstacles obstacles = course.obstacles();
+    private final World world = new World(course);
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
     private final Label status = new Label();
 
-    private Body body = Body.standing(Point3D.ZERO, 30);
-    private Chase chase = Chase.behind(eyeOf(body), body.yaw());
+    private Avatar avatar = new Avatar(Body.standing(Point3D.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
+    private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw());
     private MouseLook look;
     /** Degrees per second the script is turning, as the mouse would. */
     private double scriptedTurn;
@@ -87,8 +91,9 @@ public final class AvatarDemo extends Application {
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
         final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift run or boost · "
-                + "Space jump or climb · Ctrl descend · F fly or land · Q/E look round · C camera behind · "
-                + "scroll to zoom · Esc frees the mouse");
+                + "Space jump or climb · Ctrl descend\n"
+                + "J jet-pack on or off · F fly or land (with the jet-pack) · "
+                + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         final VBox hud = new VBox(4, status, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
@@ -138,7 +143,8 @@ public final class AvatarDemo extends Application {
                 look.takeTurn() + scriptedTurn * seconds,
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
                 held.contains(KeyCode.SHIFT));
-        body = body.step(controls, seconds);
+        avatar = avatar.step(controls, seconds, obstacles);
+        final Body body = avatar.body();
         final double tilt = look.takeTilt();
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
         if (tilt != 0 || circling != 0) {
@@ -146,8 +152,8 @@ public final class AvatarDemo extends Application {
         }
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
-        rig.show(body, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
-        world.shadowUnder(body);
+        rig.show(body, Gait.of(body, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH), avatar.wearingPack());
+        world.shadowUnder(body, obstacles);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -165,6 +171,7 @@ public final class AvatarDemo extends Application {
     }
 
     private void showStatus() {
+        final Body body = avatar.body();
         final double metres = body.groundSpeed() / 100;
         // measured against the top speed each way, so a diagonal is not mistaken for a sprint
         final double pace = Math.max(Math.abs(body.speed()), Math.abs(body.drift()) / Body.SIDESTEP);
@@ -174,7 +181,8 @@ public final class AvatarDemo extends Application {
                 : metres < 0.1 ? "Standing"
                 : Math.abs(body.drift()) > Math.abs(body.speed()) ? "Side-stepping"
                 : pace > Body.WALK * 1.2 ? "Running" : "Walking";
-        final String text = String.format("%s · %.1f m/s · %.1f m up%s", what, metres, body.height() / 100,
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s", what, metres, body.height() / 100,
+                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
                 look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
@@ -187,9 +195,10 @@ public final class AvatarDemo extends Application {
             return;  // a key held down repeats; act on the first press only
         }
         switch (code) {
-            case SPACE -> body = body.jumped();
-            case F -> body = body.toggledFlight();
-            case C -> chase = Chase.behind(chase.pivot(), body.yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
+            case SPACE -> avatar = avatar.jumped();
+            case F -> avatar = avatar.toggledFlight();
+            case J -> avatar = avatar.toggledPack();
+            case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
             default -> {
             }

@@ -10,13 +10,12 @@ import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Shape3D;
 import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
-import javafx.scene.transform.Scale;
 import javafx.scene.transform.Translate;
 
 /**
- * The avatar as a scene graph: a small courier robot built from boxes, with a jetpack. It has
- * no mesh and no skin: each limb is a rigid part hung from a joint, and {@link #show} moves it
- * by turning the joints. That is all the animation there is.
+ * The avatar as a scene graph: a small courier robot built from boxes, which can wear a
+ * {@link JetPack} on its back. It has no mesh and no skin: each limb is a rigid part hung from
+ * a joint, and {@link #show} moves it by turning the joints. That is all the animation there is.
  *
  * <p>The figure faces +z with its feet at the origin, about 2 m (200 units) tall. Its right is
  * +x, and up is -y, as JavaFX's y axis points down.
@@ -25,7 +24,7 @@ import javafx.scene.transform.Translate;
  * root    at, turn                       where it stands, which way it faces
  *  └ body raise, bank, lean              tipped about its middle
  *     ├ hips ─ left leg, right leg       swing and spread at the hips
- *     ├ torso, jetpack, flames
+ *     ├ torso, and the jet-pack when worn
  *     ├ shoulders ─ left arm, right arm  swing and spread at the shoulders
  *     └ neck ─ head                      turns and tips at the neck
  * </pre>
@@ -42,8 +41,6 @@ final class BoxRig {
     private static final double HIP = 80;
     private static final double SHOULDER = 144;
     private static final double NECK = 156;
-    private static final double NOZZLE = 86;
-    private static final double MAX_FLAME = 70;
 
     private final Group root = new Group();
     private final Translate at = new Translate();
@@ -63,17 +60,14 @@ final class BoxRig {
     private final Rotate headTurn = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate headTip = new Rotate(0, Rotate.X_AXIS);
 
-    private final Group flames = new Group();
-    private final Scale flameLength = new Scale(1, 1, 1);
+    private final JetPack pack = new JetPack();
 
     BoxRig() {
         final PhongMaterial shell = matte("#e9e4da");
         final PhongMaterial trim = matte("#2f8f9d");
         final PhongMaterial joint = matte("#2a2e35");
-        final PhongMaterial pack = matte("#d9822b");
         final PhongMaterial visor = glow("#7df9ff");
         final PhongMaterial beacon = glow("#ff6b6b");
-        final PhongMaterial flame = glow("#ffb347");
 
         final Group body = new Group();
         body.getTransforms().addAll(raise, bank, lean);
@@ -84,19 +78,11 @@ final class BoxRig {
                 box(56, 16, 30, 0, -84, 0, joint),                        // pelvis
                 box(64, 60, 34, 0, -120, 0, trim),                         // torso
                 box(40, 22, 2, 0, -128, 17.5, shell),                      // chest plate
-                box(44, 52, 18, 0, -122, -26, pack),                       // jetpack
-                cylinder(8, 14, -12, -NOZZLE - 7, -26, joint),
-                cylinder(8, 14, 12, -NOZZLE - 7, -26, joint),
-                flames,
+                pack.node(),
                 limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint)),
                 limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint)),
                 box(18, 10, 18, 0, -152, 0, joint),                        // neck
                 head(shell, joint, visor, beacon));
-
-        // the flames hang down from the nozzles, a unit long until scaled
-        flames.getChildren().addAll(cylinder(6, 1, -12, 0.5, 0, flame), cylinder(6, 1, 12, 0.5, 0, flame));
-        flames.getTransforms().addAll(new Translate(0, -NOZZLE, -26), flameLength);
-        flames.setVisible(false);
 
         root.getChildren().add(body);
         root.getTransforms().addAll(at, turn);
@@ -106,8 +92,8 @@ final class BoxRig {
         return root;
     }
 
-    /** Puts the figure where the body is, holding the pose. */
-    void show(final Body where, final Pose pose) {
+    /** Puts the figure where the body is, holding the pose, with the jet-pack on its back or not. */
+    void show(final Body where, final Pose pose, final boolean wearingPack) {
         at.setX(where.position().getX());
         at.setY(where.position().getY());
         at.setZ(where.position().getZ());
@@ -132,10 +118,7 @@ final class BoxRig {
         headTurn.setAngle(pose.headYaw());
         headTip.setAngle(pose.headPitch());
 
-        flames.setVisible(pose.thrust() > 0);
-        // a little flicker, from the clock, so the flame looks alive
-        final double flicker = 1 + 0.12 * Math.sin(where.time() * 31) + 0.06 * Math.sin(where.time() * 53);
-        flameLength.setY(Math.max(1, MAX_FLAME * pose.thrust() * flicker));
+        pack.show(wearingPack, where, pose);
     }
 
     private Group head(final PhongMaterial shell, final PhongMaterial joint, final PhongMaterial visor,

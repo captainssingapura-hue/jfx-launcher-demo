@@ -4,14 +4,17 @@ package com.example.fxsuite.avatar;
  * The procedural animation: a {@link Pose} worked out from how the {@link Body} is moving,
  * with no keyframes or recorded clips. Walking swings the limbs on a sine of the walk cycle,
  * opposite arm to leg, wider the faster it goes; side-stepping opens and closes the legs
- * instead; flying tips the body forward with speed, keeps the arms in along it and banks into
- * turns and sideways drift; standing still breathes. Pure maths.
+ * instead; flying keeps it upright as a drone, tipped gently toward where it goes and rolled
+ * into turns and sideways drift; standing still breathes. Pure maths.
  */
 public final class Gait {
 
     /** The head turns no further than this either way, and tips no further than ±{@code HEAD_TIP}. */
     public static final double HEAD_TURN = 70;
     public static final double HEAD_TIP = 35;
+    /** Flying flat out, it tips forward this far; drifting flat out sideways, it rolls this far. */
+    public static final double DRONE_LEAN = 28;
+    public static final double DRONE_BANK = 18;
 
     private Gait() {
     }
@@ -68,13 +71,15 @@ public final class Gait {
         final double cruise = Body.clamp(body.groundSpeed() / Body.FLY, 0, 1);
         final double up = Body.clamp(body.climb() / Body.LIFT, -1, 1);
         final double sway = Math.sin(t * 1.7) * 4;
+        // as a drone flies: upright, tipped only gently toward where it is going and away from
+        // a climb, rolled into sideways drift and turns, the arms a little out for balance
         return new Pose(
-                8 + 62 * pace - 8 * up,
-                Body.clamp(body.turnRate() / Body.TURN, -1, 1) * (12 + 28 * cruise)
-                        + Body.clamp(body.drift() / Body.FLY, -1, 1) * 20,
-                Math.sin(t * 2.4) * 6 * (1 - cruise),
-                -8 - 10 * pace + sway * 0.5, -8 - 10 * pace - sway * 0.5, 6 + 12 * (1 - cruise),
-                -6 - 10 * pace + sway, -6 - 10 * pace - sway, 0,
+                DRONE_LEAN * pace - 4 * up,
+                Body.clamp(body.turnRate() / Body.TURN, -1, 1) * (6 + 10 * cruise)
+                        + Body.clamp(body.drift() / Body.FLY, -1, 1) * DRONE_BANK,
+                Math.sin(t * 2.4) * 4 * (1 - cruise),
+                8 - 14 * pace + sway * 0.5, 8 - 14 * pace - sway * 0.5, 14,
+                -4 - 8 * pace + sway, -4 - 8 * pace - sway, 4,
                 0, 0,
                 Body.clamp(0.35 + 0.65 * Math.max(Math.max(pace, up), Math.abs(body.drift()) / Body.BOOST), 0.2, 1));
     }
