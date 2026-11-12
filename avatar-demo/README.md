@@ -173,6 +173,11 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
   and `^20` tilts the view up 20° (down, when negative).
   `FIRE` holds the trigger, as the left mouse button would, so `DIGIT1;FIRE:1` fires the
   rifles for a second.
+- **Frame times** are printed once a second (`frames: 60 fps | frame 16.7 ms, worst 32.1 | update
+  0.4 ms, worst 0.7`), as the HUD shows them: how many frames, the average and worst gap between
+  them, and how long the demo's own work took in each, apart from JavaFX's drawing. The worst is
+  what is felt as a stutter. On the HUD the line turns amber below 55 fps, or when a frame takes
+  twice as long as it should.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
   `-Davatar.settle=<ms>` picks the moment instead.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what

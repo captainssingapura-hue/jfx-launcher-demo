@@ -92,6 +92,11 @@ public final class AvatarDemo extends Application {
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
     private final Label status = new Label();
+    /** How the frames are going, a second at a time: green when smooth, amber when not. */
+    private final Label frames = new Label();
+    private final FrameTimes frameTimes = new FrameTimes();
+    private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
+            + "-fx-text-fill: ";
 
     private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
     /** The camera: behind, at its usual distance, or {@code -Davatar.zoom} times it (0.5 twice as near). */
@@ -132,7 +137,9 @@ public final class AvatarDemo extends Application {
                 + "M mute · P sound profile\n"
                 + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
-        final VBox hud = new VBox(4, status, help);
+        frames.setStyle(FRAMES_STYLE + "#b9f6ca;");
+        frames.setText("measuring frames…");
+        final VBox hud = new VBox(4, status, frames, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
         hud.setMaxSize(VBox.USE_PREF_SIZE, VBox.USE_PREF_SIZE);
         hud.setStyle("-fx-background-color: rgba(20, 24, 30, 0.55); -fx-background-radius: 6;");
@@ -168,6 +175,8 @@ public final class AvatarDemo extends Application {
         hearing = Hearing.open(unattended);
 
         frame(0);
+        // unattended runs also print each second's frame times, for measuring without watching
+        final boolean logFrames = unattended;
         new AnimationTimer() {
             private long last = -1;
 
@@ -175,7 +184,15 @@ public final class AvatarDemo extends Application {
             public void handle(final long now) {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
+                final long began = System.nanoTime();
                 frame(seconds);
+                final FrameTimes.Summary summary = frameTimes.frame(now, System.nanoTime() - began);
+                if (summary != null) {
+                    showFrames(summary);
+                    if (logFrames) {
+                        System.out.println("frames: " + summary.text().replace('·', '|'));
+                    }
+                }
             }
         }.start();
 
@@ -270,6 +287,12 @@ public final class AvatarDemo extends Application {
             shown = text;
             status.setText(text);
         }
+    }
+
+    /** The last second's frames on the HUD, amber when they fell short of a smooth 60. */
+    private void showFrames(final FrameTimes.Summary summary) {
+        frames.setText(summary.text());
+        frames.setStyle(FRAMES_STYLE + (summary.struggling() ? "#ffd180;" : "#b9f6ca;"));
     }
 
     private void press(final KeyCode code) {
