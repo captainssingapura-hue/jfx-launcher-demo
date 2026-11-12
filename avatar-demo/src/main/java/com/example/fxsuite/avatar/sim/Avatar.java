@@ -36,11 +36,21 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
         this(body, wearingPack, Wings.sweepFor(wearingPack, body), Arms.EMPTY);
     }
 
-    /** The avatar after a step or an action, and what happened on the way. */
-    public record Stepped(Avatar avatar, List<Event> events) {
+    /**
+     * The avatar after a step or an action, what happened on the way, and the {@link Blow}s its
+     * weapon dealt: intents, for the world to take within the same step ({@link Play}), never
+     * outputs themselves.
+     */
+    public record Stepped(Avatar avatar, List<Event> events, List<Blow> blows) {
 
         public Stepped {
             events = List.copyOf(events);
+            blows = List.copyOf(blows);
+        }
+
+        /** What came of it, and no blows dealt. */
+        public Stepped(final Avatar avatar, final List<Event> events) {
+            this(avatar, events, List.of());
         }
 
         /** Nothing happened, and nothing changed. */
@@ -48,14 +58,16 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
             return new Stepped(avatar, List.of());
         }
 
-        /** {@code then}, after this: its avatar, and both lots of events, these first. */
+        /** {@code then}, after this: its avatar, and both lots of events and blows, these first. */
         Stepped then(final Stepped then) {
-            if (events.isEmpty()) {
+            if (events.isEmpty() && blows.isEmpty()) {
                 return then;
             }
-            final List<Event> all = new ArrayList<>(events);
-            all.addAll(then.events);
-            return new Stepped(then.avatar, all);
+            final List<Event> happened = new ArrayList<>(events);
+            happened.addAll(then.events);
+            final List<Blow> dealt = new ArrayList<>(blows);
+            dealt.addAll(then.blows);
+            return new Stepped(then.avatar, happened, dealt);
         }
     }
 
@@ -125,7 +137,7 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
                                 + after.climb() * after.climb())));
             }
         }
-        return new Stepped(new Avatar(after, wearingPack, swung, armed.arms()), happened);
+        return new Stepped(new Avatar(after, wearingPack, swung, armed.arms()), happened, armed.blows());
     }
 
     // The same actions as plain changes of state, for setting one up (in a test, say): what

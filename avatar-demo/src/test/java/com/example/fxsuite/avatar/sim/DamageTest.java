@@ -27,12 +27,12 @@ class DamageTest {
         throw new AssertionError("no " + kind);
     }
 
-    private static Event.Struck blow(final int piece, final Weapon by) {
-        return new Event.Struck(Vec3.ZERO, new Vec3(0, 0, -1), Surface.BLOCK, by, piece);
+    private static Blow blow(final int piece, final Weapon by) {
+        return new Blow(Vec3.ZERO, new Vec3(0, 0, -1), Surface.BLOCK, by, piece);
     }
 
-    private static List<Event> blows(final int piece, final Weapon by, final int count) {
-        final List<Event> all = new ArrayList<>();
+    private static List<Blow> blows(final int piece, final Weapon by, final int count) {
+        final List<Blow> all = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             all.add(blow(piece, by));
         }
@@ -60,13 +60,20 @@ class DamageTest {
         final Damage.Taken worn = fresh.took(blows(dummy, Weapon.RIFLES, needed - 1));
         assertEquals(1.0 / needed, worn.damage().left(dummy), 1e-9);
         assertFalse(worn.damage().broken(dummy));
-        assertTrue(worn.events().isEmpty(), "nothing broke yet");
+        assertTrue(worn.events().stream().noneMatch(e -> e instanceof Event.Broke), "nothing broke yet");
+        // each blow comes out struck, with what the dummy had left after it
+        assertEquals(needed - 1, worn.events().size());
+        final Event.Struck last = (Event.Struck) worn.events().getLast();
+        assertEquals(dummy, last.piece());
+        assertEquals(1.0 / needed, last.left(), 1e-9);
+        assertEquals((needed - 1.0) / needed, ((Event.Struck) worn.events().getFirst()).left(), 1e-9);
         assertEquals(1, fresh.left(dummy), "a new damage for each blow; the old one unchanged");
 
         final Damage.Taken broken = worn.damage().took(List.of(blow(dummy, Weapon.RIFLES)));
         assertTrue(broken.damage().broken(dummy));
         assertEquals(0, broken.damage().left(dummy));
-        final Event.Broke broke = (Event.Broke) broken.events().getFirst();
+        assertEquals(0, ((Event.Struck) broken.events().getFirst()).left(), "struck, with nothing left");
+        final Event.Broke broke = (Event.Broke) broken.events().get(1);
         assertEquals(dummy, broke.piece());
         assertEquals(Course.Kind.DUMMY, broke.kind());
         assertEquals(Weapon.RIFLES, broke.by());
@@ -110,18 +117,23 @@ class DamageTest {
             assertSame(fresh, taken.damage(), kind + " is untouched");
             assertEquals(1, taken.damage().left(piece));
         }
-        assertSame(fresh, fresh.took(List.of(new Event.Struck(Vec3.ZERO, new Vec3(0, -1, 0), Surface.GROUND,
-                Weapon.GLAIVE))).damage(), "the ground");
-        assertSame(fresh, fresh.took(List.of(new Event.Jumped())).damage(), "nothing struck");
+        final Damage.Taken ground = fresh.took(List.of(new Blow(Vec3.ZERO, new Vec3(0, -1, 0), Surface.GROUND,
+                Weapon.GLAIVE)));
+        assertSame(fresh, ground.damage(), "the ground");
+        assertEquals(List.of(new Event.Struck(Vec3.ZERO, new Vec3(0, -1, 0), Surface.GROUND, Weapon.GLAIVE)),
+                ground.events(), "struck all the same, and none the worse");
+        assertSame(fresh, fresh.took(List.of()).damage(), "nothing struck");
     }
 
     @Test
     void whatIsBrokenStaysBrokenAndBreaksOnlyOnce() {
         final int drone = first(Course.Kind.DRONE);
         final Damage.Taken taken = Damage.of(course).took(blows(drone, Weapon.GLAIVE, 5));
-        assertEquals(1, taken.events().size(), "one break, however many blows land in the frame");
+        assertEquals(1, taken.events().stream().filter(e -> e instanceof Event.Broke).count(),
+                "one break, however many blows land in the step");
         final Damage.Taken again = taken.damage().took(blows(drone, Weapon.GLAIVE, 5));
-        assertTrue(again.events().isEmpty());
+        assertTrue(again.events().stream().noneMatch(e -> e instanceof Event.Broke));
+        assertTrue(again.events().stream().allMatch(e -> ((Event.Struck) e).left() == 0), "nothing left to take");
         assertTrue(again.damage().broken(drone));
     }
 

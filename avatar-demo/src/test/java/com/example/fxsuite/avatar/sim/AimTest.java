@@ -69,6 +69,8 @@ class AimTest {
         for (double t = 0; t < seconds - 1e-9; t += FRAME) {
             final Arms.Stepped stepped = arms.step(true, FRAME, body, world, 0);
             all.addAll(stepped.events());
+            // each blow dealt, as what the world makes of it where nothing breaks: struck
+            stepped.blows().forEach(blow -> all.add(Event.Struck.of(blow, 1)));
             arms = stepped.arms();
         }
         return all;
