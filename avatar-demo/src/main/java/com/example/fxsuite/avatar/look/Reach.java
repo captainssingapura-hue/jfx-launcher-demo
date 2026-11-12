@@ -17,6 +17,8 @@ final class Reach {
     static final double SHOULDER_OUT = 41;
     static final double SHOULDER_UP = 144;
     static final double UPPER = 30;
+    /** How far the elbow leans out to its side, against hanging straight down: a relaxed arm's. */
+    private static final double ELBOW_OUT = 0.4;
 
     private Reach() {
     }
@@ -57,78 +59,49 @@ final class Reach {
     }
 
     /**
-     * The swing, spread, elbow and twist, in degrees, that bring an arm's hand as near to {@code target}
-     * (in the torso's frame) as it can reach. Starts from {@code from} and closes in, a joint at
-     * a time, in ever finer steps: a few hundred cheap sums a frame. Out of reach, the hand
-     * stops as near as it can get.
+     * The swing, spread, elbow and twist, in degrees, that put an arm's hand on {@code target}
+     * (in the torso's frame); out of reach, as near as it can get, the arm pointing straight at
+     * it. Worked out exactly, as for any two-part limb:
+     * <ol>
+     *   <li>the elbow's bend follows from how far the target is, by the law of cosines;</li>
+     *   <li>that leaves the elbow somewhere on a circle round the line from shoulder to target,
+     *       and it goes where a relaxed elbow would: as low as it can, a little out to its side;</li>
+     *   <li>the shoulder's swing and spread point the upper arm at the elbow, and the twist turns
+     *       the elbow's bend toward the target.</li>
+     * </ol>
+     * One answer for each target, and nearby targets give nearby answers: the arm moves smoothly
+     * as what it holds does, and never turns about.
      */
-    static double[] solve(final boolean left, final double[] target, final double[] from) {
-        // the elbow bend the distance alone calls for, by the law of cosines: a close target needs
-        // the arm folded, a far one straight; then a few ways of pointing the shoulder, the best kept
+    static double[] solve(final boolean left, final double[] target) {
+        final double lower = Arsenal.HAND;
         final double[] shoulder = {left ? -SHOULDER_OUT : SHOULDER_OUT, -SHOULDER_UP, 0};
-        final double d = Math.min(UPPER + Arsenal.HAND, Math.sqrt(
-                Math.pow(target[0] - shoulder[0], 2) + Math.pow(target[1] - shoulder[1], 2)
-                        + Math.pow(target[2] - shoulder[2], 2)));
-        final double inner = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1,
-                (UPPER * UPPER + Arsenal.HAND * Arsenal.HAND - d * d) / (2 * UPPER * Arsenal.HAND)))));
-        final double bend = limit(2, 180 - inner);
-        double[] best = null;
-        double nearest = Double.POSITIVE_INFINITY;
-        for (final double[] seed : new double[][] {
-                from, {from[0], from[1], bend, 0}, {from[0] + 30, from[1] - 20, bend, -40},
-                {from[0] - 30, from[1] + 20, bend, 40}, {from[0], from[1], bend, -80}}) {
-            final double[] solved = descend(left, target, seed);
-            final double gap = gap(left, solved, target);
-            if (gap < nearest) {
-                nearest = gap;
-                best = solved;
-            }
+        final double[] toTarget = minus(target, shoulder);
+        final double reach = Math.min(UPPER + lower - 1e-6,
+                Math.max(Math.abs(UPPER - lower) + 1e-6, length(toTarget)));
+        final double[] along = scale(toTarget, 1 / Math.max(1e-9, length(toTarget)));
+
+        // where along the line the elbow's circle is, and how wide it is
+        final double x = (UPPER * UPPER - lower * lower + reach * reach) / (2 * reach);
+        final double radius = Math.sqrt(Math.max(0, UPPER * UPPER - x * x));
+        // down (+y), and a little out to its side, flattened onto the circle's plane
+        final double[] hint = {left ? -ELBOW_OUT : ELBOW_OUT, 1, 0};
+        double[] across = minus(hint, scale(along, dot(hint, along)));
+        if (length(across) < 1e-6) {
+            across = minus(new double[] {0, 0, 1}, scale(along, along[2]));
         }
-        return best;
-    }
+        across = scale(across, 1 / length(across));
+        final double[] elbowAt = add(scale(along, x), scale(across, radius));
+        final double[] handAt = scale(along, reach);
 
-    /** Closes in on the target from {@code from}, a joint at a time, in ever finer steps. */
-    private static double[] descend(final boolean left, final double[] target, final double[] from) {
-        final double[] angles = from.clone();
-        double best = gap(left, angles, target);
-        for (double step = 16; step > 0.05; step /= 2) {
-            boolean better = true;
-            while (better) {
-                better = false;
-                for (int joint = 0; joint < 4; joint++) {
-                    for (final double way : new double[] {step, -step}) {
-                        final double[] tried = angles.clone();
-                        tried[joint] = limit(joint, tried[joint] + way);
-                        final double gap = gap(left, tried, target);
-                        if (gap < best - 1e-9) {
-                            best = gap;
-                            System.arraycopy(tried, 0, angles, 0, 4);
-                            better = true;
-                        }
-                    }
-                }
-            }
-        }
-        return angles;
-    }
-
-    /** How far, squared, the hand is from {@code target} with these angles. */
-    private static double gap(final boolean left, final double[] angles, final double[] target) {
-        final double[] at = hand(left, angles[0], angles[1], angles[2], angles[3]);
-        final double dx = at[0] - target[0];
-        final double dy = at[1] - target[1];
-        final double dz = at[2] - target[2];
-        return dx * dx + dy * dy + dz * dz;
-    }
-
-    /** Within what a shoulder and an elbow can do. */
-    private static double limit(final int joint, final double angle) {
-        return switch (joint) {
-            case 0 -> Math.max(-90, Math.min(180, angle));       // swing: back a little, up over the head
-            case 1 -> Math.max(-120, Math.min(90, angle));       // spread: up across the chest, out to the side
-            case 2 -> Math.max(0, Math.min(150, angle));         // elbow: straight to well bent, never backward
-            default -> Math.max(-100, Math.min(100, angle));     // twist: the elbow turned in or out
-        };
+        // the upper arm along the elbow: (-sin spread, cos spread cos swing, cos spread sin swing)
+        final double[] upper = scale(elbowAt, 1 / UPPER);
+        final double signed = -Math.toDegrees(Math.asin(Math.max(-1, Math.min(1, upper[0]))));
+        final double swing = Math.toDegrees(Math.atan2(upper[2], upper[1]));
+        // the forearm, seen from the upper arm: (sin elbow sin twist, cos elbow, sin elbow cos twist)
+        final double[] forearm = rotZ(rotX(scale(minus(handAt, elbowAt), 1 / lower), -swing), -signed);
+        final double elbow = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, forearm[1]))));
+        final double twist = Math.toDegrees(Math.atan2(forearm[0], forearm[2]));
+        return new double[] {swing, left ? signed : -signed, elbow, twist};
     }
 
     /** Turned about x as JavaFX turns it: +y toward +z for a positive angle. */
@@ -150,5 +123,25 @@ final class Reach {
         final double c = Math.cos(Math.toRadians(degrees));
         final double s = Math.sin(Math.toRadians(degrees));
         return new double[] {v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]};
+    }
+
+    private static double[] add(final double[] a, final double[] b) {
+        return new double[] {a[0] + b[0], a[1] + b[1], a[2] + b[2]};
+    }
+
+    private static double[] minus(final double[] a, final double[] b) {
+        return new double[] {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+    }
+
+    private static double[] scale(final double[] a, final double by) {
+        return new double[] {a[0] * by, a[1] * by, a[2] * by};
+    }
+
+    private static double dot(final double[] a, final double[] b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    private static double length(final double[] a) {
+        return Math.sqrt(dot(a, a));
     }
 }

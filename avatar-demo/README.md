@@ -29,7 +29,8 @@ characters, and a separate sound bench is for working on the sounds.
   motor, held at the right hip by its grip, the left hand reaching across to a lever on top.
   The left arm is worked out each frame to keep its hand on the lever wherever the gun points.
   Its six barrels spin up before it fires, 2,400 rounds a minute, and spin down when let go.
-  It shakes as it fires, with a tracer every third round and casings pouring out.
+  The robot holds it dead steady, every round along one line, with a tracer every third round
+  and casings pouring out.
 - **Aiming and hits.** The rifles shoot straight ahead of the body, wherever the head or the
   camera is looking round: to aim, turn the body. Up and down follow the view instead: tilt it
   up from where it rests and the guns aim up as far, tilt it down and they aim down, up to

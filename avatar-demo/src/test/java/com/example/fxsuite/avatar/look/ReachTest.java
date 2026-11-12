@@ -37,11 +37,11 @@ class ReachTest {
     @Test
     void theSolverBringsTheHandWhereverItCanReachAndAsNearAsItCanElsewhere() {
         final double[] target = Reach.hand(true, 30, -20, 70);
-        final double[] solved = Reach.solve(true, target, new double[] {0, 0, 0, 0});
+        final double[] solved = Reach.solve(true, target);
         assertTrue(distance(Reach.hand(true, solved[0], solved[1], solved[2], solved[3]), target) < 0.5);
         // far out of reach: the arm points straight at it, as far as it goes
         final double[] far = {-41, -144, 500};
-        final double[] stretched = Reach.solve(true, far, new double[] {0, 0, 0, 0});
+        final double[] stretched = Reach.solve(true, far);
         assertEquals(500 - 62, distance(Reach.hand(true, stretched[0], stretched[1], stretched[2], stretched[3]), far), 0.5);
     }
 
@@ -66,6 +66,37 @@ class ReachTest {
                         pose.leftTwist());
                 assertTrue(distance(hand, lever) < 2, "on the lever, aimed " + aim + ": " + distance(hand, lever));
             }
+        }
+    }
+
+    @Test
+    void theLeftArmMovesSmoothlyAsTheGunTiltsAndNotAtAllAsItFires() {
+        // across the whole aim, half a degree at a time: no joint jumps
+        double[] was = null;
+        for (double aim = -Arms.GATLING_AIM_LIMIT; aim <= Arms.GATLING_AIM_LIMIT; aim += 0.5) {
+            final Pose pose = holding(Body.standing(Vec3.ZERO, 0), aim);
+            final double[] now = {pose.leftArm(), pose.leftSpread(), pose.leftElbow(), pose.leftTwist()};
+            if (was != null) {
+                for (int joint = 0; joint < 4; joint++) {
+                    assertTrue(Math.abs(now[joint] - was[joint]) < 2,
+                            "joint " + joint + " at " + aim + "°: " + was[joint] + " to " + now[joint]);
+                }
+            }
+            was = now;
+        }
+        // firing, frame after frame: the gun is held dead still, and so is the arm on it
+        Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), true).drawn(Weapon.GATLING).delivered();
+        final Controls firing = new Controls(0, 0, 0, 0, false, true);
+        for (int i = 0; i < 60; i++) {
+            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).delivered();
+        }
+        final Pose first = Gait.of(gun.step(firing, 1.0 / 60, Obstacles.NONE), 0, 0);
+        for (int i = 0; i < 20; i++) {
+            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).delivered();
+            final Pose now = Gait.of(gun, 0, 0);
+            assertEquals(first.leftTwist(), now.leftTwist(), 1e-6, "the arm holds still as it fires");
+            assertEquals(first.leftArm(), now.leftArm(), 1e-6);
+            assertEquals(first.rightElbow(), now.rightElbow(), 1e-6, "and the gun does not shake");
         }
     }
 

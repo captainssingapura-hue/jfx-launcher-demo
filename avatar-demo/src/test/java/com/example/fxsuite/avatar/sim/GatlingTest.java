@@ -81,13 +81,33 @@ class GatlingTest {
         final List<Event.Fired> fired = events.stream().filter(e -> e instanceof Event.Fired)
                 .map(e -> (Event.Fired) e).toList();
         assertFalse(fired.isEmpty());
-        final double cone = Math.cos(Math.toRadians(Arms.GATLING_SPREAD * 1.5));
+        final double cone = Math.cos(Math.toRadians(Arms.GATLING_SPREAD * 1.5)) - 1e-9;
         for (final Event.Fired f : fired) {
             assertEquals(Arms.gatlingMuzzle(body), f.from());
             assertTrue(f.to().subtract(f.from()).normalize().dotProduct(Num.heading(40)) > cone, "along the facing");
         }
         assertTrue(events.stream().anyMatch(e -> e instanceof Event.Struck s && s.by() == Weapon.GATLING
                 && s.on() == Surface.BLOCK), "striking the wall ahead, by the Gatling gun");
+    }
+
+    @Test
+    void itIsHeldDeadSteadyEveryRoundAlongOneLine() {
+        final Body body = Body.standing(Vec3.ZERO, 25);
+        Arms arms = Arms.holding(Weapon.GATLING);
+        final List<Vec3> ways = new ArrayList<>();
+        for (int i = 0; i < 120; i++) {
+            final Arms.Stepped stepped = arms.step(true, FRAME, body, Obstacles.NONE, 10);
+            arms = stepped.arms();
+            for (final Event e : stepped.events()) {
+                if (e instanceof Event.Fired f) {
+                    ways.add(f.to().subtract(f.from()).normalize());
+                }
+            }
+        }
+        assertTrue(ways.size() > 40);
+        for (final Vec3 way : ways) {
+            assertEquals(1, way.dotProduct(Arms.line(body, 10)), 1e-12, "along the line, not off it");
+        }
     }
 
     @Test

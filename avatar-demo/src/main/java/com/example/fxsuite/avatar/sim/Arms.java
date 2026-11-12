@@ -11,9 +11,9 @@ import java.util.List;
  *       left. Each fires {@link #RIFLE_RATE} rounds a minute, so together twice that.</li>
  *   <li><b>The Gatling gun</b> has to spin up first: holding the trigger spins its barrels up
  *       over {@link #SPIN_UP} seconds, and only at full speed does it fire, {@link #GATLING_RATE}
- *       rounds a minute, less true than the rifles. Let go, and it stops firing at once, and
- *       spins down over {@link #SPIN_DOWN} seconds; squeeze again before it has stopped, and it
- *       is back up to speed the sooner.</li>
+ *       rounds a minute, held dead steady: every round along the same line. Let go, and it stops
+ *       firing at once, and spins down over {@link #SPIN_DOWN} seconds; squeeze again before it
+ *       has stopped, and it is back up to speed the sooner.</li>
  *   <li><b>The glaive</b> swings in strokes of {@link #STROKE} seconds while the trigger is held:
  *       an overhead cleave, then a sweep across, then a cleave again. Each stroke winds up first;
  *       its blade comes through at {@link #STRIKE} of the way in, which is when it is heard, and
@@ -55,9 +55,13 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
     public static final double SPIN_DOWN = 1.5;
     /** How far a round can fly. */
     public static final double RANGE = 30_000;
-    /** How far off true a round may go, in degrees either way: a rifle's, and the Gatling gun's. */
+    /**
+     * How far off true a round may go, in degrees either way: a rifle's, fired from the hip; and
+     * the Gatling gun's, none: the robot is strong enough to hold it dead steady, every round
+     * along the same line.
+     */
     public static final double SPREAD = 1.2;
-    public static final double GATLING_SPREAD = 2.5;
+    public static final double GATLING_SPREAD = 0;
     /** The sight marks the line ahead no further off than this: 30 m. */
     public static final double SIGHT = 3000;
     /** The furthest up or down the guns can be aimed from the hip, in degrees: the rifles, and the heavier Gatling gun. */

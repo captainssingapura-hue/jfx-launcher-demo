@@ -29,6 +29,9 @@ public final class Impacts {
     private static final double DUST = 0.6;
     private static final double MARK = 20;
     private static final double GRAVITY = 2600;
+    /** How far apart two bullet holes must be, and how many of the latest are looked through. */
+    private static final double HOLE_APART = 4;
+    private static final int RECENT = 12;
 
     private final Group root = new Group();
     private final Pool tracers;
@@ -104,7 +107,11 @@ public final class Impacts {
                 gashes.next(MARK).mark(off, struck.normal(), yaw);
             }
         } else {
-            holes.next(MARK).mark(off, struck.normal(), count * 47.0);
+            // a steady stream lands in one place: one hole there, not one on top of another, which would
+            // lie in the same plane and flicker
+            if (!holes.anyNear(off, HOLE_APART)) {
+                holes.next(MARK).mark(off, struck.normal(), count * 47.0);
+            }
         }
     }
 
@@ -132,6 +139,17 @@ public final class Impacts {
                 items[i] = new Particle(shape);
                 root.getChildren().add(shape);
             }
+        }
+
+        /** Whether one of the few last handed out is showing within {@code apart} of {@code at}. */
+        boolean anyNear(final Vec3 at, final double apart) {
+            for (int back = 1; back <= Math.min(RECENT, items.length); back++) {
+                final Particle recent = items[(next - back + items.length) % items.length];
+                if (recent.shape.isVisible() && recent.at.distance(at) < apart) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         Particle next(final double life) {
