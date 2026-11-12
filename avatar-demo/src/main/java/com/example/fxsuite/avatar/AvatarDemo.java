@@ -10,10 +10,12 @@ import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.view.Chase;
@@ -98,7 +100,13 @@ public final class AvatarDemo extends Application {
     private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
             + "-fx-text-fill: ";
 
+    /** The avatar after the latest step of the {@link Clock}, the one before it, and as it is shown between them. */
     private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
+    private Avatar before = avatar;
+    private Avatar seen = avatar;
+    private Clock clock = Clock.START;
+    /** Degrees of the mouse's turn not yet taken by a step. */
+    private double turning;
     /** The camera: behind, at its usual distance, or {@code -Davatar.zoom} times it (0.5 twice as near). */
     private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw())
             .zoomed(Double.parseDouble(System.getProperty("avatar.zoom", "1")));
@@ -207,23 +215,38 @@ public final class AvatarDemo extends Application {
         }
     }
 
-    /** One frame: move the body, follow with the camera, pose the figure, hear it. */
+    /**
+     * One frame: the world stepped on by its own {@link Clock}, as many fixed steps as this
+     * frame's time holds; then everything else (the camera, the figure, the effects, the sound)
+     * shown as the world stands between its last two steps.
+     */
     private void frame(final double seconds) {
-        final Controls controls = new Controls(
-                axis(KeyCode.W) - axis(KeyCode.S),
-                axis(KeyCode.D) - axis(KeyCode.A),
-                look.takeTurn() + scriptedTurn * seconds,
-                axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
-                // full speed by default, as in most shooters; Shift held to go carefully
-                !held.contains(KeyCode.SHIFT),
-                clicking || scriptedTrigger,
-                // aimed up or down as far as the view is tilted from rest, so level as it walks
-                chase.pitch() - Chase.DEFAULT_PITCH);
-        avatar = avatar.step(controls, seconds, damage.obstacles());
-        // what its blows did to the world, reported with the rest of what happened this frame
-        final Damage.Taken taken = damage.took(avatar.events());
-        damage = taken.damage();
-        avatar = avatar.reporting(taken.events());
+        // the mouse's turn this frame waits until a step takes it, and is shared among the steps
+        turning += look.takeTurn() + scriptedTurn * seconds;
+        final Clock.Ticked ticked = clock.advance(seconds);
+        clock = ticked.clock();
+        for (int i = 0; i < ticked.steps(); i++) {
+            final double turn = turning / (ticked.steps() - i);
+            turning -= turn;
+            final Controls controls = new Controls(
+                    axis(KeyCode.W) - axis(KeyCode.S),
+                    axis(KeyCode.D) - axis(KeyCode.A),
+                    turn,
+                    axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
+                    // full speed by default, as in most shooters; Shift held to go carefully
+                    !held.contains(KeyCode.SHIFT),
+                    clicking || scriptedTrigger,
+                    // aimed up or down as far as the view is tilted from rest, so level as it walks
+                    chase.pitch() - Chase.DEFAULT_PITCH);
+            before = avatar;
+            // the avatar moves, and what its blows did to the world is reported with the rest
+            final Play stepped = new Play(avatar, damage).step(controls, Clock.STEP);
+            avatar = stepped.avatar();
+            damage = stepped.damage();
+        }
+        // what is seen and heard: the world between its last two steps, so it glides rather than ticks
+        seen = avatar.between(before, ticked.blend());
+        final Avatar avatar = seen;
         final Body body = avatar.body();
         final double tilt = look.takeTilt() + scriptedTilt * seconds;
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
@@ -256,11 +279,12 @@ public final class AvatarDemo extends Application {
 
         showStatus();
         // every output has seen this frame's events; what happens next starts a fresh list
-        avatar = avatar.delivered();
+        this.avatar = this.avatar.delivered();
+        before = before.delivered();
     }
 
     private void showStatus() {
-        final Body body = avatar.body();
+        final Body body = seen.body();
         final double metres = body.groundSpeed() / 100;
         // measured against the top speed each way, so a diagonal is not mistaken for a sprint
         final double pace = Math.max(Math.abs(body.speed()), Math.abs(body.drift()) / Body.SIDESTEP);
@@ -281,7 +305,7 @@ public final class AvatarDemo extends Application {
         final String score = String.format(" · targets down %d of %d%s", down, targets,
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");
         final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s · %s%s", what, metres,
-                body.height() / 100, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,
+                body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,
                 score, sound, look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;

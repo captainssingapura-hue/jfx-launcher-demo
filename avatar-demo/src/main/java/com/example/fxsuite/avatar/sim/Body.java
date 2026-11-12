@@ -85,6 +85,28 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         return -position.y();
     }
 
+    /**
+     * Where this body is {@code share} of the way on from {@code before} (0 there, 1 here): for
+     * drawing between two steps of the {@link Clock}. Turns go the short way round, and the walk
+     * cycle across its wrap; what is or is not (flying, on its feet) is as it is here.
+     */
+    public Body between(final Body before, final double share) {
+        final double s = Num.clamp(share, 0, 1);
+        if (s >= 1) {
+            return this;
+        }
+        final Vec3 at = before.position.add(position.subtract(before.position).multiply(s));
+        final double cycle = 2 * Math.PI;
+        double walked = phase - before.phase;
+        walked -= cycle * Math.round(walked / cycle);
+        return new Body(at, Num.wrap(before.yaw + Num.wrap(yaw - before.yaw) * s),
+                Num.wrap(before.travel + Num.wrap(travel - before.travel) * s),
+                before.speed + (speed - before.speed) * s, before.drift + (drift - before.drift) * s,
+                before.turnRate + (turnRate - before.turnRate) * s, before.climb + (climb - before.climb) * s,
+                flying, onGround, ((before.phase + walked * s) % cycle + cycle) % cycle,
+                before.time + (time - before.time) * s);
+    }
+
     /** On its feet: not flying, and standing on something. */
     public boolean grounded() {
         return !flying && onGround;

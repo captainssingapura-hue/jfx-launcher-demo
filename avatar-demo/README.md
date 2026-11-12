@@ -194,9 +194,17 @@ One simulation is the single truth. Each output reads it, the graphics and the s
 and none writes to it. So the sound could be added without touching the graphics, and every
 rule of the world can be tested without a window or a sound card.
 
+The simulation keeps its own time (`Clock`), apart from the frame rate. It always moves in
+steps of exactly 1/120 s: two for each frame at 60 a second, more or fewer as the frames run
+short or long, with what is left over carried on to the next frame. So the world comes out the
+same, to the last bit, at 30, 60 or 144 frames a second, or an uneven mix of them. What is seen
+and heard is the world between its last two steps, blended by how far on the next one is, so it
+glides rather than ticking. A frame that runs very long takes no more than a tenth of a second
+of steps, and lets the rest go rather than falling ever further behind.
+
 | Package | What it is |
 |---|---|
-| `sim` | The one truth. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar and the damage together). The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, and a drone's fireball), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |

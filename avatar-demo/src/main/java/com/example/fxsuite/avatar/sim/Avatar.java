@@ -112,6 +112,20 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms, Li
     }
 
     /**
+     * This avatar as it is {@code share} of the way on from {@code before}: its body and wings
+     * blended between them, for drawing between two steps of the {@link Clock}. All else (what it
+     * holds, what has happened) is as it is now.
+     */
+    public Avatar between(final Avatar before, final double share) {
+        if (share >= 1 || before == this) {
+            return this;
+        }
+        final double s = Num.clamp(share, 0, 1);
+        return new Avatar(body.between(before.body, s), wearingPack, before.sweep + (sweep - before.sweep) * s,
+                arms, events);
+    }
+
+    /**
      * The same avatar, with more to report: what its blows did to the world ({@link Damage}),
      * heard and seen with the rest of this frame's events.
      */

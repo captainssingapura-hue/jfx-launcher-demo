@@ -260,4 +260,22 @@ class DamageTest {
         final Obstacles.Footing footing = course.obstacles().footing(top.x(), top.z(), Body.FOOTING, top.top() + 1);
         assertEquals(top.top(), footing.height(), 1e-9);
     }
+
+    @Test
+    void aPlayStepTakesEachBlowOnceHoweverLongTheEventsPileUp() {
+        // events pile up across steps until the outputs take them; each step's blows count once
+        final int middle = first(Course.Kind.DUMMY) + 2;
+        Play play = new Play(new Avatar(Body.standing(Vec3.ZERO, Course.RANGE_HEADING), false)
+                .drawn(Weapon.RIFLES), Damage.of(course));
+        final Controls fire = new Controls(0, 0, 0, 0, false, true, 0);
+        int struck = 0;
+        for (int i = 0; i < 24; i++) {
+            final int before = play.avatar().events().size();
+            play = play.step(fire, Clock.STEP);
+            struck += (int) play.avatar().events().subList(before, play.avatar().events().size()).stream()
+                    .filter(e -> e instanceof Event.Struck s && s.piece() == middle).count();
+        }
+        assertTrue(struck > 0);
+        assertEquals(Damage.DUMMY - struck * Weapon.RIFLES.blow(), play.damage().health(middle), 1e-9);
+    }
 }
