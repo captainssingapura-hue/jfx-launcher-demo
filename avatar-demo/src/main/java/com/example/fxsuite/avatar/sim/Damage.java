@@ -144,6 +144,15 @@ public final class Damage {
         return health[piece];
     }
 
+    /** Every piece's health, stirred together, to the bit: for checking two worlds are the same. */
+    public long checksum() {
+        long sum = Num.SEED;
+        for (final double h : health) {
+            sum = Num.mix(sum, Double.doubleToLongBits(h));
+        }
+        return sum;
+    }
+
     public boolean broken(final int piece) {
         return health[piece] <= 0;
     }

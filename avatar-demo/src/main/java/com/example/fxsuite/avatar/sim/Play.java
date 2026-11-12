@@ -22,6 +22,30 @@ import java.util.List;
  */
 public record Play(Avatar avatar, Damage damage) {
 
+    /**
+     * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
+     * different world, so a recording made under the old rules says so rather than going astray.
+     */
+    public static final int RULES = 1;
+
+    /** The world at the start: the avatar standing at the start, with the pack on or not, and the course unharmed. */
+    public static Play start(final boolean pack) {
+        return new Play(new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), pack), Damage.of(new Course()));
+    }
+
+    /**
+     * The whole world stirred into one number, to the bit: two worlds with the same checksum are,
+     * as near as matters, the same. The avatar is all records, so its text is exact and complete.
+     */
+    public long checksum() {
+        long sum = damage.checksum();
+        final String text = avatar.toString();
+        for (int i = 0; i < text.length(); i++) {
+            sum = Num.mix(sum, text.charAt(i));
+        }
+        return sum;
+    }
+
     /** The world after a step, and what happened in it. */
     public record Stepped(Play play, List<Event> events) {
 

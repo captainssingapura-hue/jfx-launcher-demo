@@ -167,19 +167,32 @@ real mouse alone, and plays no sound unless `-Davatar.audio` names an output.
 java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avatar-demo/target/avatar-demo.jar
 ```
 
-- **Steps** are separated by `;`. Each holds its keys (joined by `+`) for its seconds, so
-  `W+SHIFT:1.5` walks ahead for a second and a half. A step without seconds is a tap, and
-  `:1` just waits. An `@90` among a step's keys turns 90° over the step, as the mouse would,
+- **Parts** are separated by `;`. Each holds its keys (joined by `+`) for its seconds, so
+  `W+SHIFT:1.5` walks ahead for a second and a half. A part without seconds is a tap, and
+  `:1` just waits. An `@90` among a part's keys turns 90° over the part, as the mouse would,
   and `^20` tilts the view up 20° (down, when negative).
   `FIRE` holds the trigger, as the left mouse button would, so `DIGIT1;FIRE:1` fires the
   rifles for a second.
+- **It plays in the world's own time.** The script becomes inputs stamped with the step they
+  come in at (`Script`), 120 to the second, starting half a second in; while it plays, it alone
+  drives the world. So the same script gives the same run every time, however the frames fall,
+  and the tests play scripts with no window at all. The keys mean the same to a script as at
+  the keyboard (`Keys`).
+- **`-Davatar.inputs=run.inputs`** keeps the run's inputs as it goes, whether from the keyboard
+  and mouse or a script (`Recording`), and **`-Davatar.replay=run.inputs`** plays them back from
+  where the run started: the same run, to the bit, seen and heard as it was. Only the inputs are
+  kept, a line when they change, so a key held for a minute is one line; what follows from them
+  (where the avatar went, what broke) is stepped again. A checksum of the world every second
+  tells the replay it is still the same run, or where it first went astray (the rules changed,
+  say, or the file was edited). The camera's own keys are not kept: they change nothing in the
+  world.
 - **Frame times** are printed once a second (`frames: 60 fps | frame 16.7 ms, worst 32.1 | update
   0.4 ms, worst 0.7`), as the HUD shows them: how many frames, the average and worst gap between
   them, and how long the demo's own work took in each, apart from JavaFX's drawing. The worst is
   what is felt as a stutter. On the HUD the line turns amber below 55 fps, or when a frame takes
   twice as long as it should.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
-  `-Davatar.settle=<ms>` picks the moment instead.
+  `-Davatar.settle=<ms>` picks the moment instead, counted in the world's time.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
   would have played, kept in time with the game. It is for hearing a run afterwards, or
   checking it without speakers:
@@ -204,7 +217,7 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar and the damage together). What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar and the damage together), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, and a drone's fireball), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |

@@ -8,7 +8,6 @@ import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
-import com.example.fxsuite.avatar.sim.Action;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Clock;
@@ -16,16 +15,16 @@ import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Journal;
+import com.example.fxsuite.avatar.sim.Keys;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Play;
+import com.example.fxsuite.avatar.sim.Recording;
+import com.example.fxsuite.avatar.sim.Script;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
-import javafx.animation.KeyFrame;
-import javafx.animation.PauseTransition;
-import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -47,14 +46,18 @@ import javafx.scene.layout.VBox;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -71,11 +74,14 @@ import java.util.Set;
  * puts it back behind. Scroll to zoom.
  *
  * <p>For runs without a keyboard: {@code -Davatar.script="F;W:2;W+D+SHIFT:1.5"} holds each
- * step's keys for its seconds (a step without seconds is a tap, and {@code :1} just waits); an
- * {@code @90} among a step's keys turns 90° over the step, as the mouse would, and
- * {@code ^20} tilts the view up 20° (down, when negative).
+ * part's keys for its seconds (a part without seconds is a tap, and {@code :1} just waits); an
+ * {@code @90} among a part's keys turns 90° over the part, as the mouse would, and
+ * {@code ^20} tilts the view up 20° (down, when negative). A {@link Script} is inputs stamped
+ * with the step they come in at: while it plays, it alone drives the world, so the same script
+ * gives the same run however the frames fall.
  * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
- * {@code -Davatar.settle=<ms>} picks the moment instead. Either leaves the mouse alone.
+ * {@code -Davatar.settle=<ms>} picks the moment instead, counted in the world's time. Either
+ * leaves the mouse alone.
  */
 public final class AvatarDemo extends Application {
 
@@ -104,8 +110,14 @@ public final class AvatarDemo extends Application {
     private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
             + "-fx-text-fill: ";
 
+    /** A run to play back, {@code -Davatar.replay}: its inputs drive the world from where it started; null for none. */
+    private final Recording replay = readReplay();
+    /** The first step a replay was found astray at, by its checksums; 0 while it is the same run. */
+    private long astray;
+    /** Where this run's inputs are being kept, {@code -Davatar.inputs}; null when they are not. */
+    private Recording.Recorder recorder;
     /** The avatar after the latest step of the {@link Clock}, the one before it, and as it is shown between them. */
-    private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
+    private Avatar avatar = Play.start(replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")).avatar();
     private Avatar before = avatar;
     private Avatar seen = avatar;
     private Clock clock = Clock.START;
@@ -121,20 +133,24 @@ public final class AvatarDemo extends Application {
     private final Journal.Reader forSound = journal.reader();
     /** Degrees of the mouse's turn not yet taken by a step. */
     private double turning;
-    /** What the player has done once (a jump, a take-off, the pack, a weapon drawn) since the last step: the next step takes them. */
-    private final List<Action> actions = new ArrayList<>();
+    /** The keys pressed since the last step, in order: the next step takes what they do once (a jump, a take-off, the pack, a weapon drawn). */
+    private final List<String> pressed = new ArrayList<>();
+    /** The script playing, {@code -Davatar.script}, or one that is over at once. */
+    private final Script script = Script.parse(System.getProperty("avatar.script", ""));
+    /** The keys the script holds at the latest step, for what only the camera takes notice of. */
+    private Set<String> scriptHeld = Set.of();
+    /** Where to save the window, {@code -Davatar.snapshot}, and at which step; null for no snapshot. */
+    private final String snapshot = System.getProperty("avatar.snapshot");
+    private long snapshotAt;
+    private boolean snapshotTaken;
+    private Scene scene;
     /** The camera: behind, at its usual distance, or {@code -Davatar.zoom} times it (0.5 twice as near). */
     private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw())
             .zoomed(Double.parseDouble(System.getProperty("avatar.zoom", "1")));
     private MouseLook look;
     private Hearing hearing;
-    /** Degrees per second the script is turning, as the mouse would. */
-    private double scriptedTurn;
-    /** Degrees per second the script is tilting the view, as the mouse would. */
-    private double scriptedTilt;
-    /** The trigger: the left mouse button held while the mouse is captured, or a script's FIRE. */
+    /** The trigger: the left mouse button held while the mouse is captured. */
     private boolean clicking;
-    private boolean scriptedTrigger;
     private double fieldOfView = FIELD_OF_VIEW;
     private String shown = "";
 
@@ -176,6 +192,15 @@ public final class AvatarDemo extends Application {
         view.heightProperty().bind(root.heightProperty());
 
         final Scene scene = new Scene(root, 1280, 800);
+        this.scene = scene;
+        // a script naming a key there is no such thing as fails here, not halfway through
+        script.keys().forEach(KeyCode::valueOf);
+        // by default just before the script's last part ends, while its keys are still held
+        final Long settle = Long.getLong("avatar.settle");
+        snapshotAt = settle != null ? Math.round(settle / 1000.0 / Clock.STEP)
+                : replay != null ? replay.length() - Math.round(0.06 / Clock.STEP)
+                : script.length() > 0 ? script.length() - Math.round(0.06 / Clock.STEP)
+                : Math.round(0.8 / Clock.STEP);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> press(e.getCode()));
         scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> release(e.getCode()));
         scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
@@ -193,10 +218,18 @@ public final class AvatarDemo extends Application {
         stage.setScene(scene);
         stage.show();
         // unattended runs leave the real mouse alone
-        final boolean unattended = System.getProperty("avatar.script") != null
+        final boolean unattended = System.getProperty("avatar.script") != null || replay != null
                 || System.getProperty("avatar.snapshot") != null;
         look = new MouseLook(stage, scene, !unattended);
         hearing = Hearing.open(unattended);
+        final String inputs = System.getProperty("avatar.inputs");
+        if (inputs != null) {
+            try {
+                recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack());
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
 
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
@@ -219,15 +252,16 @@ public final class AvatarDemo extends Application {
                 }
             }
         }.start();
-
-        final double scripted = playScript();
-        snapshotIfAsked(scene, scripted);
     }
 
     @Override
     public void stop() {
         if (hearing != null) {
             hearing.close();
+        }
+        if (recorder != null) {
+            recorder.close();
+            System.out.println("kept the inputs of " + step + " steps");
         }
     }
 
@@ -238,26 +272,34 @@ public final class AvatarDemo extends Application {
      */
     private void frame(final double seconds) {
         // the mouse's turn this frame waits until a step takes it, and is shared among the steps
-        turning += look.takeTurn() + scriptedTurn * seconds;
+        turning += look.takeTurn();
         final Clock.Ticked ticked = clock.advance(seconds);
         clock = ticked.clock();
         for (int i = 0; i < ticked.steps(); i++) {
             final double turn = turning / (ticked.steps() - i);
             turning -= turn;
-            final Controls controls = new Controls(
-                    axis(KeyCode.W) - axis(KeyCode.S),
-                    axis(KeyCode.D) - axis(KeyCode.A),
-                    turn,
-                    axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
-                    // full speed by default, as in most shooters; Shift held to go carefully
-                    !held.contains(KeyCode.SHIFT),
-                    clicking || scriptedTrigger,
-                    // aimed up or down as far as the view is tilted from rest, so level as it walks
-                    chase.pitch() - Chase.DEFAULT_PITCH,
-                    // what was done since the last step, all at the first step that comes
-                    i == 0 ? List.copyOf(actions) : List.of());
-            if (i == 0) {
-                actions.clear();
+            final long next = step + 1;
+            final Controls controls;
+            if (replay != null && next <= replay.length()) {
+                // while a recording plays back, it alone drives the world, and the view tilts with its aim
+                controls = replay.controls(next);
+                chase = chase.turned(0, controls.aim() - (chase.pitch() - Chase.DEFAULT_PITCH));
+                scriptHeld = Set.of();
+                pressed.clear();
+            } else if (next <= script.length()) {
+                // while a script plays, it alone drives the world: its inputs for this very step
+                controls = script.controls(next);
+                scriptHeld = script.held(next);
+                script.pressed(next).forEach(key -> view(KeyCode.valueOf(key)));
+                chase = chase.turned(0, script.tilt(next));
+                pressed.clear();
+            } else {
+                scriptHeld = Set.of();
+                controls = Keys.controls(names(held), i == 0 ? pressed : List.of(), turn, clicking,
+                        // aimed up or down as far as the view is tilted from rest, so level as it walks
+                        chase.pitch() - Chase.DEFAULT_PITCH);
+                // what was pressed since the last step, all at the first step that comes
+                pressed.clear();
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
@@ -265,12 +307,18 @@ public final class AvatarDemo extends Application {
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
             journal.append(++step, stepped.events());
+            if (recorder != null) {
+                recorder.step(step, controls, stepped.play());
+            }
+            if (replay != null && step <= replay.length()) {
+                checkReplay(stepped.play());
+            }
         }
         // what is seen and heard: the world between its last two steps, so it glides rather than ticks
         seen = avatar.between(before, ticked.blend());
         final Avatar avatar = seen;
         final Body body = avatar.body();
-        final double tilt = look.takeTilt() + scriptedTilt * seconds;
+        final double tilt = look.takeTilt();
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
         if (tilt != 0 || circling != 0) {
             chase = chase.turned(circling * CIRCLE * seconds, tilt);
@@ -301,6 +349,7 @@ public final class AvatarDemo extends Application {
         eyePitch.setAngle(chase.pitch());
 
         showStatus();
+        snapshotIfDue();
     }
 
     private void showStatus() {
@@ -324,9 +373,11 @@ public final class AvatarDemo extends Application {
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = String.format(" · targets down %d of %d%s", down, targets,
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");
-        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s · %s%s", what, metres,
+        final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
+                : recorder != null ? " · keeping inputs" : "";
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s · %s%s%s", what, metres,
                 body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,
-                score, sound, look.captured() ? "" : " · mouse free: Esc to turn with it");
+                score, sound, run, look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
             status.setText(text);
@@ -343,14 +394,14 @@ public final class AvatarDemo extends Application {
         if (!held.add(code)) {
             return;  // a key held down repeats; act on the first press only
         }
+        // what it does to the world waits for the next step, as an input to it (Keys)
+        pressed.add(code.name());
+        view(code);
+    }
+
+    /** What a key does outside the world: the camera, the mouse and the sound. */
+    private void view(final KeyCode code) {
         switch (code) {
-            // done once: waiting for the next step, as an input to it, never changing the avatar between steps
-            case SPACE -> actions.add(Action.JUMP);
-            case F -> actions.add(Action.FLY);
-            case J -> actions.add(Action.PACK);
-            case DIGIT1 -> actions.add(new Action.Draw(Weapon.RIFLES));
-            case DIGIT2 -> actions.add(new Action.Draw(Weapon.GLAIVE));
-            case DIGIT3 -> actions.add(new Action.Draw(Weapon.GATLING));
             case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
             case M -> hearing.toggleMute();
@@ -364,70 +415,59 @@ public final class AvatarDemo extends Application {
         held.remove(code);
     }
 
+    /** Whether a key is held, at the keyboard or by the script: for what only the camera takes notice of. */
     private double axis(final KeyCode code) {
-        return held.contains(code) ? 1 : 0;
+        return held.contains(code) || scriptHeld.contains(code.name()) ? 1 : 0;
+    }
+
+    private static Set<String> names(final Set<KeyCode> codes) {
+        final Set<String> names = new HashSet<>();
+        codes.forEach(code -> names.add(code.name()));
+        return names;
+    }
+
+    /** Reads {@code -Davatar.replay}, if set. */
+    private static Recording readReplay() {
+        final String path = System.getProperty("avatar.replay");
+        if (path == null) {
+            return null;
+        }
+        try (Reader in = Files.newBufferedReader(Path.of(path))) {
+            final Recording recording = Recording.read(in);
+            System.out.println("replaying " + path + ": " + recording.length() + " steps, "
+                    + recording.checks() + " checksums" + (recording.rules() == Play.RULES ? ""
+                    : ", made under rules " + recording.rules() + " where these are " + Play.RULES));
+            return recording;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /** Whether the world after this step of a replay is as it was when it was kept. */
+    private void checkReplay(final Play after) {
+        if (astray == 0 && !replay.matches(step, after)) {
+            astray = step;
+            System.out.println("replay astray: the world differs by step " + step);
+        }
+        if (step == replay.length()) {
+            System.out.println(astray == 0
+                    ? "replay the same run: all " + replay.checks() + " checksums matched, to step " + step
+                    : "replay astray by step " + astray);
+        }
     }
 
     private static Vec3 eyeOf(final Body body) {
         return body.position().add(0, -Chase.EYE_HEIGHT, 0);
     }
 
-    /**
-     * Plays {@code -Davatar.script}, if set.
-     *
-     * @return when it ends, in seconds from now, or 0 without one
-     */
-    private double playScript() {
-        final String script = System.getProperty("avatar.script");
-        if (script == null || script.isBlank()) {
-            return 0;
-        }
-        final Timeline steps = new Timeline();
-        double t = 0.5;
-        for (final String step : script.split(";")) {
-            final String[] parts = step.trim().split(":");
-            final double hold = parts.length > 1 ? Double.parseDouble(parts[1].trim()) : 0.15;
-            if (!parts[0].isBlank()) {
-                for (final String name : parts[0].split("\\+")) {
-                    if (name.trim().equalsIgnoreCase("FIRE")) {
-                        // the trigger, as the left mouse button held
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTrigger = true));
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTrigger = false));
-                        continue;
-                    }
-                    if (name.trim().startsWith("^")) {
-                        final double rate = Double.parseDouble(name.trim().substring(1)) / hold;
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTilt = rate));
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTilt = 0));
-                        continue;
-                    }
-                    if (name.trim().startsWith("@")) {
-                        final double rate = Double.parseDouble(name.trim().substring(1)) / hold;
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTurn = rate));
-                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTurn = 0));
-                        continue;
-                    }
-                    final KeyCode code = KeyCode.valueOf(name.trim().toUpperCase());
-                    steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> press(code)));
-                    steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> release(code)));
-                }
-            }
-            t += hold;
-        }
-        steps.play();
-        return t;
-    }
-
-    /** Saves the window to {@code -Davatar.snapshot}, if set, and exits. */
-    private static void snapshotIfAsked(final Scene scene, final double scripted) {
-        final String path = System.getProperty("avatar.snapshot");
-        if (path == null) {
+    /** Saves the window to {@code -Davatar.snapshot}, once its step has come, and exits. */
+    private void snapshotIfDue() {
+        if (snapshot == null || snapshotTaken || step < snapshotAt) {
             return;
         }
-        // by default just before the script's last step ends, while its keys are still held
-        final long settle = Long.getLong("avatar.settle", scripted > 0 ? Math.round(scripted * 1000) - 60 : 800);
-        final PauseTransition wait = new PauseTransition(Duration.millis(settle));
-        wait.setOnFinished(e -> {
+        snapshotTaken = true;
+        // once this pulse has drawn what the step left
+        Platform.runLater(() -> {
             try {
                 final WritableImage image = scene.snapshot(null);
                 final PixelReader pixels = image.getPixelReader();
@@ -438,13 +478,12 @@ public final class AvatarDemo extends Application {
                         out.setRGB(x, y, pixels.getArgb(x, y));
                     }
                 }
-                ImageIO.write(out, "png", new File(path));
-                System.out.println("saved " + path);
+                ImageIO.write(out, "png", new File(snapshot));
+                System.out.println("saved " + snapshot + " at step " + step);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
             Platform.exit();
         });
-        wait.play();
     }
 }
