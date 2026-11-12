@@ -45,7 +45,10 @@ class PersonTest {
         assertEquals(3, start.people().size());
         final double deck = start.lifts().get(1).place().height();
         for (final Person person : start.people()) {
-            assertEquals(deck, person.body().height(), 1e-9, person.role() + " on the deck");
+            // on the deck, or sat on top of their seat
+            final double seat = person.role() == Person.Role.STALLHOLDER ? Furniture.STOOL.height()
+                    : person.role() == Person.Role.RIDER ? Furniture.SCOOTER.height() : 0;
+            assertEquals(deck + seat, person.body().height(), 1e-9, person.role() + " on the deck or their seat");
             assertEquals(Person.TOUGHNESS, person.health());
             assertFalse(person.down());
         }

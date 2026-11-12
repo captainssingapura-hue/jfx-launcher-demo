@@ -70,12 +70,12 @@ class FurnitureTest {
     }
 
     @Test
-    void itSlidesToAStopShortOfWhatIsInItsWay() {
+    void itSlidesToAStopShortOfWhatIsInItsWayTheStoolSay() {
         final Play start = Play.start(false);
         final int k = table(start);
         final List<Prop> props = new ArrayList<>(start.props());
         final Place at = props.get(k).place();
-        // sent hard toward the barge's console, three metres off
+        // sent hard toward the barge's console, the stallholder's stool in its way
         final Vec3 toward = Num.heading(at.yaw()).multiply(3000);
         props.set(k, props.get(k).pushed(toward.x(), toward.z()));
         Play play = new Play(start.avatar(), start.damage(), start.sky(), start.lifts(), start.people(), props);
@@ -83,9 +83,12 @@ class FurnitureTest {
         final Prop stopped = play.props().get(k);
         assertEquals(0, stopped.sliding(), "at a stop");
         final double went = new Vec3(stopped.place().x() - at.x(), 0, stopped.place().z() - at.z()).magnitude();
-        assertTrue(went > 200, "having gone some way: " + went);
-        final Block console = start.damage().piece(start.lifts().get(1).piece()).solid().get(1);
-        assertFalse(stopped.box().overlaps(console), "short of the console, not in it");
+        assertTrue(went > 10, "having gone some way: " + went);
+        final Prop stool = play.props().stream().filter(p -> p.thing() == Furniture.STOOL).findFirst().orElseThrow();
+        assertFalse(stopped.box().overlaps(stool.box()), "short of the stool, not in it");
+        assertTrue(stopped.box().overlaps(new Block(stool.box().x(), stool.box().z(), stool.box().halfWidth() + 3,
+                stool.box().halfDepth() + 3, stool.box().yaw(), stool.box().bottom(), stool.box().top())),
+                "but right up against it");
     }
 
     @Test

@@ -103,7 +103,9 @@ characters, and a separate sound bench is for working on the sounds.
   held it up broken, it falls; landing harder than it can take (`Loose#landing`), it breaks, so a
   watermelon dropped from three metres bursts while one off the table is fine. Furniture
   (`Furniture`) is broken like anything else: the table takes twenty rifle rounds or two strokes
-  of the glaive, and what was on it drops to the deck.
+  of the glaive, and what was on it drops to the deck. The stallholder's stool and the scooter
+  are furniture too, and whoever sits sits on top of theirs: push the stool or the scooter and
+  they ride along on it; push them, or break it, and they come off it to stand on the deck.
 - **People.** The people at the stall are characters in the world (`Person`), each with a body
   like the robot's: they stand on whatever is under them, ride the barge wherever it is flown,
   and fall. Walk into someone and they are shoved out of the way, sent along at your pace and a

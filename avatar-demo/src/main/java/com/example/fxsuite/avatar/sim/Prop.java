@@ -135,13 +135,26 @@ public record Prop(int piece, Loose thing, Place place, double vx, double vz, do
                 up = 0;
             }
         }
-        // across the ground as far as is clear; stopped short of what is in the way
+        // across the ground, if that is clear
         final Place across = new Place(place.x() + (vx + x) / 2 * seconds, place.z() + (vz + z) / 2 * seconds, height,
                 place.yaw());
         if ((x != 0 || z != 0 || vx != 0 || vz != 0) && clear(across, world, ignore)) {
             return new Stepped(new Prop(piece, thing, across, x, z, up), blows);
         }
-        final Place still = new Place(place.x(), place.z(), height, place.yaw());
+        // blocked: as far as is clear, found by halving the way, and stopped there
+        final double dx = across.x() - place.x();
+        final double dz = across.z() - place.z();
+        double clearShare = 0;
+        double blockedShare = 1;
+        for (int i = 0; i < 8 && (dx != 0 || dz != 0); i++) {
+            final double mid = (clearShare + blockedShare) / 2;
+            if (clear(new Place(place.x() + dx * mid, place.z() + dz * mid, height, place.yaw()), world, ignore)) {
+                clearShare = mid;
+            } else {
+                blockedShare = mid;
+            }
+        }
+        final Place still = new Place(place.x() + dx * clearShare, place.z() + dz * clearShare, height, place.yaw());
         return new Stepped(new Prop(piece, thing, still, 0, 0, up), blows);
     }
 

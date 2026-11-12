@@ -40,7 +40,9 @@ class StallTest {
         final Play start = Play.start(false);
         final double deck = start.lifts().get(1).place().height();
         final List<Prop> props = start.props();
-        assertEquals(26, props.size(), "a table, 22 watermelons and 3 pineapples");
+        assertEquals(28, props.size(), "a table, a stool, a scooter, 22 watermelons and 3 pineapples");
+        assertEquals(1, props.stream().filter(p -> p.thing() == Furniture.STOOL).count());
+        assertEquals(1, props.stream().filter(p -> p.thing() == Furniture.SCOOTER).count());
         final Prop table = props.stream().filter(p -> p.thing() == Furniture.TABLE).findFirst().orElseThrow();
         assertEquals(deck, table.place().height(), 1e-9, "the table on the deck");
         assertEquals(22, melons().size());

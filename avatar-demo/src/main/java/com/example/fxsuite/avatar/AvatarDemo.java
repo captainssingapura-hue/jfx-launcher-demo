@@ -121,7 +121,7 @@ public final class AvatarDemo extends Application {
     private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
     /** The people as drawn, and what they sit on at the stall on the barge. */
-    private final Stall stall = new Stall(world, course, wreckage);
+    private final Stall stall = new Stall(course, wreckage);
     private final Bombs bombs = new Bombs();
     private final Reticle reticle = new Reticle();
     private final PerspectiveCamera eye = new PerspectiveCamera(true);

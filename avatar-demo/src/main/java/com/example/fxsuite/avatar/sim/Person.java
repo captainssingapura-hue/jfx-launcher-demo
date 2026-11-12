@@ -30,7 +30,8 @@ import java.util.List;
  * @param role    who they are
  * @param body    where they are and how they are going
  * @param health  how much more they can take before they are destroyed
- * @param sitting whether they sit, as they were put, until something gets them up
+ * @param sitting whether they sit, on top of what they sit on, as they were put, until something gets
+ *                them up or they come off it
  */
 public record Person(int id, Role role, Body body, double health, boolean sitting) {
 
@@ -65,7 +66,9 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
             for (final Lift lift : lifts) {
                 if (lift.deck().equals(cast.deck())) {
                     final Place at = lift.place();
-                    final Vec3 spot = new Vec3(at.x(), -at.height(), at.z())
+                    // on the deck; or, sitting, on top of their seat
+                    final double up = cast.sitting() ? cast.seat().height() : 0;
+                    final Vec3 spot = new Vec3(at.x(), -at.height() - up, at.z())
                             .add(Num.right(at.yaw()).multiply(cast.across()))
                             .add(Num.heading(at.yaw()).multiply(cast.along()));
                     people.add(new Person(people.size(), cast.role(),
@@ -115,7 +118,9 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
                 landed = Math.max(landed, l.speed());
             }
         }
-        final Person after = new Person(id, role, moved.body(), health, sitting);
+        // off their seat, coming down or come down, they sit no more
+        final boolean still = sitting && moved.body().grounded() && landed == 0;
+        final Person after = new Person(id, role, moved.body(), health, still);
         if (landed <= SAFE_LANDING) {
             return new Stepped(after, List.of());
         }

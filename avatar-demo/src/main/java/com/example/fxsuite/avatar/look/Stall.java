@@ -3,7 +3,6 @@ package com.example.fxsuite.avatar.look;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
-import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Weapon;
 
@@ -11,7 +10,6 @@ import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
-import javafx.scene.shape.Cylinder;
 import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
@@ -22,9 +20,8 @@ import java.util.Set;
 /**
  * The people ({@link Person}), drawn where the simulation has them, between its last two steps
  * as the avatar is: standing or sat. Destroyed, they are blown apart ({@link Wreckage#blowApart}),
- * in their own colours, and are seen no more. And at the fruit
- * stall on the barge, what they sit on: the stallholder's stool and the scooter, drawn in the
- * barge's own group, so they go where it flies.
+ * in their own colours, and are seen no more. Sat, they sit on top of what they sit on (the
+ * stallholder's stool, the scooter: furniture, drawn with the world).
  *
  * <p>They react to what happens, from the simulation's events: a piece of fruit struck and the
  * stallholder shakes a fist; one bursting and everyone still up jumps, hands in the air; anyone
@@ -44,49 +41,22 @@ public final class Stall {
     private final Wreckage wreckage;
     private double time;
 
-    /** For the people of {@code course}'s cast, and the stall on its barge in {@code world}; blown apart into {@code wreckage}. */
-    public Stall(final World world, final Course course, final Wreckage wreckage) {
+    /** For the people of {@code course}'s cast; blown apart into {@code wreckage}. */
+    public Stall(final Course course, final Wreckage wreckage) {
         this.wreckage = wreckage;
-        int barge = -1;
         for (int i = 0; i < course.pieces().size(); i++) {
-            final Course.Piece piece = course.pieces().get(i);
-            if (piece.kind() == Course.Kind.FRUIT) {
+            if (course.pieces().get(i).kind() == Course.Kind.FRUIT) {
                 fruit.add(i);
-            } else if (piece.kind() == Course.Kind.PLATFORM && Course.Deck.of(piece.shape()).equals(Course.BARGE)) {
-                barge = i;
             }
         }
-        // the barge's frame has its box's middle at the origin; its deck is that far below (y is down)
-        final Group deck = barge < 0 ? null : world.group(barge);
-        final double floor = barge < 0 ? 0 : course.pieces().get(barge).shape().box().up();
         for (final Course.Cast cast : Course.CAST) {
             final Figure figure = switch (cast.role()) {
-                case STALLHOLDER -> new Figure("#3a3f45", "#4a4f58", "#1c1c1c", 45, false);
-                case CUSTOMER -> new Figure("#18191b", "#18191b", "#121212", 45, false);
-                case RIDER -> new Figure("#5a3d2b", "#2f4560", "#2a1d14", 58, true);
+                case STALLHOLDER -> new Figure("#3a3f45", "#4a4f58", "#1c1c1c", false);
+                case CUSTOMER -> new Figure("#18191b", "#18191b", "#121212", false);
+                case RIDER -> new Figure("#5a3d2b", "#2f4560", "#2a1d14", true);
             };
             figures.add(figure);
             root.getChildren().add(figure.root);
-            if (deck == null || !cast.deck().equals(Course.BARGE)) {
-                continue;
-            }
-            // what they sit on, where they were put
-            if (cast.role() == Person.Role.STALLHOLDER) {
-                final Cylinder stool = new Cylinder(16, 45);
-                stool.setMaterial(BoxRig.matte("#7a5a3a"));
-                stool.setTranslateX(cast.across());
-                stool.setTranslateY(floor - 22.5);
-                stool.setTranslateZ(cast.along());
-                deck.getChildren().add(stool);
-            } else if (cast.role() == Person.Role.RIDER) {
-                // the rider sits a little back of the scooter's middle
-                final Group scooter = scooter();
-                scooter.setTranslateX(cast.across() + 8 * Num.heading(cast.facing()).x());
-                scooter.setTranslateY(floor);
-                scooter.setTranslateZ(cast.along() + 8 * Num.heading(cast.facing()).z());
-                scooter.getTransforms().add(new Rotate(cast.facing(), Rotate.Y_AXIS));
-                deck.getChildren().add(scooter);
-            }
         }
     }
 
@@ -138,27 +108,6 @@ public final class Stall {
         }
     }
 
-    /** A little scooter, its front along its z: body, seat, front, handlebar, wheels and a yellow plate. */
-    private static Group scooter() {
-        final PhongMaterial shell = BoxRig.matte("#2c3238");
-        final PhongMaterial black = BoxRig.matte("#141414");
-        final Group scooter = new Group();
-        scooter.getChildren().add(box(34, 22, 100, 0, -26, 0, shell));
-        scooter.getChildren().add(box(30, 10, 48, 0, -52, -18, black));
-        scooter.getChildren().add(box(34, 70, 12, 0, -60, 46, shell));
-        scooter.getChildren().add(box(62, 4, 4, 0, -98, 44, black));
-        scooter.getChildren().add(box(16, 8, 1, 0, -40, -51, BoxRig.matte("#e8c21a")));
-        for (final double z : new double[] {-38, 40}) {
-            final Cylinder wheel = new Cylinder(17, 8);
-            wheel.setMaterial(black);
-            wheel.setTranslateY(-17);
-            wheel.setTranslateZ(z);
-            wheel.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
-            scooter.getChildren().add(wheel);
-        }
-        return scooter;
-    }
-
     private static Box box(final double w, final double h, final double d, final double x, final double y,
                            final double z, final PhongMaterial material) {
         final Box box = new Box(w, h, d);
@@ -178,7 +127,6 @@ public final class Stall {
         private final Rotate rightShoulder = new Rotate(0, Rotate.X_AXIS);
         private final Rotate[] hips = {new Rotate(0, Rotate.X_AXIS), new Rotate(0, Rotate.X_AXIS)};
         private final Rotate[] knees = {new Rotate(0, Rotate.X_AXIS), new Rotate(0, Rotate.X_AXIS)};
-        private final double seat;
         private final boolean reaches;
         private boolean sitting;
         private double startled;
@@ -187,9 +135,8 @@ public final class Stall {
         /** What they are made of, to be blown apart in: coat, trousers, skin, hair. */
         private final List<PhongMaterial> colours;
 
-        /** In these colours, sitting (when sat) on something {@code seat} high, hands before it if {@code reaches}. */
-        Figure(final String jacket, final String trousers, final String hair, final double seat, final boolean reaches) {
-            this.seat = seat;
+        /** In these colours, their hands before them when sat if {@code reaches}: on handlebars. */
+        Figure(final String jacket, final String trousers, final String hair, final boolean reaches) {
             this.reaches = reaches;
             final PhongMaterial coat = BoxRig.matte(jacket);
             final PhongMaterial legs = BoxRig.matte(trousers);
@@ -242,13 +189,13 @@ public final class Stall {
             shaking = Math.max(0, shaking - seconds);
             staggering = Math.max(0, staggering - seconds);
             final double fright = startled > 0 ? Math.min(1, (STARTLE - startled) / 0.12) * Math.min(1, startled / 0.3) : 0;
-            // sat, or up off the seat in a fright
+            // sat, their feet where the seat is, or up on it in a fright
             final boolean sat = sitting && fright < 0.5;
             for (int side = 0; side < 2; side++) {
                 hips[side].setAngle(sat ? 90 : 0);
                 knees[side].setAngle(sat ? -90 : 0);
             }
-            final double lift = sat ? 85 - seat : 0;
+            final double lift = sat ? 85 : 0;
             final double hop = fright > 0 && startled > STARTLE - 0.45 ? 22 * Math.sin(Math.PI * (STARTLE - startled) / 0.45) : 0;
             body.setTranslateY(lift - hop);
             // the arms: at rest hanging, or on the handlebars, or flung up; out to the sides

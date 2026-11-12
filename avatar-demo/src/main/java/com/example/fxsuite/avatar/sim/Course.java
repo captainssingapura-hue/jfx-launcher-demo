@@ -300,9 +300,15 @@ public final class Course {
     /**
      * Someone put in the world at the start ({@link Person}): who, on which platform's deck (as
      * big as {@code deck}), where on it in its frame ({@code across}, {@code along}), which way they
-     * face from the way it heads, and whether they sit.
+     * face from the way it heads, and what they sit on ({@code seat}, put there with them; null for
+     * standing).
      */
-    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, boolean sitting) {
+    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, Furniture seat) {
+
+        /** Whether they sit. */
+        public boolean sitting() {
+            return seat != null;
+        }
     }
 
     /**
@@ -310,9 +316,9 @@ public final class Course {
      * facing the start; a customer before it; and another sat on a scooter parked to one side.
      */
     public static final List<Cast> CAST = List.of(
-            new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, true),
-            new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, false),
-            new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, true));
+            new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, Furniture.STOOL),
+            new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, null),
+            new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, Furniture.SCOOTER));
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
@@ -448,6 +454,15 @@ public final class Course {
         final double[][] pineapples = {{-160, -90}, {-182, -114}, {-160, -138}};
         for (int i = 0; i < pineapples.length; i++) {
             pieces.add(Piece.loose(Fruit.PINEAPPLE, Kind.FRUIT, on(deck, pineapples[i][0], pineapples[i][1], 0), i));
+        }
+        // and what the people sit on, where they sit: a little back of its middle, facing their way
+        for (final Cast cast : CAST) {
+            if (cast.sitting() && cast.deck().equals(BARGE)) {
+                final Vec3 ahead = Num.heading(cast.facing()).multiply(cast.seat().seat());
+                final Place seat = on(deck, cast.across() + ahead.x(), cast.along() + ahead.z(), 0);
+                pieces.add(Piece.loose(cast.seat(), Kind.FURNITURE,
+                        new Place(seat.x(), seat.z(), seat.height(), Num.wrap(deck.yaw() + cast.facing())), 0));
+            }
         }
     }
 

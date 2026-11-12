@@ -141,6 +141,8 @@ public final class World {
                 case PLATFORM -> platform(i, part);
                 case FURNITURE -> switch (piece.furniture()) {
                     case TABLE -> table(part, block);
+                    case STOOL -> stool(part, block);
+                    case SCOOTER -> scooter(part, block);
                 };
                 case FRUIT -> fruit(part, piece.fruit());
             };
@@ -780,6 +782,58 @@ public final class World {
         sign.getTransforms().add(new Translate(-halfWide + 34 - 22, -half - 36, -halfDeep - 4.2));
         part.getChildren().addAll(board, post, sign);
         return top;
+    }
+
+    /** A wooden stool: a round seat on a stout leg, as tall as it is ({@link Furniture#STOOL}). */
+    private static Shape3D stool(final Group part, final Block block) {
+        final double tall = block.top() - block.bottom();
+        final Cylinder seat = new Cylinder(block.halfWidth(), 6);
+        seat.setTranslateY(-tall / 2 + 3);
+        seat.setMaterial(BoxRig.matte("#8a6440"));
+        final Cylinder leg = new Cylinder(block.halfWidth() * 0.55, tall - 6);
+        leg.setTranslateY(3);
+        leg.setMaterial(BoxRig.matte("#6e4f32"));
+        part.getChildren().addAll(seat, leg);
+        return seat;
+    }
+
+    /**
+     * A little scooter ({@link Furniture#SCOOTER}), its front along its frame: body, seat, front,
+     * handlebar, wheels and a yellow plate. Solid as far as its seat; the front and the handlebar
+     * stand above that.
+     */
+    private static Shape3D scooter(final Group part, final Block block) {
+        final PhongMaterial shell = BoxRig.matte("#2c3238");
+        final PhongMaterial black = BoxRig.matte("#141414");
+        // built from its wheels' feet up (y is down); the frame's middle is half its height up
+        final Group scooter = new Group();
+        scooter.setTranslateY((block.top() - block.bottom()) / 2);
+        final Box body = scooterBox(34, 22, 100, 0, -26, 0, shell);
+        scooter.getChildren().add(body);
+        scooter.getChildren().add(scooterBox(30, 10, 48, 0, -52, -18, black));
+        scooter.getChildren().add(scooterBox(34, 70, 12, 0, -60, 46, shell));
+        scooter.getChildren().add(scooterBox(62, 4, 4, 0, -98, 44, black));
+        scooter.getChildren().add(scooterBox(16, 8, 1, 0, -40, -51, BoxRig.matte("#e8c21a")));
+        for (final double z : new double[] {-38, 40}) {
+            final Cylinder wheel = new Cylinder(17, 8);
+            wheel.setMaterial(black);
+            wheel.setTranslateY(-17);
+            wheel.setTranslateZ(z);
+            wheel.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+            scooter.getChildren().add(wheel);
+        }
+        part.getChildren().add(scooter);
+        return body;
+    }
+
+    private static Box scooterBox(final double w, final double h, final double d, final double x, final double y,
+                                  final double z, final PhongMaterial material) {
+        final Box box = new Box(w, h, d);
+        box.setTranslateX(x);
+        box.setTranslateY(y);
+        box.setTranslateZ(z);
+        box.setMaterial(material);
+        return box;
     }
 
     /** A platform's controls as shown: the lamp, the lever, the thrusters. */
