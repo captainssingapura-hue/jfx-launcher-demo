@@ -16,8 +16,11 @@ import java.util.List;
  *       to a stop; shoved over an edge, they fall. They push each other out of the way. A push gets
  *       anyone sitting to their feet.</li>
  *   <li><b>Struck</b> by a round, the glaive or a bomb, they flinch back and their health runs
- *       down; at none left, they are knocked down, and lie there. Down, they can still be shoved
- *       about.</li>
+ *       down. <b>Falling</b>, they are hurt by coming down harder than {@link #SAFE_LANDING}, the
+ *       more the harder: a step off the barge is nothing, a fall from high up the end of them.</li>
+ *   <li><b>At no health left</b> they are destroyed: blown apart, and gone from the world. Nothing
+ *       more moves them, strikes them or is stopped by them; they are kept only so that each
+ *       keeps their number.</li>
  * </ul>
  *
  * <p>To be struck, each is a target with a number of its own ({@link #piece}), far past the
@@ -26,7 +29,7 @@ import java.util.List;
  * @param id      which of them, from 0
  * @param role    who they are
  * @param body    where they are and how they are going
- * @param health  how much more they can take before they are knocked down
+ * @param health  how much more they can take before they are destroyed
  * @param sitting whether they sit, as they were put, until something gets them up
  */
 public record Person(int id, Role role, Body body, double health, boolean sitting) {
@@ -42,8 +45,18 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
     public static final double SHOVE = 1.15;
     /** How hard a hit knocks them back, units a second. */
     public static final double FLINCH = 120;
-    /** How high someone lying down is. */
-    public static final double LYING = 40;
+    /** Coming down faster than this hurts: about what a fall of two metres comes to. */
+    public static final double SAFE_LANDING = 1000;
+    /** How much each unit a second faster than that takes: a fall of seven metres or so is the end of them. */
+    public static final double FALL_HURT = 0.06;
+
+    /** Someone a step on, and what came of it: a hard landing, and their end if it was. */
+    public record Stepped(Person person, List<Event> events) {
+
+        public Stepped {
+            events = List.copyOf(events);
+        }
+    }
 
     /** The cast, put where {@link Course#CAST} says, on the platform it says, as that platform now is ({@code lifts}). */
     public static List<Person> of(final Damage damage, final List<Lift> lifts) {
@@ -63,7 +76,7 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
         return people;
     }
 
-    /** Whether they are knocked down. */
+    /** Whether they are destroyed, and gone from the world. */
     public boolean down() {
         return health <= 0;
     }
@@ -83,18 +96,34 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
         return piece - BASE;
     }
 
-    /** Their box, to be struck: up, as tall as a body; down, lying low along the way they faced. */
+    /** Their box, to be struck: as tall as a body. */
     public Block box() {
         final Vec3 at = body.position();
         final double floor = body.height();
-        return down()
-                ? new Block(at.x(), at.z(), Body.RADIUS, Body.TALL / 2, body.yaw(), floor, floor + LYING)
-                : new Block(at.x(), at.z(), Body.RADIUS, Body.RADIUS, body.yaw(), floor, floor + Body.TALL);
+        return new Block(at.x(), at.z(), Body.RADIUS, Body.RADIUS, body.yaw(), floor, floor + Body.TALL);
     }
 
-    /** {@code seconds} on, as they are going, among {@code world}: coming to a stop, or falling. */
-    public Person moved(final Obstacles world, final double seconds) {
-        return new Person(id, role, body.move(Controls.NONE, seconds, world).body(), health, sitting);
+    /**
+     * {@code seconds} on, as they are going, among {@code world}: coming to a stop, or falling, and
+     * hurt by coming down hard; destroyed, if that was the last of them.
+     */
+    public Stepped moved(final Obstacles world, final double seconds) {
+        final Body.Moved moved = body.move(Controls.NONE, seconds, world);
+        double landed = 0;
+        for (final Event event : moved.events()) {
+            if (event instanceof Event.Landed l) {
+                landed = Math.max(landed, l.speed());
+            }
+        }
+        final Person after = new Person(id, role, moved.body(), health, sitting);
+        if (landed <= SAFE_LANDING) {
+            return new Stepped(after, List.of());
+        }
+        final Person hurt = after.struck((landed - SAFE_LANDING) * FALL_HURT);
+        final Vec3 at = hurt.body().position();
+        return new Stepped(hurt, hurt.down()
+                ? List.of(new Event.Fell(id, landed, at), new Event.Destroyed(id, at))
+                : List.of(new Event.Fell(id, landed, at)));
     }
 
     /** Carried by what they stand on, as it moved from {@code from} to {@code to}. */
@@ -112,7 +141,7 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
         return new Person(id, role, body.shifted(dx, dz), health, sitting);
     }
 
-    /** Struck, taking {@code blow}: up on their feet, if sitting, and down if that was the last of them. */
+    /** Struck, taking {@code blow}: up on their feet, if sitting, and destroyed if that was the last of them. */
     public Person struck(final double blow) {
         return new Person(id, role, body, Math.max(0, health - blow), false);
     }

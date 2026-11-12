@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Fruit;
@@ -187,6 +188,24 @@ public final class Wreckage {
                 final double size = 10 + 22 * unit();
                 chunk().throwFrom(at.add(0, -size, 0), fly, size, size * 0.7, size, earth, unit());
             }
+        }
+    }
+
+    /**
+     * Someone blown apart, standing at {@code feet}: a puff of fire at their middle, and lumps of
+     * them in {@code colours} (their coat, their trousers, their skin, their hair) flung out every
+     * way to tumble and come to rest.
+     */
+    public void blowApart(final Vec3 feet, final List<PhongMaterial> colours) {
+        final Vec3 middle = feet.add(0, -Body.TALL * 0.45, 0);
+        blast(middle, 110, 0);
+        embers(middle, 8, 1200);
+        for (int i = 0; i < 18; i++) {
+            final Vec3 from = feet.add((unit() - 0.5) * 30, -(20 + 150 * unit()), (unit() - 0.5) * 30);
+            final Vec3 fly = from.subtract(middle).multiply(3)
+                    .add((unit() - 0.5) * 420, -(250 + 300 * unit()), (unit() - 0.5) * 420);
+            final double size = 9 + 14 * unit();
+            chunk().throwFrom(from, fly, size, size * (0.6 + 0.6 * unit()), size, colours.get(i % colours.size()), unit());
         }
     }
 

@@ -126,9 +126,11 @@ public final class Cues {
                         plays.add(new Play(struck(s), 1, s.at()));
                     }
                 }
-                // someone shoved stumbles off; knocked down, they hit the floor
+                // someone shoved stumbles off; falling, they hit the ground; destroyed, they go off with a bang
                 case Event.Shoved s -> plays.add(new Play(Sound.BUMP, Num.clamp(s.speed() / Body.RUN, 0.2, 1), s.at()));
-                case Event.KnockedDown k -> plays.add(new Play(Sound.LANDING, 0.7, k.at()));
+                case Event.Fell f -> plays.add(new Play(Sound.LANDING, Num.clamp(f.speed() / HARDEST_LANDING, 0.3, 1),
+                        f.at()));
+                case Event.Destroyed d -> plays.add(new Play(Sound.BREAK_DRONE, 1, d.at().add(0, -Body.TALL / 2, 0)));
                 case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
                 case Event.Dropped _ -> {
                 }

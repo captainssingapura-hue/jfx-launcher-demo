@@ -38,7 +38,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 7;
+    public static final int RULES = 8;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -133,8 +133,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> moved = moved(controls, seconds, to, was, handed, happened);
         final Avatar carried = carried(avatar, was, handed, moved, to);
         final Obstacles now = obstacles(to, moved);
-        // the people go on as they were going, carried by what they stand on
-        final List<Person> going = people(seconds, to, was, now, handed, moved);
+        // the people go on as they were going, carried by what they stand on, hurt by coming down hard
+        final List<Event> toPeople = new ArrayList<>();
+        final List<Person> going = people(seconds, to, was, now, handed, moved, toPeople);
         // act: the avatar does what it was asked, moves, and deals its blows, at the world and the
         // people in it; the bombs fall
         final Avatar.Stepped acted = carried.step(own, seconds, now, targets(now, going));
@@ -147,7 +148,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         blows.addAll(fell.blows());
         final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved));
-        final List<Event> toPeople = new ArrayList<>();
         final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
         // and whoever the avatar walks into is pushed out of its way
         final List<Person> pushed = pushed(acted.avatar().body(), hurt, toPeople);
@@ -333,12 +333,18 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * were, among {@code world}: coming to a stop, or falling.
      */
     private List<Person> people(final double seconds, final double to, final Obstacles was, final Obstacles world,
-                                final List<Lift> from, final List<Lift> moved) {
+                                final List<Lift> from, final List<Lift> moved, final List<Event> happened) {
         final List<Person> now = new ArrayList<>();
         for (final Person person : people) {
+            if (person.down()) {
+                now.add(person);  // gone: nothing more happens to them
+                continue;
+            }
             final Place[] motion = motion(person.body(), was, from, moved, to);
             final Person carried = motion == null ? person : person.carried(motion[0], motion[1]);
-            now.add(carried.moved(world, seconds));
+            final Person.Stepped stepped = carried.moved(world, seconds);
+            now.add(stepped.person());
+            happened.addAll(stepped.events());
         }
         return now;
     }
@@ -351,6 +357,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Block> blocks = new ArrayList<>(world.blocks());
         final List<Integer> pieces = new ArrayList<>(world.pieces());
         for (final Person person : people) {
+            if (person.down()) {
+                continue;
+            }
             blocks.add(person.box());
             pieces.add(person.piece());
         }
@@ -374,6 +383,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             if (event instanceof Event.Exploded exploded) {
                 for (int k = 0; k < now.size(); k++) {
                     final Person person = now.get(k);
+                    if (person.down()) {
+                        continue;
+                    }
                     final Vec3 at = person.body().position();
                     final Vec3 away = at.subtract(exploded.at());
                     final double across = Math.hypot(away.x(), away.z());
@@ -395,7 +407,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Person after = person.struck(blow.by().blow()).shoved(vx, vz);
         happened.add(Event.Struck.of(blow, after.health() / Person.TOUGHNESS));
         if (after.down() && !person.down()) {
-            happened.add(new Event.KnockedDown(person.id(), after.body().position()));
+            happened.add(new Event.Destroyed(person.id(), after.body().position()));
         }
         return after;
     }
@@ -412,7 +424,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             final Person person = now.get(k);
             final Vec3 apart = person.body().position().subtract(body.position());
             final double across = Math.hypot(apart.x(), apart.z());
-            if (across >= reach || Math.abs(apart.y()) >= Body.TALL) {
+            if (person.down() || across >= reach || Math.abs(apart.y()) >= Body.TALL) {
                 continue;
             }
             final Vec3 out = across < 1e-6 ? Num.heading(body.yaw()) : new Vec3(apart.x() / across, 0, apart.z() / across);
@@ -431,7 +443,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             for (int j = i + 1; j < now.size(); j++) {
                 final Vec3 apart = now.get(j).body().position().subtract(now.get(i).body().position());
                 final double across = Math.hypot(apart.x(), apart.z());
-                if (across >= reach || across < 1e-6 || Math.abs(apart.y()) >= Body.TALL) {
+                if (now.get(i).down() || now.get(j).down() || across >= reach || across < 1e-6
+                        || Math.abs(apart.y()) >= Body.TALL) {
                     continue;
                 }
                 final double half = (reach - across) / 2 / across;

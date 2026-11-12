@@ -21,7 +21,8 @@ import java.util.Set;
 
 /**
  * The people ({@link Person}), drawn where the simulation has them, between its last two steps
- * as the avatar is: standing, sat, or knocked down and lying on their back. And at the fruit
+ * as the avatar is: standing or sat. Destroyed, they are blown apart ({@link Wreckage#blowApart}),
+ * in their own colours, and are seen no more. And at the fruit
  * stall on the barge, what they sit on: the stallholder's stool and the scooter, drawn in the
  * barge's own group, so they go where it flies.
  *
@@ -40,10 +41,12 @@ public final class Stall {
     private final Set<Integer> fruit = new HashSet<>();
     /** Each person's figure, by their number. */
     private final List<Figure> figures = new ArrayList<>();
+    private final Wreckage wreckage;
     private double time;
 
-    /** For the people of {@code course}'s cast, and the stall on its barge in {@code world}. */
-    public Stall(final World world, final Course course) {
+    /** For the people of {@code course}'s cast, and the stall on its barge in {@code world}; blown apart into {@code wreckage}. */
+    public Stall(final World world, final Course course, final Wreckage wreckage) {
+        this.wreckage = wreckage;
         int barge = -1;
         for (int i = 0; i < course.pieces().size(); i++) {
             final Course.Piece piece = course.pieces().get(i);
@@ -112,6 +115,8 @@ public final class Stall {
                 }
             } else if (event instanceof Event.Shoved shoved) {
                 staggers(shoved.person());
+            } else if (event instanceof Event.Destroyed destroyed && destroyed.person() < figures.size()) {
+                wreckage.blowApart(destroyed.at(), figures.get(destroyed.person()).colours);
             }
         }
         for (int k = 0; k < figures.size(); k++) {
@@ -169,7 +174,6 @@ public final class Stall {
         private final Group root = new Group();
         private final Group body = new Group();
         private final Rotate yaw = new Rotate(0, Rotate.Y_AXIS);
-        private final Rotate fallen = new Rotate(0, Rotate.X_AXIS);
         private final Rotate leftShoulder = new Rotate(0, Rotate.X_AXIS);
         private final Rotate rightShoulder = new Rotate(0, Rotate.X_AXIS);
         private final Rotate[] hips = {new Rotate(0, Rotate.X_AXIS), new Rotate(0, Rotate.X_AXIS)};
@@ -177,10 +181,11 @@ public final class Stall {
         private final double seat;
         private final boolean reaches;
         private boolean sitting;
-        private boolean down;
         private double startled;
         private double shaking;
         private double staggering;
+        /** What they are made of, to be blown apart in: coat, trousers, skin, hair. */
+        private final List<PhongMaterial> colours;
 
         /** In these colours, sitting (when sat) on something {@code seat} high, hands before it if {@code reaches}. */
         Figure(final String jacket, final String trousers, final String hair, final double seat, final boolean reaches) {
@@ -190,6 +195,7 @@ public final class Stall {
             final PhongMaterial legs = BoxRig.matte(trousers);
             final PhongMaterial skin = BoxRig.matte("#e0b48f");
             final PhongMaterial shoes = BoxRig.matte("#1a1a1a");
+            colours = List.of(coat, legs, skin, BoxRig.matte(hair));
             for (int side = 0; side < 2; side++) {
                 final double x = side == 0 ? -10 : 10;
                 final Group hip = new Group();
@@ -216,30 +222,28 @@ public final class Stall {
                 shoulder.getChildren().addAll(box(11, 50, 11, 0, 25, 0, coat), box(9, 10, 9, 0, 54, 0, skin));
                 body.getChildren().add(shoulder);
             }
-            // turned to face its way; and, knocked down, laid on its back about its feet
-            root.getTransforms().addAll(yaw, fallen);
+            // turned to face its way
+            root.getTransforms().add(yaw);
             root.getChildren().add(body);
         }
 
-        /** Where {@code seen} is, facing its way: sat, standing, or lying {@code down}. */
-        void place(final Body seen, final boolean sat, final boolean lying) {
+        /** Where {@code seen} is, facing its way, sat or standing; not to be seen at all if {@code gone}. */
+        void place(final Body seen, final boolean sat, final boolean gone) {
+            root.setVisible(!gone);
             root.setTranslateX(seen.position().x());
-            root.setTranslateY(seen.position().y() - (lying ? 12 : 0));
+            root.setTranslateY(seen.position().y());
             root.setTranslateZ(seen.position().z());
             yaw.setAngle(seen.yaw());
             sitting = sat;
-            down = lying;
         }
 
         void show(final double time, final double seconds) {
             startled = Math.max(0, startled - seconds);
             shaking = Math.max(0, shaking - seconds);
             staggering = Math.max(0, staggering - seconds);
-            fallen.setAngle(down ? 90 : 0);
-            final double fright = down ? 0
-                    : startled > 0 ? Math.min(1, (STARTLE - startled) / 0.12) * Math.min(1, startled / 0.3) : 0;
+            final double fright = startled > 0 ? Math.min(1, (STARTLE - startled) / 0.12) * Math.min(1, startled / 0.3) : 0;
             // sat, or up off the seat in a fright
-            final boolean sat = sitting && !down && fright < 0.5;
+            final boolean sat = sitting && fright < 0.5;
             for (int side = 0; side < 2; side++) {
                 hips[side].setAngle(sat ? 90 : 0);
                 knees[side].setAngle(sat ? -90 : 0);
@@ -248,13 +252,13 @@ public final class Stall {
             final double hop = fright > 0 && startled > STARTLE - 0.45 ? 22 * Math.sin(Math.PI * (STARTLE - startled) / 0.45) : 0;
             body.setTranslateY(lift - hop);
             // the arms: at rest hanging, or on the handlebars, or flung up; out to the sides
-            // staggering; a fist shaken; flat out, lying
-            final double rest = down ? 170 : reaches && sat ? 70 : 6 * Math.sin(time * 1.3);
+            // staggering; a fist shaken
+            final double rest = reaches && sat ? 70 : 6 * Math.sin(time * 1.3);
             final double up = 165;
             final double stagger = staggering > 0 ? 55 + 25 * Math.sin(time * 18) : 0;
             final double left = rest + (up - rest) * fright + stagger;
             leftShoulder.setAngle(left);
-            rightShoulder.setAngle(shaking > 0 && !down ? 150 + 18 * Math.sin(time * 26) : left);
+            rightShoulder.setAngle(shaking > 0 ? 150 + 18 * Math.sin(time * 26) : left);
             // breathing, a little
             body.setScaleY(1 + 0.006 * Math.sin(time * 2.1));
         }

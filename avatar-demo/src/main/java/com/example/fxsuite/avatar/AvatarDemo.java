@@ -115,10 +115,10 @@ public final class AvatarDemo extends Application {
     private Map<Integer, Block> movedBefore = Map.of();
     private Map<Integer, Block> movedNow = Map.of();
     private final World world = new World(course);
-    /** The people as drawn, and what they sit on at the stall on the barge. */
-    private final Stall stall = new Stall(world, course);
     private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
+    /** The people as drawn, and what they sit on at the stall on the barge. */
+    private final Stall stall = new Stall(world, course, wreckage);
     private final Bombs bombs = new Bombs();
     private final Reticle reticle = new Reticle();
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
@@ -448,7 +448,7 @@ public final class AvatarDemo extends Application {
                         : String.format(" · fruit smashed %d of %d", damage.broken(Course.Kind.FRUIT),
                                 damage.count(Course.Kind.FRUIT)))
                 + (people.stream().noneMatch(Person::down) ? ""
-                        : String.format(" · knocked down %d of %d", people.stream().filter(Person::down).count(),
+                        : String.format(" · people down %d of %d", people.stream().filter(Person::down).count(),
                                 people.size()));
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";

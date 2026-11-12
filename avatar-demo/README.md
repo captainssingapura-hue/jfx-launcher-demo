@@ -100,9 +100,11 @@ characters, and a separate sound bench is for working on the sounds.
   and fall. Walk into someone and they are shoved out of the way, sent along at your pace and a
   little more; shove them off the edge of the deck and they fall off. A push gets anyone sitting
   to their feet, and people pushed into each other part. Rounds, the glaive and bombs strike
-  them: each hit knocks them back a little and they stagger; six rifle rounds, a stroke of the
-  glaive or a bomb nearby, and they are knocked down and lie on their back, still to be pushed
-  about. The HUD counts anyone knocked down.
+  them: each hit knocks them back a little and they stagger. A fall hurts them too, the harder
+  they come down the more: stepping off the barge at the ground does nothing, a fall of four
+  metres costs a third of them, seven or more is the end. Six rifle rounds, a stroke of the
+  glaive, a bomb nearby or a long fall, and they are destroyed: they blow apart in a puff of
+  fire, in their own colours, and are gone. The HUD counts the people down.
 
 ## Build and run
 

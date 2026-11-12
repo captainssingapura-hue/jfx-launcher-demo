@@ -108,7 +108,7 @@ class PersonTest {
     }
 
     @Test
-    void shotTheyFlinchAndAtTheLastAreKnockedDownAndLieThere() {
+    void shotTheyFlinchAndAtTheLastAreDestroyed() {
         final Avatar armed = Play.start(false).avatar().drawn(Weapon.RIFLES);
         Play play = behindCustomer(300, armed);
         final int piece = customer(play).piece();
@@ -116,18 +116,18 @@ class PersonTest {
         final List<Event> events = new ArrayList<>();
         play = run(play, new Controls(0, 0, 0, 0, false, true, 0), 1, events);
         final Person shot = customer(play);
-        assertTrue(shot.down(), "knocked down");
+        assertTrue(shot.down(), "destroyed");
         assertEquals(0, shot.health());
         assertTrue(events.stream().filter(e -> e instanceof Event.Struck s && s.piece() == piece).count() >= 6,
                 "struck six rounds or more");
-        assertEquals(1, events.stream().filter(e -> e instanceof Event.KnockedDown).count(), "and knocked down once");
+        assertEquals(1, events.stream().filter(e -> e instanceof Event.Destroyed).count(), "and destroyed once");
         final Vec3 away = shot.body().position().subtract(stood);
         assertTrue(away.dotProduct(Num.heading(play.avatar().body().yaw())) > 1, "knocked back, away from the shots");
         assertTrue(Person.is(piece) && Person.which(piece) == shot.id());
     }
 
     @Test
-    void aBombNearbyKnocksThemDownAndBack() {
+    void aBombNearbyDestroysThem() {
         final Play start = Play.start(false);
         final Person customer = customer(start);
         final Vec3 above = customer.body().position().add(60, -260, 0);
@@ -137,21 +137,62 @@ class PersonTest {
         play = run(play, Controls.NONE, 0.5, events);
         assertTrue(events.stream().anyMatch(e -> e instanceof Event.Exploded), "it went off on the deck");
         assertTrue(customer(play).down(), "and the customer is down");
-        assertTrue(events.stream().anyMatch(e -> e instanceof Event.KnockedDown k && k.person() == customer.id()));
+        assertTrue(events.stream().anyMatch(e -> e instanceof Event.Destroyed d && d.person() == customer.id()));
     }
 
     @Test
-    void knockedDownTheyCanStillBePushedAbout() {
+    void destroyedTheyAreGoneNotToBePushedNorStruck() {
         final Play start = Play.start(false);
         final List<Person> people = new ArrayList<>(start.people());
         final Person customer = customer(start);
         people.set(customer.id(), customer.struck(Person.TOUGHNESS));
-        Play play = behindCustomer(120, start.avatar());
+        Play play = behindCustomer(120, start.avatar().drawn(Weapon.RIFLES));
         play = new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), people);
         assertTrue(customer(play).down());
         final Vec3 was = customer(play).body().position();
-        play = run(play, new Controls(1, 0, 0, 0, false, false, 0), 0.8, new ArrayList<>());
-        assertTrue(customer(play).body().position().subtract(was).magnitude() > 50, "shoved along, lying down");
-        assertTrue(customer(play).down(), "and still down");
+        final List<Event> events = new ArrayList<>();
+        play = run(play, new Controls(0, 0, 0, 0, false, true, 0), 0.5, events);
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Struck s && s.piece() == customer.piece()),
+                "the rounds go through where they were");
+        play = run(play, new Controls(1, 0, 0, 0, false, false, 0), 0.8, events);
+        assertEquals(was, customer(play).body().position(), "and walking there moves nothing");
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Shoved));
+    }
+
+    /** Someone standing in the open, {@code high} up, over nothing, near the start. */
+    private static Play dropping(final double high) {
+        final Play start = Play.start(false);
+        final List<Person> people = new ArrayList<>(start.people());
+        final Person customer = customer(start);
+        people.set(customer.id(), new Person(customer.id(), customer.role(),
+                Body.standing(new Vec3(300, -high, 300), 0), Person.TOUGHNESS, false));
+        return new Play(start.avatar(), start.damage(), start.sky(), start.lifts(), people);
+    }
+
+    @Test
+    void aFallOfAMetreOrSoDoesNoHarm() {
+        final List<Event> events = new ArrayList<>();
+        final Play play = run(dropping(150), Controls.NONE, 1.5, events);
+        assertEquals(0, customer(play).body().height(), 1e-9, "down on the ground");
+        assertEquals(Person.TOUGHNESS, customer(play).health(), "unhurt");
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Fell));
+    }
+
+    @Test
+    void aHarderFallHurtsTheHarderItIs() {
+        final List<Event> events = new ArrayList<>();
+        final double fourMetres = customer(run(dropping(400), Controls.NONE, 2, events)).health();
+        final double sixMetres = customer(run(dropping(600), Controls.NONE, 2, events)).health();
+        assertTrue(fourMetres < Person.TOUGHNESS && fourMetres > 0, "hurt by four metres: " + fourMetres);
+        assertTrue(sixMetres < fourMetres && sixMetres > 0, "and more by six: " + sixMetres);
+        assertTrue(events.stream().anyMatch(e -> e instanceof Event.Fell f && f.speed() > Person.SAFE_LANDING));
+    }
+
+    @Test
+    void aLongFallIsTheEndOfThem() {
+        final List<Event> events = new ArrayList<>();
+        final Play play = run(dropping(1000), Controls.NONE, 2, events);
+        assertTrue(customer(play).down(), "destroyed by ten metres");
+        assertEquals(1, events.stream().filter(e -> e instanceof Event.Destroyed).count());
     }
 }
