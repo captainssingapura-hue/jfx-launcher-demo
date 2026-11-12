@@ -65,6 +65,9 @@ public final class Arcade implements Profile {
             case ROUND_ON_GROUND -> impact("round-on-ground", 3500, 3, 0, 0, 0.3, variant);
             case BLADE_ON_BLOCK -> clink(variant);
             case BLADE_ON_GROUND -> impact("blade-on-ground", 2000, 6, 110, 5, 0.45, variant);
+            case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
+            case GATLING_SPIN -> gatlingSpin();
+            case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
             case JET_HISS -> noiseLoop("jet-hiss", 14_000, 9400, 0.25, false);
             case JET_WHINE -> jetWhine();
@@ -77,7 +80,15 @@ public final class Arcade implements Profile {
      * jets climb a scale as the thrust rises rather than gliding.
      */
     @Override
-    public Level level(final Sound loop, final double thrust, final double speed) {
+    public Level level(final Sound loop, final Drive drive) {
+        final double thrust = drive.thrust();
+        final double speed = drive.speed();
+        if (loop == Sound.GATLING_SPIN) {
+            return drive.spin() <= 0 ? Level.OFF : new Level(volume(0.2 + 0.4 * drive.spin()), semitones(0.5 + drive.spin()));
+        }
+        if (loop == Sound.GATLING_FIRE) {
+            return drive.firing() ? new Level(volume(0.8), 1) : Level.OFF;
+        }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
             final double gain = volume(0.8 * Math.pow(Num.clamp((pace - 0.2) / 0.8, 0, 1), 1.2));
@@ -382,6 +393,32 @@ public final class Arcade implements Profile {
             }
         }
         return new Clip(name, Dsp.normalized(y, peak), true);
+    }
+
+    /** The Gatling gun's motor: a narrow pulse buzzing at 330 Hz, 660 whole cycles in 2 s. */
+    private static Clip gatlingSpin() {
+        final double[] y = new double[samples(2)];
+        for (int i = 0; i < y.length; i++) {
+            y[i] = square(330 * time(i), 0.125);
+        }
+        return new Clip("gatling-spin", Dsp.normalized(y, 0.18), true);
+    }
+
+    /**
+     * The Gatling gun firing: the noise channel chopped on and off forty times a second, a round
+     * in each, eighty in the 2 s loop, with the chip's low thump under it.
+     */
+    private static Clip gatlingFire() {
+        final Chip noise = new Chip(new Noise(9600));
+        final double[] y = new double[samples(2)];
+        final double period = 60.0 / 2400;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double since = t % period;
+            final double on = since < period * 0.55 ? 1 - since / (period * 0.55) : 0;
+            y[i] = (noise.next(7000) + 0.6 * square(80 * t, 0.5)) * on;
+        }
+        return new Clip("gatling-fire", Dsp.normalized(y, 0.45), true);
     }
 
     /** A narrow square buzzing at 220 Hz: 440 whole cycles in the 2 s loop, so it meets itself. */

@@ -124,6 +124,22 @@ class ProfileTest {
 
     @ParameterizedTest
     @MethodSource("profiles")
+    void theGatlingGunsMotorFollowsItsSpinAndItsRoarItsFiring(final Profile profile) {
+        final Profile.Drive still = new Profile.Drive(0, 0, 0, false);
+        assertEquals(Level.OFF, profile.level(Sound.GATLING_SPIN, still), "still, silent");
+        assertEquals(Level.OFF, profile.level(Sound.GATLING_FIRE, still));
+        final Level slow = profile.level(Sound.GATLING_SPIN, new Profile.Drive(0, 0, 0.3, false));
+        final Level fast = profile.level(Sound.GATLING_SPIN, new Profile.Drive(0, 0, 1, false));
+        assertTrue(fast.pitch() > slow.pitch() && fast.gain() >= slow.gain(), "the motor whines up as it spins up");
+        assertEquals(Level.OFF, profile.level(Sound.GATLING_FIRE, new Profile.Drive(0, 0, 1, false)),
+                "spinning but not firing: no roar");
+        assertTrue(profile.level(Sound.GATLING_FIRE, new Profile.Drive(0, 0, 1, true)).gain() > 0, "firing: roaring");
+        assertEquals(Level.OFF, profile.level(Sound.JET_RUMBLE, new Profile.Drive(0, 0, 1, true)),
+                "and the jets are not the gun");
+    }
+
+    @ParameterizedTest
+    @MethodSource("profiles")
     void theWindRisesWithSpeedFromNothingAtAWalk(final Profile profile) {
         assertEquals(Level.OFF, profile.level(Sound.WIND, 1, 0));
         assertEquals(0, profile.level(Sound.WIND, 0, Body.WALK).gain(), "no wind walking");

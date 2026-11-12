@@ -62,6 +62,8 @@ public final class BoxRig {
     private final Rotate rightSpread = new Rotate(0, Rotate.Z_AXIS);
     private final Rotate leftElbow = new Rotate(0, Rotate.X_AXIS);
     private final Rotate rightElbow = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate leftTwist = new Rotate(0, Rotate.Y_AXIS);
+    private final Rotate rightTwist = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate headTurn = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate headTip = new Rotate(0, Rotate.X_AXIS);
 
@@ -85,8 +87,10 @@ public final class BoxRig {
                 box(64, 60, 34, 0, -120, 0, trim),                         // torso
                 box(40, 22, 2, 0, -128, 17.5, shell),                      // chest plate
                 pack.node(),
-                limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint, leftElbow, arsenal.leftHand())),
-                limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint, rightElbow, arsenal.rightHand())),
+                twisted(limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint, leftElbow, arsenal.leftHand())),
+                        leftTwist),
+                twisted(limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint, rightElbow, arsenal.rightHand())),
+                        rightTwist),
                 box(18, 10, 18, 0, -152, 0, joint),                        // neck
                 head(shell, joint, visor, beacon));
 
@@ -130,6 +134,9 @@ public final class BoxRig {
         // a forearm hangs on along +y from the elbow, so it too bends forward with a positive turn
         leftElbow.setAngle(pose.leftElbow());
         rightElbow.setAngle(pose.rightElbow());
+        // and a twist about the upper arm's own length turns which way the elbow bends
+        leftTwist.setAngle(pose.leftTwist());
+        rightTwist.setAngle(pose.rightTwist());
         headTurn.setAngle(pose.headYaw());
         headTip.setAngle(pose.headPitch());
 
@@ -172,6 +179,12 @@ public final class BoxRig {
                 box(22, 18, 22, 0, 0, 0, joint),                           // shoulder
                 box(18, 30, 18, 0, 15, 0, shell),                          // upper arm
                 forearm);
+    }
+
+    /** An arm hung by {@link #limb}, then twisted about its own length. */
+    private static Group twisted(final Group arm, final Rotate twist) {
+        arm.getTransforms().add(twist);
+        return arm;
     }
 
     /** A part hung from a joint at (x, y): it swings about x, then spreads about z. */

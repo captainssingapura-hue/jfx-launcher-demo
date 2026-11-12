@@ -16,7 +16,7 @@ import javafx.scene.transform.Translate;
 
 /**
  * The crosshair, out in the world: a small bright cross on the line the rifles shoot along,
- * where it meets a block or the ground ({@link Arms#sight}). It only shows where the rifles are
+ * where it meets a block or the ground ({@link Arms#sight}). It only shows where the guns are
  * shooting; it does not steer them. Being in the world rather than painted over the screen, it
  * is always in front of the avatar, and the avatar is never hidden behind it. Turned to face the
  * camera, and sized by its distance from it, so it looks the same size wherever it is.
@@ -50,14 +50,17 @@ public final class Reticle {
         return root;
     }
 
-    /** Shown with the rifles drawn: on their line ahead, among {@code world}, facing a camera at {@code eye}. */
+    /**
+     * Shown with a gun drawn, the rifles or the Gatling gun: on its line ahead, among
+     * {@code world}, facing a camera at {@code eye}.
+     */
     public void show(final Avatar avatar, final Obstacles world, final Vec3 eye) {
-        final boolean rifles = avatar.holding() == Weapon.RIFLES;
-        root.setVisible(rifles);
-        if (!rifles) {
+        final boolean gun = avatar.holding() == Weapon.RIFLES || avatar.holding() == Weapon.GATLING;
+        root.setVisible(gun);
+        if (!gun) {
             return;
         }
-        final Vec3 point = Arms.sight(avatar.body(), world, avatar.arms().pitch());
+        final Vec3 point = Arms.sight(avatar.body(), world, avatar.arms().pitch(), avatar.holding());
         final Vec3 toEye = eye.subtract(point);
         final double distance = toEye.magnitude();
         at.setX(point.x());

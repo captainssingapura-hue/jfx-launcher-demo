@@ -18,10 +18,11 @@ import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 
 /**
- * The weapons, as drawn: a rifle in each hand, or the glaive in the right. They hang from the
- * hands, so they move as the arms do ({@link Gait} poses the arms for each). With them come
- * their effects: a flash at a rifle's muzzle as it fires, and a brass casing thrown out to its
- * right, which falls to the ground and lies there a moment.
+ * The weapons, as drawn: a rifle in each hand, the Gatling gun or the glaive in the right. They
+ * hang from the hands, so they move as the arms do ({@link Gait} poses the arms for each). With
+ * them come their effects: a flash at a muzzle as it fires, and a brass casing thrown out to its
+ * right, which falls to the ground and lies there a moment. The Gatling gun's barrels turn as
+ * fast as the simulation says they spin.
  *
  * <p>Each weapon is built in its forearm's frame: the forearm hangs along +y from the elbow,
  * the hand at {@link #HAND}, and +z is the forearm's front, which is up when it is folded
@@ -36,10 +37,19 @@ final class Arsenal {
      * its stock is held between the upper arm and the body.
      */
     private static final double INWARD = 9;
+    /**
+     * The Gatling gun: how far in from the right hand its barrels run, toward the middle of the
+     * body; and where, in the forearm's frame, the lever on top is that the left hand holds.
+     * Near enough the body for the short left arm to reach across to it.
+     */
+    static final double GUN_IN = 22;
+    static final double[] LEVER = {-44, HAND + 2, 14};
+    /** How fast the barrels are drawn turning at full speed, in degrees a second: fast, but not so fast they seem to stand still. */
+    private static final double BARRELS_TURN = 1500;
     /** How long a muzzle flash shows, in seconds: a frame or two. */
     private static final double FLASH = 0.035;
     /** Casings in flight or lying about at once; the oldest is reused for the next. */
-    private static final int CASINGS = 48;
+    private static final int CASINGS = 96;
     private static final double CASING_LIFE = 2.5;
     private static final double GRAVITY = 2600;
 
@@ -55,6 +65,11 @@ final class Arsenal {
     private final Group rightPort;
     private final Group glaive;
     private final Rotate grip = new Rotate(180, Rotate.X_AXIS);
+    private final Group gatling;
+    private final Node gatlingFlash;
+    private final Rotate gatlingFlashTurn = new Rotate(0, Rotate.Y_AXIS);
+    private final Group gatlingPort = new Group();
+    private final Rotate barrels = new Rotate(0, Rotate.Y_AXIS);
 
     private final Group effects = new Group();
     private final Casing[] casings = new Casing[CASINGS];
@@ -77,8 +92,10 @@ final class Arsenal {
         leftRifle = rifle(steel, wood, leftFlash, leftPort, INWARD);
         rightRifle = rifle(steel, wood, rightFlash, rightPort, -INWARD);
         glaive = glaive();
+        gatlingFlash = flash(flash, gatlingFlashTurn);
+        gatling = gatling(steel, gatlingFlash);
         leftHand.getChildren().add(leftRifle);
-        rightHand.getChildren().addAll(rightRifle, glaive);
+        rightHand.getChildren().addAll(rightRifle, glaive, gatling);
 
         for (int i = 0; i < CASINGS; i++) {
             casings[i] = new Casing(box(1.8, 5, 1.8, 0, 0, 0, brass));
@@ -108,8 +125,10 @@ final class Arsenal {
         grip.setAngle(pose.grip());
 
         final boolean rifles = arms.held() == Weapon.RIFLES;
+        final boolean gun = arms.held() == Weapon.GATLING;
         leftFlash.setVisible(rifles && arms.sinceLeft() < FLASH);
         rightFlash.setVisible(rifles && arms.sinceRight() < FLASH);
+        gatlingFlash.setVisible(gun && arms.sinceRight() < FLASH);
         // a round fired since last time: its rifle's "since" started again from nothing
         if (rifles && arms.sinceLeft() < lastLeft && arms.sinceLeft() < FLASH) {
             fired(leftPort, leftFlashTurn, avatar);
@@ -117,12 +136,17 @@ final class Arsenal {
         if (rifles && arms.sinceRight() < lastRight && arms.sinceRight() < FLASH) {
             fired(rightPort, rightFlashTurn, avatar);
         }
+        if (gun && arms.sinceRight() < lastRight && arms.sinceRight() < FLASH) {
+            fired(gatlingPort, gatlingFlashTurn, avatar);
+        }
         lastLeft = arms.sinceLeft();
         lastRight = arms.sinceRight();
 
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(0.1, time - lastTime));
         lastTime = time;
+        // the barrels turn as fast as they spin
+        barrels.setAngle((barrels.getAngle() + BARRELS_TURN * arms.spin() * seconds) % 360);
         for (final Casing casing : casings) {
             casing.fly(seconds);
         }
@@ -132,6 +156,7 @@ final class Arsenal {
         leftRifle.setVisible(held == Weapon.RIFLES);
         rightRifle.setVisible(held == Weapon.RIFLES);
         glaive.setVisible(held == Weapon.GLAIVE);
+        gatling.setVisible(held == Weapon.GATLING);
     }
 
     /** A round went: the flash turned a new way, and a casing thrown out of the port, up and to the right. */
@@ -150,6 +175,43 @@ final class Arsenal {
     }
 
     // ---- the models
+
+    /**
+     * A Gatling gun with a motor, held at the hip: a short grip bar out of its right side in the
+     * right hand; the receiver and motor running forward, nearer the middle of the body; six
+     * barrels round a turning spindle, held by two clamps; the ammunition box below on the left;
+     * and, on top toward the rear, a lever standing out to the left for the left hand.
+     */
+    private Group gatling(final PhongMaterial steel, final Node flash) {
+        final PhongMaterial metal = shiny("#3a3e44");
+        final PhongMaterial olive = BoxRig.matte("#4b5320");
+        final double x = -GUN_IN;
+        final double y = HAND;
+        final Group cluster = new Group();
+        for (int i = 0; i < 6; i++) {
+            final double a = Math.toRadians(i * 60);
+            cluster.getChildren().add(cylinder(1.5, 66, 4.2 * Math.cos(a), 0, 4.2 * Math.sin(a), steel));
+        }
+        cluster.getChildren().addAll(
+                cylinder(1.2, 70, 0, 0, 0, metal),                          // the spindle
+                cylinder(6.6, 3, 0, -26, 0, metal),                          // rear clamp
+                cylinder(6.6, 3, 0, 22, 0, metal));                          // front clamp
+        cluster.getTransforms().addAll(new Translate(x, y + 53, 4), barrels);
+        gatlingPort.getTransforms().add(new Translate(x + 7, y + 8, 6));
+        flash.getTransforms().add(0, new Translate(x, y + 88, 4));
+        return new Group(
+                box(18, 5, 5, -8, y, 0, metal),                              // the grip bar, out to the hand
+                box(5, 6, 14, 0, y, -2, metal),                              // the grip in the hand
+                box(13, 30, 14, x, y + 5, 4, steel),                         // the receiver
+                cylinder(5, 14, x, y - 15, 9, metal),                        // the motor, at the back
+                box(14, 18, 13, x - 2, y - 2, -11, olive),                   // the ammunition box
+                box(3, 4, 12, x - 4, y + 12, -3, olive),                     // its feed chute
+                box(22, 3, 3, (x + LEVER[0]) / 2, LEVER[1], LEVER[2] - 2, metal), // the lever's arm, out to the left
+                box(3, 10, 3, LEVER[0], LEVER[1], LEVER[2], metal),            // the lever, held fore and aft
+                cluster,
+                gatlingPort,
+                flash);
+    }
 
     /**
      * An assault rifle in the style of an AK, held from the hip: the hand on its pistol grip, its

@@ -115,6 +115,26 @@ class CuesTest {
     }
 
     @Test
+    void theGatlingGunIsHeardAsItsRoarNotRoundByRound() {
+        Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), false).drawn(Weapon.GATLING);
+        assertEquals(List.of(Sound.GATLING_DRAWN), played(gun));
+        gun = gun.delivered();
+        for (int i = 0; i < 60; i++) {
+            gun = gun.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE);
+            assertTrue(played(gun).stream().noneMatch(s -> s == Sound.RIFLE_SHOT), "no shot a round");
+            gun = gun.delivered();
+        }
+        gun = gun.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE);
+        final Cues.Heard heard = Cues.of(gun, PROFILE);
+        for (final Cues.Hum hum : heard.hums()) {
+            if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
+                assertTrue(hum.level().gain() > 0, hum.loop() + " sounding, a second in");
+                assertEquals(Arms.gatlingMuzzle(gun.body()), hum.at(), "from the gun");
+            }
+        }
+    }
+
+    @Test
     void everyLoopIsSteeredEveryFrameTheJetsOnlyWhenFiring() {
         final Cues.Heard standing = Cues.of(with(0, true), PROFILE);
         assertEquals(Sound.loops(), standing.hums().stream().map(Cues.Hum::loop).toList());
@@ -127,6 +147,10 @@ class CuesTest {
         }
         final Cues.Heard boosting = Cues.of(flying, PROFILE);
         for (final Cues.Hum hum : boosting.hums()) {
+            if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
+                assertEquals(0, hum.level().gain(), 1e-9, "no gun drawn, no gun heard");
+                continue;
+            }
             assertTrue(hum.level().gain() > 0, hum.loop() + " sounds while boosting");
             if (hum.loop() == Sound.WIND) {
                 assertNull(hum.at(), "the wind is round the listener");

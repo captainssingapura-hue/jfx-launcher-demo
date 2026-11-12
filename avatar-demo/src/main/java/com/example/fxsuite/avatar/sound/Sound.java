@@ -31,10 +31,13 @@ public enum Sound {
     ROUND_ON_GROUND("Round strikes the ground", null, false),
     BLADE_ON_BLOCK("Blade strikes a block", null, false),
     BLADE_ON_GROUND("Blade strikes the ground", null, false),
+    GATLING_DRAWN("Gatling gun drawn", null, false),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),
     JET_WHINE("Jet whine", null, true),
-    WIND("Wind", null, true);
+    WIND("Wind", null, true),
+    GATLING_SPIN("Gatling gun spinning", null, true),
+    GATLING_FIRE("Gatling gun firing", null, true);
 
     private final String title;
     private final String amount;

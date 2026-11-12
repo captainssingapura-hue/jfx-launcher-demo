@@ -25,11 +25,16 @@ characters, and a separate sound bench is for working on the sounds.
   rifle to the pistol grip. They fire in turn, left and right, each forearm kicking up as it
   fires, with a flash at the muzzle and a brass casing thrown out. Or a glaive as Guan Yu
   carried, a long pole with a broad crescent blade, standing upright in the right hand. Its
-  strokes go in turn: a cleave over the head, then a sweep across.
+  strokes go in turn: a cleave over the head, then a sweep across. Or a Gatling gun with a
+  motor, held at the right hip by its grip, the left hand reaching across to a lever on top.
+  The left arm is worked out each frame to keep its hand on the lever wherever the gun points.
+  Its six barrels spin up before it fires, 2,400 rounds a minute, and spin down when let go.
+  It shakes as it fires, with a tracer every third round and casings pouring out.
 - **Aiming and hits.** The rifles shoot straight ahead of the body, wherever the head or the
   camera is looking round: to aim, turn the body. Up and down follow the view instead: tilt it
-  up from where it rests and the rifles aim up as far, tilt it down and they aim down, up to
-  50° either way. At rest, and walking, they shoot level. A crosshair out in the world marks the
+  up from where it rests and the guns aim up as far, tilt it down and they aim down, up to
+  50° either way for the rifles and 30° for the heavier Gatling gun. At rest, and walking, they
+  shoot level. A crosshair out in the world marks the
   line the rounds fly along, where it meets a block or the ground, or 30 m off. It is only a
   mark: it never steers a round. Being in front of the avatar, it never hides it. Each round
   flies from its own muzzle, spread a little as rounds from the hip are, with a tracer. Where
@@ -74,6 +79,7 @@ the window, so clicks stay free for actions.
 | P | Next sound profile | Next sound profile |
 | 1 | Draw the twin rifles, or put them away | Draw the twin rifles, or put them away |
 | 2 | Draw the glaive, or put it away | Draw the glaive, or put it away |
+| 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
 | Left click (held) | Fire, or swing | Fire, or swing |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 
@@ -86,7 +92,8 @@ by tilting the view with it; looking round (Q/E) does not move the aim.
 
 Every footfall is heard, on the ground or on a block, along with each jump, landing (as hard
 as the fall), bump and gate flown through, the pack, and its wings swinging. So is every round from each
-rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. What they strike
+rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun's
+motor whines up and down with its spin, and it roars while it fires. What they strike
 is heard where it is struck: a round on a block, ticking or ricocheting, or thudding into the
 ground; the blade clanging off a block, or chopping into the earth. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
@@ -161,7 +168,7 @@ rule of the world can be tested without a window or a sound card.
 |---|---|
 | `sim` | The one truth. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit`), and the gates' openings (`Gate`). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, and what each struck. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included; `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Reticle` (the crosshair, out in the world) and `World` draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Reticle` (the crosshair, out in the world) and `World` draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

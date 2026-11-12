@@ -8,6 +8,7 @@ import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
 import com.example.fxsuite.avatar.sound.Profiles;
+import com.example.fxsuite.avatar.sound.Sound;
 import com.example.fxsuite.avatar.view.Chase;
 
 import org.junit.jupiter.api.Test;
@@ -120,12 +121,13 @@ class HearingTest {
     void theLoopsStartOnceAndStartAgainInAnotherProfile() {
         hearing.hear(stepping(), chase);
         hearing.hear(stepping(), chase);
-        assertEquals(4, speakers.looped.size(), "one each, kept running");
+        final int loops = Sound.loops().size();
+        assertEquals(loops, speakers.looped.size(), "one each, kept running");
         hearing.nextProfile();
         assertEquals(Profiles.ARCADE, hearing.profile());
-        assertEquals(4, speakers.stopped);
+        assertEquals(loops, speakers.stopped);
         hearing.hear(stepping(), chase);
-        assertEquals(8, speakers.looped.size(), "started again, in arcade sounds");
+        assertEquals(2 * loops, speakers.looped.size(), "started again, in arcade sounds");
         hearing.hear(stepping(new Event.PackOn()), chase);
         assertTrue(speakers.played.get(0).name().startsWith("pack-on"));
         hearing.nextProfile();

@@ -91,7 +91,9 @@ public final class AvatarDemo extends Application {
     private final Label status = new Label();
 
     private Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), Boolean.getBoolean("avatar.pack"));
-    private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw());
+    /** The camera: behind, at its usual distance, or {@code -Davatar.zoom} times it (0.5 twice as near). */
+    private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw())
+            .zoomed(Double.parseDouble(System.getProperty("avatar.zoom", "1")));
     private MouseLook look;
     private Hearing hearing;
     /** Degrees per second the script is turning, as the mouse would. */
@@ -124,7 +126,7 @@ public final class AvatarDemo extends Application {
                 + "J jet-pack on or off · F fly or land (with the jet-pack) · "
                 + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
                 + "M mute · P sound profile\n"
-                + "1 twin rifles · 2 glaive (again to put away) · click to fire or swing");
+                + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         final VBox hud = new VBox(4, status, help);
         hud.setPadding(new Insets(10, 14, 10, 14));
@@ -261,6 +263,7 @@ public final class AvatarDemo extends Application {
             case J -> avatar = avatar.toggledPack();
             case DIGIT1 -> avatar = avatar.drawn(Weapon.RIFLES);
             case DIGIT2 -> avatar = avatar.drawn(Weapon.GLAIVE);
+            case DIGIT3 -> avatar = avatar.drawn(Weapon.GATLING);
             case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
             case M -> hearing.toggleMute();

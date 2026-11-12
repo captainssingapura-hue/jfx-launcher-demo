@@ -90,23 +90,37 @@ public final class Cues {
                 case Event.Drew d -> {
                     switch (d.weapon()) {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
+                        case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
                         case NONE -> {
                         }
                     }
                 }
-                case Event.Fired f -> plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
+                // the Gatling gun's rounds come too fast to be heard one by one: its roar is a loop
+                case Event.Fired f -> {
+                    if (avatar.holding() != Weapon.GATLING) {
+                        plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
+                    }
+                }
                 case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
                         : Sound.GLAIVE_SWEEP, 1, hands(body, BLADE_AHEAD)));
             }
         }
         final double thrust = avatar.thrust();
+        final Arms arms = avatar.arms();
+        final double spin = arms.held() == Weapon.GATLING ? arms.spin() : 0;
         final double speed = Math.sqrt(body.speed() * body.speed() + body.drift() * body.drift()
                 + body.climb() * body.climb());
+        final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, arms.firing());
         final List<Hum> hums = new ArrayList<>();
         for (final Sound loop : Sound.loops()) {
-            hums.add(new Hum(loop, profile.level(loop, thrust, speed), loop == Sound.WIND ? null : pack));
+            final Vec3 at = switch (loop) {
+                case WIND -> null;
+                case GATLING_SPIN, GATLING_FIRE -> Arms.gatlingMuzzle(body);
+                default -> pack;
+            };
+            hums.add(new Hum(loop, profile.level(loop, drive), at));
         }
         return new Heard(plays, hums);
     }

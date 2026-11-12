@@ -67,6 +67,9 @@ public final class Robot implements Profile {
             case ROUND_ON_GROUND -> roundOnGround(variant);
             case BLADE_ON_BLOCK -> bladeOnBlock(variant);
             case BLADE_ON_GROUND -> bladeOnGround(variant);
+            case GATLING_DRAWN -> gatlingDrawn(variant);
+            case GATLING_SPIN -> gatlingSpin();
+            case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> jetRumble();
             case JET_HISS -> jetHiss();
             case JET_WHINE -> jetWhine();
@@ -77,10 +80,19 @@ public final class Robot implements Profile {
     /**
      * The roar is there whenever the jets fire, and grows and deepens less than the rest; the
      * hiss is faint at a hover and fierce at full boost; the turbines' whine climbs with the
-     * thrust. No wind at a walk, a rush at full boost.
+     * thrust. No wind at a walk, a rush at full boost. The Gatling gun's motor whines up as its
+     * barrels spin up; its roar is there only while it fires.
      */
     @Override
-    public Level level(final Sound loop, final double thrust, final double speed) {
+    public Level level(final Sound loop, final Drive drive) {
+        final double thrust = drive.thrust();
+        final double speed = drive.speed();
+        if (loop == Sound.GATLING_SPIN) {
+            return drive.spin() <= 0 ? Level.OFF : new Level(0.2 + 0.4 * drive.spin(), 0.45 + 0.75 * drive.spin());
+        }
+        if (loop == Sound.GATLING_FIRE) {
+            return drive.firing() ? new Level(1, 1) : Level.OFF;
+        }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
             final double gain = Math.pow(Num.clamp((pace - 0.2) / 0.8, 0, 1), 1.4);
@@ -531,7 +543,77 @@ public final class Robot implements Profile {
         return new Clip(name("blade-on-ground", 1, variant), Dsp.finish(y, 0.55), false);
     }
 
+    /** Drawing the Gatling gun: a heavy clunk as it is hefted, and its motor blipping into life. */
+    public static Clip gatlingDrawn(final int variant) {
+        final Noise noise = new Noise(19_000L + variant);
+        final double tune = 1 + 0.04 * noise.next();
+        final double[] y = new double[samples(0.6)];
+        final Filter weight = new Filter(450, 0.7);
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            weight.push(w);
+            // the motor: up and back down, a buzzing whine
+            final double u = Math.max(0, t - 0.12);
+            phase += TAU * (180 + 320 * Math.sin(Math.PI * Math.min(1, u / 0.4))) * tune / Dsp.RATE;
+            final double motor = (Math.sin(phase) + 0.5 * Math.sin(2 * phase) + 0.3 * Math.sin(3 * phase))
+                    * Math.sin(Math.PI * Math.min(1, u / 0.4)) * (u > 0 ? 1 : 0);
+            y[i] = clunk(t, 120 * tune) + 1.2 * weight.low * hit(t, 0.002, 0.04) + click(t - 0.06, 2100, w)
+                    + 0.25 * motor;
+        }
+        return new Clip(name("gatling-drawn", 1, variant), Dsp.finish(y, 0.55), false);
+    }
+
     // ---- the loops, two to four seconds each; how loud and how high they play is set live
+
+    /**
+     * The Gatling gun's motor: an electric whine, its harmonics bright, with the buzz of its gears.
+     * Its pitch is raised and lowered live with the spin.
+     */
+    public static Clip gatlingSpin() {
+        final double[] y = new double[samples(2)];
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            // whole numbers of cycles in 2 s throughout, so the loop meets itself exactly
+            final double whine = Math.sin(TAU * 320 * t) + 0.45 * Math.sin(TAU * 640 * t)
+                    + 0.25 * Math.sin(TAU * 960 * t) + 0.15 * Math.sin(TAU * 1280 * t);
+            y[i] = whine * (0.8 + 0.2 * Math.sin(TAU * 60 * t));
+        }
+        return new Clip("gatling-spin", Dsp.normalized(y, 0.3), true);
+    }
+
+    /**
+     * The Gatling gun firing: rounds so close together they run into one roar, a crack and a
+     * thump for each, forty a second, over the rush of the blast.
+     */
+    public static Clip gatlingFire() {
+        final int length = samples(2);
+        final Noise noise = new Noise(9300);
+        final Filter crack = new Filter(2600, 0.9);
+        final Filter roar = new Filter(500, 0.7);
+        final double[] cracks = new double[length + samples(0.25)];
+        final double[] rush = new double[cracks.length];
+        for (int i = 0; i < cracks.length; i++) {
+            final double w = noise.next();
+            cracks[i] = crack.push(w).band;
+            rush[i] = roar.push(w).low;
+        }
+        final double[] a = Dsp.seamless(cracks, length);
+        final double[] b = Dsp.seamless(rush, length);
+        final double period = 60.0 / 2400;
+        final double[] y = new double[length];
+        double phase = 0;
+        for (int i = 0; i < length; i++) {
+            final double t = time(i);
+            // each round: the same shape every 1/40 s, and 2 s holds exactly 80 of them
+            final double since = t % period;
+            phase += TAU * 70 / Dsp.RATE;
+            y[i] = 1.5 * a[i] * Math.exp(-since / 0.004) + 0.6 * Math.sin(phase) * Math.exp(-since / 0.008)
+                    + 3 * b[i];
+        }
+        return new Clip("gatling-fire", Dsp.normalized(y, 0.85), true);
+    }
 
     /** The jets' deep roar: brown noise, low-passed, with a slight flutter. */
     public static Clip jetRumble() {

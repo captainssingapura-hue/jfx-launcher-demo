@@ -49,6 +49,10 @@ public final class Gait {
      *       along the rifles to the pistol grips. Straight ahead of the body, whatever its lean and
      *       wherever the head is looking, tilted up or down by the aim: as they shoot. Each round
      *       kicks its forearm up, and it settles back in a few hundredths of a second.</li>
+     *   <li><b>Gatling gun:</b> the right hand on its rear grip at the hip, held as the rifles are,
+     *       the gun shaking a little as it fires. The left hand reaches across to the lever on
+     *       top: its arm worked out each frame to bring the hand to the lever, wherever the gun
+     *       points ({@link Reach}).</li>
      *   <li><b>Glaive:</b> at rest it stands upright in the right hand, blade high above the head.
      *       A stroke winds up, comes through, and recovers, by the keyframes below.</li>
      * </ul>
@@ -65,6 +69,14 @@ public final class Gait {
                 final double forearm = 90 + pose.lean() - TUCK + arms.pitch();
                 yield pose.withArms(TUCK, TUCK, -PRESS, -PRESS,
                         forearm + kick(arms.sinceLeft()), forearm + kick(arms.sinceRight()), 0);
+            }
+            case GATLING -> {
+                // the right hand on the rear grip at the hip, as for the rifles; the gun shakes as it fires
+                final double forearm = 90 + pose.lean() - TUCK + arms.pitch() + SHAKE * kick(arms.sinceRight());
+                final double[] lever = Reach.point(false, TUCK, -PRESS, forearm, Arsenal.LEVER);
+                // the left hand reaches across to the lever on top, wherever the gun now points
+                final double[] left = Reach.solve(true, lever, REACH_FROM);
+                yield pose.withArms(left[0], TUCK, left[1], -PRESS, left[2], forearm, 0, left[3], 0);
             }
             case GLAIVE -> {
                 final double p = arms.progress();
@@ -90,6 +102,10 @@ public final class Gait {
     static final double RECOIL_SETTLE = 0.045;
     /** The glaive's arm is all but straight, so the long weapon swings from the shoulder. */
     static final double GLAIVE_BEND = 4;
+    /** The Gatling gun shakes a little as it fires, a share of a rifle's kick a round. */
+    static final double SHAKE = 0.3;
+    /** Where the left arm's reach for the Gatling gun's lever starts from: swing, spread, elbow, twist. */
+    static final double[] REACH_FROM = {45, -40, 60, 0};
 
     /** The glaive at rest: the arm (swing, spread) and the wrist. */
     static final double[] GLAIVE_REST = {12, 10, 180};

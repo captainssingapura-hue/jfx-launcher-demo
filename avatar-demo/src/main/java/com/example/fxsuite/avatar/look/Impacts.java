@@ -38,6 +38,7 @@ public final class Impacts {
     private final Pool gashes;
     private double lastTime = Double.NaN;
     private int count;
+    private int gatlingRounds;
 
     public Impacts() {
         final PhongMaterial light = BoxRig.glow("#fff1a8");
@@ -47,7 +48,7 @@ public final class Impacts {
         tracers = new Pool(16, () -> new Box(1.2, 1, 1.2), light);
         sparks = new Pool(120, () -> new Box(3, 3, 3), spark);
         dust = new Pool(60, () -> new Box(8, 8, 8), earth);
-        holes = new Pool(200, () -> new Box(8, 0.5, 8), hole);
+        holes = new Pool(300, () -> new Box(8, 0.5, 8), hole);
         gashes = new Pool(30, () -> new Box(26, 0.6, 4.5), hole);
     }
 
@@ -62,7 +63,11 @@ public final class Impacts {
         lastTime = time;
         for (final Event event : avatar.events()) {
             if (event instanceof Event.Fired fired) {
-                tracer(fired.from(), fired.to());
+                // the Gatling gun's belt carries a tracer every third round, as real belts do:
+                // forty a second would be one solid beam
+                if (avatar.holding() != Weapon.GATLING || ++gatlingRounds % 3 == 0) {
+                    tracer(fired.from(), fired.to());
+                }
             } else if (event instanceof Event.Struck struck) {
                 struck(struck, avatar.body().yaw());
             }
