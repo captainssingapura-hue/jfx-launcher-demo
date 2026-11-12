@@ -2,7 +2,6 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
-import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
@@ -91,7 +90,7 @@ public final class Impacts {
                 }
             } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB) {
                 // a bomb leaves no mark of its own on each thing it reaches: its blast is the wreckage's
-                struck(struck, avatar.body().yaw(), entry.step() * Clock.STEP);
+                struck(struck, avatar.body().yaw(), entry.step());
             } else if (event instanceof Event.Broke broke) {
                 // what was marked is gone, and its marks with it
                 holes.clear(broke.piece());
@@ -110,8 +109,8 @@ public final class Impacts {
         tracer.place(from.add(along.multiply(0.5)), Vec3.ZERO, along, false);
     }
 
-    /** What a round or the blade does where it struck, {@code seconds} after the start, the avatar facing {@code yaw}. */
-    private void struck(final Event.Struck struck, final double yaw, final double seconds) {
+    /** What a round or the blade does where it struck, in step {@code step}, the avatar facing {@code yaw}. */
+    private void struck(final Event.Struck struck, final double yaw, final long step) {
         final boolean blade = struck.by() == Weapon.GLAIVE;
         final Vec3 off = struck.at().add(struck.normal().multiply(0.4));
         if (struck.on() == Surface.BLOCK) {
@@ -133,7 +132,7 @@ public final class Impacts {
         final Vec3 facing;
         final double turned;
         if (piece >= 0) {
-            final Block block = world.at(piece, seconds);
+            final Block block = world.at(piece, step);
             on = world.group(piece);
             at = block.toLocal(off);
             facing = block.turnToLocal(struck.normal());

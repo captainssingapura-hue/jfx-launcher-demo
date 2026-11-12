@@ -95,6 +95,14 @@ public sealed interface Event {
     record Swung(int stroke) implements Event {
     }
 
+    /** The avatar took the controls of platform {@code piece}, standing at its console. */
+    record TookControls(int piece) implements Event {
+    }
+
+    /** The avatar let go of the controls of platform {@code piece}: it let go, or was no longer at them. */
+    record LetGo(int piece) implements Event {
+    }
+
     /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */
     record Dropped(Vec3 at, int from) implements Event {
     }

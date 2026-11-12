@@ -69,7 +69,7 @@ public final class Damage {
             case AIRSHIP -> AIRSHIP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
-            case PILLAR, GATE -> Double.POSITIVE_INFINITY;
+            case PILLAR, GATE, PLATFORM -> Double.POSITIVE_INFINITY;
         };
     }
 
@@ -167,7 +167,7 @@ public final class Damage {
         return pieces.get(piece);
     }
 
-    /** The pieces that move of themselves and are still standing, by number: the airships left. */
+    /** The pieces that can move and are still standing, by number: the airships left, and the platforms. */
     public List<Integer> moving() {
         final List<Integer> moving = new ArrayList<>();
         for (int i = 0; i < health.length; i++) {
@@ -176,6 +176,11 @@ public final class Damage {
             }
         }
         return moving;
+    }
+
+    /** The pieces that fly of themselves and are still in the sky, by number: the airships left. */
+    public List<Integer> flying() {
+        return moving().stream().filter(i -> pieces.get(i).flies()).toList();
     }
 
     /** How many pieces there are, broken or not. */

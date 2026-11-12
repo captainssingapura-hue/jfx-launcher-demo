@@ -280,6 +280,7 @@ public final class Recording {
             case Action.Jump j -> "JUMP";
             case Action.Fly f -> "FLY";
             case Action.Pack p -> "PACK";
+            case Action.Take t -> "TAKE";
             case Action.Draw d -> "DRAW:" + d.weapon().name();
         };
     }
@@ -289,6 +290,7 @@ public final class Recording {
             case "JUMP" -> Action.JUMP;
             case "FLY" -> Action.FLY;
             case "PACK" -> Action.PACK;
+            case "TAKE" -> Action.TAKE;
             default -> {
                 if (!name.startsWith("DRAW:")) {
                     throw new IllegalArgumentException("no such action: " + name);

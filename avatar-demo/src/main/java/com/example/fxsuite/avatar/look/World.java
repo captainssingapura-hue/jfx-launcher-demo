@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 
@@ -20,7 +21,10 @@ import javafx.scene.shape.Shape3D;
 import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * The world drawn: a ground with a metre grid, and each piece of the {@link Course}, coloured by
@@ -76,6 +80,14 @@ public final class World {
     private final Bar[] bars = new Bar[BARS];
     private final PhongMaterial crack = BoxRig.matte("#1d1915");
     private double time;
+    /** Each platform's lamp, lever and thrusters, by piece: to show its controls. */
+    private final Map<Integer, Rig> rigs = new HashMap<>();
+    /**
+     * Where each piece that moves was, step by step, the last {@link #HISTORY} of them: so a mark
+     * made in a step goes where the piece was in that step ({@link #at}).
+     */
+    private final TreeMap<Long, Map<Integer, Block>> history = new TreeMap<>();
+    private static final int HISTORY = 240;
 
     public World(final Course course) {
         final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
@@ -119,6 +131,7 @@ public final class World {
                 case DUMMY -> dummy(part, block, BoxRig.matte(board[piece.tint() % board.length]));
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
                 case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
+                case PLATFORM -> platform(i, part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -146,19 +159,26 @@ public final class World {
     }
 
     /**
-     * Draws what the weapons have done, and moves on what moves of itself: the airships, where
-     * they are {@code skyTime} seconds after the start, the rotors and the lights.
+     * Draws what the weapons have done, and moves what moves to where it is seen: each of
+     * {@code placed}, by piece, where it is drawn this frame ({@link com.example.fxsuite.avatar.sim.Play#moving}, between its
+     * last two steps). Then the platforms' controls ({@code lifts}), the rotors and the lights.
      * {@code viewYaw} turns the bars to face the camera.
      */
-    public void show(final Damage damage, final double skyTime, final double seconds, final double viewYaw) {
+    public void show(final Damage damage, final Map<Integer, Block> placed, final List<Lift> lifts,
+                     final double seconds, final double viewYaw) {
         time += seconds;
-        for (int i = 0; i < parts.length; i++) {
-            if (pieces.get(i).moves() && !damage.broken(i)) {
-                final Block block = pieces.get(i).at(skyTime).block();
-                parts[i].setTranslateX(block.x());
-                parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
-                parts[i].setTranslateZ(block.z());
-                turns[i].setAngle(block.yaw());
+        for (final Map.Entry<Integer, Block> moved : placed.entrySet()) {
+            final int i = moved.getKey();
+            final Block block = moved.getValue();
+            parts[i].setTranslateX(block.x());
+            parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
+            parts[i].setTranslateZ(block.z());
+            turns[i].setAngle(block.yaw());
+        }
+        for (final Lift lift : lifts) {
+            final Rig rig = rigs.get(lift.piece());
+            if (rig != null) {
+                rig.show(lift, time);
             }
         }
         for (final Rotate rotor : rotors) {
@@ -200,7 +220,7 @@ public final class World {
         for (int k = 0; k < BARS; k++) {
             if (k < showing.size()) {
                 final int i = showing.get(k);
-                bars[k].show(pieces.get(i).at(skyTime).block(), shown[i], viewYaw);
+                bars[k].show(placed.getOrDefault(i, pieces.get(i).block()), shown[i], viewYaw);
             } else {
                 bars[k].node.setVisible(false);
             }
@@ -216,9 +236,21 @@ public final class World {
         return parts[piece];
     }
 
-    /** Piece {@code piece}'s box {@code seconds} after the start: where it was, if it moves. */
-    Block at(final int piece, final double seconds) {
-        return pieces.get(piece).at(seconds).block();
+    /** Where each piece that moves was after step {@code step}, {@code placed}: kept a while, for {@link #at}. */
+    public void moved(final long step, final Map<Integer, Block> placed) {
+        history.put(step, placed);
+        while (history.size() > HISTORY) {
+            history.pollFirstEntry();
+        }
+    }
+
+    /** Piece {@code piece}'s box after step {@code step}: where it was then, if it moves and that is still known; where it was built, otherwise. */
+    Block at(final int piece, final long step) {
+        final Map.Entry<Long, Map<Integer, Block>> then = history.floorEntry(step);
+        if (then != null && then.getValue().containsKey(piece)) {
+            return then.getValue().get(piece);
+        }
+        return pieces.get(piece).block();
     }
 
     /** What piece {@code piece} is made of, as it now looks: for its broken pieces. */
@@ -477,11 +509,129 @@ public final class World {
         return middle;
     }
 
+    /**
+     * A platform, from its own parts, as big as its deck was made ({@link Course.Deck}): a steel
+     * deck edged in yellow and black, a glowing thruster under each corner, and at the front the
+     * console, its panel tilted to whoever stands behind it, with a lever that leans the way the
+     * platform goes and a lamp that shows green while someone has the controls.
+     */
+    private Shape3D platform(final int piece, final Group part) {
+        final Course.Shape shape = pieces.get(piece).shape();
+        final Course.Deck size = Course.Deck.of(shape);
+        final Course.Section frame = shape.box();
+        final PhongMaterial steel = BoxRig.matte("#5d656e");
+        final PhongMaterial dark = BoxRig.matte("#2b3036");
+        final PhongMaterial yellow = BoxRig.matte("#e0b400");
+        final Course.Section d = size.slab();
+        final Box deck = section(part, frame, d, steel);
+        // hazard stripes round the deck's top edge
+        final double top = d.up() + d.halfUp() + 0.6;
+        for (int side = 0; side < 4; side++) {
+            final boolean across = side < 2;
+            final double length = across ? d.halfAcross() * 2 : d.halfAlong() * 2;
+            final double edge = side % 2 == 0 ? 1 : -1;
+            // about 40 cm each, as many as fit the edge exactly
+            final int stripes = Math.max(1, (int) Math.round(length / 40));
+            final double stripe = length / stripes;
+            for (int k = 0; k < stripes; k++) {
+                final double along = -length / 2 + (k + 0.5) * stripe;
+                final Course.Section strip = across
+                        ? new Course.Section(along, edge * (d.halfAlong() - 6), top, stripe / 2, 6, 0.6)
+                        : new Course.Section(edge * (d.halfAcross() - 6), along, top, 6, stripe / 2, 0.6);
+                section(part, frame, strip, k % 2 == 0 ? yellow : dark);
+            }
+        }
+        // a thruster under each corner, glowing
+        final List<Node> thrusters = new ArrayList<>();
+        for (final double x : new double[] {-1, 1}) {
+            for (final double z : new double[] {-1, 1}) {
+                final Course.Section pod = new Course.Section(x * (d.halfAcross() - 50), z * (d.halfAlong() - 50),
+                        d.up() - d.halfUp() - 12, 34, 34, 12);
+                section(part, frame, pod, dark);
+                final Box glow = section(part, frame, new Course.Section(pod.across(), pod.along(),
+                        pod.up() - pod.halfUp() - 1, 26, 26, 1), BoxRig.glow("#7df9ff"));
+                thrusters.add(glow);
+            }
+        }
+        // the console, its panel tilted toward whoever stands behind it, with buttons, a lever and a lamp
+        final Course.Section c = size.console();
+        section(part, frame, c, dark);
+        final Group panel = new Group();
+        panel.setTranslateX(c.across());
+        panel.setTranslateY(-(c.up() + c.halfUp() - frame.up()));
+        panel.setTranslateZ(c.along());
+        panel.getTransforms().addAll(new Rotate(180, Rotate.Y_AXIS), new Rotate(-35, Rotate.X_AXIS));
+        final Box face = new Box(c.halfAcross() * 2 + 8, 4, c.halfAlong() * 2 + 16);
+        face.setMaterial(steel);
+        panel.getChildren().add(face);
+        final String[] lit = {"#ff3b30", "#ffd166", "#34c759"};
+        for (int k = 0; k < lit.length; k++) {
+            final Box button = new Box(8, 3, 8);
+            button.setMaterial(BoxRig.glow(lit[k]));
+            button.setTranslateX(-22 + k * 14);
+            button.setTranslateY(-3);
+            button.setTranslateZ(8);
+            panel.getChildren().add(button);
+        }
+        final Rotate lean = new Rotate(0, Rotate.X_AXIS);
+        final Group lever = new Group();
+        lever.setTranslateX(24);
+        lever.setTranslateY(-2);
+        lever.setTranslateZ(-4);
+        lever.getTransforms().add(lean);
+        final Box stick = new Box(3, 22, 3);
+        stick.setTranslateY(-11);
+        stick.setMaterial(dark);
+        final Box knob = new Box(7, 7, 7);
+        knob.setTranslateY(-24);
+        knob.setMaterial(BoxRig.matte("#c62828"));
+        lever.getChildren().addAll(stick, knob);
+        panel.getChildren().add(lever);
+        part.getChildren().add(panel);
+        final Box lamp = section(part, frame, new Course.Section(c.across() - 28, c.along() + 10,
+                c.up() + c.halfUp() + 8, 5, 5, 8), BoxRig.glow("#ffb300"));
+        rigs.put(piece, new Rig(lamp, lean, thrusters));
+        return deck;
+    }
+
+    /** A platform's controls as shown: the lamp, the lever, the thrusters. */
+    private static final class Rig {
+        private final Box lamp;
+        private final Rotate lean;
+        private final List<Node> thrusters;
+        private final PhongMaterial idle = BoxRig.glow("#ffb300");
+        private final PhongMaterial held = BoxRig.glow("#34c759");
+
+        Rig(final Box lamp, final Rotate lean, final List<Node> thrusters) {
+            this.lamp = lamp;
+            this.lean = lean;
+            this.thrusters = thrusters;
+        }
+
+        /** As {@code lift} is: green while held, the lever leaning the way it goes, the thrusters brighter the harder it goes. */
+        void show(final Lift lift, final double time) {
+            lamp.setMaterial(lift.held() ? held : idle);
+            lean.setAngle(30 * Num.clamp(lift.ahead() / Lift.SPEED + lift.climb() / Lift.CLIMB, -1, 1));
+            final double going = Math.min(1, lift.speed() / Lift.SPEED);
+            final double throb = 0.75 + 0.25 * Math.sin(time * 9) + 0.5 * Math.abs(going);
+            for (final Node thruster : thrusters) {
+                thruster.setScaleX(throb);
+                thruster.setScaleZ(throb);
+            }
+        }
+    }
+
     /** One of an airship's parts, as a box in its frame. */
     private static Box section(final Group part, final Course.Section section, final PhongMaterial material) {
+        return section(part, Course.AIRSHIP_BOX, section, material);
+    }
+
+    /** One of the parts of something that moves, as a box in its frame, the middle of whose box is {@code frame}'s. */
+    private static Box section(final Group part, final Course.Section frame, final Course.Section section,
+                               final PhongMaterial material) {
         final Box box = new Box(section.halfAcross() * 2, section.halfUp() * 2, section.halfAlong() * 2);
         box.setTranslateX(section.across());
-        box.setTranslateY(-(section.up() - Course.AIRSHIP_BOX.up()));
+        box.setTranslateY(-(section.up() - frame.up()));
         box.setTranslateZ(section.along());
         box.setMaterial(material);
         part.getChildren().add(box);

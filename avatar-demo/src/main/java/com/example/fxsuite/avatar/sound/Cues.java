@@ -125,6 +125,9 @@ public final class Cues {
                 case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
                 case Event.Dropped _ -> {
                 }
+                // a latch, taking hold of the controls and letting go
+                case Event.TookControls _ -> plays.add(new Play(Sound.PACK_ON, 1, hands(body, 0)));
+                case Event.LetGo _ -> plays.add(new Play(Sound.PACK_OFF, 1, hands(body, 0)));
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());

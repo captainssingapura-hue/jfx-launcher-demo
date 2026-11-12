@@ -77,7 +77,7 @@ public record Sky(double time, List<Bomb> bombs, long dropped) {
             }
         }
         long count = dropped;
-        for (final int piece : damage.moving()) {
+        for (final int piece : damage.flying()) {
             // each in its turn, a third of the interval apart, by its number
             final double offset = DROP_EVERY * (piece % 3) / 3;
             if (Math.floor((to + offset) / DROP_EVERY) > Math.floor((time + offset) / DROP_EVERY)) {

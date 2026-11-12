@@ -10,6 +10,7 @@ import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
@@ -17,6 +18,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Keys;
+import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Play;
@@ -60,8 +62,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -100,6 +104,11 @@ public final class AvatarDemo extends Application {
     private Damage damage = Damage.of(course);
     /** What moves of itself: the airships along their routes, and their bombs. */
     private Sky sky = Sky.START;
+    /** The platforms moved from their consoles. */
+    private List<Lift> lifts = Lift.of(damage);
+    /** Where each piece that moves was after the step before the latest, and after the latest: drawn between them. */
+    private Map<Integer, Block> movedBefore = Map.of();
+    private Map<Integer, Block> movedNow = Map.of();
     private final World world = new World(course);
     private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
@@ -182,7 +191,8 @@ public final class AvatarDemo extends Application {
                 + "J jet-pack on or off · F fly or land (with the jet-pack) · "
                 + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
                 + "M mute · P sound profile\n"
-                + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing");
+                + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
+                + "T fly a platform (at its console)");
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         frames.setStyle(FRAMES_STYLE + "#b9f6ca;");
         frames.setText("measuring frames…");
@@ -238,6 +248,8 @@ public final class AvatarDemo extends Application {
             }
         }
 
+        movedNow = new Play(avatar, damage, sky, lifts).moving();
+        movedBefore = movedNow;
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
         final boolean logFrames = unattended;
@@ -310,11 +322,16 @@ public final class AvatarDemo extends Application {
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
-            final Play.Stepped stepped = new Play(avatar, damage, sky).step(controls, Clock.STEP);
+            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
             sky = stepped.play().sky();
+            lifts = stepped.play().lifts();
             journal.append(++step, stepped.events());
+            // where what moves now is, to draw it between its last two places, and to put marks on it
+            movedBefore = movedNow;
+            movedNow = stepped.play().moving();
+            world.moved(step, movedNow);
             if (recorder != null) {
                 recorder.step(step, controls, stepped.play());
             }
@@ -337,11 +354,11 @@ public final class AvatarDemo extends Application {
         // each reads what is new to it in the journal
         // what moves of itself is shown where it was as far behind its latest step as the avatar is
         final double behind = (1 - ticked.blend()) * Clock.STEP;
-        final Play now = new Play(this.avatar, damage, sky);
+        final Play now = new Play(this.avatar, damage, sky, lifts);
         final Obstacles standing = now.obstacles();
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
-        world.show(damage, sky.time() - behind, seconds, chase.yaw());
+        world.show(damage, between(movedBefore, movedNow, ticked.blend()), lifts, seconds, chase.yaw());
         bombs.show(sky, behind);
         reticle.show(avatar, standing, chase.position());
         world.shadowUnder(body, standing);
@@ -363,6 +380,20 @@ public final class AvatarDemo extends Application {
 
         showStatus();
         snapshotIfDue();
+    }
+
+    /**
+     * Where each piece that moves is drawn: {@code share} of the way from where it was after the
+     * step before the latest to where it is now, as the avatar is.
+     */
+    private static Map<Integer, Block> between(final Map<Integer, Block> before, final Map<Integer, Block> now,
+                                               final double share) {
+        final Map<Integer, Block> seen = new HashMap<>();
+        for (final Map.Entry<Integer, Block> moved : now.entrySet()) {
+            final Block was = before.get(moved.getKey());
+            seen.put(moved.getKey(), was == null ? moved.getValue() : moved.getValue().between(was, share));
+        }
+        return seen;
     }
 
     private void showStatus() {
@@ -388,9 +419,15 @@ public final class AvatarDemo extends Application {
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
-        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s · %s%s%s", what, metres,
+        // a platform's controls: taken, or within reach
+        final Play here = new Play(avatar, damage, sky, lifts);
+        final String controls = here.atControls()
+                .map(lift -> String.format(" · flying the platform, %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down, T to let go",
+                        lift.place().height() / 100))
+                .orElse(here.withinReach().isPresent() ? " · T: take the controls" : "");
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                 body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,
-                score, sound, run, look.captured() ? "" : " · mouse free: Esc to turn with it");
+                controls, score, sound, run, look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
             status.setText(text);

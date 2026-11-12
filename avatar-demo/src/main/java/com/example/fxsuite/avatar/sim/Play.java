@@ -1,42 +1,57 @@
 package com.example.fxsuite.avatar.sim;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 /**
- * Everything that moves: the avatar, what its weapons have done to the world, and what moves
- * of itself (the airships and their bombs, {@link Sky}), stepped together. Pure state; what
- * happened comes out of each step beside it.
+ * Everything that moves: the avatar, what its weapons have done to the world, what moves of
+ * itself (the airships and their bombs, {@link Sky}), and the platforms moved from their
+ * consoles ({@link Lift}), stepped together. Pure state; what happened comes out of each step
+ * beside it.
  *
  * <p>A step goes in five phases:
  * <ol>
- *   <li><b>The world moves on:</b> the airships go on along their routes, and whoever stands
- *       on one is carried with it, turned as it turns.</li>
- *   <li><b>Inputs:</b> what the player did once ({@link Controls#actions}) is done, in order;
- *       the held keys, the turn and the aim are set.</li>
- *   <li><b>Act:</b> the avatar moves on among what still stands, where it now is, and its
- *       weapon deals its {@link Blow}s; the bombs fall, and those that meet something go off,
- *       dealing theirs. Intents, not yet anything that happened.</li>
+ *   <li><b>The controls change hands:</b> taken at a platform's console, or let go
+ *       ({@link Action#TAKE}). At them, the keys that would move the avatar fly the
+ *       platform instead, and the avatar stands at the console.</li>
+ *   <li><b>The world moves on:</b> the airships go on along their routes, the platforms as their
+ *       controls say, and whoever stands on one is carried with it, turned as it turns.</li>
+ *   <li><b>Act:</b> the avatar does what it was asked, in order ({@link Controls#actions}), moves
+ *       on among what still stands, where it now is, and its weapon deals its {@link Blow}s; the
+ *       bombs fall, and those that meet something go off, dealing theirs. Intents, not yet
+ *       anything that happened.</li>
  *   <li><b>Resolve:</b> the world takes the blows, in the order they were dealt ({@link Damage}).</li>
- *   <li><b>Report:</b> what happened goes out: the avatar's own events, the bombs', then what
- *       came of each blow (struck, with what the piece has left; what broke).</li>
+ *   <li><b>Report:</b> what happened goes out: the controls changing hands, the avatar's own
+ *       events, the bombs', then what came of each blow (struck, with what the piece has left;
+ *       what broke).</li>
  * </ol>
  * The blows never leave the step: they follow from the state and the inputs, and only what came
  * of them is an output.
  */
-public record Play(Avatar avatar, Damage damage, Sky sky) {
+public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
 
     /**
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 2;
+    public static final int RULES = 3;
 
-    /** The avatar and the world, with the sky as it starts. */
+    public Play {
+        lifts = List.copyOf(lifts);
+    }
+
+    /** The avatar and the world, with the sky as it starts and the platforms where they were built. */
     public Play(final Avatar avatar, final Damage damage) {
         this(avatar, damage, Sky.START);
+    }
+
+    /** The avatar, the world and the sky, with the platforms where they were built. */
+    public Play(final Avatar avatar, final Damage damage, final Sky sky) {
+        this(avatar, damage, sky, Lift.of(damage));
     }
 
     /** The world at the start: the avatar standing at the start, with the pack on or not, and the course unharmed. */
@@ -46,12 +61,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky) {
 
     /**
      * The whole world stirred into one number, to the bit: two worlds with the same checksum are,
-     * as near as matters, the same. The avatar and the sky are all records, so their text is
-     * exact and complete.
+     * as near as matters, the same. The avatar, the sky and the platforms are all records, so
+     * their text is exact and complete.
      */
     public long checksum() {
         long sum = damage.checksum();
-        final String text = avatar.toString() + sky.toString();
+        final String text = avatar.toString() + sky.toString() + lifts.toString();
         for (int i = 0; i < text.length(); i++) {
             sum = Num.mix(sum, text.charAt(i));
         }
@@ -68,60 +83,156 @@ public record Play(Avatar avatar, Damage damage, Sky sky) {
 
     /** What still stands, where it now is: to move among, to shoot at, to fall onto. */
     public Obstacles obstacles() {
-        return obstacles(sky.time());
+        return obstacles(sky.time(), lifts);
     }
 
     /** The airships still flying, each where it now is. */
     public List<Course.Piece> airships() {
-        return damage.moving().stream().map(i -> damage.piece(i).at(sky.time())).toList();
+        return damage.flying().stream().map(i -> damage.piece(i).at(sky.time())).toList();
+    }
+
+    /** Each piece that can move and still stands, by number, and where it now is, all of it: for drawing it there. */
+    public Map<Integer, Block> moving() {
+        final Map<Integer, Block> boxes = new LinkedHashMap<>();
+        for (final int piece : damage.moving()) {
+            boxes.put(piece, placed(piece, sky.time(), lifts).block());
+        }
+        return boxes;
+    }
+
+    /** The platform whose controls the avatar has, if it has any. */
+    public Optional<Lift> atControls() {
+        return lifts.stream().filter(Lift::held).findFirst();
+    }
+
+    /** The platform whose controls the avatar could take where it stands, if any, and it has none yet. */
+    public Optional<Lift> withinReach() {
+        if (atControls().isPresent()) {
+            return Optional.empty();
+        }
+        final Obstacles world = obstacles();
+        return lifts.stream().filter(lift -> lift.reaches(avatar.body(), world)).findFirst();
     }
 
     /** One step of {@code seconds}, with {@code controls}. */
     public Stepped step(final Controls controls, final double seconds) {
+        final List<Event> happened = new ArrayList<>();
+        final Obstacles was = obstacles();
+        // the controls change hands; at them, the climb and descent are the platform's
+        final List<Lift> handed = handed(controls, was, happened);
+        final boolean working = handed.stream().anyMatch(Lift::held);
+        final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
         // the world moves on, carrying whoever stands on what moves
         final double to = sky.time() + seconds;
-        final Avatar carried = carried(avatar, sky.time(), to);
-        final Obstacles now = obstacles(to);
-        // inputs, and act: the avatar does what it was asked, moves, and deals its blows; the bombs fall
-        final Avatar.Stepped acted = carried.step(controls, seconds, now);
+        final List<Lift> moved = handed.stream().map(lift -> lift.step(controls, seconds, was)).toList();
+        final Avatar carried = carried(avatar, was, handed, moved, to);
+        final Obstacles now = obstacles(to, moved);
+        // act: the avatar does what it was asked, moves, and deals its blows; the bombs fall
+        final Avatar.Stepped acted = carried.step(own, seconds, now);
         final Sky.Stepped fell = sky.step(seconds, damage, now);
         // resolve: the world takes the blows, the avatar's and then the bombs'
         final List<Blow> blows = new ArrayList<>(acted.blows());
         blows.addAll(fell.blows());
         final Damage.Taken taken = damage.took(blows, to);
-        // report: the avatar's own events, the bombs', then what came of the blows
-        final List<Event> happened = new ArrayList<>(acted.events());
+        // report: the controls changing hands, the avatar's own events, the bombs', then what came of the blows
+        happened.addAll(acted.events());
         happened.addAll(fell.events());
         happened.addAll(taken.events());
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky()), happened);
+        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved), happened);
     }
 
-    /** {@code avatar}, carried by what it stands on as that moves on from {@code from} to {@code to}, if it moves. */
-    private Avatar carried(final Avatar avatar, final double from, final double to) {
+    /**
+     * The platforms, their controls taken or let go: a {@link Action#TAKE} at a console takes
+     * them, and another lets them go, as does no longer standing at them.
+     */
+    private List<Lift> handed(final Controls controls, final Obstacles world, final List<Event> happened) {
+        boolean take = controls.actions().stream().anyMatch(a -> a instanceof Action.Take);
+        final List<Lift> handed = new ArrayList<>(lifts);
+        for (int i = 0; i < handed.size(); i++) {
+            final Lift lift = handed.get(i);
+            if (lift.held() && (take || !lift.reaches(avatar.body(), world))) {
+                handed.set(i, lift.held(false));
+                happened.add(new Event.LetGo(lift.piece()));
+                take = false;
+            }
+        }
+        for (int i = 0; take && i < handed.size(); i++) {
+            final Lift lift = handed.get(i);
+            if (lift.reaches(avatar.body(), world)) {
+                handed.set(i, lift.held(true));
+                happened.add(new Event.TookControls(lift.piece()));
+                take = false;
+            }
+        }
+        return handed;
+    }
+
+    /**
+     * At the controls the avatar stands at the console: the keys that would move it, and the
+     * mouse's turn, fly the platform instead, and it is carried round as that turns. It can still
+     * aim, draw a weapon and fire.
+     */
+    private static Controls atTheControls(final Controls controls) {
+        return new Controls(0, 0, 0, 0, controls.run(), controls.trigger(), controls.aim(),
+                controls.actions().stream().filter(a -> a instanceof Action.Draw).toList());
+    }
+
+    /** The controls, less taking a platform's: that is the world's to hand over, and done already. */
+    private static Controls withoutTaking(final Controls controls) {
+        return controls.with(controls.actions().stream().filter(a -> !(a instanceof Action.Take)).toList());
+    }
+
+    /**
+     * {@code avatar}, carried by what it stands on as that moves on: an airship along its route to
+     * {@code to}, or a platform from where it was among {@code from} to where it is among {@code moved}.
+     */
+    private Avatar carried(final Avatar avatar, final Obstacles was, final List<Lift> from, final List<Lift> moved,
+                           final double to) {
         final Body body = avatar.body();
         if (!body.grounded()) {
             return avatar;
         }
-        final int piece = obstacles(from).under(body.position().x(), body.position().z(), Body.FOOTING,
-                body.height());
+        final int piece = was.under(body.position().x(), body.position().z(), Body.FOOTING, body.height());
         if (piece < 0 || !damage.piece(piece).moves()) {
             return avatar;
         }
-        final Course.Route route = damage.piece(piece).route();
-        return avatar.carried(route.at(from), route.at(to));
+        final Course.Piece what = damage.piece(piece);
+        if (what.flies()) {
+            return avatar.carried(what.route().at(sky.time()), what.route().at(to));
+        }
+        for (int i = 0; i < from.size(); i++) {
+            if (from.get(i).piece() == piece) {
+                return avatar.carried(from.get(i).place(), moved.get(i).place());
+            }
+        }
+        return avatar;
     }
 
-    /** What still stands, {@code seconds} after the start: the course less what is broken, the airships where they then are. */
-    private Obstacles obstacles(final double seconds) {
+    /** Piece {@code piece} where it is {@code seconds} after the start, the platforms being {@code lifts}. */
+    private Course.Piece placed(final int piece, final double seconds, final List<Lift> lifts) {
+        final Course.Piece what = damage.piece(piece);
+        if (what.flies()) {
+            return what.at(seconds);
+        }
+        for (final Lift lift : lifts) {
+            if (lift.piece() == piece) {
+                return what.placed(lift.place());
+            }
+        }
+        return what;
+    }
+
+    /** What still stands, {@code seconds} after the start with the platforms {@code lifts}: everything that moves where it then is. */
+    private Obstacles obstacles(final double seconds, final List<Lift> lifts) {
         final Obstacles built = damage.obstacles();
         final List<Integer> moving = damage.moving();
         if (moving.isEmpty()) {
             return built;
         }
-        // each airship's blocks, in the order it was built with, put where it now is
+        // each moving piece's blocks, in the order it was built with, put where it now is
         final Map<Integer, List<Block>> placed = new TreeMap<>();
         for (final int piece : moving) {
-            placed.put(piece, damage.piece(piece).at(seconds).solid());
+            placed.put(piece, placed(piece, seconds, lifts).solid());
         }
         final Map<Integer, Integer> next = new TreeMap<>();
         final List<Block> blocks = new ArrayList<>(built.blocks().size());

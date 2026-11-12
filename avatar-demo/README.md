@@ -67,6 +67,18 @@ characters, and a separate sound bench is for working on the sounds.
   goes off at the first thing it meets, in a fireball, embers and, on the ground, clods of earth
   thrown up. Every crate or target within 3.5 m of it takes 150: a drone or a small crate goes at
   once, a dummy takes two. The robot takes no harm from them yet.
+- **Platforms, flown like magic carpets.** Two steel platforms float just off the ground, edged
+  in yellow and black, a thruster glowing under each corner and a console at the front: a
+  small one, 3 m by 2.4 m, off to the right of the start, and a broad barge, 10 m by 6 m, off to
+  the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
+  one and stand behind its console, and the HUD offers the controls (T). At them, the keys that
+  would move the robot fly the platform: W and S ahead and back, A and D sideways, the mouse
+  turns it, Space climbs and Ctrl descends, from just off the ground to 45 m up, Shift to go
+  carefully. It eases up to speed and to a stop, and stops short of anything in its way, with
+  room over the deck for whoever rides it. The robot stands at the console and is carried and
+  turned with it, and can still draw a weapon and fire. T again lets go, and it hangs where it
+  is. Whatever moves (the airships, the platforms) is drawn where the simulation says it was at
+  its last two steps, part way between, and marks on it go with it.
 
 ## Build and run
 
@@ -96,6 +108,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
+| T | Take a platform's controls, behind its console; or let go of them. At them, W/S/A/D, the mouse, Space and Ctrl fly it | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |
@@ -224,7 +237,7 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves of itself together: the airships on their routes and their bombs, `Sky`), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |

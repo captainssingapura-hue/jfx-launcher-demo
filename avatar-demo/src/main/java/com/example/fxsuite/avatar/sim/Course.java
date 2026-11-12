@@ -16,7 +16,9 @@ import java.util.Random;
  *   <li>gates up in the air, four bars round an opening to fly through;</li>
  *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, drones
  *       hovering round it, and, high over everything else and far out, three great armoured
- *       airships going slowly round on their {@link Route}s ({@link Piece#at}).</li>
+ *       airships going slowly round on their {@link Route}s ({@link Piece#at});</li>
+ *   <li>and platforms, flown about from the console on each ({@link Lift}): a small one to
+ *       ride like a magic carpet, and a broad barge.</li>
  * </ul>
  *
  * <p>Crates and targets can be broken ({@link Damage}); pillars and gates are what the world is
@@ -25,7 +27,7 @@ import java.util.Random;
 public final class Course {
 
     public enum Kind {
-        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true);
+        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(false);
 
         private final boolean breakable;
 
@@ -49,8 +51,13 @@ public final class Course {
      * {@code block}, the box it fills, and {@code solid}, the blocks that are actually in the way
      * (the same box, but for an airship, whose hull, fins, gondola and engines are each one).
      * Broken, all of it goes at once.
+     *
+     * <p>One that can move ({@link #moves}) is made of its {@code shape}, at {@code place}: an
+     * airship, which flies of itself along its {@code route}, or a platform, moved from its
+     * console. Null, all three, for what stays where it is.
      */
-    public record Piece(Block block, Kind kind, int tint, List<Block> solid, Route route) {
+    public record Piece(Block block, Kind kind, int tint, List<Block> solid, Shape shape, Place place,
+                        Route route) {
 
         public Piece {
             solid = List.copyOf(solid);
@@ -58,7 +65,7 @@ public final class Course {
 
         /** A piece that stays where it is, its solid blocks given. */
         public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid) {
-            this(block, kind, tint, solid, null);
+            this(block, kind, tint, solid, null, null, null);
         }
 
         /** A piece that is just its box. */
@@ -66,18 +73,51 @@ public final class Course {
             this(block, kind, tint, List.of(block));
         }
 
-        /** Whether it moves of itself, along its {@link #route}: an airship. */
+        /** A piece that can move, made of {@code shape}, at {@code place}; along {@code route} if it flies of itself, or null. */
+        public static Piece moving(final Shape shape, final Place place, final Kind kind, final int tint,
+                                   final Route route) {
+            return new Piece(shape.box(place), kind, tint, shape.solid(place), shape, place, route);
+        }
+
+        /** Whether it can move: an airship or a platform. */
         public boolean moves() {
+            return shape != null;
+        }
+
+        /** Whether it moves of itself, along its {@link #route}: an airship. */
+        public boolean flies() {
             return route != null;
         }
 
-        /** Where it is {@code seconds} after the start: along its route, if it has one, or where it always is. */
+        /** The same piece, moved to {@code to}. */
+        public Piece placed(final Place to) {
+            return moving(shape, to, kind, tint, route);
+        }
+
+        /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
         public Piece at(final double seconds) {
-            if (route == null) {
-                return this;
-            }
-            final Place place = route.at(seconds);
-            return new Piece(AIRSHIP_BOX.placed(place), kind, tint, airship(place), route);
+            return route == null ? this : placed(route.at(seconds));
+        }
+    }
+
+    /**
+     * What something that moves is made of, in its own frame ({@link Section}): {@code box}, all
+     * of it, and {@code parts}, each solid.
+     */
+    public record Shape(Section box, List<Section> parts) {
+
+        public Shape {
+            parts = List.copyOf(parts);
+        }
+
+        /** All of it, at {@code place}. */
+        public Block box(final Place place) {
+            return box.placed(place);
+        }
+
+        /** Its solid parts, at {@code place}, in order. */
+        public List<Block> solid(final Place place) {
+            return parts.stream().map(part -> part.placed(place)).toList();
         }
     }
 
@@ -145,6 +185,74 @@ public final class Course {
             new Section(330, -60, -40, 40, 80, 40));
     /** All of an airship's box: out to the fins' tips, nose to tail, gondola to the top fin. */
     public static final Section AIRSHIP_BOX = new Section(0, 0, 25, 380, 900, 355);
+    /** An airship: its box, and each part solid: the hull, the fins, the gondola, the pylons and the engines. */
+    public static final Shape AIRSHIP = new Shape(AIRSHIP_BOX, java.util.stream.Stream.of(HULL, FINS, List.of(GONDOLA),
+            PYLONS, ENGINES).flatMap(List::stream).toList());
+
+    /**
+     * A platform's deck, as big as it is wanted for what it is for: {@code width} across and
+     * {@code depth} from back to front, 40 cm thick, its top where the platform is. At the front,
+     * in the middle, the console its controls are on, waist high; whoever flies it stands behind
+     * the console, facing the way it heads.
+     */
+    public record Deck(double width, double depth) {
+
+        /** The smallest a deck can be: room for the console, and whoever stands at it. */
+        public static final double NARROWEST = 150;
+        public static final double SHALLOWEST = 220;
+
+        public Deck {
+            if (width < NARROWEST || depth < SHALLOWEST) {
+                throw new IllegalArgumentException("a deck " + width + " by " + depth + " has no room for its console");
+            }
+        }
+
+        /** The deck itself, a slab. */
+        public Section slab() {
+            return new Section(0, 0, -20, width / 2, depth / 2, 20);
+        }
+
+        /** The console, at the front, its back toward whoever flies it. */
+        public Section console() {
+            return new Section(0, depth / 2 - 45, 55, 35, 20, 55);
+        }
+
+        /** How far ahead of the middle whoever flies it stands: behind the console, a step from it. */
+        public double pilot() {
+            return depth / 2 - 105;
+        }
+
+        /**
+         * The room it needs to fly: the deck, and above it as high as whoever stands on it, so
+         * nothing it flies under or past goes through a rider.
+         */
+        public Section room() {
+            return new Section(0, 0, (-40 + Body.TALL + 30) / 2.0, width / 2, depth / 2, (40 + Body.TALL + 30) / 2.0);
+        }
+
+        /** All of it, and its parts: the slab first, then the console. */
+        public Shape shape() {
+            return new Shape(new Section(0, 0, 35, width / 2, depth / 2, 75), List.of(slab(), console()));
+        }
+
+        /** The deck a shape was made from ({@link #shape}). */
+        public static Deck of(final Shape shape) {
+            final Section slab = shape.parts().getFirst();
+            return new Deck(slab.halfAcross() * 2, slab.halfAlong() * 2);
+        }
+    }
+
+    /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
+    public static final Deck CARPET = new Deck(300, 240);
+    public static final Deck BARGE = new Deck(1000, 600);
+    /** Where a platform stands at the start, in open air: heading from the start, and how far; and its deck. */
+    private record Berth(double heading, double out, Deck deck) {
+    }
+
+    private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE));
+    /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
+    public static final double LIFT_LOW = 60;
+    public static final double LIFT_HIGH = 4500;
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
@@ -236,20 +344,21 @@ public final class Course {
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];
             final Route route = new Route(a[0], a[1], a[2], a[3]);
-            final Place start = route.at(0);
-            pieces.add(new Piece(AIRSHIP_BOX.placed(start), Kind.AIRSHIP, i % 2, airship(start), route));
+            pieces.add(Piece.moving(AIRSHIP, route.at(0), Kind.AIRSHIP, i % 2, route));
+        }
+
+        // and the platforms, standing at their lowest, each heading out from the start
+        for (int i = 0; i < PLATFORMS.size(); i++) {
+            final Berth berth = PLATFORMS.get(i);
+            final Vec3 at = Num.heading(berth.heading()).multiply(berth.out());
+            pieces.add(Piece.moving(berth.deck().shape(), new Place(at.x(), at.z(), LIFT_LOW, berth.heading()),
+                    Kind.PLATFORM, i, null));
         }
     }
 
     /** An airship's solid parts, at {@code place}: the hull, the fins, the gondola, the pylons and the engines. */
     public static List<Block> airship(final Place place) {
-        final List<Block> solid = new ArrayList<>();
-        for (final List<Section> parts : List.of(HULL, FINS, List.of(GONDOLA), PYLONS, ENGINES)) {
-            for (final Section part : parts) {
-                solid.add(part.placed(place));
-            }
-        }
-        return solid;
+        return AIRSHIP.solid(place);
     }
 
     /** How high the airships' hulls run, each one's line through the middle of its hull: for the graphics. */

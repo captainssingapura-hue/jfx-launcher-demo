@@ -150,6 +150,16 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
     }
 
     /**
+     * Part way, {@code share} from 0 to 1, from {@code before} to this: where something that moves
+     * is drawn between two steps. Its middle, its heights and its yaw, the short way round.
+     */
+    public Block between(final Block before, final double share) {
+        return new Block(before.x + (x - before.x) * share, before.z + (z - before.z) * share, halfWidth, halfDepth,
+                Num.wrap(before.yaw + Num.wrap(yaw - before.yaw) * share), before.bottom + (bottom - before.bottom) * share,
+                before.top + (top - before.top) * share);
+    }
+
+    /**
      * A point in the world, in the block's own frame: from its middle, and turned back by its yaw.
      * The frame a node is in when it is placed at the middle and turned with {@code Rotate(yaw, Y)},
      * so something put there at this point is at {@code world} now, and goes with the block when
@@ -175,6 +185,33 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         final double s = Math.sin(Math.toRadians(yaw));
         // the inverse of Rotate(yaw, Y)
         return new Vec3(direction.x() * c - direction.z() * s, direction.y(), direction.x() * s + direction.z() * c);
+    }
+
+    /**
+     * Whether this and {@code other} take up any of the same space: their heights cross, and their
+     * footprints, turned as they are, cross too (no line across the ground parts them).
+     */
+    public boolean overlaps(final Block other) {
+        if (top <= other.bottom || other.top <= bottom) {
+            return false;
+        }
+        for (final Block side : new Block[] {this, other}) {
+            for (final Vec3 axis : new Vec3[] {Num.right(side.yaw), Num.heading(side.yaw)}) {
+                final double apart = Math.abs((other.x - x) * axis.x() + (other.z - z) * axis.z());
+                if (apart >= reach(axis) + other.reach(axis)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** How far the footprint reaches from its middle along {@code axis}, a unit vector across the ground. */
+    private double reach(final Vec3 axis) {
+        final Vec3 across = Num.right(yaw);
+        final Vec3 along = Num.heading(yaw);
+        return halfWidth * Math.abs(across.x() * axis.x() + across.z() * axis.z())
+                + halfDepth * Math.abs(along.x() * axis.x() + along.z() * axis.z());
     }
 
     /** Whether a circle at ({@code px}, {@code pz}) overlaps the footprint. */

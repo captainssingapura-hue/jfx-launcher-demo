@@ -120,6 +120,8 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
                 final Weapon now = arms.held() == draw.weapon() ? Weapon.NONE : draw.weapon();
                 yield new Stepped(new Avatar(body, wearingPack, sweep, Arms.holding(now)), List.of(new Event.Drew(now)));
             }
+            // the controls are the world's to hand over ({@link Play}), not the avatar's own
+            case Action.Take _ -> Stepped.still(this);
         };
     }
 

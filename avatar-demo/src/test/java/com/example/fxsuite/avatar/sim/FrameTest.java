@@ -35,7 +35,7 @@ class FrameTest {
     @Test
     void aMarkOnAnAirshipGoesWhereTheAirshipCarriesIt() {
         final Course course = new Course();
-        final Course.Piece airship = course.pieces().stream().filter(Course.Piece::moves).findFirst().orElseThrow();
+        final Course.Piece airship = course.pieces().stream().filter(Course.Piece::flies).findFirst().orElseThrow();
         final Course.Route route = airship.route();
         // struck on the side of the hull, twelve seconds in
         final Block then = airship.at(12).block();
