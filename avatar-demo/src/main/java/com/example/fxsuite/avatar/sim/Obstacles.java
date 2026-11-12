@@ -61,6 +61,21 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         return new Obstacles(left, gates, numbers);
     }
 
+    /**
+     * The same world with piece {@code piece}'s blocks, in order, {@code now} instead: it has moved.
+     * As many blocks as it had.
+     */
+    public Obstacles replaced(final int piece, final List<Block> now) {
+        final List<Block> moved = new ArrayList<>(blocks);
+        int k = 0;
+        for (int i = 0; i < blocks.size() && k < now.size(); i++) {
+            if (pieces.get(i) == piece) {
+                moved.set(i, now.get(k++));
+            }
+        }
+        return new Obstacles(moved, gates, pieces);
+    }
+
     /** What there is to stand on: how high, and what it is. */
     public record Footing(double height, Surface surface) {
     }

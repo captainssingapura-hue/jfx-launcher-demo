@@ -98,8 +98,11 @@ characters, and a separate sound bench is for working on the sounds.
   stands on whatever is under it (the deck, the table, the ground), and goes where that goes, so
   the fruit rides the table and the table rides the barge. Walk into one and push, and it slides
   the way you push it, as readily as it gives (`Loose#give`): fruit at your pace, the heavy table
-  at under half of it; it slides to a stop, and stops short of anything in its way. What stands
-  on it goes with it: push the table and its fruit goes too. Pushed off an edge, or with what
+  at under half of it; it slides to a stop, and stops short of anything in its way. Push one
+  into another and you push both: a row of melons goes along together, front to back, heavier
+  going the more there is (each one's give adds up as weights do), and a melon pushed against the
+  table pushes the table; against a pillar, nothing moves. What stands on it goes with it: push
+  the table and its fruit goes too. Pushed off an edge, or with what
   held it up broken, it falls; landing harder than it can take (`Loose#landing`), it breaks, so a
   watermelon dropped from three metres bursts while one off the table is fine. Furniture
   (`Furniture`) is broken like anything else: the table takes twenty rifle rounds or two strokes

@@ -147,19 +147,25 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> moved = moved(controls, seconds, to, was, handed, happened,
                 piece -> restingOn(piece, under));
         final List<Prop> carriedProps = carriedProps(to, handed, moved, under);
-        final Obstacles among = obstacles(to, moved, carriedProps);
+        // each loose thing a step on: those still first, then those sliding, the foremost of them
+        // first, each moving out of the way of what comes behind it
+        Obstacles among = obstacles(to, moved, carriedProps);
         final List<Blow> landings = new ArrayList<>();
-        final List<Prop> settled = new ArrayList<>();
-        for (int k = 0; k < carriedProps.size(); k++) {
+        final Prop[] stepped = new Prop[carriedProps.size()];
+        for (final int k : stepOrder(carriedProps)) {
             final Prop prop = carriedProps.get(k);
             if (damage.broken(prop.piece())) {
-                settled.add(prop);
+                stepped[k] = prop;
                 continue;
             }
-            final Prop.Stepped stepped = prop.step(seconds, among, restingOn(prop.piece(), under));
-            settled.add(stepped.prop());
-            landings.addAll(stepped.blows());
+            final Prop.Stepped step = prop.step(seconds, among, restingOn(prop.piece(), under));
+            stepped[k] = step.prop();
+            landings.addAll(step.blows());
+            if (!step.prop().place().equals(prop.place())) {
+                among = among.replaced(prop.piece(), List.of(step.prop().box()));
+            }
         }
+        final List<Prop> settled = new ArrayList<>(List.of(stepped));
         slidWith(carriedProps, settled, under);
         final Moves moves = new Moves(handed, moved, props, settled);
         final Avatar carried = carried(avatar, was, moves, to);
@@ -195,6 +201,28 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** How everything that moves under its own rules moved on this step: the platforms, and the loose things. */
     private record Moves(List<Lift> fromLifts, List<Lift> toLifts, List<Prop> fromProps, List<Prop> toProps) {
+    }
+
+    /**
+     * The order to step loose things in: those not sliding first, as they come; then those sliding,
+     * the foremost along the way it is going first, so a row pushed along moves front to back, each
+     * into the room the one before it has just left.
+     */
+    private static List<Integer> stepOrder(final List<Prop> props) {
+        final List<Integer> still = new ArrayList<>();
+        final List<Integer> sliding = new ArrayList<>();
+        for (int k = 0; k < props.size(); k++) {
+            (props.get(k).sliding() > 0 ? sliding : still).add(k);
+        }
+        sliding.sort((a, b) -> Double.compare(ahead(props.get(b)), ahead(props.get(a))));
+        still.addAll(sliding);
+        return still;
+    }
+
+    /** How far along the way it slides a loose thing is: for putting the foremost first. */
+    private static double ahead(final Prop prop) {
+        final double speed = prop.sliding();
+        return (prop.place().x() * prop.vx() + prop.place().z() * prop.vz()) / speed;
     }
 
     /**
@@ -310,10 +338,16 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return List.of(carried);
     }
 
+    /** How near the next loose thing on must be to be pushed along too: up against it, near as makes no odds. */
+    private static final double CONTACT = 5;
+
     /**
      * The loose things, pushed: whatever the avatar's {@code body} is up against and moving into,
-     * as {@code own} controls say, slides on the way it is pushed, as fast as it gives
-     * ({@link Loose#give}). Not what it stands on, nor anything broken in {@code after}.
+     * as {@code own} controls say, slides on the way it is pushed; and so does whatever that is up
+     * against that way, and so on down the row ({@link #chain}). The whole row goes together, as
+     * fast as it all gives: each thing's give ({@link Loose#give}) adding up as weights do, so two
+     * melons go at half the pace of one, and a melon pushed into the table at the table's pace or
+     * less. Not what it stands on, nor anything broken in {@code after}.
      */
     private static List<Prop> shoved(final List<Prop> props, final Body body, final Controls own,
                                      final Damage after) {
@@ -345,14 +379,49 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             // toward it, the way the push out of it is from
             final Vec3 into = new Vec3(-out.x() / length, 0, -out.z() / length);
             final double along = way.dotProduct(into);
-            if (along > 0.3) {
-                final double speed = pace * strength * along * prop.thing().give();
-                if (speed > prop.sliding()) {
-                    now.set(k, prop.pushed(into.x() * speed, into.z() * speed));
+            if (along <= 0.3) {
+                continue;
+            }
+            final List<Integer> row = chain(props, k, into, after);
+            double heaviness = 0;
+            for (final int member : row) {
+                heaviness += 1 / props.get(member).thing().give();
+            }
+            final double speed = pace * strength * along / heaviness;
+            for (final int member : row) {
+                final Prop pushed = now.get(member);
+                if (speed > pushed.sliding()) {
+                    now.set(member, pushed.pushed(into.x() * speed, into.z() * speed));
                 }
             }
         }
         return now;
+    }
+
+    /**
+     * The row of loose things pushed {@code into} by pushing the {@code first}: it, whatever it is up
+     * against that way (side to side, not standing on it or under it), whatever that is up against,
+     * and so on. Not what is broken in {@code after}.
+     */
+    private static List<Integer> chain(final List<Prop> props, final int first, final Vec3 into, final Damage after) {
+        final List<Integer> row = new ArrayList<>(List.of(first));
+        for (int c = 0; c < row.size(); c++) {
+            final Block at = props.get(row.get(c)).box();
+            // a little on the way it is pushed, and a little short top and bottom: what it would meet
+            final Block nudged = new Block(at.x() + into.x() * CONTACT, at.z() + into.z() * CONTACT, at.halfWidth(),
+                    at.halfDepth(), at.yaw(), at.bottom() + 1, at.top() - 1);
+            final double here = at.x() * into.x() + at.z() * into.z();
+            for (int j = 0; j < props.size(); j++) {
+                if (row.contains(j) || after.broken(props.get(j).piece())) {
+                    continue;
+                }
+                final Block other = props.get(j).box();
+                if (other.x() * into.x() + other.z() * into.z() > here && nudged.overlaps(other)) {
+                    row.add(j);
+                }
+            }
+        }
+        return row;
     }
 
     /**

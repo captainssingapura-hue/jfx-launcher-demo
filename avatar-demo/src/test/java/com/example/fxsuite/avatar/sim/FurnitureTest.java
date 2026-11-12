@@ -133,4 +133,96 @@ class FurnitureTest {
         assertTrue(events.stream().anyMatch(e -> e instanceof Event.Broke b && b.by() == Weapon.FALL
                 && b.fruit() == Fruit.WATERMELON));
     }
+
+    /** The start, its first {@code count} watermelons set down in a row in the open, end to end along x, from x = 300; and the avatar behind them, facing along it. */
+    private static Play row(final int count) {
+        final Play start = Play.start(false);
+        final List<Prop> props = new ArrayList<>(start.props());
+        final List<Integer> melons = onTheTable(start);
+        for (int i = 0; i < count; i++) {
+            final Prop melon = props.get(melons.get(i));
+            props.set(melons.get(i), new Prop(melon.piece(), melon.thing(),
+                    new Place(300 + i * (Fruit.WATERMELON.length() + 2), 300, 0, 0)));
+        }
+        final Vec3 behind = new Vec3(300 - Fruit.WATERMELON.length() / 2 - Body.RADIUS - 3, 0, 300);
+        return new Play(new Avatar(Body.standing(behind, 90), false), start.damage(), start.sky(), start.lifts(),
+                start.people(), props);
+    }
+
+    private static double x(final Play play, final int k) {
+        return play.props().get(onTheTable(Play.start(false)).get(k)).place().x();
+    }
+
+    @Test
+    void aRowOfMelonsPushedGoesAlongTogether() {
+        final Controls walk = new Controls(1, 0, 0, 0, false, false, 0);
+        final Play row = run(row(3), walk, 1, new ArrayList<>());
+        for (int k = 0; k < 3; k++) {
+            assertTrue(x(row, k) - (300 + k * (Fruit.WATERMELON.length() + 2)) > 20, "melon " + k + " pushed along");
+        }
+        for (int k = 0; k < 2; k++) {
+            assertTrue(x(row, k + 1) - x(row, k) >= Fruit.WATERMELON.length() - 1e-6, "and never into each other");
+        }
+        // three is heavier going than one
+        final Play one = run(row(1), walk, 1, new ArrayList<>());
+        assertTrue(x(one, 0) - 300 > x(row, 0) - 300 + 20, "one goes further than three: " + (x(one, 0) - 300)
+                + " against " + (x(row, 0) - 300));
+    }
+
+    @Test
+    void aRowPushedAgainstAPillarGoesNowhere() {
+        final Play start = Play.start(false);
+        final Block pillar = new Course().pieces().stream().filter(p -> p.kind() == Course.Kind.PILLAR
+                && p.block().top() > 300).findFirst().orElseThrow().block();
+        // two melons end to end, up against the pillar's near face, and the avatar behind them
+        final double face = pillar.x() - pillar.halfWidth();
+        final List<Prop> props = new ArrayList<>(start.props());
+        final List<Integer> melons = onTheTable(start);
+        final double[] at = {face - Fruit.WATERMELON.length() / 2 - 1, face - Fruit.WATERMELON.length() * 1.5 - 3};
+        for (int i = 0; i < 2; i++) {
+            final Prop melon = props.get(melons.get(i));
+            props.set(melons.get(i), new Prop(melon.piece(), melon.thing(), new Place(at[i], pillar.z(), 0, 0)));
+        }
+        final Vec3 behind = new Vec3(at[1] - Fruit.WATERMELON.length() / 2 - Body.RADIUS - 3, 0, pillar.z());
+        Play play = new Play(new Avatar(Body.standing(behind, 90), false), start.damage(), start.sky(),
+                start.lifts(), start.people(), props);
+        play = run(play, new Controls(1, 0, 0, 0, false, false, 0), 1, new ArrayList<>());
+        for (int i = 0; i < 2; i++) {
+            final Prop melon = play.props().get(melons.get(i));
+            assertEquals(at[i], melon.place().x(), 4, "melon " + i + " hardly moved: no more than closing up the gaps");
+            assertFalse(melon.box().overlaps(pillar), "and not into the pillar");
+        }
+    }
+
+    @Test
+    void aMelonPushedIntoTheTablePushesTheTableToo() {
+        final Play start = Play.start(false);
+        final Prop table = start.props().get(table(start));
+        final Place t = table.place();
+        // everything loose on the deck put out of the way but the table and one melon, set against its end
+        final List<Prop> props = new ArrayList<>(start.props());
+        final List<Integer> onIt = onTheTable(start);
+        final int melonAt = props.stream().filter(p -> p.thing() == Fruit.WATERMELON && p.place().height() == t.height())
+                .map(props::indexOf).findFirst().orElseThrow();
+        for (int k = 0; k < props.size(); k++) {
+            if (k != table(start) && k != melonAt && !onIt.contains(k)) {
+                final Prop away = props.get(k);
+                props.set(k, new Prop(away.piece(), away.thing(), new Place(-3000 - k * 100, -3000, 0, 0)));
+            }
+        }
+        final Vec3 end = new Vec3(t.x(), 0, t.z()).add(Num.right(t.yaw())
+                .multiply(Furniture.TABLE.length() / 2 + Fruit.WATERMELON.length() / 2 + 2));
+        final Prop melon = props.get(melonAt);
+        props.set(melonAt, new Prop(melon.piece(), melon.thing(), new Place(end.x(), end.z(), t.height(), t.yaw())));
+        final Vec3 behind = new Vec3(end.x(), -t.height(), end.z()).add(Num.right(t.yaw())
+                .multiply(Fruit.WATERMELON.length() / 2 + Body.RADIUS + 3));
+        Play play = new Play(new Avatar(Body.standing(behind, Num.wrap(t.yaw() - 90)), false), start.damage(),
+                start.sky(), start.lifts(), start.people(), props);
+        play = run(play, new Controls(1, 0, 0, 0, false, false, 0), 1, new ArrayList<>());
+        final Place moved = play.props().get(table(start)).place();
+        final double went = new Vec3(moved.x() - t.x(), 0, moved.z() - t.z()).dotProduct(Num.right(t.yaw()));
+        assertTrue(went < -15, "the table pushed along by the melon: " + went);
+        assertFalse(play.props().get(melonAt).box().overlaps(play.props().get(table(start)).box()),
+                "the melon never in the table");
+    }
 }
