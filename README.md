@@ -376,34 +376,10 @@ a release never changes.
 
 ## Avatar demo
 
-`avatar-demo` is a standalone experiment in plain JavaFX 3D: a small robot built from boxes
-that walks, runs and jumps around a world of pillars, crates and floating gates, followed by
-a chase camera. Put on its jet-pack (twin jet engines and a pair of small wings that open in
-flight) and it flies as a drone does: upright, tipped gently toward where it goes, holding
-its place when let go. There is no mesh or skin. Each limb is a rigid part hung
-from a joint, and the animation is worked out each frame from how the body moves, the way
-blocky game characters are animated. Everything in the world is solid: the avatar slides
-along what it runs into, stands on top of blocks, jumps up onto the lower crates (try the
-staircase straight ahead of the start), falls off edges, and lands on pillars it flies down
-onto. The world's layout (`Course`) is plain data that is both drawn and collided with, so
-what you see is what stops you. The movement and collision, the pose and the camera are
-pure maths (`Avatar`, `Body`, `Obstacles`, `Gait`, `Chase`) and are unit-tested. `BoxRig`,
-`JetPack` and `World` are the only scene-graph code.
-
-```bash
-mvn -pl avatar-demo -am package
-java -jar avatar-demo/target/avatar-demo.jar
-```
-
-The mouse turns the avatar with no button held, as in games: the cursor is hidden and kept
-in the window, so clicks stay free for actions, and Esc frees the mouse or takes it back.
-The keys move without turning: W/S ahead and back, A/D sideways, Shift runs or boosts,
-Space jumps (or climbs while flying), Ctrl descends. J puts the jet-pack on or takes it off
-(off in flight, the avatar falls); wearing it, F takes off or stops flying. Hold Q/E to look
-round; C puts the camera behind; scroll to zoom. For an unattended picture, which leaves the
-mouse alone: `-Davatar.script="J;F;SPACE:1.2;W+SHIFT+@90:2" -Davatar.snapshot=out.png`
-(`@90` turns 90° over the step, as the mouse would; `-Davatar.pack=true` starts with the
-pack on).
+`avatar-demo` is a standalone experiment, apart from the launcher: a box-rig robot in plain
+JavaFX 3D that walks, runs, jumps and flies a jet-pack with swing wings around a solid world,
+with sound, and a bench for working on the sounds. See
+[avatar-demo/README.md](avatar-demo/README.md).
 
 ## Roadmap (next)
 

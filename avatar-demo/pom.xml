@@ -14,6 +14,7 @@
         chase camera. Plain JavaFX 3D: the figure is built from boxes and animated by turning
         its joints, the way blocky game characters are. One self-contained jar that carries
         JavaFX: java -jar target/avatar-demo.jar
+        (and a sound bench: java -jar target/avatar-demo.jar --bench)
     </description>
 
     <properties>
@@ -21,6 +22,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javafx.version>25</javafx.version>
         <javafx.classifier>win</javafx.classifier>
+        <!-- the optional OpenAL output; without it the sound falls back to Java Sound -->
+        <lwjgl.version>3.4.3</lwjgl.version>
+        <lwjgl.natives>natives-windows</lwjgl.natives>
     </properties>
 
     <dependencies>
@@ -35,6 +39,22 @@
         <dependency>
             <groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version><classifier>${javafx.classifier}</classifier>
+        </dependency>
+
+        <!-- OpenAL, through LWJGL, with its native libraries (OpenAL Soft included) -->
+        <dependency>
+            <groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId><artifactId>lwjgl</artifactId><version>${lwjgl.version}</version>
+            <classifier>${lwjgl.natives}</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.lwjgl</groupId><artifactId>lwjgl-openal</artifactId><version>${lwjgl.version}</version>
+            <classifier>${lwjgl.natives}</classifier>
         </dependency>
 
         <dependency>
@@ -73,6 +93,7 @@
                                     <mainClass>com.example.fxsuite.avatar.Main</mainClass>
                                     <manifestEntries>
                                         <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+                                        <Multi-Release>true</Multi-Release>
                                     </manifestEntries>
                                 </transformer>
                             </transformers>
