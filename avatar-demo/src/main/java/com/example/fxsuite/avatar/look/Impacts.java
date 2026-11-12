@@ -14,6 +14,8 @@ import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.transform.Rotate;
 
+import java.util.List;
+
 /**
  * What the weapons do to the world, as seen: a tracer along each round's flight, sparks where a
  * round or the blade strikes a block, a puff of dust off the ground, and marks left behind, a
@@ -61,11 +63,11 @@ public final class Impacts {
     }
 
     /** Adds what this frame's events made, and moves on what is already flying or fading. */
-    public void show(final Avatar avatar) {
+    public void show(final Avatar avatar, final List<Event> events) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(0.1, time - lastTime));
         lastTime = time;
-        for (final Event event : avatar.events()) {
+        for (final Event event : events) {
             if (event instanceof Event.Fired fired) {
                 // the Gatling gun's belt carries a tracer every third round, as real belts do:
                 // forty a second would be one solid beam

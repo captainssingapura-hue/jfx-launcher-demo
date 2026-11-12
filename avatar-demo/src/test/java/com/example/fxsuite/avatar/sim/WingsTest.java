@@ -42,10 +42,10 @@ class WingsTest {
     void theAvatarSwingsItsWingsTowardTheScheduleAFewFramesAtATime() {
         Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, 0), true).toggledFlight();
         assertEquals(Wings.STOWED, avatar.sweep(), "just taken off: still stowed");
-        avatar = avatar.step(Controls.NONE, FRAME, Obstacles.NONE);
+        avatar = avatar.step(Controls.NONE, FRAME, Obstacles.NONE).avatar();
         assertTrue(avatar.sweep() < Wings.STOWED && avatar.sweep() > Wings.SPREAD, "on its way: " + avatar.sweep());
         for (int i = 0; i < 60; i++) {
-            avatar = avatar.step(Controls.NONE, FRAME, Obstacles.NONE);
+            avatar = avatar.step(Controls.NONE, FRAME, Obstacles.NONE).avatar();
         }
         assertEquals(Wings.SPREAD, avatar.sweep(), 0.5, "spread to hover after a second");
         assertEquals(Wings.STOWED, avatar.toggledPack().toggledPack().sweep(), "a pack put back on is stowed");
@@ -116,7 +116,7 @@ class WingsTest {
         final Obstacles wall = new Obstacles(List.of(Block.standing(wallAt + 100, 0, 200, 2000, 1000, 0)));
         Avatar avatar = new Avatar(flying(new Vec3(0, -500, 0), 0, 0), true);
         for (int i = 0; i < 120; i++) {
-            avatar = avatar.step(new Controls(0, 1, 0, 0, false), FRAME, wall).delivered();
+            avatar = avatar.step(new Controls(0, 1, 0, 0, false), FRAME, wall).avatar();
         }
         final double gap = wallAt - avatar.body().position().x();
         assertTrue(gap >= spread.reach() - 1, "the tip stops at the wall: " + gap + " from it");
@@ -135,10 +135,10 @@ class WingsTest {
         boolean bumped = false;
         double deepest = 0;
         for (int f = 0; f < 60; f++) {
-            avatar = avatar.step(new Controls(1, 0, 0, 0, false), FRAME, world);
-            passed += avatar.events().stream().filter(e -> e instanceof Event.PassedGate).count();
-            bumped |= avatar.events().stream().anyMatch(e -> e instanceof Event.Bumped);
-            avatar = avatar.delivered();
+            final Avatar.Stepped stepped = avatar.step(new Controls(1, 0, 0, 0, false), FRAME, world);
+            passed += stepped.events().stream().filter(e -> e instanceof Event.PassedGate).count();
+            bumped |= stepped.events().stream().anyMatch(e -> e instanceof Event.Bumped);
+            avatar = stepped.avatar();
             deepest = Math.max(deepest, intoBlocks(avatar, world));
         }
         return new Flight(passed, bumped, deepest);

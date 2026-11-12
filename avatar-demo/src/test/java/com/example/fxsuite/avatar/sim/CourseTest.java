@@ -104,9 +104,9 @@ class CourseTest {
         Avatar avatar = new Avatar(new Body(start, gate.yaw(), gate.yaw(), Body.FLY, 0, 0, 0, true, false, 0, 0), true);
         long passed = 0;
         for (int f = 0; f < 60; f++) {
-            avatar = avatar.step(new Controls(1, 0, 0, 0, false), FRAME, world);
-            passed += avatar.events().stream().filter(e -> e instanceof Event.PassedGate).count();
-            avatar = avatar.delivered();
+            final Avatar.Stepped stepped = avatar.step(new Controls(1, 0, 0, 0, false), FRAME, world);
+            passed += stepped.events().stream().filter(e -> e instanceof Event.PassedGate).count();
+            avatar = stepped.avatar();
         }
         return passed;
     }

@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.audio.Outputs;
 import com.example.fxsuite.avatar.audio.Space;
 import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
 import com.example.fxsuite.avatar.sound.Cues;
@@ -73,15 +74,15 @@ public final class Hearing implements AutoCloseable {
     }
 
     /** As {@link #hear(Avatar, Chase, List)}, with no airships about. */
-    public void hear(final Avatar avatar, final Chase chase) {
-        hear(avatar, chase, List.of());
+    public void hear(final Avatar avatar, final List<Event> events, final Chase chase) {
+        hear(avatar, events, chase, List.of());
     }
 
     /**
      * One frame: the listener moved, this frame's sounds played, the loops steered; the nearest
      * of the {@code airships} still in the sky droning where it hangs.
      */
-    public void hear(final Avatar avatar, final Chase chase, final List<Vec3> airships) {
+    public void hear(final Avatar avatar, final List<Event> events, final Chase chase, final List<Vec3> airships) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, time - lastTime);
         lastTime = time;
@@ -89,7 +90,7 @@ public final class Hearing implements AutoCloseable {
         ducked *= Math.exp(-seconds / DUCK_BACK);
 
         speakers.listen(chase.pivot(), chase.yaw());
-        final Cues.Heard heard = Cues.of(avatar, profile, airships);
+        final Cues.Heard heard = Cues.of(avatar, events, profile, airships);
         for (final Cues.Play play : heard.plays()) {
             final Sound sound = play.sound();
             final Clip clip = clip(sound, play.amount(), nextTake(sound));

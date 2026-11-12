@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.sound;
 
+import com.example.fxsuite.avatar.sim.Action;
 import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
@@ -26,19 +27,36 @@ class CuesTest {
 
     private static final Profile PROFILE = Profiles.ROBOT;
 
-    /** An avatar at the origin facing +z, moving at {@code speed} on the ground, with these events. */
-    private static Avatar with(final double speed, final boolean pack, final Event... events) {
-        final Body body = new Body(Vec3.ZERO, 0, 0, speed, 0, 0, 0, false, true, 0, 0);
-        return new Avatar(body, pack, List.of(events));
+    /** An avatar as it stands after a step, and what that step reported. */
+    private record Moment(Avatar avatar, List<Event> events) {
     }
 
-    private static List<Sound> played(final Avatar avatar) {
-        return Cues.of(avatar, PROFILE).plays().stream().map(Cues.Play::sound).toList();
+    /** An avatar at the origin facing +z, moving at {@code speed} on the ground, and these events. */
+    private static Moment with(final double speed, final boolean pack, final Event... events) {
+        final Body body = new Body(Vec3.ZERO, 0, 0, speed, 0, 0, 0, false, true, 0, 0);
+        return new Moment(new Avatar(body, pack), List.of(events));
+    }
+
+    /** A step, as a moment: the avatar after it, and what it reported. */
+    private static Moment of(final Avatar.Stepped stepped) {
+        return new Moment(stepped.avatar(), stepped.events());
+    }
+
+    private static Cues.Heard of(final Moment moment, final Profile profile) {
+        return Cues.of(moment.avatar(), moment.events(), profile);
+    }
+
+    private static Cues.Heard of(final Moment moment, final Profile profile, final List<Vec3> airships) {
+        return Cues.of(moment.avatar(), moment.events(), profile, airships);
+    }
+
+    private static List<Sound> played(final Moment moment) {
+        return of(moment, PROFILE).plays().stream().map(Cues.Play::sound).toList();
     }
 
     @Test
     void eachFootIsHeardWhereItFallsAndOnWhat() {
-        final List<Cues.Play> plays = Cues.of(with(Body.WALK, false,
+        final List<Cues.Play> plays = of(with(Body.WALK, false,
                 new Event.Footfall(true, Surface.GROUND), new Event.Footfall(false, Surface.BLOCK)), PROFILE).plays();
         assertEquals(Sound.STEP_GROUND, plays.get(0).sound());
         assertEquals(Sound.STEP_BLOCK, plays.get(1).sound());
@@ -46,7 +64,7 @@ class CuesTest {
         assertTrue(plays.get(0).at().dotProduct(right) < 0, "the left foot, on the left");
         assertTrue(plays.get(1).at().dotProduct(right) > 0, "the right foot, on the right");
         final double walking = plays.get(0).amount();
-        final double running = Cues.of(with(Body.RUN, false, new Event.Footfall(true, Surface.GROUND)), PROFILE)
+        final double running = of(with(Body.RUN, false, new Event.Footfall(true, Surface.GROUND)), PROFILE)
                 .plays().get(0).amount();
         assertTrue(running > walking, "running treads heavier: " + running + " > " + walking);
         assertEquals(1, running, 1e-9);
@@ -54,9 +72,9 @@ class CuesTest {
 
     @Test
     void aLandingIsHeardAsHardAsItFellAndOnWhat() {
-        final Cues.Play hop = Cues.of(with(0, false, new Event.Landed(Body.JUMP, false, Surface.GROUND)), PROFILE)
+        final Cues.Play hop = of(with(0, false, new Event.Landed(Body.JUMP, false, Surface.GROUND)), PROFILE)
                 .plays().get(0);
-        final Cues.Play drop = Cues.of(with(0, false, new Event.Landed(4000, false, Surface.BLOCK)), PROFILE)
+        final Cues.Play drop = of(with(0, false, new Event.Landed(4000, false, Surface.BLOCK)), PROFILE)
                 .plays().get(0);
         assertEquals(Sound.LANDING, hop.sound());
         assertEquals(Sound.LANDING_BLOCK, drop.sound());
@@ -78,14 +96,14 @@ class CuesTest {
 
     @Test
     void thePackSoundsFromTheBackAndAGateAtTheEar() {
-        final Cues.Play on = Cues.of(with(0, false, new Event.PackOn()), PROFILE).plays().get(0);
+        final Cues.Play on = of(with(0, false, new Event.PackOn()), PROFILE).plays().get(0);
         assertTrue(on.at().dotProduct(Num.heading(0)) < 0, "behind");
         assertTrue(-on.at().y() > Body.TALL / 2, "up the back");
-        final Cues.Play gate = Cues.of(with(0, true, new Event.PassedGate(Body.BOOST)), PROFILE).plays().get(0);
+        final Cues.Play gate = of(with(0, true, new Event.PassedGate(Body.BOOST)), PROFILE).plays().get(0);
         assertEquals(Sound.GATE, gate.sound());
         assertNull(gate.at());
         assertEquals(1, gate.amount(), 1e-9);
-        final Cues.Play bump = Cues.of(with(0, false, new Event.Bumped(Body.RUN)), PROFILE).plays().get(0);
+        final Cues.Play bump = of(with(0, false, new Event.Bumped(Body.RUN)), PROFILE).plays().get(0);
         assertEquals(Sound.BUMP, bump.sound());
         assertEquals(Body.RUN / Body.BOOST, bump.amount(), 1e-9);
     }
@@ -94,7 +112,7 @@ class CuesTest {
     void shotsSoundFromEachMuzzleAndStrokesFromTheBlade() {
         final Body still = Body.standing(Vec3.ZERO, 0);
         final Vec3 far = new Vec3(0, -130, 5000);
-        final List<Cues.Play> shots = Cues.of(with(0, false, new Event.Fired(true, Arms.muzzle(still, true), far),
+        final List<Cues.Play> shots = of(with(0, false, new Event.Fired(true, Arms.muzzle(still, true), far),
                 new Event.Fired(false, Arms.muzzle(still, false), far)), PROFILE).plays();
         assertEquals(List.of(Sound.RIFLE_SHOT, Sound.RIFLE_SHOT), shots.stream().map(Cues.Play::sound).toList());
         assertTrue(shots.get(0).at().dotProduct(Num.right(0)) < 0, "the left rifle, on the left");
@@ -106,7 +124,7 @@ class CuesTest {
                         new Event.Struck(far, new Vec3(0, -1, 0), Surface.GROUND, Weapon.RIFLES),
                         new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK, Weapon.GLAIVE),
                         new Event.Struck(far, new Vec3(0, -1, 0), Surface.GROUND, Weapon.GLAIVE))));
-        assertEquals(far, Cues.of(with(0, false, new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK,
+        assertEquals(far, of(with(0, false, new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK,
                 Weapon.RIFLES)), PROFILE).plays().get(0).at(), "heard where it struck");
         assertEquals(Arms.muzzle(still, true), shots.get(0).at(), "and a shot from its muzzle");
         assertEquals(List.of(Sound.GLAIVE_CLEAVE, Sound.GLAIVE_SWEEP),
@@ -122,7 +140,7 @@ class CuesTest {
         final Block crate = Block.standing(0, 1000, 260, 260, 240, 0);
         final Block drone = new Block(0, 1000, 65, 65, 0, 400, 440);
         final Vec3 hit = new Vec3(0, -100, 990);
-        final List<Cues.Play> plays = Cues.of(with(0, false,
+        final List<Cues.Play> plays = of(with(0, false,
                 new Event.Broke(1, Course.Kind.DUMMY, dummy, hit, Weapon.RIFLES),
                 new Event.Broke(2, Course.Kind.CRATE, crate, hit, Weapon.GATLING),
                 new Event.Broke(3, Course.Kind.DRONE, drone, hit, Weapon.RIFLES)), PROFILE).plays();
@@ -137,16 +155,16 @@ class CuesTest {
     void theNearestAirshipDronesWhereItHangsAndOneComingDownIsHeard() {
         final Vec3 near = new Vec3(0, -3000, 5000);
         final Vec3 far = new Vec3(9000, -3000, 0);
-        final Cues.Hum engines = Cues.of(with(0, false), PROFILE, List.of(far, near)).hums().stream()
+        final Cues.Hum engines = of(with(0, false), PROFILE, List.of(far, near)).hums().stream()
                 .filter(h -> h.loop() == Sound.AIRSHIP_ENGINES).findFirst().orElseThrow();
         assertEquals(near, engines.at());
         assertTrue(engines.level().gain() > 0);
-        assertEquals(0, Cues.of(with(0, false), PROFILE, List.of()).hums().stream()
+        assertEquals(0, of(with(0, false), PROFILE, List.of()).hums().stream()
                 .filter(h -> h.loop() == Sound.AIRSHIP_ENGINES).findFirst().orElseThrow().level().gain(), 1e-9,
                 "all brought down: silent");
 
         final Block airship = Course.AIRSHIP_BOX.placed(0, 3000, 5000, 0);
-        final Cues.Play down = Cues.of(with(0, false, new Event.Broke(4, Course.Kind.AIRSHIP, airship,
+        final Cues.Play down = of(with(0, false, new Event.Broke(4, Course.Kind.AIRSHIP, airship,
                 near, Weapon.GATLING)), PROFILE).plays().getFirst();
         assertEquals(Sound.BREAK_AIRSHIP, down.sound());
         assertEquals(new Vec3(0, -3025, 5000), down.at(), "from the middle of where it hung");
@@ -154,36 +172,34 @@ class CuesTest {
 
     @Test
     void theGatlingGunIsHeardAsItsRoarNotRoundByRound() {
-        Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), false).drawn(Weapon.GATLING);
+        Moment gun = of(new Avatar(Body.standing(Vec3.ZERO, 0), false).act(new Action.Draw(Weapon.GATLING)));
         assertEquals(List.of(Sound.GATLING_DRAWN), played(gun));
-        gun = gun.delivered();
         for (int i = 0; i < 60; i++) {
-            gun = gun.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE);
+            gun = of(gun.avatar().step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE));
             assertTrue(played(gun).stream().noneMatch(s -> s == Sound.RIFLE_SHOT), "no shot a round");
-            gun = gun.delivered();
         }
-        gun = gun.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE);
-        final Cues.Heard heard = Cues.of(gun, PROFILE);
+        gun = of(gun.avatar().step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE));
+        final Cues.Heard heard = of(gun, PROFILE);
         for (final Cues.Hum hum : heard.hums()) {
             if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
                 assertTrue(hum.level().gain() > 0, hum.loop() + " sounding, a second in");
-                assertEquals(Arms.gatlingMuzzle(gun.body()), hum.at(), "from the gun");
+                assertEquals(Arms.gatlingMuzzle(gun.avatar().body()), hum.at(), "from the gun");
             }
         }
     }
 
     @Test
     void everyLoopIsSteeredEveryFrameTheJetsOnlyWhenFiring() {
-        final Cues.Heard standing = Cues.of(with(0, true), PROFILE);
+        final Cues.Heard standing = of(with(0, true), PROFILE);
         assertEquals(Sound.loops(), standing.hums().stream().map(Cues.Hum::loop).toList());
         assertTrue(standing.hums().stream().allMatch(h -> h.level().gain() == 0), "quiet on the ground");
         assertTrue(standing.plays().isEmpty());
 
-        Avatar flying = new Avatar(Body.standing(Vec3.ZERO, 0), true).toggledFlight().delivered();
+        Avatar flying = new Avatar(Body.standing(Vec3.ZERO, 0), true).toggledFlight();
         for (int i = 0; i < 90; i++) {
-            flying = flying.step(new Controls(1, 0, 0, 0, true), 1.0 / 60, Obstacles.NONE).delivered();
+            flying = flying.step(new Controls(1, 0, 0, 0, true), 1.0 / 60, Obstacles.NONE).avatar();
         }
-        final Cues.Heard boosting = Cues.of(flying, PROFILE);
+        final Cues.Heard boosting = Cues.of(flying, List.of(), PROFILE);
         for (final Cues.Hum hum : boosting.hums()) {
             if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
                 assertEquals(0, hum.level().gain(), 1e-9, "no gun drawn, no gun heard");

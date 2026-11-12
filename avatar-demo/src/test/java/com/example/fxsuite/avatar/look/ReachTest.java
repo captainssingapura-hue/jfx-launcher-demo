@@ -47,8 +47,8 @@ class ReachTest {
 
     /** The pose of an avatar holding the Gatling gun. */
     private static Pose holding(final Body body, final double aim) {
-        final Avatar avatar = new Avatar(body, true).drawn(Weapon.GATLING).delivered()
-                .step(new Controls(0, 0, 0, 0, false, false, aim), 1.0 / 60, Obstacles.NONE);
+        final Avatar avatar = new Avatar(body, true).drawn(Weapon.GATLING)
+                .step(new Controls(0, 0, 0, 0, false, false, aim), 1.0 / 60, Obstacles.NONE).avatar();
         return Gait.of(avatar, 0, 0);
     }
 
@@ -85,14 +85,14 @@ class ReachTest {
             was = now;
         }
         // firing, frame after frame: the gun is held dead still, and so is the arm on it
-        Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), true).drawn(Weapon.GATLING).delivered();
+        Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), true).drawn(Weapon.GATLING);
         final Controls firing = new Controls(0, 0, 0, 0, false, true);
         for (int i = 0; i < 60; i++) {
-            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).delivered();
+            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).avatar();
         }
-        final Pose first = Gait.of(gun.step(firing, 1.0 / 60, Obstacles.NONE), 0, 0);
+        final Pose first = Gait.of(gun.step(firing, 1.0 / 60, Obstacles.NONE).avatar(), 0, 0);
         for (int i = 0; i < 20; i++) {
-            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).delivered();
+            gun = gun.step(firing, 1.0 / 60, Obstacles.NONE).avatar();
             final Pose now = Gait.of(gun, 0, 0);
             assertEquals(first.leftTwist(), now.leftTwist(), 1e-6, "the arm holds still as it fires");
             assertEquals(first.leftArm(), now.leftArm(), 1e-6);

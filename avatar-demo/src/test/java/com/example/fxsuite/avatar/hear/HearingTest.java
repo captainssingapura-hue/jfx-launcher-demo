@@ -107,13 +107,12 @@ class HearingTest {
     private final Hearing hearing = new Hearing(speakers, List.of(), Profiles.ROBOT);
     private final Chase chase = Chase.behind(new Vec3(0, -160, 0), 30);
 
-    private static Avatar stepping(final Event... events) {
-        return new Avatar(Body.standing(Vec3.ZERO, 0), true, List.of(events));
-    }
+    /** Standing still, wearing the pack. */
+    private static final Avatar STANDING = new Avatar(Body.standing(Vec3.ZERO, 0), true);
 
     @Test
     void theListenerIsAtTheAvatarFacingAsTheCameraDoes() {
-        hearing.hear(stepping(), chase);
+        hearing.hear(STANDING, List.of(), chase);
         assertEquals(chase.pivot(), speakers.ear);
         assertEquals(chase.yaw(), speakers.facing);
     }
@@ -121,7 +120,7 @@ class HearingTest {
     @Test
     void stepsInARowAreDifferentTakesMadeOnceAndKept() {
         for (int i = 0; i < 8; i++) {
-            hearing.hear(stepping(new Event.Footfall(i % 2 == 0, Surface.GROUND)), chase);
+            hearing.hear(STANDING, List.of(new Event.Footfall(i % 2 == 0, Surface.GROUND)), chase);
         }
         final List<Clip> steps = speakers.played;
         assertEquals(8, steps.size());
@@ -132,16 +131,16 @@ class HearingTest {
 
     @Test
     void theLoopsStartOnceAndStartAgainInAnotherProfile() {
-        hearing.hear(stepping(), chase);
-        hearing.hear(stepping(), chase);
+        hearing.hear(STANDING, List.of(), chase);
+        hearing.hear(STANDING, List.of(), chase);
         final int loops = Sound.loops().size();
         assertEquals(loops, speakers.looped.size(), "one each, kept running");
         hearing.nextProfile();
         assertEquals(Profiles.ARCADE, hearing.profile());
         assertEquals(loops, speakers.stopped);
-        hearing.hear(stepping(), chase);
+        hearing.hear(STANDING, List.of(), chase);
         assertEquals(2 * loops, speakers.looped.size(), "started again, in arcade sounds");
-        hearing.hear(stepping(new Event.PackOn()), chase);
+        hearing.hear(STANDING, List.of(new Event.PackOn()), chase);
         assertTrue(speakers.played.get(0).name().startsWith("pack-on"));
         hearing.nextProfile();
         assertEquals(Profiles.ROBOT, hearing.profile(), "and round to the first");
@@ -150,16 +149,16 @@ class HearingTest {
     @Test
     void aBlastCarriesFarAndPushesTheLoopsDownForAMoment() {
         // flying, so the jets' loops are going
-        Avatar flying = new Avatar(Body.standing(Vec3.ZERO, 0), true).toggledFlight().delivered();
-        flying = flying.step(new Controls(0, 0, 0, 0, false), 0.5, Obstacles.NONE).delivered();
-        hearing.hear(flying, chase);
+        Avatar flying = new Avatar(Body.standing(Vec3.ZERO, 0), true).toggledFlight();
+        flying = flying.step(new Controls(0, 0, 0, 0, false), 0.5, Obstacles.NONE).avatar();
+        hearing.hear(flying, List.of(), chase);
         final int rumble = Sound.loops().indexOf(Sound.JET_RUMBLE);
         final double steady = speakers.gains.get(rumble)[0];
         assertTrue(steady > 0);
 
         final Block drone = new Block(0, 800, 65, 65, 0, 280, 320);
-        hearing.hear(flying.reporting(List.of(new Event.Broke(1, Course.Kind.DRONE, drone, new Vec3(0, -300, 790),
-                Weapon.GATLING))), chase);
+        hearing.hear(flying, List.of(new Event.Broke(1, Course.Kind.DRONE, drone, new Vec3(0, -300, 790),
+                Weapon.GATLING)), chase);
         assertTrue(speakers.played.getLast().name().startsWith("break-drone"));
         assertEquals(Sound.BREAK_DRONE.reach(), speakers.near.getLast(), "heard at full out to 15 m");
         assertTrue(Sound.BREAK_DRONE.reach() > 800, "so in full from 8 m off");
@@ -168,15 +167,15 @@ class HearingTest {
 
         // and back up over the next second or two
         for (int i = 0; i < 4; i++) {
-            flying = flying.step(new Controls(0, 0, 0, 0, false), 0.5, Obstacles.NONE).delivered();
-            hearing.hear(flying, chase);
+            flying = flying.step(new Controls(0, 0, 0, 0, false), 0.5, Obstacles.NONE).avatar();
+            hearing.hear(flying, List.of(), chase);
         }
         assertTrue(hearing.ducked() < 0.02, "back up: " + hearing.ducked());
     }
 
     @Test
     void aFootstepFadesAsItAlwaysHas() {
-        hearing.hear(stepping(new Event.Footfall(true, Surface.GROUND)), chase);
+        hearing.hear(STANDING, List.of(new Event.Footfall(true, Surface.GROUND)), chase);
         assertEquals(Space.NEAR, speakers.near.getLast());
         assertEquals(0, hearing.ducked(), "and pushes nothing down");
     }

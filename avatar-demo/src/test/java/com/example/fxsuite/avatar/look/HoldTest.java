@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HoldTest {
 
     private static Avatar holding(final Body body, final Weapon weapon) {
-        return new Avatar(body, true).drawn(weapon).delivered();
+        return new Avatar(body, true).drawn(weapon);
     }
 
     /**
@@ -45,7 +45,7 @@ class HoldTest {
         assertEquals(90, forearm(looking, looking.leftArm(), looking.leftElbow()), 1e-9, "not aimed by the look");
         // aimed up, the forearms tilt up as far as the rounds do
         final Avatar aimed = holding(standing, Weapon.RIFLES)
-                .step(new Controls(0, 0, 0, 0, false, false, 25), 1.0 / 60, Obstacles.NONE);
+                .step(new Controls(0, 0, 0, 0, false, false, 25), 1.0 / 60, Obstacles.NONE).avatar();
         final Pose up = Gait.of(aimed, 0, 0);
         assertEquals(90 + 25, forearm(up, up.leftArm(), up.leftElbow()), 1e-9, "tilted with the aim");
     }
@@ -53,11 +53,11 @@ class HoldTest {
     @Test
     void eachRoundKicksItsOwnForearmAndItSettles() {
         Avatar avatar = holding(Body.standing(Vec3.ZERO, 0), Weapon.RIFLES);
-        avatar = avatar.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE);
+        avatar = avatar.step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE).avatar();
         final Pose fired = Gait.of(avatar, 0, 0);
         assertTrue(fired.leftElbow() > fired.rightElbow() + 5, "the left fired first, and kicked up");
         for (int i = 0; i < 30; i++) {
-            avatar = avatar.step(Controls.NONE, 1.0 / 60, Obstacles.NONE);
+            avatar = avatar.step(Controls.NONE, 1.0 / 60, Obstacles.NONE).avatar();
         }
         final Pose settled = Gait.of(avatar, 0, 0);
         assertEquals(settled.leftElbow(), settled.rightElbow(), 0.01, "and settles back");

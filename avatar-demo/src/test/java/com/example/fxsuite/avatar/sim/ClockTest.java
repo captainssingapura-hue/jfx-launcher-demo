@@ -76,7 +76,7 @@ class ClockTest {
     private static Play play(final DoubleSupplier frames) {
         final Course course = new Course();
         Play play = new Play(new Avatar(Body.standing(Vec3.ZERO, Course.RANGE_HEADING), false)
-                .drawn(Weapon.RIFLES).delivered(), Damage.of(course));
+                .drawn(Weapon.RIFLES), Damage.of(course));
         final Controls charge = new Controls(0.6, 0, 0, 0, false, true, 0);
         Clock clock = Clock.START;
         int steps = 0;
@@ -84,10 +84,9 @@ class ClockTest {
             final Clock.Ticked ticked = clock.advance(Math.min(frames.getAsDouble(), (360 - steps) * Clock.STEP));
             clock = ticked.clock();
             for (int i = 0; i < ticked.steps(); i++) {
-                play = play.step(charge, Clock.STEP);
+                play = play.step(charge, Clock.STEP).play();
             }
             steps += ticked.steps();
-            play = play.with(play.avatar().delivered());
         }
         assertEquals(360, steps);
         return play;

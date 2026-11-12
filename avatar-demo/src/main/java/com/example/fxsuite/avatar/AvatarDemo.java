@@ -15,6 +15,7 @@ import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -230,6 +231,8 @@ public final class AvatarDemo extends Application {
         turning += look.takeTurn() + scriptedTurn * seconds;
         final Clock.Ticked ticked = clock.advance(seconds);
         clock = ticked.clock();
+        // what happened in this frame's steps, for the effects and the sound: theirs to read, never the world's
+        final List<Event> happened = new ArrayList<>();
         for (int i = 0; i < ticked.steps(); i++) {
             final double turn = turning / (ticked.steps() - i);
             turning -= turn;
@@ -249,10 +252,11 @@ public final class AvatarDemo extends Application {
                 actions.clear();
             }
             before = avatar;
-            // the avatar moves, and what its blows did to the world is reported with the rest
-            final Play stepped = new Play(avatar, damage).step(controls, Clock.STEP);
-            avatar = stepped.avatar();
-            damage = stepped.damage();
+            // the avatar moves, its blows wear the world down, and what happened comes out beside them
+            final Play.Stepped stepped = new Play(avatar, damage).step(controls, Clock.STEP);
+            avatar = stepped.play().avatar();
+            damage = stepped.play().damage();
+            happened.addAll(stepped.events());
         }
         // what is seen and heard: the world between its last two steps, so it glides rather than ticks
         seen = avatar.between(before, ticked.blend());
@@ -266,13 +270,13 @@ public final class AvatarDemo extends Application {
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
         rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
-        impacts.show(avatar);
-        wreckage.show(avatar, world, damage.obstacles());
+        impacts.show(avatar, happened);
+        wreckage.show(avatar, happened, world, damage.obstacles());
         world.show(damage, seconds, chase.yaw());
         reticle.show(avatar, damage.obstacles(), chase.position());
         world.shadowUnder(body, damage.obstacles());
         // the airships still in the sky drone from the middle of their hulls
-        hearing.hear(avatar, chase, damage.standing(Course.Kind.AIRSHIP).stream()
+        hearing.hear(avatar, happened, chase, damage.standing(Course.Kind.AIRSHIP).stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList());
 
         // boosting widens the view a little, for a sense of speed
@@ -288,9 +292,6 @@ public final class AvatarDemo extends Application {
         eyePitch.setAngle(chase.pitch());
 
         showStatus();
-        // every output has seen this frame's events; what happens next starts a fresh list
-        this.avatar = this.avatar.delivered();
-        before = before.delivered();
     }
 
     private void showStatus() {

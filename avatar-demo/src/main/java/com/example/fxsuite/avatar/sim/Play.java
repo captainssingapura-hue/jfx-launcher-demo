@@ -1,26 +1,32 @@
 package com.example.fxsuite.avatar.sim;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Everything that moves: the avatar, and what its weapons have done to the world, stepped
  * together. Each step moves the avatar among what still stands, then lets that step's blows
- * wear the world down; what they break is reported with the step's other events. Pure.
+ * wear the world down. Pure state; what happened comes out of each step beside it.
  */
 public record Play(Avatar avatar, Damage damage) {
 
-    /** One step of {@code seconds}, with {@code controls}. */
-    public Play step(final Controls controls, final double seconds) {
-        final int before = avatar.events().size();
-        final Avatar moved = avatar.step(controls, seconds, damage.obstacles());
-        // only this step's blows: the ones before it have been taken already
-        final List<Event> now = moved.events().subList(before, moved.events().size());
-        final Damage.Taken taken = damage.took(now);
-        return new Play(moved.reporting(taken.events()), taken.damage());
+    /** The world after a step, and what happened in it: the avatar's events, then what broke. */
+    public record Stepped(Play play, List<Event> events) {
+
+        public Stepped {
+            events = List.copyOf(events);
+        }
     }
 
-    /** The same world, the avatar changed between steps: by a key pressed, say. */
-    public Play with(final Avatar changed) {
-        return new Play(changed, damage);
+    /** One step of {@code seconds}, with {@code controls}. */
+    public Stepped step(final Controls controls, final double seconds) {
+        final Avatar.Stepped moved = avatar.step(controls, seconds, damage.obstacles());
+        final Damage.Taken taken = damage.took(moved.events());
+        if (taken.events().isEmpty()) {
+            return new Stepped(new Play(moved.avatar(), taken.damage()), moved.events());
+        }
+        final List<Event> all = new ArrayList<>(moved.events());
+        all.addAll(taken.events());
+        return new Stepped(new Play(moved.avatar(), taken.damage()), all);
     }
 }

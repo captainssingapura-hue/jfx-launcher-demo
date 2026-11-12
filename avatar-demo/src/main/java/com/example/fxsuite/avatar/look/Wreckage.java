@@ -18,6 +18,8 @@ import javafx.scene.shape.Box;
 import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 
+import java.util.List;
+
 /**
  * What is left when something breaks ({@link Event.Broke}): its pieces, thrown out from where
  * the last blow struck, tumbling, bouncing and coming to rest on whatever is under them, then
@@ -65,11 +67,11 @@ public final class Wreckage {
      * Throws out the pieces of whatever broke this frame, in the colours {@code world} drew it,
      * and moves on what is already flying, onto what is under it in {@code standing}.
      */
-    public void show(final Avatar avatar, final World world, final Obstacles standing) {
+    public void show(final Avatar avatar, final List<Event> events, final World world, final Obstacles standing) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(0.1, time - lastTime));
         lastTime = time;
-        for (final Event event : avatar.events()) {
+        for (final Event event : events) {
             if (event instanceof Event.Broke broke) {
                 burst(broke, world.material(broke.piece()));
             }

@@ -93,19 +93,20 @@ class ArmsTest {
     @Test
     void drawingAWeaponIsHeardAndDrawingItAgainPutsItAway() {
         final Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, 0), false);
-        final Avatar armed = avatar.drawn(Weapon.RIFLES);
+        final Avatar.Stepped drawn = avatar.act(new Action.Draw(Weapon.RIFLES));
+        final Avatar armed = drawn.avatar();
         assertEquals(Weapon.RIFLES, armed.holding());
-        assertEquals(List.of(new Event.Drew(Weapon.RIFLES)), armed.events());
-        final Avatar swapped = armed.delivered().drawn(Weapon.GLAIVE);
+        assertEquals(List.of(new Event.Drew(Weapon.RIFLES)), drawn.events());
+        final Avatar swapped = armed.drawn(Weapon.GLAIVE);
         assertEquals(Weapon.GLAIVE, swapped.holding(), "another weapon replaces it");
         assertEquals(Weapon.NONE, swapped.drawn(Weapon.GLAIVE).holding(), "the same again puts it away");
 
-        Avatar firing = armed.delivered();
+        Avatar firing = armed;
         int rounds = 0;
         for (int i = 0; i < 30; i++) {
-            firing = firing.step(new Controls(0, 0, 0, 0, false, true), FRAME, Obstacles.NONE);
-            rounds += (int) firing.events().stream().filter(e -> e instanceof Event.Fired).count();
-            firing = firing.delivered();
+            final Avatar.Stepped stepped = firing.step(new Controls(0, 0, 0, 0, false, true), FRAME, Obstacles.NONE);
+            rounds += (int) stepped.events().stream().filter(e -> e instanceof Event.Fired).count();
+            firing = stepped.avatar();
         }
         assertTrue(rounds >= 9, "the trigger fires the avatar's rifles: " + rounds);
     }

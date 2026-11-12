@@ -160,26 +160,22 @@ class DamageTest {
     void firingAtADummyBreaksItAndTheRoundsThenFlyOn() {
         final int middle = first(Course.Kind.DUMMY) + 2;
         final Block board = course.pieces().get(middle).block();
-        Avatar avatar = new Avatar(Body.standing(Vec3.ZERO, Course.RANGE_HEADING), false).drawn(Weapon.RIFLES)
-                .delivered();
-        Damage damage = Damage.of(course);
+        Play play = new Play(new Avatar(Body.standing(Vec3.ZERO, Course.RANGE_HEADING), false)
+                .drawn(Weapon.RIFLES), Damage.of(course));
         final Controls fire = new Controls(0, 0, 0, 0, false, true, 0);
         Event.Broke broke = null;
         int struck = 0;
         double took = 0;
         while (broke == null && took < 5) {
-            avatar = avatar.step(fire, FRAME, damage.obstacles());
-            final Damage.Taken taken = damage.took(avatar.events());
-            damage = taken.damage();
-            avatar = avatar.reporting(taken.events());
-            for (final Event event : avatar.events()) {
+            final Play.Stepped stepped = play.step(fire, FRAME);
+            play = stepped.play();
+            for (final Event event : stepped.events()) {
                 if (event instanceof Event.Struck s && s.piece() == middle) {
                     struck++;
                 } else if (event instanceof Event.Broke b) {
                     broke = b;
                 }
             }
-            avatar = avatar.delivered();
             took += FRAME;
         }
         assertNotNull(broke, "broken within " + took + " s");
@@ -190,8 +186,7 @@ class DamageTest {
         assertTrue(broke.struck().distance(new Vec3(board.x(), broke.struck().y(), board.z())) < 60,
                 "the last blow struck it");
         // fire on: nothing more of it to strike
-        avatar = avatar.step(fire, 0.5, damage.obstacles());
-        for (final Event event : avatar.events()) {
+        for (final Event event : play.step(fire, 0.5).events()) {
             if (event instanceof Event.Struck s) {
                 assertTrue(s.piece() != middle);
             }
@@ -262,17 +257,17 @@ class DamageTest {
     }
 
     @Test
-    void aPlayStepTakesEachBlowOnceHoweverLongTheEventsPileUp() {
-        // events pile up across steps until the outputs take them; each step's blows count once
+    void eachStepTakesItsOwnBlowsOnce() {
+        // each step's blows wear the world down once, and come out of the step beside it
         final int middle = first(Course.Kind.DUMMY) + 2;
         Play play = new Play(new Avatar(Body.standing(Vec3.ZERO, Course.RANGE_HEADING), false)
                 .drawn(Weapon.RIFLES), Damage.of(course));
         final Controls fire = new Controls(0, 0, 0, 0, false, true, 0);
         int struck = 0;
         for (int i = 0; i < 24; i++) {
-            final int before = play.avatar().events().size();
-            play = play.step(fire, Clock.STEP);
-            struck += (int) play.avatar().events().subList(before, play.avatar().events().size()).stream()
+            final Play.Stepped stepped = play.step(fire, Clock.STEP);
+            play = stepped.play();
+            struck += (int) stepped.events().stream()
                     .filter(e -> e instanceof Event.Struck s && s.piece() == middle).count();
         }
         assertTrue(struck > 0);

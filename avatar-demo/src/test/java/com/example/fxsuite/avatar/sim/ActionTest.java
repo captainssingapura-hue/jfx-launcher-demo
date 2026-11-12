@@ -20,9 +20,9 @@ class ActionTest {
 
     @Test
     void aWeaponDrawnInAStepIsHeldAfterIt() {
-        final Avatar after = standing(false).step(Controls.doing(new Action.Draw(Weapon.GATLING)), STEP,
+        final Avatar.Stepped after = standing(false).step(Controls.doing(new Action.Draw(Weapon.GATLING)), STEP,
                 Obstacles.NONE);
-        assertEquals(Weapon.GATLING, after.holding());
+        assertEquals(Weapon.GATLING, after.avatar().holding());
         assertEquals(List.of(new Event.Drew(Weapon.GATLING)), after.events());
     }
 
@@ -31,40 +31,41 @@ class ActionTest {
         // drawn and squeezed in one step: the barrels are already turning at its end
         final Controls drawAndFire = new Controls(0, 0, 0, 0, false, true, 0,
                 List.of(new Action.Draw(Weapon.GATLING)));
-        assertTrue(standing(false).step(drawAndFire, STEP, Obstacles.NONE).arms().spin() > 0);
+        assertTrue(standing(false).step(drawAndFire, STEP, Obstacles.NONE).avatar().arms().spin() > 0);
         // and a jump leaves the ground in the step it comes with
-        final Avatar jumped = standing(false).step(Controls.doing(Action.JUMP), STEP, Obstacles.NONE);
-        assertTrue(jumped.body().height() > 0);
+        final Avatar.Stepped jumped = standing(false).step(Controls.doing(Action.JUMP), STEP, Obstacles.NONE);
+        assertTrue(jumped.avatar().body().height() > 0);
         assertEquals(List.of(new Event.Jumped()), jumped.events());
     }
 
     @Test
     void theyAreDoneInTheOrderTheyWereDone() {
         // the pack on, then take off: flying
-        final Avatar packThenFly = standing(false).step(Controls.doing(Action.PACK, Action.FLY), STEP,
+        final Avatar.Stepped packThenFly = standing(false).step(Controls.doing(Action.PACK, Action.FLY), STEP,
                 Obstacles.NONE);
-        assertTrue(packThenFly.body().flying());
+        assertTrue(packThenFly.avatar().body().flying());
         assertEquals(List.of(new Event.PackOn(), new Event.TookOff()), packThenFly.events());
         // take off first, without the pack: nothing, then the pack goes on
-        final Avatar flyThenPack = standing(false).step(Controls.doing(Action.FLY, Action.PACK), STEP,
+        final Avatar.Stepped flyThenPack = standing(false).step(Controls.doing(Action.FLY, Action.PACK), STEP,
                 Obstacles.NONE);
-        assertFalse(flyThenPack.body().flying());
+        assertFalse(flyThenPack.avatar().body().flying());
         assertEquals(List.of(new Event.PackOn()), flyThenPack.events());
     }
 
     @Test
     void whatCannotBeDoneIsLeftUndone() {
-        final Avatar inFlight = standing(true).act(Action.FLY).delivered();
-        assertSame(inFlight, inFlight.act(Action.JUMP), "no jumping in flight");
+        final Avatar inFlight = standing(true).toggledFlight();
+        assertSame(inFlight, inFlight.act(Action.JUMP).avatar(), "no jumping in flight");
+        assertTrue(inFlight.act(Action.JUMP).events().isEmpty(), "and nothing happens");
         final Avatar packless = standing(false);
-        assertSame(packless, packless.act(Action.FLY), "no flight without the pack");
+        assertSame(packless, packless.act(Action.FLY).avatar(), "no flight without the pack");
     }
 
     @Test
     void drawingWhatIsHeldPutsItAway() {
-        final Avatar armed = standing(false).act(new Action.Draw(Weapon.RIFLES)).delivered();
-        final Avatar after = armed.step(Controls.doing(new Action.Draw(Weapon.RIFLES)), STEP, Obstacles.NONE);
-        assertEquals(Weapon.NONE, after.holding());
+        final Avatar armed = standing(false).drawn(Weapon.RIFLES);
+        final Avatar.Stepped after = armed.step(Controls.doing(new Action.Draw(Weapon.RIFLES)), STEP, Obstacles.NONE);
+        assertEquals(Weapon.NONE, after.avatar().holding());
         assertEquals(List.of(new Event.Drew(Weapon.NONE)), after.events());
     }
 
