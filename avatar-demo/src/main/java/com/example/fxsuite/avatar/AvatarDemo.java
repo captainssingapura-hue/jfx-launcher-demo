@@ -101,8 +101,7 @@ public final class AvatarDemo extends Application {
     /** What moves of itself: the airships along their routes, and their bombs. */
     private Sky sky = Sky.START;
     private final World world = new World(course);
-    // no marks on the airships: they would be left behind as they go
-    private final Impacts impacts = new Impacts(piece -> damage.piece(piece).moves());
+    private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
     private final Bombs bombs = new Bombs();
     private final Reticle reticle = new Reticle();
@@ -340,7 +339,7 @@ public final class AvatarDemo extends Application {
         final double behind = (1 - ticked.blend()) * Clock.STEP;
         final Play now = new Play(this.avatar, damage, sky);
         final Obstacles standing = now.obstacles();
-        impacts.show(avatar, forImpacts.read().events());
+        impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, sky.time() - behind, seconds, chase.yaw());
         bombs.show(sky, behind);

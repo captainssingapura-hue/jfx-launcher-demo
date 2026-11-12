@@ -207,6 +207,20 @@ public final class World {
         }
     }
 
+    /**
+     * Piece {@code piece}'s own group: placed at its middle and turned with it, and moved with it
+     * if it moves. What is put in it is part of the piece: it goes where the piece goes, and is
+     * gone when the piece is broken.
+     */
+    Group group(final int piece) {
+        return parts[piece];
+    }
+
+    /** Piece {@code piece}'s box {@code seconds} after the start: where it was, if it moves. */
+    Block at(final int piece, final double seconds) {
+        return pieces.get(piece).at(seconds).block();
+    }
+
     /** What piece {@code piece} is made of, as it now looks: for its broken pieces. */
     public PhongMaterial material(final int piece) {
         return (PhongMaterial) bodies[piece].getMaterial();
