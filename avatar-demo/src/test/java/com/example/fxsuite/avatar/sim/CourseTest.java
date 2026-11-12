@@ -132,8 +132,8 @@ class CourseTest {
     @Test
     void theTargetsStandInTheOpenEachClearOfEverythingElse() {
         final List<Course.Piece> pieces = course.pieces();
-        // the targets standing about the course; the melons, on the stall, have a test of their own
-        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target() && !p.rides()).toList();
+        // the targets standing about the course; the fruit, on the stall, has a test of its own
+        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target() && !p.kind().loose()).toList();
         assertEquals(8, targets.stream().filter(p -> p.kind() == Course.Kind.DUMMY).count());
         assertEquals(Course.DRONES, targets.stream().filter(p -> p.kind() == Course.Kind.DRONE).count());
         for (final Course.Piece target : targets) {
@@ -168,9 +168,9 @@ class CourseTest {
     }
 
     @Test
-    void onlyCratesAndTargetsCanBreak() {
+    void onlyCratesTargetsAndLooseThingsCanBreak() {
         for (final Course.Kind kind : Course.Kind.values()) {
-            assertEquals(kind == Course.Kind.CRATE || kind.target(), kind.breakable(), kind.name());
+            assertEquals(kind == Course.Kind.CRATE || kind.target() || kind.loose(), kind.breakable(), kind.name());
         }
     }
 }

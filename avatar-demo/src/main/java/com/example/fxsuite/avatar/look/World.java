@@ -139,7 +139,9 @@ public final class World {
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
                 case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
                 case PLATFORM -> platform(i, part);
-                case STALL -> stall(part, block);
+                case FURNITURE -> switch (piece.furniture()) {
+                    case TABLE -> table(part, block);
+                };
                 case FRUIT -> fruit(part, piece.fruit());
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
@@ -698,12 +700,12 @@ public final class World {
     }
 
     /**
-     * The melon stall's table: planks on a pair of pallets, a cloth hung over the front (its -z,
+     * The fruit stall's table ({@link Furniture#TABLE}): planks on a pair of pallets, a cloth hung over the front (its -z,
      * toward the back of the barge, where the customers come), and
      * about it what a stall has: a striped awning on two poles, a scale on the table, a sign, and
-     * a few pineapples on the deck. Only the table itself is solid ({@link Course#TABLE}).
+     * the table itself solid; what is about it comes with it.
      */
-    private static Shape3D stall(final Group part, final Block block) {
+    private static Shape3D table(final Group part, final Block block) {
         final PhongMaterial planks = BoxRig.matte("#c9a273");
         final PhongMaterial pallet = BoxRig.matte("#9c7a4e");
         final double halfWide = block.halfWidth();

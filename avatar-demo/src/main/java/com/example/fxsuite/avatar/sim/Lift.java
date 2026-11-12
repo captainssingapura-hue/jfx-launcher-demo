@@ -66,7 +66,7 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         final List<Lift> lifts = new ArrayList<>();
         for (final int piece : damage.moving()) {
             final Course.Piece what = damage.piece(piece);
-            if (!what.flies() && !what.rides()) {
+            if (what.kind() == Course.Kind.PLATFORM) {
                 lifts.add(new Lift(piece, Course.Deck.of(what.shape()), what.place()));
             }
         }

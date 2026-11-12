@@ -24,6 +24,7 @@ import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Play;
+import com.example.fxsuite.avatar.sim.Prop;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Script;
 import com.example.fxsuite.avatar.sim.Sky;
@@ -111,6 +112,8 @@ public final class AvatarDemo extends Application {
     /** The people, as they are after the latest step and the one before: drawn between them. */
     private List<Person> people = Person.of(damage, lifts);
     private List<Person> peopleBefore = people;
+    /** The loose things: the furniture and the fruit. */
+    private List<Prop> props = Prop.of(damage);
     /** Where each piece that moves was after the step before the latest, and after the latest: drawn between them. */
     private Map<Integer, Block> movedBefore = Map.of();
     private Map<Integer, Block> movedNow = Map.of();
@@ -256,7 +259,7 @@ public final class AvatarDemo extends Application {
             }
         }
 
-        movedNow = new Play(avatar, damage, sky, lifts, people).moving();
+        movedNow = new Play(avatar, damage, sky, lifts, people, props).moving();
         movedBefore = movedNow;
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
@@ -330,13 +333,14 @@ public final class AvatarDemo extends Application {
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
-            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people).step(controls, Clock.STEP);
+            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people, props).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
             sky = stepped.play().sky();
             lifts = stepped.play().lifts();
             peopleBefore = people;
             people = stepped.play().people();
+            props = stepped.play().props();
             journal.append(++step, stepped.events());
             // where what moves now is, to draw it between its last two places, and to put marks on it
             movedBefore = movedNow;
@@ -364,7 +368,7 @@ public final class AvatarDemo extends Application {
         // each reads what is new to it in the journal
         // what moves of itself is shown where it was as far behind its latest step as the avatar is
         final double behind = (1 - ticked.blend()) * Clock.STEP;
-        final Play now = new Play(this.avatar, damage, sky, lifts, people);
+        final Play now = new Play(this.avatar, damage, sky, lifts, people, props);
         final Obstacles standing = now.obstacles();
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
@@ -418,7 +422,8 @@ public final class AvatarDemo extends Application {
         }
         return switch (damage.piece(under.piece()).kind()) {
             case AIRSHIP -> "docked on an airship";
-            case PLATFORM, STALL, FRUIT -> "docked on a platform";
+            case PLATFORM -> "docked on a platform";
+            case FURNITURE, FRUIT -> "resting on something loose";
             default -> "resting on a block";
         };
     }
@@ -453,7 +458,7 @@ public final class AvatarDemo extends Application {
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
-        final Play here = new Play(avatar, damage, sky, lifts, people);
+        final Play here = new Play(avatar, damage, sky, lifts, people, props);
         final String controls = here.atControls().map(lift -> lift.engine()
                 ? String.format(" · flying the platform, %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down,"
                         + " F engine off, T to let go", lift.place().height() / 100)

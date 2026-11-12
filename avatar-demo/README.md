@@ -87,14 +87,23 @@ characters, and a separate sound bench is for working on the sounds.
 - **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
   red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
   deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
-  it, and another sits on a scooter parked to one side. All of it rides the barge wherever it
-  is flown (a piece can ride on another, `Course.Piece#carrier`), and standing on it rides
-  too. Every piece of fruit is one kind of thing (`Fruit` says which, how big and how tough), to
+  it, and another sits on a scooter parked to one side. All of it goes with the barge wherever
+  it is flown, and standing on it rides too. Every piece of fruit is one kind of thing (`Fruit` says which, how big and how tough), to
   be shot or cut: a watermelon takes three rifle rounds, four of the Gatling gun or one stroke of
   the glaive, a pineapple two rounds. Struck, it splashes juice, red or gold, and the
   stallholder shakes a fist; burst, it throws its flesh and skin, seeds or leaves, with a wet
   splat, deeper for a watermelon, and everyone jumps, hands in the air. The HUD counts the fruit
   smashed.
+- **Loose things: furniture and fruit.** The table and the fruit are loose things (`Prop`): each
+  stands on whatever is under it (the deck, the table, the ground), and goes where that goes, so
+  the fruit rides the table and the table rides the barge. Walk into one and push, and it slides
+  the way you push it, as readily as it gives (`Loose#give`): fruit at your pace, the heavy table
+  at under half of it; it slides to a stop, and stops short of anything in its way. What stands
+  on it goes with it: push the table and its fruit goes too. Pushed off an edge, or with what
+  held it up broken, it falls; landing harder than it can take (`Loose#landing`), it breaks, so a
+  watermelon dropped from three metres bursts while one off the table is fine. Furniture
+  (`Furniture`) is broken like anything else: the table takes twenty rifle rounds or two strokes
+  of the glaive, and what was on it drops to the deck.
 - **People.** The people at the stall are characters in the world (`Person`), each with a body
   like the robot's: they stand on whatever is under them, ride the barge wherever it is flown,
   and fall. Walk into someone and they are shoved out of the way, sent along at your pace and a
@@ -263,7 +272,7 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them, such as the fruit stall; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |

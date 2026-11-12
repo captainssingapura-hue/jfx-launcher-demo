@@ -32,17 +32,24 @@ import java.util.TreeMap;
  * The blows never leave the step: they follow from the state and the inputs, and only what came
  * of them is an output.
  */
-public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List<Person> people) {
+public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List<Person> people, List<Prop> props) {
 
     /**
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 8;
+    public static final int RULES = 9;
 
     public Play {
         lifts = List.copyOf(lifts);
         people = List.copyOf(people);
+        props = List.copyOf(props);
+    }
+
+    /** The avatar, the world, the sky, the platforms and the people, with the loose things where they were put. */
+    public Play(final Avatar avatar, final Damage damage, final Sky sky, final List<Lift> lifts,
+                final List<Person> people) {
+        this(avatar, damage, sky, lifts, people, Prop.of(damage));
     }
 
     /** The avatar, the world, the sky and the platforms, with the people where they were put, on the platforms as they are. */
@@ -67,12 +74,13 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /**
      * The whole world stirred into one number, to the bit: two worlds with the same checksum are,
-     * as near as matters, the same. The avatar, the sky, the platforms and the people are all
-     * records, so their text is exact and complete.
+     * as near as matters, the same. The avatar, the sky, the platforms, the people and the loose
+     * things are all records, so their text is exact and complete.
      */
     public long checksum() {
         long sum = damage.checksum();
-        final String text = avatar.toString() + sky.toString() + lifts.toString() + people.toString();
+        final String text = avatar.toString() + sky.toString() + lifts.toString() + people.toString()
+                + props.toString();
         for (int i = 0; i < text.length(); i++) {
             sum = Num.mix(sum, text.charAt(i));
         }
@@ -89,7 +97,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** What still stands, where it now is: to move among, to shoot at, to fall onto. */
     public Obstacles obstacles() {
-        return obstacles(sky.time(), lifts);
+        return obstacles(sky.time(), lifts, props);
     }
 
     /** The airships still flying, each where it now is. */
@@ -101,7 +109,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     public Map<Integer, Block> moving() {
         final Map<Integer, Block> boxes = new LinkedHashMap<>();
         for (final int piece : damage.moving()) {
-            boxes.put(piece, placed(piece, sky.time(), lifts).block());
+            boxes.put(piece, placed(piece, sky.time(), lifts, props).block());
         }
         return boxes;
     }
@@ -128,14 +136,37 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> handed = engines(controls, handed(controls, was, happened), happened);
         final boolean working = handed.stream().anyMatch(Lift::held);
         final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
-        // the world moves on, carrying whoever stands on what moves, and the platforms docked on it
+        // what each loose thing rests on, as things are
         final double to = sky.time() + seconds;
-        final List<Lift> moved = moved(controls, seconds, to, was, handed, happened);
-        final Avatar carried = carried(avatar, was, handed, moved, to);
-        final Obstacles now = obstacles(to, moved);
+        final Lift.Support[] under = new Lift.Support[props.size()];
+        for (int k = 0; k < props.size(); k++) {
+            under[k] = props.get(k).support(was, List.of());
+        }
+        // the world moves on, carrying whoever stands on what moves, and the platforms docked on it
+        // and the loose things resting on it
+        final List<Lift> moved = moved(controls, seconds, to, was, handed, happened,
+                piece -> restingOn(piece, under));
+        final List<Prop> carriedProps = carriedProps(to, handed, moved, under);
+        final Obstacles among = obstacles(to, moved, carriedProps);
+        final List<Blow> landings = new ArrayList<>();
+        final List<Prop> settled = new ArrayList<>();
+        for (int k = 0; k < carriedProps.size(); k++) {
+            final Prop prop = carriedProps.get(k);
+            if (damage.broken(prop.piece())) {
+                settled.add(prop);
+                continue;
+            }
+            final Prop.Stepped stepped = prop.step(seconds, among, restingOn(prop.piece(), under));
+            settled.add(stepped.prop());
+            landings.addAll(stepped.blows());
+        }
+        slidWith(carriedProps, settled, under);
+        final Moves moves = new Moves(handed, moved, props, settled);
+        final Avatar carried = carried(avatar, was, moves, to);
+        final Obstacles now = obstacles(to, moved, settled);
         // the people go on as they were going, carried by what they stand on, hurt by coming down hard
         final List<Event> toPeople = new ArrayList<>();
-        final List<Person> going = people(seconds, to, was, now, handed, moved, toPeople);
+        final List<Person> going = people(seconds, to, was, now, moves, toPeople);
         // act: the avatar does what it was asked, moves, and deals its blows, at the world and the
         // people in it; the bombs fall
         final Avatar.Stepped acted = carried.step(own, seconds, now, targets(now, going));
@@ -147,17 +178,181 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             (Person.is(blow.piece()) ? atPeople : blows).add(blow);
         }
         blows.addAll(fell.blows());
-        final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved));
+        blows.addAll(landings);
+        final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved, settled));
         final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
-        // and whoever the avatar walks into is pushed out of its way
+        // and whoever the avatar walks into is pushed out of its way, and whatever it pushes against goes
         final List<Person> pushed = pushed(acted.avatar().body(), hurt, toPeople);
+        final List<Prop> shoved = shoved(settled, acted.avatar().body(), own, taken.damage());
         // report: the controls changing hands, the avatar's own events, the bombs', what came of the
         // blows, and what came to the people
         happened.addAll(acted.events());
         happened.addAll(fell.events());
         happened.addAll(taken.events());
         happened.addAll(toPeople);
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved, pushed), happened);
+        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved, pushed, shoved), happened);
+    }
+
+    /** How everything that moves under its own rules moved on this step: the platforms, and the loose things. */
+    private record Moves(List<Lift> fromLifts, List<Lift> toLifts, List<Prop> fromProps, List<Prop> toProps) {
+    }
+
+    /**
+     * What rests on a loose thing that slid this step (from where it was {@code carried} to where it
+     * {@code settled}) slides with it, across the ground: the fruit on the table pushed along. Those
+     * under first, so what rests on what rests on it goes too.
+     */
+    private void slidWith(final List<Prop> carried, final List<Prop> settled, final Lift.Support[] under) {
+        final int count = props.size();
+        final int[] on = new int[count];
+        for (int k = 0; k < count; k++) {
+            on[k] = -1;
+            if (props.get(k).resting(under[k])) {
+                for (int j = 0; j < count; j++) {
+                    if (j != k && props.get(j).piece() == under[k].piece()) {
+                        on[k] = j;
+                    }
+                }
+            }
+        }
+        final boolean[] done = new boolean[count];
+        for (int pass = 0; pass <= count; pass++) {
+            for (int k = 0; k < count; k++) {
+                if (done[k] || (on[k] >= 0 && !done[on[k]])) {
+                    continue;
+                }
+                if (on[k] >= 0) {
+                    final int j = on[k];
+                    final double dx = settled.get(j).place().x() - carried.get(j).place().x();
+                    final double dz = settled.get(j).place().z() - carried.get(j).place().z();
+                    if (dx != 0 || dz != 0) {
+                        final Place p = settled.get(k).place();
+                        settled.set(k, settled.get(k).at(new Place(p.x() + dx, p.z() + dz, p.height(), p.yaw())));
+                    }
+                }
+                done[k] = true;
+            }
+        }
+    }
+
+    /** The loose things resting on piece {@code piece}, and those resting on them, by number, as {@code under} says. */
+    private List<Integer> restingOn(final int piece, final Lift.Support[] under) {
+        final List<Integer> on = new ArrayList<>();
+        for (int k = 0; k < props.size(); k++) {
+            final Prop prop = props.get(k);
+            if (under[k].piece() == piece && prop.resting(under[k]) && !damage.broken(prop.piece())) {
+                on.add(prop.piece());
+                on.addAll(restingOn(prop.piece(), under));
+            }
+        }
+        return on;
+    }
+
+    /**
+     * The loose things, each carried by what it rests on as that moved: an airship along its route,
+     * a platform as it went from among {@code from} to among {@code moved}, another loose thing as
+     * that was carried. Those resting on loose things go after them.
+     */
+    private List<Prop> carriedProps(final double to, final List<Lift> from, final List<Lift> moved,
+                                    final Lift.Support[] under) {
+        final Prop[] carried = new Prop[props.size()];
+        for (int pass = 0; pass < props.size() + 1; pass++) {
+            boolean waiting = false;
+            for (int k = 0; k < props.size(); k++) {
+                if (carried[k] != null) {
+                    continue;
+                }
+                final Prop prop = props.get(k);
+                final int support = under[k].piece();
+                if (!prop.resting(under[k]) || support < 0 || damage.broken(prop.piece())
+                        || !damage.piece(support).moves()) {
+                    carried[k] = prop;
+                    continue;
+                }
+                final Course.Piece what = damage.piece(support);
+                final Course.Piece root = what.rides() ? damage.piece(what.carrier()) : what;
+                final int rootPiece = what.rides() ? what.carrier() : support;
+                if (root.flies()) {
+                    carried[k] = prop.carried(root.route().at(sky.time()), root.route().at(to));
+                    continue;
+                }
+                Prop result = prop;
+                boolean ready = true;
+                for (int i = 0; i < from.size(); i++) {
+                    if (from.get(i).piece() == rootPiece && !from.get(i).place().equals(moved.get(i).place())) {
+                        result = prop.carried(from.get(i).place(), moved.get(i).place());
+                    }
+                }
+                for (int j = 0; j < props.size(); j++) {
+                    if (props.get(j).piece() == rootPiece) {
+                        if (carried[j] == null) {
+                            ready = false;
+                        } else if (!props.get(j).place().equals(carried[j].place())) {
+                            result = prop.carried(props.get(j).place(), carried[j].place());
+                        }
+                    }
+                }
+                if (ready) {
+                    carried[k] = result;
+                } else {
+                    waiting = true;
+                }
+            }
+            if (!waiting) {
+                break;
+            }
+        }
+        for (int k = 0; k < carried.length; k++) {
+            if (carried[k] == null) {
+                carried[k] = props.get(k);
+            }
+        }
+        return List.of(carried);
+    }
+
+    /**
+     * The loose things, pushed: whatever the avatar's {@code body} is up against and moving into,
+     * as {@code own} controls say, slides on the way it is pushed, as fast as it gives
+     * ({@link Loose#give}). Not what it stands on, nor anything broken in {@code after}.
+     */
+    private static List<Prop> shoved(final List<Prop> props, final Body body, final Controls own,
+                                     final Damage after) {
+        final Vec3 wanted = Num.heading(body.yaw()).multiply(own.forward()).add(Num.right(body.yaw()).multiply(own.sideways()));
+        final double strength = Math.min(1, wanted.magnitude());
+        if (body.flying() || strength < 0.1) {
+            return props;
+        }
+        final Vec3 way = wanted.normalize();
+        final double pace = own.run() ? Body.RUN : Body.WALK;
+        final List<Prop> now = new ArrayList<>(props);
+        for (int k = 0; k < now.size(); k++) {
+            final Prop prop = now.get(k);
+            if (after.broken(prop.piece())) {
+                continue;
+            }
+            final Block box = prop.box();
+            if (body.height() >= box.top() - 1 || body.height() + Body.TALL <= box.bottom()) {
+                continue;  // standing on it, or over or under it
+            }
+            final Vec2 out = box.push(body.position().x(), body.position().z(), Body.RADIUS + 4);
+            if (out == null) {
+                continue;
+            }
+            final double length = Math.hypot(out.x(), out.z());
+            if (length < 1e-9) {
+                continue;
+            }
+            // toward it, the way the push out of it is from
+            final Vec3 into = new Vec3(-out.x() / length, 0, -out.z() / length);
+            final double along = way.dotProduct(into);
+            if (along > 0.3) {
+                final double speed = pace * strength * along * prop.thing().give();
+                if (speed > prop.sliding()) {
+                    now.set(k, prop.pushed(into.x() * speed, into.z() * speed));
+                }
+            }
+        }
+        return now;
     }
 
     /**
@@ -208,7 +403,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * docked on another platform go after it. A platform coming down hard enough is heard settling.
      */
     private List<Lift> moved(final Controls controls, final double seconds, final double to, final Obstacles was,
-                             final List<Lift> handed, final List<Event> happened) {
+                             final List<Lift> handed, final List<Event> happened,
+                             final java.util.function.IntFunction<List<Integer>> resting) {
         final int count = handed.size();
         final Lift.Support[] under = new Lift.Support[count];
         final int[] onLift = new int[count];
@@ -233,7 +429,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 }
             }
         }
-        final Obstacles ahead = obstacles(to, handed);
+        final Obstacles ahead = obstacles(to, handed, props);
         final Lift[] moved = new Lift[count];
         for (int pass = 0; pass < 2; pass++) {
             for (int i = 0; i < count; i++) {
@@ -254,6 +450,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 }
                 // its cargo, and the platforms docked on it, go where it goes: not in its way
                 final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
+                aboard.addAll(resting.apply(lift.piece()));
                 for (int j = 0; j < count; j++) {
                     if (onLift[j] == i && handed.get(j).resting(under[j])) {
                         aboard.add(handed.get(j).piece());
@@ -291,11 +488,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /**
      * {@code avatar}, carried by what it stands on as that moves on: an airship along its route to
-     * {@code to}, or a platform from where it was among {@code from} to where it is among {@code moved}.
+     * {@code to}, a platform or a loose thing as it went ({@code moves}).
      */
-    private Avatar carried(final Avatar avatar, final Obstacles was, final List<Lift> from, final List<Lift> moved,
-                           final double to) {
-        final Place[] motion = motion(avatar.body(), was, from, moved, to);
+    private Avatar carried(final Avatar avatar, final Obstacles was, final Moves moves, final double to) {
+        final Place[] motion = motion(avatar.body(), was, moves, to);
         return motion == null ? avatar : avatar.carried(motion[0], motion[1]);
     }
 
@@ -303,8 +499,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * How what {@code body} stands on moves on this step, from where it was to where it will be;
      * null if it stands on nothing that moves, or is not standing.
      */
-    private Place[] motion(final Body body, final Obstacles was, final List<Lift> from, final List<Lift> moved,
-                           final double to) {
+    private Place[] motion(final Body body, final Obstacles was, final Moves moves, final double to) {
         if (!body.grounded()) {
             return null;
         }
@@ -318,11 +513,19 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         if (what.flies()) {
             return new Place[] {what.route().at(sky.time()), what.route().at(to)};
         }
-        for (int i = 0; i < from.size(); i++) {
-            if (from.get(i).piece() == piece) {
-                // a platform that has not moved carries nothing anywhere
-                return from.get(i).place().equals(moved.get(i).place()) ? null
-                        : new Place[] {from.get(i).place(), moved.get(i).place()};
+        // a platform, or a loose thing, that has not moved carries nothing anywhere
+        for (int i = 0; i < moves.fromLifts().size(); i++) {
+            if (moves.fromLifts().get(i).piece() == piece) {
+                final Place a = moves.fromLifts().get(i).place();
+                final Place b = moves.toLifts().get(i).place();
+                return a.equals(b) ? null : new Place[] {a, b};
+            }
+        }
+        for (int i = 0; i < moves.fromProps().size(); i++) {
+            if (moves.fromProps().get(i).piece() == piece) {
+                final Place a = moves.fromProps().get(i).place();
+                final Place b = moves.toProps().get(i).place();
+                return a.equals(b) ? null : new Place[] {a, b};
             }
         }
         return null;
@@ -333,14 +536,14 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * were, among {@code world}: coming to a stop, or falling.
      */
     private List<Person> people(final double seconds, final double to, final Obstacles was, final Obstacles world,
-                                final List<Lift> from, final List<Lift> moved, final List<Event> happened) {
+                                final Moves moves, final List<Event> happened) {
         final List<Person> now = new ArrayList<>();
         for (final Person person : people) {
             if (person.down()) {
                 now.add(person);  // gone: nothing more happens to them
                 continue;
             }
-            final Place[] motion = motion(person.body(), was, from, moved, to);
+            final Place[] motion = motion(person.body(), was, moves, to);
             final Person carried = motion == null ? person : person.carried(motion[0], motion[1]);
             final Person.Stepped stepped = carried.moved(world, seconds);
             now.add(stepped.person());
@@ -455,14 +658,21 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return now;
     }
 
-    /** Piece {@code piece} where it is {@code seconds} after the start, the platforms being {@code lifts}. */
-    private Course.Piece placed(final int piece, final double seconds, final List<Lift> lifts) {
+    /** Piece {@code piece} where it is {@code seconds} after the start, the platforms being {@code lifts} and the loose things {@code props}. */
+    private Course.Piece placed(final int piece, final double seconds, final List<Lift> lifts, final List<Prop> props) {
         final Course.Piece what = damage.piece(piece);
         if (what.flies()) {
             return what.at(seconds);
         }
         if (what.rides()) {
-            return what.placed(placed(what.carrier(), seconds, lifts).place());
+            return what.placed(placed(what.carrier(), seconds, lifts, props).place());
+        }
+        if (what.kind().loose()) {
+            for (final Prop prop : props) {
+                if (prop.piece() == piece) {
+                    return what.placed(prop.place());
+                }
+            }
         }
         for (final Lift lift : lifts) {
             if (lift.piece() == piece) {
@@ -472,8 +682,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return what;
     }
 
-    /** What still stands, {@code seconds} after the start with the platforms {@code lifts}: everything that moves where it then is. */
-    private Obstacles obstacles(final double seconds, final List<Lift> lifts) {
+    /** What still stands, {@code seconds} after the start with the platforms {@code lifts} and the loose things {@code props}: everything that moves where it then is. */
+    private Obstacles obstacles(final double seconds, final List<Lift> lifts, final List<Prop> props) {
         final Obstacles built = damage.obstacles();
         final List<Integer> moving = damage.moving();
         if (moving.isEmpty()) {
@@ -482,7 +692,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // each moving piece's blocks, in the order it was built with, put where it now is
         final Map<Integer, List<Block>> placed = new TreeMap<>();
         for (final int piece : moving) {
-            placed.put(piece, placed(piece, seconds, lifts).solid());
+            placed.put(piece, placed(piece, seconds, lifts, props).solid());
         }
         final Map<Integer, Integer> next = new TreeMap<>();
         final List<Block> blocks = new ArrayList<>(built.blocks().size());

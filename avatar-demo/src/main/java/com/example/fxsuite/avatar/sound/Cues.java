@@ -107,7 +107,7 @@ public final class Cues {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
                         case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
-                        case NONE, BOMB -> {
+                        case NONE, BOMB, FALL -> {
                         }
                     }
                 }
@@ -122,7 +122,7 @@ public final class Cues {
                     if (Person.is(s.piece())) {
                         // someone hit: a dull thump, not a ring off metal or wood
                         plays.add(new Play(Sound.BUMP, 0.5, s.at()));
-                    } else if (s.by() != Weapon.BOMB) {
+                    } else if (s.by() != Weapon.BOMB && s.by() != Weapon.FALL) {
                         plays.add(new Play(struck(s), 1, s.at()));
                     }
                 }

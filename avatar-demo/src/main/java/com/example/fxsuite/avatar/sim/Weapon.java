@@ -22,7 +22,9 @@ public enum Weapon {
      * An airship's bomb, going off: every piece that can break within {@link Sky#BLAST} of it
      * takes this. A drone or a small crate goes at once; a dummy takes two.
      */
-    BOMB("Bomb", 150);
+    BOMB("Bomb", 150),
+    /** Coming down harder than a loose thing can take ({@link Loose#landing}): enough to break anything. */
+    FALL("A fall", 100_000);
 
     private final String title;
     private final double blow;

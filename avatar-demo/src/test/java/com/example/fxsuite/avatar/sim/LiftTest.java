@@ -77,7 +77,11 @@ class LiftTest {
         for (final Lift lift : start.lifts()) {
             assertEquals(Course.LIFT_LOW, lift.place().height());
             assertFalse(lift.held());
-            final List<Integer> aboard = start.damage().riding(lift.piece());
+            // what it carries: what rides on it, and the loose things on its deck (all of them are, on the barge)
+            final List<Integer> aboard = new ArrayList<>(start.damage().riding(lift.piece()));
+            if (lift.deck().equals(Course.BARGE)) {
+                start.props().forEach(p -> aboard.add(p.piece()));
+            }
             assertTrue(lift.clear(lift.place(), start.obstacles(), aboard), "nothing in the way where it stands");
             // and nothing over it all the way up, so it can go straight up from the start
             final Block column = new Block(lift.place().x(), lift.place().z(), lift.deck().width() / 2,

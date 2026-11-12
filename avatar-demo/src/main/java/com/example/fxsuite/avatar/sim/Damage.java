@@ -69,8 +69,8 @@ public final class Damage {
             case AIRSHIP -> AIRSHIP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
-            case FRUIT -> piece.fruit().toughness();
-            case PILLAR, GATE, PLATFORM, STALL -> Double.POSITIVE_INFINITY;
+            case FRUIT, FURNITURE -> piece.loose().toughness();
+            case PILLAR, GATE, PLATFORM -> Double.POSITIVE_INFINITY;
         };
     }
 
