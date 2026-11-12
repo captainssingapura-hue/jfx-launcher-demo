@@ -37,10 +37,17 @@ public final class Mix {
 
     /** Plays a clip once; {@code at} null for at the listener. */
     public synchronized void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
+        play(clip, gain, pitch, at, Space.NEAR);
+    }
+
+    /** Plays a clip once, heard at full loudness out to {@code near} from it. */
+    public synchronized void play(final Clip clip, final double gain, final double pitch, final Vec3 at,
+                                  final double near) {
         final Voice voice = new Voice(clip, false);
         voice.gain = gain;
         voice.pitch = pitch;
         voice.at = at;
+        voice.near = near;
         voices.add(voice);
     }
 
@@ -79,6 +86,7 @@ public final class Mix {
         private double gain;
         private double pitch = 1;
         private Vec3 at;
+        private double near = Space.NEAR;
         private boolean stopping;
         private boolean started;
         private double left;
@@ -117,7 +125,7 @@ public final class Mix {
             double level = stopping ? 0 : Math.max(0, gain) * volume;
             double side = 0;
             if (at != null) {
-                level *= Space.fade(at.distance(ear));
+                level *= Space.fade(at.distance(ear), near);
                 side = Space.side(ear, yaw, at);
             }
             // equal power: as loud overall wherever it sits

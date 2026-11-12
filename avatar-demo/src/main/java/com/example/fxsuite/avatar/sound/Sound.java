@@ -32,9 +32,9 @@ public enum Sound {
     BLADE_ON_BLOCK("Blade strikes a block", null, false),
     BLADE_ON_GROUND("Blade strikes the ground", null, false),
     GATLING_DRAWN("Gatling gun drawn", null, false),
-    BREAK_WOOD("A crate or dummy breaks", "size", false),
-    BREAK_DRONE("A drone blows up", null, false),
-    BREAK_AIRSHIP("An airship comes down", null, false),
+    BREAK_WOOD("A crate or dummy breaks", "size", false, 600, 0.3),
+    BREAK_DRONE("A drone blows up", null, false, 1500, 0.55),
+    BREAK_AIRSHIP("An airship comes down", null, false, 6000, 0.75),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),
     JET_WHINE("Jet whine", null, true),
@@ -43,14 +43,41 @@ public enum Sound {
     GATLING_FIRE("Gatling gun firing", null, true),
     AIRSHIP_ENGINES("Airship engines", null, true);
 
+    /** How far most sounds are heard at full loudness: 3 m, as the outputs fade them. */
+    public static final double NEAR = 300;
+
     private final String title;
     private final String amount;
     private final boolean loop;
+    private final double reach;
+    private final double duck;
 
     Sound(final String title, final String amount, final boolean loop) {
+        this(title, amount, loop, NEAR, 0);
+    }
+
+    Sound(final String title, final String amount, final boolean loop, final double reach, final double duck) {
         this.title = title;
         this.amount = amount;
         this.loop = loop;
+        this.reach = reach;
+        this.duck = duck;
+    }
+
+    /**
+     * How far off it is still heard at full loudness, before it fades with distance: {@link #NEAR}
+     * for most, much further for an explosion, as a blast carries.
+     */
+    public double reach() {
+        return reach;
+    }
+
+    /**
+     * How far, 0 to 1, it pushes the loops (the jets, the wind, the Gatling gun) down for a moment
+     * when heard at full loudness: an explosion's, so it punches through; nothing for the rest.
+     */
+    public double duck() {
+        return duck;
     }
 
     public String title() {

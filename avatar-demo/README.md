@@ -116,8 +116,11 @@ is heard where it is struck: a round on a block, ticking or ricocheting, or thud
 ground; the blade clanging off a block, or chopping into the earth. What breaks is heard where
 it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
 was, a drone blowing up, or an airship coming down in a chain of blasts with its frame
-groaning. The nearest airship still in the sky drones from where it hangs, faint from the
-ground and loud alongside it. The jets roar as
+groaning. Explosions are loud all through, as a blast overloads a microphone, and carry: a
+footstep is heard in full only within 3 m, a drone blowing up within 15 m, an airship coming
+down within 60 m. For a moment each one pushes the rest down (the jets, the wind, the Gatling
+gun's roar), as games mix them, so it punches through. The nearest airship still in the sky
+drones from where it hangs, faint from the ground and loud alongside it. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.

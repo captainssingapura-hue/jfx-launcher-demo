@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.hear;
 
 import com.example.fxsuite.avatar.audio.Outputs;
+import com.example.fxsuite.avatar.audio.Space;
 import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -35,6 +36,8 @@ public final class Hearing implements AutoCloseable {
     /** Takes kept of each sound, played in turn. */
     private static final int TAKES = 4;
     private static final double VOLUME = 0.8;
+    /** How quickly the loops come back up after an explosion pushed them down: a time constant, in seconds. */
+    private static final double DUCK_BACK = 0.45;
 
     private record Key(String profile, Sound sound, int strength, int take) {
     }
@@ -46,6 +49,9 @@ public final class Hearing implements AutoCloseable {
     private final Map<Sound, Speakers.Loop> loops = new EnumMap<>(Sound.class);
     private Profile profile;
     private boolean muted;
+    /** How far down the loops are pushed, by the latest explosion ({@link Sound#duck}); and when last heard. */
+    private double ducked;
+    private double lastTime = Double.NaN;
 
     Hearing(final Speakers speakers, final List<String> notes, final Profile profile) {
         this.speakers = speakers;
@@ -76,21 +82,39 @@ public final class Hearing implements AutoCloseable {
      * of the {@code airships} still in the sky droning where it hangs.
      */
     public void hear(final Avatar avatar, final Chase chase, final List<Vec3> airships) {
+        final double time = avatar.body().time();
+        final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, time - lastTime);
+        lastTime = time;
+        // the loops come back up after a blast
+        ducked *= Math.exp(-seconds / DUCK_BACK);
+
         speakers.listen(chase.pivot(), chase.yaw());
         final Cues.Heard heard = Cues.of(avatar, profile, airships);
         for (final Cues.Play play : heard.plays()) {
-            final Clip clip = clip(play.sound(), play.amount(), nextTake(play.sound()));
+            final Sound sound = play.sound();
+            final Clip clip = clip(sound, play.amount(), nextTake(sound));
             if (play.at() == null) {
                 speakers.play(clip, 1, 1);
             } else {
-                speakers.play(clip, 1, 1, play.at());
+                // a blast carries further than a footstep
+                speakers.play(clip, 1, 1, play.at(), sound.reach());
+            }
+            if (sound.duck() > 0) {
+                final double heardAt = play.at() == null ? 1
+                        : Space.fade(play.at().distance(chase.pivot()), sound.reach());
+                ducked = Math.max(ducked, sound.duck() * heardAt);
             }
         }
         for (final Cues.Hum hum : heard.hums()) {
             final Speakers.Loop loop = loops.computeIfAbsent(hum.loop(), s -> speakers.loop(clip(s, 1, 0)));
-            loop.set(hum.level().gain(), hum.level().pitch());
+            loop.set(hum.level().gain() * (1 - ducked), hum.level().pitch());
             loop.place(hum.at());
         }
+    }
+
+    /** How far down the loops are pushed now, 0 to 1, by the latest blast. */
+    double ducked() {
+        return ducked;
     }
 
     /** Silences everything, or brings it back. */

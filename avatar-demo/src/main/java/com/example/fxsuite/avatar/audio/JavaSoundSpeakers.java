@@ -97,8 +97,8 @@ final class JavaSoundSpeakers implements Speakers {
     }
 
     @Override
-    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
-        mix.play(clip, gain, pitch, at);
+    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at, final double near) {
+        mix.play(clip, gain, pitch, at, near);
     }
 
     @Override

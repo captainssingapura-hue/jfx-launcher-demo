@@ -285,7 +285,9 @@ public final class SoundBench extends Application {
         if (at == null) {
             speakers.play(clip, 1, pitch.getValue());
         } else {
-            speakers.play(clip, 1, pitch.getValue(), at);
+            // as far as the game would carry it: a blast further than a footstep
+            final Sound sound = sounds.getSelectionModel().getSelectedItem();
+            speakers.play(clip, 1, pitch.getValue(), at, sound == null ? Sound.NEAR : sound.reach());
         }
         if (vary.isSelected()) {
             variant.getValueFactory().setValue((variant.getValue() + 1) % 1000);

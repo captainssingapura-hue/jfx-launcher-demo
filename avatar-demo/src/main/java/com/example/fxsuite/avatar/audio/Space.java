@@ -24,8 +24,17 @@ public final class Space {
 
     /** How loud, 0 to 1, a sound is heard from {@code distance} away. */
     public static double fade(final double distance) {
-        final double d = Num.clamp(distance, NEAR, FAR);
-        return NEAR / (NEAR + ROLLOFF * (d - NEAR));
+        return fade(distance, NEAR);
+    }
+
+    /**
+     * How loud, 0 to 1, a sound that carries further is heard: full within {@code near}, then
+     * falling as {@code near / distance}. A blast is still loud a long way off, where a footstep
+     * would be lost.
+     */
+    public static double fade(final double distance, final double near) {
+        final double d = Num.clamp(distance, near, Math.max(near, FAR));
+        return near / (near + ROLLOFF * (d - near));
     }
 
     /**

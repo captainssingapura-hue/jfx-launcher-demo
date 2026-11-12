@@ -639,14 +639,16 @@ public final class Robot implements Profile {
                 pings[k].push(since >= 0 && since < 0.001 ? w : 0);
                 ping += pings[k].band;
             }
-            y[i] = 1.3 * Math.sin(boom) * hit(t, 0.003, 0.28)
-                    + 1.4 * blast.low * hit(t, 0.002, 0.35)
-                    + 0.8 * crackle.band
-                    + 0.22 * Math.sin(whine) * hit(t - 0.02, 0.01, 0.35)
-                    + 0.3 * fizz.band * hit(t, 0.005, 0.15)
-                    + 1.2 * ping;
+            // the boom and the blast carry it; the crackle, whine and pings ride on top
+            y[i] = 1.4 * Math.sin(boom) * hit(t, 0.003, 0.45)
+                    + 3.2 * blast.low * hit(t, 0.002, 0.5)
+                    + 0.4 * crackle.band
+                    + 0.15 * Math.sin(whine) * hit(t - 0.02, 0.01, 0.35)
+                    + 0.25 * fizz.band * hit(t, 0.005, 0.15)
+                    + 0.5 * ping;
         }
-        return new Clip(name("break-drone", 1, variant), Dsp.finish(y, 0.85), false);
+        // overloaded, as a blast is: loud all through, not just for its first instant
+        return new Clip(name("break-drone", 1, variant), Dsp.finish(Dsp.punch(y, 3), 0.95), false);
     }
 
     /** Drawing the Gatling gun: a heavy clunk as it is hefted, and its motor blipping into life. */
@@ -777,8 +779,8 @@ public final class Robot implements Profile {
                 }
                 booms[k] += TAU * (30 + 70 * Math.exp(-since / 0.12)) * tune / Dsp.RATE;
                 final double strength = 1 - 0.15 * k;
-                boom += strength * Math.sin(booms[k]) * hit(since, 0.003, 0.35);
-                air += strength * hit(since, 0.002, 0.3);
+                boom += strength * Math.sin(booms[k]) * hit(since, 0.003, 0.55);
+                air += strength * hit(since, 0.002, 0.5);
             }
             roar.tune(250 + 2300 * Math.exp(-t / 0.8), 0.8).push(w);
             tail.push(w);
@@ -787,12 +789,13 @@ public final class Robot implements Profile {
             groan.push(2 * (saw - Math.floor(saw)) - 1);
             final double density = 400 * Math.exp(-t / 1.2);
             crackle.push((chance.next() + 1) / 2 < density / Dsp.RATE ? chance.next() * 8 : 0);
-            y[i] = 1.2 * boom + 1.5 * roar.low * air
-                    + 0.5 * groan.band * hit(t - 0.3, 0.4, 1.0)
-                    + 0.7 * crackle.band
-                    + 2.5 * tail.low * hit(t, 0.05, 1.4);
+            // the booms, the roar of air and the long rumble carry it; the groan and crackle ride on top
+            y[i] = 1.3 * boom + 3.5 * roar.low * air
+                    + 0.4 * groan.band * hit(t - 0.3, 0.4, 1.0)
+                    + 0.35 * crackle.band
+                    + 4 * tail.low * hit(t, 0.05, 1.8);
         }
-        return new Clip(name("break-airship", 1, variant), Dsp.finish(y, 0.95), false);
+        return new Clip(name("break-airship", 1, variant), Dsp.finish(Dsp.punch(y, 3), 0.95), false);
     }
 
     /** The jets' deep roar: brown noise, low-passed, with a slight flutter. */

@@ -110,9 +110,9 @@ final class RecordingSpeakers implements Speakers {
     }
 
     @Override
-    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
+    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at, final double near) {
         catchUp();
-        mix.play(clip, gain, pitch, at);
+        mix.play(clip, gain, pitch, at, near);
     }
 
     @Override

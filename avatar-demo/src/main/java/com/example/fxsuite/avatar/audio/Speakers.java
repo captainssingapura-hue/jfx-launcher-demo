@@ -84,8 +84,16 @@ public interface Speakers extends AutoCloseable {
     /** Plays a clip once, at the listener. {@code pitch} 1 as made, 2 an octave up and twice as quick. */
     void play(Clip clip, double gain, double pitch);
 
-    /** Plays a clip once, from a place in the world. */
-    void play(Clip clip, double gain, double pitch, Vec3 at);
+    /** Plays a clip once, from a place in the world, fading with distance as most sounds do. */
+    default void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
+        play(clip, gain, pitch, at, Space.NEAR);
+    }
+
+    /**
+     * Plays a clip once, from a place in the world, heard at full loudness out to {@code near}
+     * and fading beyond it ({@link Space#fade(double, double)}): further for a louder sound.
+     */
+    void play(Clip clip, double gain, double pitch, Vec3 at, double near);
 
     Loop loop(Clip clip);
 

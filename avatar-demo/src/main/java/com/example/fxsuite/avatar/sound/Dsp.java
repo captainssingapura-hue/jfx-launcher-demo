@@ -118,6 +118,26 @@ final class Dsp {
         return out;
     }
 
+    /**
+     * Saturated, as a blast overloads a microphone: brought to full scale, then rounded off by
+     * {@code tanh}, {@code drive} times over. The loudest instants are held back and all the rest
+     * brought up, so a boom is loud all through, not just for its first crack. 1 is gentle, 4 hard.
+     */
+    static double[] punch(final double[] signal, final double drive) {
+        double most = 0;
+        for (final double s : signal) {
+            most = Math.max(most, Math.abs(s));
+        }
+        if (most == 0) {
+            return signal;
+        }
+        final double top = Math.tanh(drive);
+        for (int i = 0; i < signal.length; i++) {
+            signal[i] = Math.tanh(drive * signal[i] / most) / top;
+        }
+        return signal;
+    }
+
     static float[] normalized(final double[] signal, final double peak) {
         double most = 0;
         for (final double s : signal) {

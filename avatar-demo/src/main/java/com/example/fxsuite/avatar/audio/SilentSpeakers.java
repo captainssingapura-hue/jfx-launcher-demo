@@ -43,7 +43,7 @@ final class SilentSpeakers implements Speakers {
     }
 
     @Override
-    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
+    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at, final double near) {
     }
 
     @Override

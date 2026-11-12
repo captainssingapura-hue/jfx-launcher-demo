@@ -148,9 +148,10 @@ final class OpenAlSpeakers implements Speakers {
     }
 
     @Override
-    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at) {
+    public void play(final Clip clip, final double gain, final double pitch, final Vec3 at, final double near) {
         final int voice = freeVoice();
         alSourceStop(voice);
+        alSourcef(voice, AL_REFERENCE_DISTANCE, (float) near);
         alSourcei(voice, AL_BUFFER, buffer(clip));
         alSourcei(voice, AL_LOOPING, AL_FALSE);
         alSourcef(voice, AL_GAIN, (float) Math.max(0, gain));
