@@ -15,7 +15,7 @@ import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
-import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -109,6 +109,16 @@ public final class AvatarDemo extends Application {
     private Avatar before = avatar;
     private Avatar seen = avatar;
     private Clock clock = Clock.START;
+    /** How many steps the world has taken: what each step's events are stamped with. */
+    private long step;
+    /**
+     * What happened, step by step: the simulation writes each step's events here, and the effects
+     * and the sound each read it through a reader of their own, at their own pace.
+     */
+    private final Journal journal = new Journal();
+    private final Journal.Reader forImpacts = journal.reader();
+    private final Journal.Reader forWreckage = journal.reader();
+    private final Journal.Reader forSound = journal.reader();
     /** Degrees of the mouse's turn not yet taken by a step. */
     private double turning;
     /** What the player has done once (a jump, a take-off, the pack, a weapon drawn) since the last step: the next step takes them. */
@@ -231,8 +241,6 @@ public final class AvatarDemo extends Application {
         turning += look.takeTurn() + scriptedTurn * seconds;
         final Clock.Ticked ticked = clock.advance(seconds);
         clock = ticked.clock();
-        // what happened in this frame's steps, for the effects and the sound: theirs to read, never the world's
-        final List<Event> happened = new ArrayList<>();
         for (int i = 0; i < ticked.steps(); i++) {
             final double turn = turning / (ticked.steps() - i);
             turning -= turn;
@@ -252,11 +260,11 @@ public final class AvatarDemo extends Application {
                 actions.clear();
             }
             before = avatar;
-            // the avatar moves, its blows wear the world down, and what happened comes out beside them
+            // the avatar moves, its blows wear the world down, and what happened goes to the journal
             final Play.Stepped stepped = new Play(avatar, damage).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
-            happened.addAll(stepped.events());
+            journal.append(++step, stepped.events());
         }
         // what is seen and heard: the world between its last two steps, so it glides rather than ticks
         seen = avatar.between(before, ticked.blend());
@@ -270,13 +278,14 @@ public final class AvatarDemo extends Application {
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
         rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
-        impacts.show(avatar, happened);
-        wreckage.show(avatar, happened, world, damage.obstacles());
+        // each reads what is new to it in the journal
+        impacts.show(avatar, forImpacts.read().events());
+        wreckage.show(avatar, forWreckage.read().events(), world, damage.obstacles());
         world.show(damage, seconds, chase.yaw());
         reticle.show(avatar, damage.obstacles(), chase.position());
         world.shadowUnder(body, damage.obstacles());
         // the airships still in the sky drone from the middle of their hulls
-        hearing.hear(avatar, happened, chase, damage.standing(Course.Kind.AIRSHIP).stream()
+        hearing.hear(avatar, forSound.read().events(), chase, damage.standing(Course.Kind.AIRSHIP).stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList());
 
         // boosting widens the view a little, for a sense of speed
