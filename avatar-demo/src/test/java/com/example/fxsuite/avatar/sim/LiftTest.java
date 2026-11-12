@@ -77,12 +77,14 @@ class LiftTest {
         for (final Lift lift : start.lifts()) {
             assertEquals(Course.LIFT_LOW, lift.place().height());
             assertFalse(lift.held());
-            assertTrue(lift.clear(lift.place(), start.obstacles()), "nothing in the way where it stands");
+            final List<Integer> aboard = start.damage().riding(lift.piece());
+            assertTrue(lift.clear(lift.place(), start.obstacles(), aboard), "nothing in the way where it stands");
             // and nothing over it all the way up, so it can go straight up from the start
             final Block column = new Block(lift.place().x(), lift.place().z(), lift.deck().width() / 2,
                     lift.deck().depth() / 2, lift.place().yaw(), 0, Course.LIFT_HIGH + Body.TALL);
             for (int i = 0; i < start.obstacles().blocks().size(); i++) {
-                if (start.obstacles().pieces().get(i) != lift.piece()) {
+                final int other = start.obstacles().pieces().get(i);
+                if (other != lift.piece() && !aboard.contains(other)) {
                     assertFalse(column.overlaps(start.obstacles().blocks().get(i)), "in its column: " + i);
                 }
             }

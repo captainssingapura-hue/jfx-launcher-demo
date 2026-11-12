@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
+import com.example.fxsuite.avatar.look.Stall;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
@@ -110,6 +111,8 @@ public final class AvatarDemo extends Application {
     private Map<Integer, Block> movedBefore = Map.of();
     private Map<Integer, Block> movedNow = Map.of();
     private final World world = new World(course);
+    /** The people at the melon stall on the barge. */
+    private final Stall stall = new Stall(world, course);
     private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
     private final Bombs bombs = new Bombs();
@@ -146,6 +149,7 @@ public final class AvatarDemo extends Application {
     private final Journal.Reader forImpacts = journal.reader();
     private final Journal.Reader forWreckage = journal.reader();
     private final Journal.Reader forSound = journal.reader();
+    private final Journal.Reader forStall = journal.reader();
     /** Degrees of the mouse's turn not yet taken by a step. */
     private double turning;
     /** The keys pressed since the last step, in order: the next step takes what they do once (a jump, a take-off, the pack, a weapon drawn). */
@@ -360,6 +364,7 @@ public final class AvatarDemo extends Application {
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, between(movedBefore, movedNow, ticked.blend()), lifts, seconds, chase.yaw());
         bombs.show(sky, behind);
+        stall.show(forStall.read().events(), seconds);
         reticle.show(avatar, standing, chase.position());
         world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
@@ -416,7 +421,10 @@ public final class AvatarDemo extends Application {
                 + damage.broken(Course.Kind.AIRSHIP);
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = String.format(" · targets down %d of %d%s", down, targets,
-                crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");
+                crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken")
+                + (damage.broken(Course.Kind.MELON) == 0 ? ""
+                        : String.format(" · melons smashed %d of %d", damage.broken(Course.Kind.MELON),
+                                damage.count(Course.Kind.MELON)));
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach

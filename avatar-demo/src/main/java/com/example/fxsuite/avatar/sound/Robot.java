@@ -70,6 +70,7 @@ public final class Robot implements Profile {
             case GATLING_DRAWN -> gatlingDrawn(variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE, BOMB -> breakDrone(variant);
+            case MELON -> melon(variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
@@ -600,6 +601,43 @@ public final class Robot implements Profile {
                     + 1.8 * clatter;
         }
         return new Clip(name("break-wood", size, variant), Dsp.finish(y, 0.5 + 0.35 * size), false);
+    }
+
+    /**
+     * A watermelon bursting: a dull, wet thump sinking in pitch, the rind cracking, a splash of
+     * juice, and a few drips and pieces landing after.
+     */
+    public static Clip melon(final int variant) {
+        final Noise noise = new Noise(23_000L + variant);
+        final Noise chance = new Noise(23_500L + variant);
+        final double tune = 1 + 0.08 * noise.next();
+        final double[] y = new double[samples(0.75)];
+        final Filter crack = new Filter(1900 * tune, 1.6);
+        final Filter splash = new Filter(850 * tune, 0.7);
+        final int drops = 4;
+        final double[] when = new double[drops];
+        final Filter[] drips = new Filter[drops];
+        for (int k = 0; k < drops; k++) {
+            when[k] = 0.16 + 0.12 * k + 0.04 * chance.next();
+            drips[k] = new Filter((650 + 300 * Math.abs(chance.next())) * tune, 9);
+        }
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            crack.push(w * hit(t, 0.0004, 0.01));
+            splash.push(w);
+            double dripping = 0;
+            for (int k = 0; k < drops; k++) {
+                final double since = t - when[k];
+                drips[k].push(since >= 0 && since < 0.0015 ? w * (1 - 0.15 * k) : 0);
+                dripping += drips[k].band;
+            }
+            phase += TAU * 120 * tune * (1 - 0.45 * Math.min(1, t / 0.07)) / Dsp.RATE;
+            y[i] = 1.7 * Math.sin(phase) * hit(t, 0.002, 0.06) + 1.1 * crack.band
+                    + 1.5 * splash.band * hit(t, 0.004, 0.08) + 1.4 * dripping;
+        }
+        return new Clip(name("melon", 1, variant), Dsp.finish(y, 0.5), false);
     }
 
     /**

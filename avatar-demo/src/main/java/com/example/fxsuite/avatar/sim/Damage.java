@@ -32,6 +32,8 @@ public final class Damage {
     /** How tough a dummy is, a drone, an airship, and the smallest crate. */
     public static final double DUMMY = 300;
     public static final double DRONE = 120;
+    /** A watermelon: three rifle rounds, four of the Gatling gun, one stroke of the glaive. */
+    public static final double MELON = 25;
     public static final double AIRSHIP = 3000;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
@@ -69,7 +71,8 @@ public final class Damage {
             case AIRSHIP -> AIRSHIP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
-            case PILLAR, GATE, PLATFORM -> Double.POSITIVE_INFINITY;
+            case MELON -> MELON;
+            case PILLAR, GATE, PLATFORM, STALL -> Double.POSITIVE_INFINITY;
         };
     }
 
@@ -94,6 +97,14 @@ public final class Damage {
 
     /** As {@link #took(List)}, {@code seconds} after the start: what moves of itself breaks where it then is. */
     public Taken took(final List<Blow> blows, final double seconds) {
+        return took(blows, piece -> pieces.get(piece).at(seconds));
+    }
+
+    /**
+     * As {@link #took(List)}, with {@code where} telling where each piece now is: what moves breaks
+     * where it then is, and that is where its pieces fly from.
+     */
+    public Taken took(final List<Blow> blows, final java.util.function.IntFunction<Course.Piece> where) {
         double[] left = null;
         Obstacles standing = obstacles;
         final List<Event> happened = new ArrayList<>();
@@ -115,7 +126,7 @@ public final class Damage {
             left[piece] = Math.max(0, left[piece] - blow.by().blow());
             happened.add(Event.Struck.of(blow, share(piece, left)));
             if (left[piece] <= 0) {
-                final Course.Piece what = pieces.get(piece).at(seconds);
+                final Course.Piece what = where.apply(piece);
                 standing = standing.without(piece);
                 happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by()));
             }
@@ -181,6 +192,11 @@ public final class Damage {
     /** The pieces that fly of themselves and are still in the sky, by number: the airships left. */
     public List<Integer> flying() {
         return moving().stream().filter(i -> pieces.get(i).flies()).toList();
+    }
+
+    /** The pieces riding on piece {@code carrier} and still standing, by number: the stall on the barge. */
+    public List<Integer> riding(final int carrier) {
+        return moving().stream().filter(i -> pieces.get(i).carrier() == carrier).toList();
     }
 
     /** How many pieces there are, broken or not. */

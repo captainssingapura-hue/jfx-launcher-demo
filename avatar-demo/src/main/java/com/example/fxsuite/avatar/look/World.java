@@ -18,6 +18,12 @@ import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Shape3D;
+import javafx.scene.shape.Sphere;
+import javafx.scene.image.WritableImage;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.transform.Translate;
 import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
@@ -132,6 +138,8 @@ public final class World {
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
                 case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
                 case PLATFORM -> platform(i, part);
+                case STALL -> stall(part, block);
+                case MELON -> melon(part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -236,6 +244,11 @@ public final class World {
         return parts[piece];
     }
 
+    /** What piece {@code piece} is. */
+    Course.Kind kind(final int piece) {
+        return pieces.get(piece).kind();
+    }
+
     /** Where each piece that moves was after step {@code step}, {@code placed}: kept a while, for {@link #at}. */
     public void moved(final long step, final Map<Integer, Block> placed) {
         history.put(step, placed);
@@ -275,8 +288,8 @@ public final class World {
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
-        if (kind == Course.Kind.DRONE) {
-            return;  // a drone's box is mostly air: nothing to crack
+        if (kind == Course.Kind.DRONE || kind == Course.Kind.MELON) {
+            return;  // a drone's box is mostly air, and a melon is round: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -592,6 +605,151 @@ public final class World {
                 c.up() + c.halfUp() + 8, 5, 5, 8), BoxRig.glow("#ffb300"));
         rigs.put(piece, new Rig(lamp, lean, thrusters));
         return deck;
+    }
+
+    /**
+     * A watermelon, lying on its side: a round, dark green body striped lighter from end to end.
+     * Its material is its own, white under the stripes, so it can darken as it is worn.
+     */
+    private static Shape3D melon(final Group part) {
+        final Sphere body = new Sphere(1, 24);
+        // the sphere's poles along its y; scaled long that way, then laid on its side, across
+        body.setScaleX(Course.MELON_TALL / 2);
+        body.setScaleY(Course.MELON_LONG / 2);
+        body.setScaleZ(Course.MELON_WIDE / 2);
+        final PhongMaterial rind = new PhongMaterial(Color.WHITE);
+        rind.setDiffuseMap(STRIPES);
+        rind.setSpecularColor(Color.web("#3a4a3a"));
+        body.setMaterial(rind);
+        final Group lying = new Group(body);
+        lying.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+        part.getChildren().add(lying);
+        return body;
+    }
+
+    /** A watermelon's skin, flat: dark green, with lighter stripes that wander a little, end to end. */
+    private static final WritableImage STRIPES = stripes();
+
+    private static WritableImage stripes() {
+        final int wide = 128;
+        final int high = 32;
+        final WritableImage image = new WritableImage(wide, high);
+        final Color dark = Color.web("#1e4a1c");
+        final Color light = Color.web("#5b9a3c");
+        for (int v = 0; v < high; v++) {
+            final double wander = 2.5 * Math.sin(v * Math.PI * 3 / high);
+            for (int u = 0; u < wide; u++) {
+                // nine stripes round it, each a third light
+                final double round = ((u + wander) / wide * 9) % 1;
+                image.getPixelWriter().setColor(u, v, round < 0.33 ? light : dark);
+            }
+        }
+        return image;
+    }
+
+    /**
+     * The melon stall's table: planks on a pair of pallets, a cloth hung over the front (its -z,
+     * toward the back of the barge, where the customers come), and
+     * about it what a stall has: a striped awning on two poles, a scale on the table, a sign, and
+     * a few pineapples on the deck. Only the table itself is solid ({@link Course#TABLE}).
+     */
+    private static Shape3D stall(final Group part, final Block block) {
+        final PhongMaterial planks = BoxRig.matte("#c9a273");
+        final PhongMaterial pallet = BoxRig.matte("#9c7a4e");
+        final double halfWide = block.halfWidth();
+        final double halfDeep = block.halfDepth();
+        final double half = (block.top() - block.bottom()) / 2;
+        // the table's frame: its middle; the deck is half its height below (y is down)
+        final Box top = new Box(halfWide * 2, 6, halfDeep * 2);
+        top.setTranslateY(-half + 3);
+        top.setMaterial(planks);
+        part.getChildren().add(top);
+        for (final double side : new double[] {-1, 1}) {
+            final Box under = new Box(halfWide * 0.9, half * 2 - 6, halfDeep * 2 - 10);
+            under.setTranslateX(side * halfWide * 0.5);
+            under.setTranslateY(3);
+            under.setMaterial(pallet);
+            part.getChildren().add(under);
+        }
+        final Box cloth = new Box(halfWide * 2 - 4, half * 1.2, 1.5);
+        cloth.setTranslateY(-half + 6 + half * 0.6);
+        cloth.setTranslateZ(-halfDeep - 1);
+        cloth.setMaterial(BoxRig.matte("#2f5d8a"));
+        part.getChildren().add(cloth);
+        // the awning: two poles at the back, a canopy striped red and white, sloping to the front
+        final PhongMaterial pole = BoxRig.matte("#55595e");
+        for (final double side : new double[] {-1, 1}) {
+            final Box stick = new Box(5, 230, 5);
+            stick.setTranslateX(side * (halfWide + 10));
+            stick.setTranslateY(half - 115);
+            stick.setTranslateZ(halfDeep + 30);
+            stick.setMaterial(pole);
+            part.getChildren().add(stick);
+        }
+        final Group canopy = new Group();
+        canopy.setTranslateY(half - 230);
+        canopy.setTranslateZ(halfDeep + 30 - 85);
+        canopy.getTransforms().add(new Rotate(12, Rotate.X_AXIS));
+        final int strips = 8;
+        final double across = (halfWide + 30) * 2;
+        for (int k = 0; k < strips; k++) {
+            final Box strip = new Box(across / strips, 3, 190);
+            strip.setTranslateX(-across / 2 + (k + 0.5) * across / strips);
+            strip.setMaterial(BoxRig.matte(k % 2 == 0 ? "#d8323a" : "#f2efe6"));
+            canopy.getChildren().add(strip);
+        }
+        part.getChildren().add(canopy);
+        // a scale at one end of the table, and a sign at the front corner
+        final Box scaleBase = new Box(22, 8, 18);
+        scaleBase.setTranslateX(halfWide - 20);
+        scaleBase.setTranslateY(-half - 4);
+        scaleBase.setTranslateZ(-halfDeep + 16);
+        scaleBase.setMaterial(BoxRig.matte("#b9bec4"));
+        final Box scalePan = new Box(26, 2, 22);
+        scalePan.setTranslateX(halfWide - 20);
+        scalePan.setTranslateY(-half - 9);
+        scalePan.setTranslateZ(-halfDeep + 16);
+        scalePan.setMaterial(BoxRig.matte("#d6dadf"));
+        part.getChildren().addAll(scaleBase, scalePan);
+        final Box board = new Box(56, 34, 2);
+        board.setTranslateX(-halfWide + 34);
+        board.setTranslateY(-half - 44);
+        board.setTranslateZ(-halfDeep - 3);
+        board.setMaterial(BoxRig.matte("#f4ead2"));
+        final Box post = new Box(3, 30, 3);
+        post.setTranslateX(-halfWide + 34);
+        post.setTranslateY(-half - 14);
+        post.setTranslateZ(-halfDeep - 3);
+        post.setMaterial(pallet);
+        final Text sign = new Text("西瓜");
+        sign.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 22));
+        sign.setFill(Color.web("#b3261e"));
+        // a Text faces -z, the front, to whoever stands there: centred on the board
+        sign.getTransforms().add(new Translate(-halfWide + 34 - 22, -half - 36, -halfDeep - 4.2));
+        part.getChildren().addAll(board, post, sign);
+        // pineapples on the deck by the table
+        final PhongMaterial pineapple = BoxRig.matte("#c98f2a");
+        final PhongMaterial leaves = BoxRig.matte("#3f7d2e");
+        for (int k = 0; k < 3; k++) {
+            final Sphere fruit = new Sphere(1, 12);
+            fruit.setScaleX(9);
+            fruit.setScaleY(14);
+            fruit.setScaleZ(9);
+            final double x = -halfWide - 40 - (k % 2) * 22;
+            final double z = halfDeep - 20 - k * 24;
+            fruit.setTranslateX(x);
+            fruit.setTranslateY(half - 14);
+            fruit.setTranslateZ(z);
+            fruit.setMaterial(pineapple);
+            final Box crown = new Box(10, 12, 10);
+            crown.setTranslateX(x);
+            crown.setTranslateY(half - 33);
+            crown.setTranslateZ(z);
+            crown.getTransforms().add(new Rotate(45, Rotate.Y_AXIS));
+            crown.setMaterial(leaves);
+            part.getChildren().addAll(fruit, crown);
+        }
+        return top;
     }
 
     /** A platform's controls as shown: the lamp, the lever, the thrusters. */

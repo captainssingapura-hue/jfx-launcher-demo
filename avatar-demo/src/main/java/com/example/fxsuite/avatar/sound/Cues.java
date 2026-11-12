@@ -131,6 +131,7 @@ public final class Cues {
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());
+                    case MELON -> new Play(Sound.MELON, 1, b.middle());
                     default -> new Play(Sound.BREAK_WOOD, size(b.block()), b.middle());
                 });
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE

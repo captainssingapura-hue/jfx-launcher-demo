@@ -38,7 +38,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 3;
+    public static final int RULES = 4;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -124,7 +124,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
         // the world moves on, carrying whoever stands on what moves
         final double to = sky.time() + seconds;
-        final List<Lift> moved = handed.stream().map(lift -> lift.step(controls, seconds, was)).toList();
+        final List<Lift> moved = handed.stream()
+                .map(lift -> lift.step(controls, seconds, was, damage.riding(lift.piece()))).toList();
         final Avatar carried = carried(avatar, was, handed, moved, to);
         final Obstacles now = obstacles(to, moved);
         // act: the avatar does what it was asked, moves, and deals its blows; the bombs fall
@@ -133,7 +134,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         // resolve: the world takes the blows, the avatar's and then the bombs'
         final List<Blow> blows = new ArrayList<>(acted.blows());
         blows.addAll(fell.blows());
-        final Damage.Taken taken = damage.took(blows, to);
+        final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved));
         // report: the controls changing hands, the avatar's own events, the bombs', then what came of the blows
         happened.addAll(acted.events());
         happened.addAll(fell.events());
@@ -192,10 +193,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         if (!body.grounded()) {
             return avatar;
         }
-        final int piece = was.under(body.position().x(), body.position().z(), Body.FOOTING, body.height());
-        if (piece < 0 || !damage.piece(piece).moves()) {
+        final int under = was.under(body.position().x(), body.position().z(), Body.FOOTING, body.height());
+        if (under < 0 || !damage.piece(under).moves()) {
             return avatar;
         }
+        // standing on what rides on something (the stall's table, on the barge), it goes as that goes
+        final int piece = damage.piece(under).rides() ? damage.piece(under).carrier() : under;
         final Course.Piece what = damage.piece(piece);
         if (what.flies()) {
             return avatar.carried(what.route().at(sky.time()), what.route().at(to));
@@ -213,6 +216,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         final Course.Piece what = damage.piece(piece);
         if (what.flies()) {
             return what.at(seconds);
+        }
+        if (what.rides()) {
+            return what.placed(placed(what.carrier(), seconds, lifts).place());
         }
         for (final Lift lift : lifts) {
             if (lift.piece() == piece) {

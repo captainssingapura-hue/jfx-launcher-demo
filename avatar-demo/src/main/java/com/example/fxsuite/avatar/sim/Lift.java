@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.sim;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -51,7 +52,7 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         final List<Lift> lifts = new ArrayList<>();
         for (final int piece : damage.moving()) {
             final Course.Piece what = damage.piece(piece);
-            if (!what.flies()) {
+            if (!what.flies() && !what.rides()) {
                 lifts.add(new Lift(piece, Course.Deck.of(what.shape()), what.place()));
             }
         }
@@ -88,9 +89,10 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
 
     /**
      * {@code seconds} on, flown by {@code controls} if held (and only easing to a stop if not),
-     * among {@code world}, its own blocks in it or not.
+     * among {@code world}, its own blocks in it or not, and those of what rides on it, {@code aboard}.
      */
-    public Lift step(final Controls controls, final double seconds, final Obstacles world) {
+    public Lift step(final Controls controls, final double seconds, final Obstacles world,
+                     final Collection<Integer> aboard) {
         final double pace = held ? (controls.run() ? 1 : CAREFUL) : 0;
         final double nowAhead = ease(ahead, Num.clamp(controls.forward(), -1, 1) * SPEED * pace, seconds);
         final double nowAside = ease(aside, Num.clamp(controls.sideways(), -1, 1) * SPEED * SIDEWAYS * pace, seconds);
@@ -106,7 +108,7 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         final double height = Num.clamp(place.height() + up, Course.LIFT_LOW, Course.LIFT_HIGH);
         final double climbing = height == Course.LIFT_LOW || height == Course.LIFT_HIGH ? 0 : nowClimb;
         // the whole move if it is clear; else turning only, going across only, climbing only; else none
-        final boolean stuck = !clear(place, world);
+        final boolean stuck = !clear(place, world, aboard);
         final Place[] tries = {
                 new Place(x, z, height, yaw),
                 new Place(place.x(), place.z(), place.height(), yaw),
@@ -114,7 +116,7 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
                 new Place(place.x(), place.z(), height, place.yaw()),
         };
         for (int k = 0; k < tries.length; k++) {
-            if (stuck || clear(tries[k], world)) {
+            if (stuck || clear(tries[k], world, aboard)) {
                 final boolean goesAcross = k == 0 || k == 2;
                 final boolean goesUp = k == 0 || k == 3;
                 return new Lift(piece, deck, tries[k], goesAcross ? nowAhead : 0, goesAcross ? nowAside : 0,
@@ -124,11 +126,15 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         return new Lift(piece, deck, place, 0, 0, 0, held);
     }
 
-    /** Whether at {@code at} its deck and the room over it are clear of everything solid in {@code world} but itself. */
-    public boolean clear(final Place at, final Obstacles world) {
+    /**
+     * Whether at {@code at} its deck and the room over it are clear of everything solid in
+     * {@code world} but itself and what rides on it, {@code aboard}: that goes where it goes.
+     */
+    public boolean clear(final Place at, final Obstacles world, final Collection<Integer> aboard) {
         final Block room = deck.room().placed(at);
         for (int i = 0; i < world.blocks().size(); i++) {
-            if (world.pieces().get(i) != piece && room.overlaps(world.blocks().get(i))) {
+            final int other = world.pieces().get(i);
+            if (other != piece && !aboard.contains(other) && room.overlaps(world.blocks().get(i))) {
                 return false;
             }
         }

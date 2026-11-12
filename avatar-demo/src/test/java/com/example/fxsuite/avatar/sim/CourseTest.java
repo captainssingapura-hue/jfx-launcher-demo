@@ -132,7 +132,8 @@ class CourseTest {
     @Test
     void theTargetsStandInTheOpenEachClearOfEverythingElse() {
         final List<Course.Piece> pieces = course.pieces();
-        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target()).toList();
+        // the targets standing about the course; the melons, on the stall, have a test of their own
+        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target() && !p.rides()).toList();
         assertEquals(8, targets.stream().filter(p -> p.kind() == Course.Kind.DUMMY).count());
         assertEquals(Course.DRONES, targets.stream().filter(p -> p.kind() == Course.Kind.DRONE).count());
         for (final Course.Piece target : targets) {

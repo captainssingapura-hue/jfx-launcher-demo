@@ -46,6 +46,10 @@ public final class Wreckage {
     private final PhongMaterial ember = BoxRig.glow("#ffb347");
     /** Earth thrown up by a bomb going off on the ground. */
     private final PhongMaterial earth = BoxRig.matte("#4f5a43");
+    /** What a watermelon is, burst: its flesh, its rind, its seeds. */
+    private final PhongMaterial flesh = BoxRig.matte("#e23b4a");
+    private final PhongMaterial rind = BoxRig.matte("#2e6a2a");
+    private final PhongMaterial seed = BoxRig.matte("#141210");
     private final PhongMaterial[] flames = {flame("#ffc23a"), flame("#ff8a1e"), flame("#e8571a"), flame("#9c3416")};
     private int next;
     private int count;
@@ -89,7 +93,36 @@ public final class Wreckage {
         }
     }
 
+    /**
+     * A watermelon bursting: lumps of red flesh and green rind flung out from the blow, black
+     * seeds, and a spray of juice that is gone in a moment.
+     */
+    private void splatter(final Event.Broke broke) {
+        final Vec3 middle = broke.middle();
+        final Vec3 away = middle.subtract(broke.struck());
+        final Vec3 out = away.magnitude() < 1e-6 ? Vec3.ZERO : away.normalize();
+        for (int i = 0; i < 26; i++) {
+            final boolean skin = i % 3 == 0;
+            final Vec3 fly = out.multiply(260 * (0.4 + unit()))
+                    .add((unit() - 0.5) * 320, -(220 + 260 * unit()), (unit() - 0.5) * 320);
+            final double size = skin ? 6 + 6 * unit() : 5 + 8 * unit();
+            chunk().throwFrom(middle, fly, size, skin ? size * 0.35 : size * 0.8, size, skin ? rind : flesh, unit());
+        }
+        for (int i = 0; i < 10; i++) {
+            final Vec3 fly = new Vec3((unit() - 0.5) * 380, -(200 + 200 * unit()), (unit() - 0.5) * 380);
+            chunk().throwFrom(middle, fly, 2, 1.2, 1.4, seed, unit());
+        }
+        for (int i = 0; i < 18; i++) {
+            final Vec3 fly = out.multiply(200).add((unit() - 0.5) * 600, -(150 + 350 * unit()), (unit() - 0.5) * 600);
+            chunk().throwFrom(middle, fly, 3, 3, 3, flesh, unit()).burnsOut(0.35 + 0.3 * unit());
+        }
+    }
+
     private void burst(final Event.Broke broke, final PhongMaterial material) {
+        if (broke.kind() == Course.Kind.MELON) {
+            splatter(broke);
+            return;
+        }
         final Block block = broke.block();
         final boolean airship = broke.kind() == Course.Kind.AIRSHIP;
         final Course.Section hull = Course.HULL.get(3);

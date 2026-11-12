@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
@@ -42,6 +43,8 @@ public final class Impacts {
     private final Group root = new Group();
     private final Pool tracers;
     private final Pool sparks;
+    /** Juice, off a watermelon struck. */
+    private final Pool juice;
     private final Pool dust;
     private final Pool holes;
     private final Pool gashes;
@@ -63,6 +66,7 @@ public final class Impacts {
         final PhongMaterial hole = BoxRig.matte("#1b1c1f");
         tracers = new Pool(16, () -> new Box(1.2, 1, 1.2), light);
         sparks = new Pool(120, () -> new Box(3, 3, 3), spark);
+        juice = new Pool(90, () -> new Box(3.5, 3.5, 3.5), BoxRig.matte("#d8283a"));
         dust = new Pool(60, () -> new Box(8, 8, 8), earth);
         holes = new Pool(300, () -> new Box(8, 0.5, 8), hole);
         gashes = new Pool(30, () -> new Box(26, 0.6, 4.5), hole);
@@ -97,7 +101,7 @@ public final class Impacts {
                 gashes.clear(broke.piece());
             }
         }
-        for (final Pool pool : new Pool[] {tracers, sparks, dust, holes, gashes}) {
+        for (final Pool pool : new Pool[] {tracers, sparks, juice, dust, holes, gashes}) {
             pool.age(seconds);
         }
     }
@@ -113,7 +117,14 @@ public final class Impacts {
     private void struck(final Event.Struck struck, final double yaw, final long step) {
         final boolean blade = struck.by() == Weapon.GLAIVE;
         final Vec3 off = struck.at().add(struck.normal().multiply(0.4));
-        if (struck.on() == Surface.BLOCK) {
+        if (struck.piece() >= 0 && world.kind(struck.piece()) == Course.Kind.MELON) {
+            // a melon struck splashes juice, not sparks
+            for (int i = 0; i < (blade ? 18 : 8); i++) {
+                final Vec3 fly = struck.normal().multiply(blade ? 260 : 200).add(scatter(blade ? 420 : 260))
+                        .add(0, -120, 0);
+                juice.next(SPARK * 2 * (0.6 + 0.4 * unit())).place(off, fly, null, true);
+            }
+        } else if (struck.on() == Surface.BLOCK) {
             for (int i = 0; i < (blade ? 16 : 6); i++) {
                 final Vec3 fly = struck.normal().multiply(blade ? 450 : 320).add(scatter(blade ? 500 : 300));
                 sparks.next(SPARK * (0.6 + 0.4 * unit())).place(off, fly, null, true);
