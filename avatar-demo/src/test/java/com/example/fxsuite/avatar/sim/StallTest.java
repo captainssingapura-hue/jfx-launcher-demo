@@ -26,9 +26,13 @@ class StallTest {
     }
 
     private List<Integer> melons() {
+        return of(Fruit.WATERMELON);
+    }
+
+    private List<Integer> of(final Fruit fruit) {
         final List<Integer> melons = new ArrayList<>();
         for (int i = 0; i < course.pieces().size(); i++) {
-            if (course.pieces().get(i).kind() == Course.Kind.MELON) {
+            if (course.pieces().get(i).fruit() == fruit) {
                 melons.add(i);
             }
         }
@@ -48,13 +52,16 @@ class StallTest {
         final Course.Piece deck = course.pieces().get(barge);
         final List<Course.Piece> riding = course.pieces().stream().filter(p -> p.carrier() == barge).toList();
         assertEquals(1, riding.stream().filter(p -> p.kind() == Course.Kind.STALL).count(), "a table");
-        assertEquals(22, riding.stream().filter(p -> p.kind() == Course.Kind.MELON).count(), "and 22 melons");
+        assertEquals(22, riding.stream().filter(p -> p.fruit() == Fruit.WATERMELON).count(), "and 22 watermelons");
+        assertEquals(3, riding.stream().filter(p -> p.fruit() == Fruit.PINEAPPLE).count(), "and 3 pineapples");
+        assertEquals(25, riding.stream().filter(p -> p.kind() == Course.Kind.FRUIT).count(), "all fruit, of one kind");
         assertEquals(22, melons().size(), "all of them on it");
+        assertEquals(3, of(Fruit.PINEAPPLE).size());
         final Block table = riding.stream().filter(p -> p.kind() == Course.Kind.STALL).findFirst().orElseThrow().block();
         final double floor = deck.place().height();
         assertEquals(floor, table.bottom(), 1e-9, "the table on the deck");
         final Block slab = deck.solid().getFirst();
-        final List<Block> laid = riding.stream().filter(p -> p.kind() == Course.Kind.MELON).map(Course.Piece::block).toList();
+        final List<Block> laid = riding.stream().filter(p -> p.kind() == Course.Kind.FRUIT).map(Course.Piece::block).toList();
         for (final Block melon : laid) {
             assertTrue(melon.bottom() == table.top() || melon.bottom() == floor, "on the table or the deck: " + melon);
             assertTrue(slab.covers(melon.x(), melon.z(), 0), "over the deck");
@@ -63,7 +70,7 @@ class StallTest {
                 assertTrue(other == melon || !melon.overlaps(other), "not in each other");
             }
         }
-        assertTrue(Course.Kind.MELON.breakable() && Course.Kind.MELON.target());
+        assertTrue(Course.Kind.FRUIT.breakable() && Course.Kind.FRUIT.target());
         assertFalse(Course.Kind.STALL.breakable(), "the table stands whatever is thrown at it");
     }
 
@@ -117,9 +124,23 @@ class StallTest {
         assertFalse(taken.damage().broken(melon), "two rounds, and it holds");
         taken = taken.damage().took(List.of(round));
         assertTrue(taken.damage().broken(melon), "the third bursts it");
-        assertTrue(taken.events().stream().anyMatch(e -> e instanceof Event.Broke b && b.kind() == Course.Kind.MELON));
+        assertTrue(taken.events().stream().anyMatch(e -> e instanceof Event.Broke b && b.kind() == Course.Kind.FRUIT
+                && b.fruit() == Fruit.WATERMELON));
         final Blow stroke = new Blow(at, new Vec3(0, -1, 0), Surface.BLOCK, Weapon.GLAIVE, melon);
         assertTrue(damage.took(List.of(stroke)).damage().broken(melon), "one stroke of the glaive");
+    }
+
+    @Test
+    void aPineappleTakesTwoRoundsAndBurstsAsAPineapple() {
+        final Damage damage = Damage.of(course);
+        final int pineapple = of(Fruit.PINEAPPLE).getFirst();
+        final Blow round = new Blow(new Vec3(0, -100, 0), new Vec3(0, -1, 0), Surface.BLOCK, Weapon.RIFLES, pineapple);
+        Damage.Taken taken = damage.took(List.of(round));
+        assertFalse(taken.damage().broken(pineapple), "one round, and it holds");
+        taken = taken.damage().took(List.of(round));
+        assertTrue(taken.damage().broken(pineapple), "the second bursts it");
+        assertTrue(taken.events().stream().anyMatch(e -> e instanceof Event.Broke b && b.fruit() == Fruit.PINEAPPLE));
+        assertTrue(Fruit.PINEAPPLE.heft() < Fruit.WATERMELON.heft(), "and it bursts higher than a watermelon");
     }
 
     @Test

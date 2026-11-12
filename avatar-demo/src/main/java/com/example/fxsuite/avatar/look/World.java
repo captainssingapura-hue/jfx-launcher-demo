@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
@@ -139,7 +140,7 @@ public final class World {
                 case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
                 case PLATFORM -> platform(i, part);
                 case STALL -> stall(part, block);
-                case MELON -> melon(part);
+                case FRUIT -> fruit(part, piece.fruit());
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -249,6 +250,11 @@ public final class World {
         return pieces.get(piece).kind();
     }
 
+    /** Which fruit piece {@code piece} is, if it is fruit; null if not. */
+    Fruit fruit(final int piece) {
+        return pieces.get(piece).fruit();
+    }
+
     /** Where each piece that moves was after step {@code step}, {@code placed}: kept a while, for {@link #at}. */
     public void moved(final long step, final Map<Integer, Block> placed) {
         history.put(step, placed);
@@ -288,8 +294,8 @@ public final class World {
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
-        if (kind == Course.Kind.DRONE || kind == Course.Kind.MELON) {
-            return;  // a drone's box is mostly air, and a melon is round: nothing to crack
+        if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT) {
+            return;  // a drone's box is mostly air, and fruit is round: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -607,16 +613,21 @@ public final class World {
         return deck;
     }
 
-    /**
-     * A watermelon, lying on its side: a round, dark green body striped lighter from end to end.
-     * Its material is its own, white under the stripes, so it can darken as it is worn.
-     */
-    private static Shape3D melon(final Group part) {
+    /** A piece of {@code fruit}, as that fruit looks; its material its own, so it can darken as it is worn. */
+    private static Shape3D fruit(final Group part, final Fruit fruit) {
+        return switch (fruit) {
+            case WATERMELON -> watermelon(part, fruit);
+            case PINEAPPLE -> pineapple(part, fruit);
+        };
+    }
+
+    /** A watermelon, lying on its side: a round, dark green body striped lighter from end to end. */
+    private static Shape3D watermelon(final Group part, final Fruit fruit) {
         final Sphere body = new Sphere(1, 24);
         // the sphere's poles along its y; scaled long that way, then laid on its side, across
-        body.setScaleX(Course.MELON_TALL / 2);
-        body.setScaleY(Course.MELON_LONG / 2);
-        body.setScaleZ(Course.MELON_WIDE / 2);
+        body.setScaleX(fruit.height() / 2);
+        body.setScaleY(fruit.length() / 2);
+        body.setScaleZ(fruit.width() / 2);
         final PhongMaterial rind = new PhongMaterial(Color.WHITE);
         rind.setDiffuseMap(STRIPES);
         rind.setSpecularColor(Color.web("#3a4a3a"));
@@ -625,6 +636,45 @@ public final class World {
         lying.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
         part.getChildren().add(lying);
         return body;
+    }
+
+    /** A pineapple, standing on end: a golden body scaled in a diamond pattern, and a crown of spiky leaves on top. */
+    private static Shape3D pineapple(final Group part, final Fruit fruit) {
+        final Sphere body = new Sphere(1, 16);
+        body.setScaleX(fruit.length() / 2);
+        body.setScaleY(fruit.height() / 2);
+        body.setScaleZ(fruit.width() / 2);
+        final PhongMaterial skin = new PhongMaterial(Color.WHITE);
+        skin.setDiffuseMap(DIAMONDS);
+        body.setMaterial(skin);
+        part.getChildren().add(body);
+        final PhongMaterial leaves = BoxRig.matte("#3f7d2e");
+        for (int k = 0; k < 5; k++) {
+            final Box leaf = new Box(3, 16, 7);
+            leaf.setMaterial(leaves);
+            leaf.setTranslateY(-fruit.height() / 2 - 6);
+            leaf.getTransforms().addAll(new Rotate(k * 72, Rotate.Y_AXIS), new Rotate(k == 0 ? 0 : 22, Rotate.X_AXIS));
+            part.getChildren().add(leaf);
+        }
+        return body;
+    }
+
+    /** A pineapple's skin, flat: gold, scaled in diamonds by darker lines running both ways round it. */
+    private static final WritableImage DIAMONDS = diamonds();
+
+    private static WritableImage diamonds() {
+        final int size = 64;
+        final WritableImage image = new WritableImage(size, size);
+        final Color gold = Color.web("#d39a32");
+        final Color line = Color.web("#7a5212");
+        for (int v = 0; v < size; v++) {
+            for (int u = 0; u < size; u++) {
+                // eight diamonds round, eight high
+                final boolean onLine = Math.floorMod(u + v, 8) == 0 || Math.floorMod(u - v, 8) == 0;
+                image.getPixelWriter().setColor(u, v, onLine ? line : gold);
+            }
+        }
+        return image;
     }
 
     /** A watermelon's skin, flat: dark green, with lighter stripes that wander a little, end to end. */
@@ -727,28 +777,6 @@ public final class World {
         // a Text faces -z, the front, to whoever stands there: centred on the board
         sign.getTransforms().add(new Translate(-halfWide + 34 - 22, -half - 36, -halfDeep - 4.2));
         part.getChildren().addAll(board, post, sign);
-        // pineapples on the deck by the table
-        final PhongMaterial pineapple = BoxRig.matte("#c98f2a");
-        final PhongMaterial leaves = BoxRig.matte("#3f7d2e");
-        for (int k = 0; k < 3; k++) {
-            final Sphere fruit = new Sphere(1, 12);
-            fruit.setScaleX(9);
-            fruit.setScaleY(14);
-            fruit.setScaleZ(9);
-            final double x = -halfWide - 40 - (k % 2) * 22;
-            final double z = halfDeep - 20 - k * 24;
-            fruit.setTranslateX(x);
-            fruit.setTranslateY(half - 14);
-            fruit.setTranslateZ(z);
-            fruit.setMaterial(pineapple);
-            final Box crown = new Box(10, 12, 10);
-            crown.setTranslateX(x);
-            crown.setTranslateY(half - 33);
-            crown.setTranslateZ(z);
-            crown.getTransforms().add(new Rotate(45, Rotate.Y_AXIS));
-            crown.setMaterial(leaves);
-            part.getChildren().addAll(fruit, crown);
-        }
         return top;
     }
 

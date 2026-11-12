@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Surface;
@@ -46,10 +47,13 @@ public final class Wreckage {
     private final PhongMaterial ember = BoxRig.glow("#ffb347");
     /** Earth thrown up by a bomb going off on the ground. */
     private final PhongMaterial earth = BoxRig.matte("#4f5a43");
-    /** What a watermelon is, burst: its flesh, its rind, its seeds. */
-    private final PhongMaterial flesh = BoxRig.matte("#e23b4a");
-    private final PhongMaterial rind = BoxRig.matte("#2e6a2a");
-    private final PhongMaterial seed = BoxRig.matte("#141210");
+    /** What fruit is, burst: a watermelon's red flesh, green rind and black seeds; a pineapple's gold flesh, brown skin and leaves. */
+    private final PhongMaterial melonFlesh = BoxRig.matte("#e23b4a");
+    private final PhongMaterial melonRind = BoxRig.matte("#2e6a2a");
+    private final PhongMaterial melonSeed = BoxRig.matte("#141210");
+    private final PhongMaterial pineFlesh = BoxRig.matte("#f2d34b");
+    private final PhongMaterial pineSkin = BoxRig.matte("#a8741e");
+    private final PhongMaterial pineLeaf = BoxRig.matte("#3f7d2e");
     private final PhongMaterial[] flames = {flame("#ffc23a"), flame("#ff8a1e"), flame("#e8571a"), flame("#9c3416")};
     private int next;
     private int count;
@@ -94,23 +98,29 @@ public final class Wreckage {
     }
 
     /**
-     * A watermelon bursting: lumps of red flesh and green rind flung out from the blow, black
-     * seeds, and a spray of juice that is gone in a moment.
+     * Fruit bursting: lumps of its flesh and skin flung out from the blow, seeds or bits of leaf,
+     * and a spray of juice that is gone in a moment. A pineapple smaller than a watermelon: fewer
+     * and smaller pieces.
      */
     private void splatter(final Event.Broke broke) {
+        final boolean melon = broke.fruit() != Fruit.PINEAPPLE;
+        final PhongMaterial flesh = melon ? melonFlesh : pineFlesh;
+        final PhongMaterial rind = melon ? melonRind : pineSkin;
+        final PhongMaterial seed = melon ? melonSeed : pineLeaf;
+        final double scale = melon ? 1 : 0.7;
         final Vec3 middle = broke.middle();
         final Vec3 away = middle.subtract(broke.struck());
         final Vec3 out = away.magnitude() < 1e-6 ? Vec3.ZERO : away.normalize();
-        for (int i = 0; i < 26; i++) {
+        for (int i = 0; i < (melon ? 26 : 16); i++) {
             final boolean skin = i % 3 == 0;
             final Vec3 fly = out.multiply(260 * (0.4 + unit()))
                     .add((unit() - 0.5) * 320, -(220 + 260 * unit()), (unit() - 0.5) * 320);
-            final double size = skin ? 6 + 6 * unit() : 5 + 8 * unit();
+            final double size = (skin ? 6 + 6 * unit() : 5 + 8 * unit()) * scale;
             chunk().throwFrom(middle, fly, size, skin ? size * 0.35 : size * 0.8, size, skin ? rind : flesh, unit());
         }
         for (int i = 0; i < 10; i++) {
             final Vec3 fly = new Vec3((unit() - 0.5) * 380, -(200 + 200 * unit()), (unit() - 0.5) * 380);
-            chunk().throwFrom(middle, fly, 2, 1.2, 1.4, seed, unit());
+            chunk().throwFrom(middle, fly, melon ? 2 : 4, melon ? 1.2 : 1, melon ? 1.4 : 6, seed, unit());
         }
         for (int i = 0; i < 18; i++) {
             final Vec3 fly = out.multiply(200).add((unit() - 0.5) * 600, -(150 + 350 * unit()), (unit() - 0.5) * 600);
@@ -119,7 +129,7 @@ public final class Wreckage {
     }
 
     private void burst(final Event.Broke broke, final PhongMaterial material) {
-        if (broke.kind() == Course.Kind.MELON) {
+        if (broke.kind() == Course.Kind.FRUIT) {
             splatter(broke);
             return;
         }

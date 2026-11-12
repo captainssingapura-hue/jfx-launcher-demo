@@ -36,7 +36,7 @@ public enum Sound {
     BREAK_DRONE("A drone blows up", null, false, 1500, 0.55),
     BREAK_AIRSHIP("An airship comes down", null, false, 6000, 0.75),
     BOMB("A bomb goes off", null, false, 3000, 0.5),
-    MELON("A watermelon bursts", null, false, 900, 0.1),
+    FRUIT("A fruit bursts", "heft", false, 900, 0.1),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),
     JET_WHINE("Jet whine", null, true),

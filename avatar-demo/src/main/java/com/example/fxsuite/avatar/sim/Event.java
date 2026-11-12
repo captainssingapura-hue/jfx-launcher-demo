@@ -80,10 +80,16 @@ public sealed interface Event {
 
     /**
      * Something was broken: piece {@code piece} of the {@link Course}, a {@code kind} that was
-     * the box {@code block}, its last blow struck at {@code struck} by {@code by}. It is gone from
-     * the world for good ({@link Damage}).
+     * the box {@code block}, its last blow struck at {@code struck} by {@code by}; and if it was a
+     * piece of fruit, which ({@code fruit}; null if not). It is gone from the world for good
+     * ({@link Damage}).
      */
-    record Broke(int piece, Course.Kind kind, Block block, Vec3 struck, Weapon by) implements Event {
+    record Broke(int piece, Course.Kind kind, Block block, Vec3 struck, Weapon by, Fruit fruit) implements Event {
+
+        /** Something broken that was no fruit. */
+        public Broke(final int piece, final Course.Kind kind, final Block block, final Vec3 struck, final Weapon by) {
+            this(piece, kind, block, struck, by, null);
+        }
 
         /** The middle of what broke. */
         public Vec3 middle() {

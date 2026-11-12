@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(false),
-        STALL(false), MELON(true);
+        STALL(false), FRUIT(true);
 
         private final boolean breakable;
 
@@ -43,7 +43,7 @@ public final class Course {
 
         /** Whether it is something put there to be shot at. */
         public boolean target() {
-            return this == DUMMY || this == DRONE || this == AIRSHIP || this == MELON;
+            return this == DUMMY || this == DRONE || this == AIRSHIP || this == FRUIT;
         }
     }
 
@@ -57,10 +57,11 @@ public final class Course {
      * airship, which flies of itself along its {@code route}, or a platform, moved from its
      * console. Null, all three, for what stays where it is. One carried on another
      * ({@link #rides}, piece {@code carrier}; -1 for none) has its shape in that one's frame, and
-     * is where that one is: a watermelon on the barge.
+     * is where that one is: a watermelon on the barge. A piece of fruit says which ({@code fruit};
+     * null for anything else).
      */
     public record Piece(Block block, Kind kind, int tint, List<Block> solid, Shape shape, Place place,
-                        Route route, int carrier) {
+                        Route route, int carrier, Fruit fruit) {
 
         public Piece {
             solid = List.copyOf(solid);
@@ -68,13 +69,20 @@ public final class Course {
 
         /** A piece that stays where it is, its solid blocks given. */
         public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid) {
-            this(block, kind, tint, solid, null, null, null, -1);
+            this(block, kind, tint, solid, null, null, null, -1, null);
         }
 
         /** Carried on piece {@code carrier}, made of {@code shape} in its frame, that one being at {@code place}. */
         public static Piece riding(final int carrier, final Shape shape, final Place place, final Kind kind,
                                    final int tint) {
-            return new Piece(shape.box(place), kind, tint, shape.solid(place), shape, place, null, carrier);
+            return new Piece(shape.box(place), kind, tint, shape.solid(place), shape, place, null, carrier, null);
+        }
+
+        /** A piece of {@code fruit}, carried on piece {@code carrier}, its box {@code at} in that one's frame, that one being at {@code place}. */
+        public static Piece fruit(final int carrier, final Fruit fruit, final Section at, final Place place,
+                                  final int tint) {
+            final Shape shape = new Shape(at, List.of(at));
+            return new Piece(shape.box(place), Kind.FRUIT, tint, shape.solid(place), shape, place, null, carrier, fruit);
         }
 
         /** Whether it is carried on another piece ({@link #carrier}), going where that one goes. */
@@ -90,7 +98,7 @@ public final class Course {
         /** A piece that can move, made of {@code shape}, at {@code place}; along {@code route} if it flies of itself, or null. */
         public static Piece moving(final Shape shape, final Place place, final Kind kind, final int tint,
                                    final Route route) {
-            return new Piece(shape.box(place), kind, tint, shape.solid(place), shape, place, route, -1);
+            return new Piece(shape.box(place), kind, tint, shape.solid(place), shape, place, route, -1, null);
         }
 
         /** Whether it can move: an airship, a platform, or what rides on one. */
@@ -105,7 +113,7 @@ public final class Course {
 
         /** The same piece, moved to {@code to} (for one that rides, its carrier moved there). */
         public Piece placed(final Place to) {
-            return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier);
+            return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier, fruit);
         }
 
         /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
@@ -269,12 +277,9 @@ public final class Course {
     public static final double LIFT_HIGH = 4500;
     /**
      * The melon stall's table, in the barge's frame, toward its back: 2.4 m long, 1 m across and
-     * 70 cm high. And a watermelon: as long, as wide and as tall as these.
+     * 70 cm high.
      */
     public static final Section TABLE = new Section(0, -120, 35, 120, 50, 35);
-    public static final double MELON_LONG = 36;
-    public static final double MELON_WIDE = 28;
-    public static final double MELON_TALL = 26;
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
@@ -386,9 +391,10 @@ public final class Course {
     }
 
     /**
-     * The melon stall, riding on platform {@code barge}, toward the back of it: a table of planks
-     * on pallets ({@link #TABLE}), a layer of watermelons on it, and a few more on the deck beside
-     * it, ready to go up. Each watermelon is a piece of its own, to be shot or cut.
+     * The fruit stall, riding on platform {@code barge}, toward the back of it: a table of planks
+     * on pallets ({@link #TABLE}), a layer of watermelons on it, a few more on the deck beside it,
+     * ready to go up, and pineapples standing on the deck at the other end. Each piece of fruit is a
+     * piece of its own, to be shot or cut.
      */
     private void stall(final int barge) {
         final Place at = pieces.get(barge).place();
@@ -396,22 +402,21 @@ public final class Course {
         final double top = TABLE.up() + TABLE.halfUp();
         for (int row = 0; row < 3; row++) {
             for (int k = 0; k < 6; k++) {
-                melon(barge, at, (k - 2.5) * (MELON_LONG + 2), TABLE.along() + (row - 1) * (MELON_WIDE + 3), top,
-                        row * 6 + k);
+                final double across = (k - 2.5) * (Fruit.WATERMELON.length() + 2);
+                final double along = TABLE.along() + (row - 1) * (Fruit.WATERMELON.width() + 3);
+                pieces.add(Piece.fruit(barge, Fruit.WATERMELON, Fruit.WATERMELON.at(across, along, top), at,
+                        (row * 6 + k) % 3));
             }
         }
         final double[][] heap = {{175, -150}, {175, -110}, {215, -130}, {215, -84}};
         for (int i = 0; i < heap.length; i++) {
-            melon(barge, at, heap[i][0], heap[i][1], 0, i);
+            pieces.add(Piece.fruit(barge, Fruit.WATERMELON, Fruit.WATERMELON.at(heap[i][0], heap[i][1], 0), at, i % 3));
         }
-    }
-
-    /** A watermelon riding on {@code barge}, lying across it, its middle {@code across} and {@code along}, on what is {@code on} high. */
-    private void melon(final int barge, final Place at, final double across, final double along, final double on,
-                       final int n) {
-        final Section melon = new Section(across, along, on + MELON_TALL / 2, MELON_LONG / 2, MELON_WIDE / 2,
-                MELON_TALL / 2);
-        pieces.add(Piece.riding(barge, new Shape(melon, List.of(melon)), at, Kind.MELON, n % 3));
+        final double[][] pineapples = {{-160, -90}, {-182, -114}, {-160, -138}};
+        for (int i = 0; i < pineapples.length; i++) {
+            pieces.add(Piece.fruit(barge, Fruit.PINEAPPLE, Fruit.PINEAPPLE.at(pineapples[i][0], pineapples[i][1], 0), at,
+                    i));
+        }
     }
 
     /** An airship's solid parts, at {@code place}: the hull, the fins, the gondola, the pylons and the engines. */

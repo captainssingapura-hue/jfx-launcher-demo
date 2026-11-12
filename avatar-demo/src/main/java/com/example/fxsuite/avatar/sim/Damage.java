@@ -32,8 +32,6 @@ public final class Damage {
     /** How tough a dummy is, a drone, an airship, and the smallest crate. */
     public static final double DUMMY = 300;
     public static final double DRONE = 120;
-    /** A watermelon: three rifle rounds, four of the Gatling gun, one stroke of the glaive. */
-    public static final double MELON = 25;
     public static final double AIRSHIP = 3000;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
@@ -71,7 +69,7 @@ public final class Damage {
             case AIRSHIP -> AIRSHIP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
-            case MELON -> MELON;
+            case FRUIT -> piece.fruit().toughness();
             case PILLAR, GATE, PLATFORM, STALL -> Double.POSITIVE_INFINITY;
         };
     }
@@ -128,7 +126,7 @@ public final class Damage {
             if (left[piece] <= 0) {
                 final Course.Piece what = where.apply(piece);
                 standing = standing.without(piece);
-                happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by()));
+                happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by(), what.fruit()));
             }
         }
         return left == null ? new Taken(this, happened)

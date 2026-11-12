@@ -70,7 +70,7 @@ public final class Robot implements Profile {
             case GATLING_DRAWN -> gatlingDrawn(variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE, BOMB -> breakDrone(variant);
-            case MELON -> melon(variant);
+            case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
@@ -604,13 +604,14 @@ public final class Robot implements Profile {
     }
 
     /**
-     * A watermelon bursting: a dull, wet thump sinking in pitch, the rind cracking, a splash of
-     * juice, and a few drips and pieces landing after.
+     * A fruit bursting: a dull, wet thump sinking in pitch, the skin cracking, a splash of juice,
+     * and a few drips and pieces landing after. {@code heft}, 0 to 1, how big it is: a watermelon
+     * deep and loud, a pineapple higher and softer.
      */
-    public static Clip melon(final int variant) {
+    public static Clip fruit(final double heft, final int variant) {
         final Noise noise = new Noise(23_000L + variant);
         final Noise chance = new Noise(23_500L + variant);
-        final double tune = 1 + 0.08 * noise.next();
+        final double tune = (1 + 0.08 * noise.next()) * (1.7 - 0.7 * heft);
         final double[] y = new double[samples(0.75)];
         final Filter crack = new Filter(1900 * tune, 1.6);
         final Filter splash = new Filter(850 * tune, 0.7);
@@ -637,7 +638,7 @@ public final class Robot implements Profile {
             y[i] = 1.7 * Math.sin(phase) * hit(t, 0.002, 0.06) + 1.1 * crack.band
                     + 1.5 * splash.band * hit(t, 0.004, 0.08) + 1.4 * dripping;
         }
-        return new Clip(name("melon", 1, variant), Dsp.finish(y, 0.5), false);
+        return new Clip(name("fruit", heft, variant), Dsp.finish(y, 0.3 + 0.2 * heft), false);
     }
 
     /**

@@ -84,16 +84,17 @@ characters, and a separate sound bench is for working on the sounds.
   one down on the barge and it goes wherever the barge is flown. F again starts it, and it lifts
   off from there. Whatever moves (the airships, the platforms) is drawn where the simulation says it was at
   its last two steps, part way between, and marks on it go with it.
-- **The melon stall.** On the barge stands a watermelon stall: a table of planks on pallets under
-  a red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on
-  the deck, and pineapples. The stallholder sits on a stool behind it; a customer stands before
+- **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
+  red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
+  deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
   it, and another sits on a scooter parked to one side. All of it rides the barge wherever it
   is flown (a piece can ride on another, `Course.Piece#carrier`), and standing on it rides
-  too. Each watermelon can be shot or cut: three rifle rounds, four of the Gatling gun, or one
-  stroke of the glaive. Struck, it splashes juice, and the stallholder shakes a fist; burst, it
-  throws red flesh, rind and seeds with a wet splat, and everyone jumps, hands in the air. The
-  people are only to be seen: rounds pass through them, and nothing harms them. The HUD counts
-  the melons smashed.
+  too. Every piece of fruit is one kind of thing (`Fruit` says which, how big and how tough), to
+  be shot or cut: a watermelon takes three rifle rounds, four of the Gatling gun or one stroke of
+  the glaive, a pineapple two rounds. Struck, it splashes juice, red or gold, and the
+  stallholder shakes a fist; burst, it throws its flesh and skin, seeds or leaves, with a wet
+  splat, deeper for a watermelon, and everyone jumps, hands in the air. The people are only to
+  be seen: rounds pass through them, and nothing harms them. The HUD counts the fruit smashed.
 
 ## Build and run
 

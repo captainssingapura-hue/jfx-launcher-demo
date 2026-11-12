@@ -68,7 +68,7 @@ public final class Arcade implements Profile {
             case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE, BOMB -> breakDrone(variant);
-            case MELON -> melon(variant);
+            case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
@@ -410,12 +410,13 @@ public final class Arcade implements Profile {
     }
 
     /**
-     * A watermelon bursting, as an old game would make it: a short, high burst of the noise
-     * channel, wet, and a squelching blip sliding down under it.
+     * A fruit bursting, as an old game would make it: a short, high burst of the noise channel,
+     * wet, and a squelching blip sliding down under it; higher and softer for a smaller one
+     * ({@code heft}).
      */
-    private static Clip melon(final int variant) {
+    private static Clip fruit(final double heft, final int variant) {
         final Chip noise = new Chip(new Noise(23_000L + variant));
-        final double tune = tune(variant);
+        final double tune = tune(variant) * (1.6 - 0.6 * heft);
         final int frames = 12;
         final double[] y = new double[samples((frames + 2) * FRAME)];
         double phase = 0;
@@ -426,7 +427,7 @@ public final class Arcade implements Profile {
             y[i] = (noise.next(6000 * tune * (1 - 0.5 * share)) * fall(t, 6) + 0.7 * square(phase, 0.5) * fall(t, frames))
                     * onset(t);
         }
-        return clip("melon", 1, variant, y, 0.45);
+        return clip("fruit", heft, variant, y, 0.27 + 0.18 * heft);
     }
 
     /**

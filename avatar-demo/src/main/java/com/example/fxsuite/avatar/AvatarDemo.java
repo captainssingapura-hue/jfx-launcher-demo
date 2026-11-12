@@ -412,7 +412,7 @@ public final class AvatarDemo extends Application {
         }
         return switch (damage.piece(under.piece()).kind()) {
             case AIRSHIP -> "docked on an airship";
-            case PLATFORM, STALL, MELON -> "docked on a platform";
+            case PLATFORM, STALL, FRUIT -> "docked on a platform";
             default -> "resting on a block";
         };
     }
@@ -438,9 +438,9 @@ public final class AvatarDemo extends Application {
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = String.format(" · targets down %d of %d%s", down, targets,
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken")
-                + (damage.broken(Course.Kind.MELON) == 0 ? ""
-                        : String.format(" · melons smashed %d of %d", damage.broken(Course.Kind.MELON),
-                                damage.count(Course.Kind.MELON)));
+                + (damage.broken(Course.Kind.FRUIT) == 0 ? ""
+                        : String.format(" · fruit smashed %d of %d", damage.broken(Course.Kind.FRUIT),
+                                damage.count(Course.Kind.FRUIT)));
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach

@@ -20,8 +20,8 @@ import java.util.Set;
  * flies: the stallholder on a stool behind the table, a customer before it, and another sat on a
  * scooter parked to one side. They are only to be seen: nothing solid, and nothing harms them.
  *
- * <p>They do notice what happens to the melons, from the simulation's events: a melon struck and
- * the stallholder shakes a fist; a melon bursting and everyone jumps, hands in the air, and the
+ * <p>They do notice what happens to the fruit, from the simulation's events: a piece of fruit
+ * struck and the stallholder shakes a fist; one bursting and everyone jumps, hands in the air, and the
  * stallholder is up off the stool.
  */
 public final class Stall {
@@ -30,7 +30,7 @@ public final class Stall {
     private static final double STARTLE = 1.3;
     private static final double SHAKE = 0.9;
 
-    private final Set<Integer> melons = new HashSet<>();
+    private final Set<Integer> fruit = new HashSet<>();
     private final Person keeper;
     private final List<Person> people = new ArrayList<>();
     private double time;
@@ -40,8 +40,8 @@ public final class Stall {
         int barge = -1;
         for (int i = 0; i < course.pieces().size(); i++) {
             final Course.Piece piece = course.pieces().get(i);
-            if (piece.kind() == Course.Kind.MELON) {
-                melons.add(i);
+            if (piece.kind() == Course.Kind.FRUIT) {
+                fruit.add(i);
             } else if (piece.kind() == Course.Kind.PLATFORM && Course.Deck.of(piece.shape()).equals(Course.BARGE)) {
                 barge = i;
             }
@@ -86,9 +86,9 @@ public final class Stall {
         }
         time += seconds;
         for (final Event event : events) {
-            if (event instanceof Event.Broke broke && broke.kind() == Course.Kind.MELON) {
+            if (event instanceof Event.Broke broke && broke.kind() == Course.Kind.FRUIT) {
                 people.forEach(person -> person.startled = STARTLE);
-            } else if (event instanceof Event.Struck struck && melons.contains(struck.piece())
+            } else if (event instanceof Event.Struck struck && fruit.contains(struck.piece())
                     && struck.by() != Weapon.BOMB) {
                 keeper.shaking = SHAKE;
             }
