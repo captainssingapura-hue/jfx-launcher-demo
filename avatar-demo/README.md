@@ -77,7 +77,12 @@ characters, and a separate sound bench is for working on the sounds.
   carefully. It eases up to speed and to a stop, and stops short of anything in its way, with
   room over the deck for whoever rides it. The robot stands at the console and is carried and
   turned with it, and can still draw a weapon and fire. T again lets go, and it hangs where it
-  is. Whatever moves (the airships, the platforms) is drawn where the simulation says it was at
+  is. F at the controls cuts its engine: its thrusters go dark, it cannot be flown, and it drops
+  until it settles on whatever is under it (the ground, a crate or pillar, an airship, another
+  platform, or the robot's head) and rests there. Resting on something that moves, it is
+  docked: set one down on an airship and it goes round with it, the pilot aboard; set the small
+  one down on the barge and it goes wherever the barge is flown. F again starts it, and it lifts
+  off from there. Whatever moves (the airships, the platforms) is drawn where the simulation says it was at
   its last two steps, part way between, and marks on it go with it.
 - **The melon stall.** On the barge stands a watermelon stall: a table of planks on pallets under
   a red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on
@@ -118,7 +123,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console; or let go of them. At them, W/S/A/D, the mouse, Space and Ctrl fly it | |
+| T | Take a platform's controls, behind its console; or let go of them. At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts its engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |

@@ -38,7 +38,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 4;
+    public static final int RULES = 5;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -119,13 +119,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         final List<Event> happened = new ArrayList<>();
         final Obstacles was = obstacles();
         // the controls change hands; at them, the climb and descent are the platform's
-        final List<Lift> handed = handed(controls, was, happened);
+        final List<Lift> handed = engines(controls, handed(controls, was, happened), happened);
         final boolean working = handed.stream().anyMatch(Lift::held);
         final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
-        // the world moves on, carrying whoever stands on what moves
+        // the world moves on, carrying whoever stands on what moves, and the platforms docked on it
         final double to = sky.time() + seconds;
-        final List<Lift> moved = handed.stream()
-                .map(lift -> lift.step(controls, seconds, was, damage.riding(lift.piece()))).toList();
+        final List<Lift> moved = moved(controls, seconds, to, was, handed, happened);
         final Avatar carried = carried(avatar, was, handed, moved, to);
         final Obstacles now = obstacles(to, moved);
         // act: the avatar does what it was asked, moves, and deals its blows; the bombs fall
@@ -166,6 +165,94 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
             }
         }
         return handed;
+    }
+
+    /** At a platform's controls, the key that takes off or lands ({@link Action#FLY}) starts its engine, or cuts it. */
+    private static List<Lift> engines(final Controls controls, final List<Lift> handed, final List<Event> happened) {
+        if (controls.actions().stream().noneMatch(a -> a instanceof Action.Fly)) {
+            return handed;
+        }
+        final List<Lift> switched = new ArrayList<>(handed);
+        for (int i = 0; i < switched.size(); i++) {
+            final Lift lift = switched.get(i);
+            if (lift.held()) {
+                switched.set(i, lift.engine(!lift.engine()));
+                happened.add(lift.engine() ? new Event.EngineCut(lift.piece()) : new Event.EngineStarted(lift.piece()));
+            }
+        }
+        return switched;
+    }
+
+    /**
+     * The platforms, a step on: each docked one first carried by what it rests on (an airship
+     * along its route, another platform as that moved), then flown, or falling, or resting. Those
+     * docked on another platform go after it. A platform coming down hard enough is heard settling.
+     */
+    private List<Lift> moved(final Controls controls, final double seconds, final double to, final Obstacles was,
+                             final List<Lift> handed, final List<Event> happened) {
+        final int count = handed.size();
+        final Lift.Support[] under = new Lift.Support[count];
+        final int[] onLift = new int[count];
+        final List<List<Block>> also = new ArrayList<>();
+        final int standing = avatar.body().grounded()
+                ? was.under(avatar.body().position().x(), avatar.body().position().z(), Body.FOOTING,
+                avatar.body().height()) : -1;
+        for (int i = 0; i < count; i++) {
+            final Lift lift = handed.get(i);
+            // the avatar is solid to a platform it is not on: it will not come down through it
+            final Vec3 at = avatar.body().position();
+            also.add(standing == lift.piece() || damage.riding(lift.piece()).contains(standing) ? List.of()
+                    : List.of(new Block(at.x(), at.z(), Body.RADIUS, Body.RADIUS, 0, avatar.body().height(),
+                    avatar.body().height() + Body.TALL)));
+            under[i] = lift.support(was, damage.riding(lift.piece()), also.get(i));
+            onLift[i] = -1;
+            final int carrier = under[i].piece() >= 0 && damage.piece(under[i].piece()).rides()
+                    ? damage.piece(under[i].piece()).carrier() : under[i].piece();
+            for (int j = 0; j < count; j++) {
+                if (j != i && handed.get(j).piece() == carrier) {
+                    onLift[i] = j;
+                }
+            }
+        }
+        final Obstacles ahead = obstacles(to, handed);
+        final Lift[] moved = new Lift[count];
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < count; i++) {
+                if ((onLift[i] >= 0) != (pass == 1)) {
+                    continue;
+                }
+                Lift lift = handed.get(i);
+                if (lift.resting(under[i]) && under[i].piece() >= 0) {
+                    final Course.Piece what = damage.piece(under[i].piece());
+                    final Course.Piece carrier = what.rides() ? damage.piece(what.carrier()) : what;
+                    if (carrier.flies()) {
+                        lift = lift.carried(carrier.route().at(sky.time()), carrier.route().at(to));
+                    } else if (onLift[i] >= 0) {
+                        // carried as the platform under it moved, it rests on it still: nothing more to do
+                        moved[i] = lift.carried(handed.get(onLift[i]).place(), moved[onLift[i]].place());
+                        continue;
+                    }
+                }
+                // its cargo, and the platforms docked on it, go where it goes: not in its way
+                final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
+                for (int j = 0; j < count; j++) {
+                    if (onLift[j] == i && handed.get(j).resting(under[j])) {
+                        aboard.add(handed.get(j).piece());
+                    }
+                }
+                moved[i] = lift.step(controls, seconds, ahead, aboard, also.get(i));
+                if (lift.climb() < -150 && moved[i].climb() == 0 && !moved[i].engine()) {
+                    final Place p = moved[i].place();
+                    happened.add(new Event.Settled(lift.piece(), -lift.climb(), new Vec3(p.x(), -p.height(), p.z())));
+                }
+            }
+        }
+        return List.of(moved);
+    }
+
+    /** What platform {@code lift} rests on, or would settle on with its engine cut. */
+    public Lift.Support under(final Lift lift) {
+        return lift.support(obstacles(), damage.riding(lift.piece()), List.of());
     }
 
     /**

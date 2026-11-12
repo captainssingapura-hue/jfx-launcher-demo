@@ -773,6 +773,7 @@ public final class World {
             final double going = Math.min(1, lift.speed() / Lift.SPEED);
             final double throb = 0.75 + 0.25 * Math.sin(time * 9) + 0.5 * Math.abs(going);
             for (final Node thruster : thrusters) {
+                thruster.setVisible(lift.engine());
                 thruster.setScaleX(throb);
                 thruster.setScaleZ(throb);
             }

@@ -103,6 +103,18 @@ public sealed interface Event {
     record LetGo(int piece) implements Event {
     }
 
+    /** Platform {@code piece}'s engine was started, at its controls. */
+    record EngineStarted(int piece) implements Event {
+    }
+
+    /** Platform {@code piece}'s engine was cut, at its controls: it drops onto what is under it. */
+    record EngineCut(int piece) implements Event {
+    }
+
+    /** Platform {@code piece}, its engine cut, came down on something {@code speed} fast, its middle at {@code at}. */
+    record Settled(int piece, double speed, Vec3 at) implements Event {
+    }
+
     /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */
     record Dropped(Vec3 at, int from) implements Event {
     }

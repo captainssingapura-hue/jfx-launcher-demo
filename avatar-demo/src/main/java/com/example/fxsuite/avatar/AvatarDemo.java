@@ -401,6 +401,22 @@ public final class AvatarDemo extends Application {
         return seen;
     }
 
+    /** What platform {@code lift}, its engine cut, rests on, in a word or two; or that it is still coming down. */
+    private String docked(final Play here, final Lift lift) {
+        final Lift.Support under = here.under(lift);
+        if (!lift.resting(under)) {
+            return "coming down";
+        }
+        if (under.piece() < 0) {
+            return "resting";
+        }
+        return switch (damage.piece(under.piece()).kind()) {
+            case AIRSHIP -> "docked on an airship";
+            case PLATFORM, STALL, MELON -> "docked on a platform";
+            default -> "resting on a block";
+        };
+    }
+
     private void showStatus() {
         final Body body = seen.body();
         final double metres = body.groundSpeed() / 100;
@@ -429,9 +445,10 @@ public final class AvatarDemo extends Application {
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts);
-        final String controls = here.atControls()
-                .map(lift -> String.format(" · flying the platform, %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down, T to let go",
-                        lift.place().height() / 100))
+        final String controls = here.atControls().map(lift -> lift.engine()
+                ? String.format(" · flying the platform, %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down,"
+                        + " F engine off, T to let go", lift.place().height() / 100)
+                : String.format(" · at the controls, engine off, %s: F to start it, T to let go", docked(here, lift)))
                 .orElse(here.withinReach().isPresent() ? " · T: take the controls" : "");
         final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                 body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,

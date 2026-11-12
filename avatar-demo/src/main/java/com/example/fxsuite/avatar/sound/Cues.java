@@ -128,6 +128,11 @@ public final class Cues {
                 // a latch, taking hold of the controls and letting go
                 case Event.TookControls _ -> plays.add(new Play(Sound.PACK_ON, 1, hands(body, 0)));
                 case Event.LetGo _ -> plays.add(new Play(Sound.PACK_OFF, 1, hands(body, 0)));
+                // a platform's engine starting and cutting out, as the jet-pack's do; and its coming down
+                case Event.EngineStarted _ -> plays.add(new Play(Sound.IGNITION, 1, hands(body, 0)));
+                case Event.EngineCut _ -> plays.add(new Play(Sound.CUT, 1, hands(body, 0)));
+                case Event.Settled s -> plays.add(new Play(Sound.LANDING_BLOCK,
+                        Num.clamp(s.speed() / HARDEST_LANDING, 0.2, 1), s.at()));
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());
