@@ -22,9 +22,12 @@ import java.util.List;
  * <p>It holds a weapon, or nothing ({@link Arms}): drawn by {@link #drawn}, fired or swung
  * while the trigger is held.
  *
- * <p>Events gather from the actions (a jump, a take-off, the pack) and from each
- * {@linkplain #step step}, until {@link #delivered} clears them: once a frame, after the outputs
- * have had them.
+ * <p>What the player does once (a jump, a take-off, the pack, a weapon drawn) comes in with a
+ * step, as {@link Action}s among its {@link Controls}, and is done at the start of it: so the
+ * avatar changes only at a step, never between two.
+ *
+ * <p>Events gather from each {@linkplain #step step}, until {@link #delivered} clears them: once
+ * a frame, after the outputs have had them.
  */
 public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms, List<Event> events) {
 
@@ -47,11 +50,30 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms, Li
     }
 
     /**
-     * Moves on, gathering what happened on the way: the body's events, and any gate gone
-     * through. The wings swing toward the sweep the flight calls for first, and the body moves
-     * with them as they now are.
+     * One step: first what the player did once ({@link Controls#actions}), in order, then the
+     * move, gathering what happened on the way: the body's events, and any gate gone through.
+     * The wings swing toward the sweep the flight calls for first, and the body moves with them
+     * as they now are.
      */
     public Avatar step(final Controls controls, final double seconds, final Obstacles world) {
+        Avatar acted = this;
+        for (final Action action : controls.actions()) {
+            acted = acted.act(action);
+        }
+        return acted.moved(controls, seconds, world);
+    }
+
+    /** One thing done once: the same as the method it names, so whatever cannot be done is left undone. */
+    public Avatar act(final Action action) {
+        return switch (action) {
+            case Action.Jump _ -> jumped();
+            case Action.Fly _ -> toggledFlight();
+            case Action.Pack _ -> toggledPack();
+            case Action.Draw draw -> drawn(draw.weapon());
+        };
+    }
+
+    private Avatar moved(final Controls controls, final double seconds, final Obstacles world) {
         final double swung = Num.ease(sweep, Wings.sweepFor(wearingPack, body), Wings.SWING, seconds);
         final Body.Moved moved = body.move(controls, seconds, world, wearingPack ? new Wings(swung) : null);
         final Body after = moved.body();

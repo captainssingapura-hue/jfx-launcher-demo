@@ -8,6 +8,7 @@ import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
+import com.example.fxsuite.avatar.sim.Action;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Clock;
@@ -51,7 +52,9 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -107,6 +110,8 @@ public final class AvatarDemo extends Application {
     private Clock clock = Clock.START;
     /** Degrees of the mouse's turn not yet taken by a step. */
     private double turning;
+    /** What the player has done once (a jump, a take-off, the pack, a weapon drawn) since the last step: the next step takes them. */
+    private final List<Action> actions = new ArrayList<>();
     /** The camera: behind, at its usual distance, or {@code -Davatar.zoom} times it (0.5 twice as near). */
     private Chase chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw())
             .zoomed(Double.parseDouble(System.getProperty("avatar.zoom", "1")));
@@ -237,7 +242,12 @@ public final class AvatarDemo extends Application {
                     !held.contains(KeyCode.SHIFT),
                     clicking || scriptedTrigger,
                     // aimed up or down as far as the view is tilted from rest, so level as it walks
-                    chase.pitch() - Chase.DEFAULT_PITCH);
+                    chase.pitch() - Chase.DEFAULT_PITCH,
+                    // what was done since the last step, all at the first step that comes
+                    i == 0 ? List.copyOf(actions) : List.of());
+            if (i == 0) {
+                actions.clear();
+            }
             before = avatar;
             // the avatar moves, and what its blows did to the world is reported with the rest
             final Play stepped = new Play(avatar, damage).step(controls, Clock.STEP);
@@ -324,12 +334,13 @@ public final class AvatarDemo extends Application {
             return;  // a key held down repeats; act on the first press only
         }
         switch (code) {
-            case SPACE -> avatar = avatar.jumped();
-            case F -> avatar = avatar.toggledFlight();
-            case J -> avatar = avatar.toggledPack();
-            case DIGIT1 -> avatar = avatar.drawn(Weapon.RIFLES);
-            case DIGIT2 -> avatar = avatar.drawn(Weapon.GLAIVE);
-            case DIGIT3 -> avatar = avatar.drawn(Weapon.GATLING);
+            // done once: waiting for the next step, as an input to it, never changing the avatar between steps
+            case SPACE -> actions.add(Action.JUMP);
+            case F -> actions.add(Action.FLY);
+            case J -> actions.add(Action.PACK);
+            case DIGIT1 -> actions.add(new Action.Draw(Weapon.RIFLES));
+            case DIGIT2 -> actions.add(new Action.Draw(Weapon.GLAIVE));
+            case DIGIT3 -> actions.add(new Action.Draw(Weapon.GATLING));
             case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
             case ESCAPE -> look.toggle();
             case M -> hearing.toggleMute();
