@@ -61,6 +61,10 @@ public final class Arcade implements Profile {
             case GLAIVE_CLEAVE -> glaiveStroke(true, variant);
             case GLAIVE_SWEEP -> glaiveStroke(false, variant);
             case GLAIVE_DRAWN -> arpeggio("glaive-drawn", new double[] {659.25, 987.77, 1318.51, 1975.53}, variant);
+            case ROUND_ON_BLOCK -> impact("round-on-block", 16_000, 2, 1760, 1, 0.3, variant);
+            case ROUND_ON_GROUND -> impact("round-on-ground", 3500, 3, 0, 0, 0.3, variant);
+            case BLADE_ON_BLOCK -> clink(variant);
+            case BLADE_ON_GROUND -> impact("blade-on-ground", 2000, 6, 110, 5, 0.45, variant);
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
             case JET_HISS -> noiseLoop("jet-hiss", 14_000, 9400, 0.25, false);
             case JET_WHINE -> jetWhine();
@@ -323,6 +327,39 @@ public final class Arcade implements Profile {
             y[i] = noise.next(base * (1 + 3 * through)) * volume(through) * onset(t);
         }
         return clip(cleave ? "glaive-cleave" : "glaive-sweep", 1, variant, y, cleave ? 0.45 : 0.38);
+    }
+
+    // ---- what the weapons strike
+
+    /**
+     * A strike: a burst of noise at {@code rate}, falling silent over {@code frames}, over a
+     * square blip at {@code pitch} for {@code blips} frames (none if 0). High and short for a
+     * round on a block; low for the ground; long and deep for the blade's chop.
+     */
+    private static Clip impact(final String name, final double rate, final int frames, final double pitch,
+                               final int blips, final double peak, final int variant) {
+        final Chip noise = new Chip(new Noise(15_000L + name.hashCode() + variant));
+        final double tune = tune(variant);
+        final double[] y = new double[samples((Math.max(frames, blips) + 1) * FRAME)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            phase += pitch * tune * (1 - 0.4 * Math.min(1, tick(t) / (blips * FRAME + 1e-9))) / Dsp.RATE;
+            final double blip = pitch > 0 ? 0.7 * square(phase, 0.5) * fall(t, blips) : 0;
+            y[i] = (noise.next(rate * tune) * fall(t, frames) + blip) * onset(t);
+        }
+        return clip(name, 1, variant, y, peak);
+    }
+
+    /** The blade striking a block: two high notes at once, a narrow pulse, dying over a few frames. */
+    private static Clip clink(final int variant) {
+        final double tune = tune(variant);
+        final double[] y = new double[samples(8 * FRAME)];
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            y[i] = (square(1318.51 * tune * t, 0.125) + square(1975.53 * tune * t, 0.125)) * fall(t, 7) * onset(t);
+        }
+        return clip("blade-on-block", 1, variant, y, 0.4);
     }
 
     // ---- the loops

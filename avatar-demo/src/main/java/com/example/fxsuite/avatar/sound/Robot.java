@@ -63,6 +63,10 @@ public final class Robot implements Profile {
             case GLAIVE_CLEAVE -> glaiveStroke(true, variant);
             case GLAIVE_SWEEP -> glaiveStroke(false, variant);
             case GLAIVE_DRAWN -> glaiveDrawn(variant);
+            case ROUND_ON_BLOCK -> roundOnBlock(variant);
+            case ROUND_ON_GROUND -> roundOnGround(variant);
+            case BLADE_ON_BLOCK -> bladeOnBlock(variant);
+            case BLADE_ON_GROUND -> bladeOnGround(variant);
             case JET_RUMBLE -> jetRumble();
             case JET_HISS -> jetHiss();
             case JET_WHINE -> jetWhine();
@@ -435,6 +439,96 @@ public final class Robot implements Profile {
             y[i] = 0.5 * scrape.band * (t < 0.18 ? Math.sin(Math.PI * t / 0.18) : 0) + 0.6 * ring;
         }
         return new Clip(name("glaive-drawn", 1, variant), Dsp.finish(y, 0.5), false);
+    }
+
+    // ---- what the weapons strike
+
+    /**
+     * A round striking a block: a sharp tick and a short crumble of grit; one take in three
+     * glances off with the whine of a ricochet, falling away.
+     */
+    public static Clip roundOnBlock(final int variant) {
+        final Noise noise = new Noise(15_000L + variant);
+        final double tune = 1 + 0.08 * noise.next();
+        final boolean ricochet = variant % 3 == 0;
+        final double[] y = new double[samples(ricochet ? 0.45 : 0.2)];
+        final Filter tick = new Filter(4200 * tune, 1.2);
+        final Filter grit = new Filter(2200 * tune, 0.8);
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            tick.push(w);
+            grit.push(w);
+            double s = 1.6 * tick.band * hit(t, 0.0002, 0.004)
+                    + 0.5 * grit.band * hit(t - 0.004, 0.003, 0.05) * (0.6 + 0.4 * Math.abs(noise.next()));
+            if (ricochet) {
+                phase += TAU * (2600 * tune * Math.exp(-t / 0.35) + 900) / Dsp.RATE;
+                s += 0.35 * Math.sin(phase) * hit(t - 0.01, 0.02, 0.15);
+            }
+            y[i] = s;
+        }
+        return new Clip(name("round-on-block", 1, variant), Dsp.finish(y, 0.45), false);
+    }
+
+    /** A round striking the ground: a dull thud, and a little spray of dirt. */
+    public static Clip roundOnGround(final int variant) {
+        final Noise noise = new Noise(16_000L + variant);
+        final double tune = 1 + 0.08 * noise.next();
+        final double[] y = new double[samples(0.18)];
+        final Filter thud = new Filter(380 * tune, 0.8);
+        final Filter dirt = new Filter(1500 * tune, 0.7);
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            thud.push(w);
+            dirt.push(w);
+            y[i] = 2 * thud.low * hit(t, 0.001, 0.02) + 0.6 * dirt.band * hit(t - 0.006, 0.004, 0.04);
+        }
+        return new Clip(name("round-on-ground", 1, variant), Dsp.finish(y, 0.4), false);
+    }
+
+    /** The blade striking a block: a clang of steel on stone, ringing a moment. */
+    public static Clip bladeOnBlock(final int variant) {
+        final Noise noise = new Noise(17_000L + variant);
+        final double tune = 1 + 0.05 * noise.next();
+        final double[] y = new double[samples(0.7)];
+        final Filter crack = new Filter(3000 * tune, 1);
+        final Filter thud = new Filter(500, 0.8);
+        final double[] partials = {1, 2.43, 3.87, 5.31};
+        final double[] decays = {0.35, 0.22, 0.12, 0.07};
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            crack.push(w);
+            thud.push(w);
+            double ring = 0;
+            for (int k = 0; k < partials.length; k++) {
+                ring += Math.sin(TAU * 540 * tune * partials[k] * t) * hit(t, 0.0005, decays[k]) / (1 + 0.5 * k);
+            }
+            y[i] = 0.9 * ring + 1.2 * crack.band * hit(t, 0.0003, 0.006) + 1.4 * thud.low * hit(t, 0.001, 0.03);
+        }
+        return new Clip(name("blade-on-block", 1, variant), Dsp.finish(y, 0.6), false);
+    }
+
+    /** The blade striking the ground: a heavy chop into earth. */
+    public static Clip bladeOnGround(final int variant) {
+        final Noise noise = new Noise(18_000L + variant);
+        final double tune = 1 + 0.06 * noise.next();
+        final double[] y = new double[samples(0.35)];
+        final Filter earth = new Filter(700 * tune, 0.7);
+        final Filter grit = new Filter(2500 * tune, 1);
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            earth.push(w);
+            grit.push(w);
+            phase += TAU * (50 + 90 * Math.exp(-t / 0.03)) * tune / Dsp.RATE;
+            y[i] = Math.sin(phase) * hit(t, 0.001, 0.07) + 1.6 * earth.low * hit(t, 0.002, 0.05)
+                    + 0.4 * grit.band * hit(t - 0.01, 0.005, 0.06);
+        }
+        return new Clip(name("blade-on-ground", 1, variant), Dsp.finish(y, 0.55), false);
     }
 
     // ---- the loops, two to four seconds each; how loud and how high they play is set live

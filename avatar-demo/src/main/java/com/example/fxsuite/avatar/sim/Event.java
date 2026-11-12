@@ -47,8 +47,18 @@ public sealed interface Event {
     record Drew(Weapon weapon) implements Event {
     }
 
-    /** A rifle fired a round: the one in the left hand, or the right. */
-    record Fired(boolean left) implements Event {
+    /**
+     * A rifle fired a round: the one in the left hand, or the right. It flew from the muzzle
+     * {@code from} to {@code to}, where it struck something, or ran out of range.
+     */
+    record Fired(boolean left, Vec3 from, Vec3 to) implements Event {
+    }
+
+    /**
+     * A weapon struck something: at {@code at}, on a surface facing {@code normal}, the ground or a
+     * block. A round fired, or the glaive's blade coming through.
+     */
+    record Struck(Vec3 at, Vec3 normal, Surface on, Weapon by) implements Event {
     }
 
     /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */

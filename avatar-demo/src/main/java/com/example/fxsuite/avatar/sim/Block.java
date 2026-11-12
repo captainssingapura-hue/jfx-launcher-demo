@@ -102,6 +102,53 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         return Math.hypot(lx - Num.clamp(lx, -halfWidth, halfWidth), lz - Num.clamp(lz, -halfDepth, halfDepth));
     }
 
+    /**
+     * Where a ray from {@code from} along {@code direction} (a unit vector) first enters the
+     * block, within {@code reach}; {@code null} if it misses, or starts inside. Worked out in the
+     * block's own frame, where it is a plain box: slab by slab, the latest entry and the earliest
+     * exit.
+     */
+    public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
+        final double c = Math.cos(Math.toRadians(yaw));
+        final double s = Math.sin(Math.toRadians(yaw));
+        final double dx = from.x() - x;
+        final double dz = from.z() - z;
+        // across, up and along, in the block's frame (up is -y)
+        final double[] at = {dx * c - dz * s, -from.y(), dx * s + dz * c};
+        final double[] go = {direction.x() * c - direction.z() * s, -direction.y(),
+                direction.x() * s + direction.z() * c};
+        final double[] low = {-halfWidth, bottom, -halfDepth};
+        final double[] high = {halfWidth, top, halfDepth};
+        double enter = Double.NEGATIVE_INFINITY;
+        double exit = Double.POSITIVE_INFINITY;
+        int face = -1;
+        for (int axis = 0; axis < 3; axis++) {
+            if (Math.abs(go[axis]) < 1e-12) {
+                if (at[axis] < low[axis] || at[axis] > high[axis]) {
+                    return null;
+                }
+                continue;
+            }
+            final double t1 = (low[axis] - at[axis]) / go[axis];
+            final double t2 = (high[axis] - at[axis]) / go[axis];
+            final double near = Math.min(t1, t2);
+            if (near > enter) {
+                enter = near;
+                face = axis;
+            }
+            exit = Math.min(exit, Math.max(t1, t2));
+        }
+        if (enter > exit || enter < 0 || enter > reach) {
+            return null;
+        }
+        // out of the face it came through, against the way it was going
+        final double[] out = new double[3];
+        out[face] = go[face] > 0 ? -1 : 1;
+        // (0.0 - and + 0.0 keep a zero from coming out as -0.0, which is not equal to 0.0)
+        final Vec3 normal = new Vec3(out[0] * c + out[2] * s + 0.0, 0.0 - out[1], -out[0] * s + out[2] * c + 0.0);
+        return new Hit(from.add(direction.multiply(enter)), normal, Surface.BLOCK, enter);
+    }
+
     /** Whether a circle at ({@code px}, {@code pz}) overlaps the footprint. */
     public boolean covers(final double px, final double pz, final double radius) {
         return push(px, pz, radius) != null;

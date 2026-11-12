@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Weapon;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,10 +31,6 @@ public final class Cues {
     static final double PACK_BEHIND = 36;
     /** Where the hands are, in front of the chest. */
     static final double HANDS_HEIGHT = 130;
-    /** A rifle's muzzle, held from the hip: how high, how far out to the side, how far ahead. */
-    static final double MUZZLE_HEIGHT = 130;
-    static final double MUZZLE_OUT = 32;
-    static final double MUZZLE_AHEAD = 93;
     /** The glaive's blade as it comes through, ahead of the chest. */
     static final double BLADE_AHEAD = 120;
 
@@ -98,7 +95,8 @@ public final class Cues {
                         }
                     }
                 }
-                case Event.Fired f -> plays.add(new Play(Sound.RIFLE_SHOT, 1, muzzle(body, f.left())));
+                case Event.Fired f -> plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
+                case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
                         : Sound.GLAIVE_SWEEP, 1, hands(body, BLADE_AHEAD)));
             }
@@ -118,11 +116,12 @@ public final class Cues {
         return body.position().add(0, -PACK_HEIGHT, 0).subtract(Num.heading(body.yaw()).multiply(PACK_BEHIND));
     }
 
-    /** A rifle's muzzle, held from the hip: in the left hand, or the right. */
-    static Vec3 muzzle(final Body body, final boolean left) {
-        return body.position().add(0, -MUZZLE_HEIGHT, 0)
-                .add(Num.right(body.yaw()).multiply(left ? -MUZZLE_OUT : MUZZLE_OUT))
-                .add(Num.heading(body.yaw()).multiply(MUZZLE_AHEAD));
+    /** What something struck sounds like: a round or the blade, on a block or the ground. */
+    static Sound struck(final Event.Struck struck) {
+        final boolean block = struck.on() == Surface.BLOCK;
+        return struck.by() == Weapon.GLAIVE
+                ? (block ? Sound.BLADE_ON_BLOCK : Sound.BLADE_ON_GROUND)
+                : (block ? Sound.ROUND_ON_BLOCK : Sound.ROUND_ON_GROUND);
     }
 
     /** In front of the chest, {@code ahead} further out: the hands, or where a stroke goes through. */

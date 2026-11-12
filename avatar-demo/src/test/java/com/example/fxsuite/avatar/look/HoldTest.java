@@ -29,7 +29,7 @@ class HoldTest {
     }
 
     @Test
-    void theRiflesAreHeldFromTheHipAndLevelWhateverTheLean() {
+    void theRiflesAreHeldFromTheHipLevelWhateverTheLeanOrTheLook() {
         final Body standing = Body.standing(Vec3.ZERO, 0);
         final Body boosting = new Body(new Vec3(0, -500, 0), 0, 0, Body.BOOST, 0, 0, 0, true, false, 0, 0);
         for (final Body body : new Body[] {standing, boosting}) {
@@ -40,8 +40,14 @@ class HoldTest {
                     + pose.lean());
             assertEquals(90, forearm(pose, pose.rightArm(), pose.rightElbow()), 1e-9);
         }
-        final Pose up = Gait.of(holding(standing, Weapon.RIFLES), 0, 20);
-        assertTrue(forearm(up, up.leftArm(), up.leftElbow()) > 90, "aimed up with the look");
+        // and still level when the player only looks round: they shoot where the body faces
+        final Pose looking = Gait.of(holding(standing, Weapon.RIFLES), 40, 25);
+        assertEquals(90, forearm(looking, looking.leftArm(), looking.leftElbow()), 1e-9, "not aimed by the look");
+        // aimed up, the forearms tilt up as far as the rounds do
+        final Avatar aimed = holding(standing, Weapon.RIFLES)
+                .step(new Controls(0, 0, 0, 0, false, false, 25), 1.0 / 60, Obstacles.NONE);
+        final Pose up = Gait.of(aimed, 0, 0);
+        assertEquals(90 + 25, forearm(up, up.leftArm(), up.leftElbow()), 1e-9, "tilted with the aim");
     }
 
     @Test

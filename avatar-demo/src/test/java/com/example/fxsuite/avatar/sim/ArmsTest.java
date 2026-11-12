@@ -13,12 +13,15 @@ class ArmsTest {
 
     private static final double FRAME = 1.0 / 60;
 
-    /** Holds (or not) the trigger for {@code seconds}, a frame at a time, gathering what happened. */
+    /**
+     * Holds (or not) the trigger for {@code seconds}, a frame at a time, gathering the rounds and
+     * strokes: their timing, which is what these tests are about. What they strike is AimTest's.
+     */
     private static List<Event> hold(Arms arms, final boolean trigger, final double seconds, final List<Arms> end) {
         final List<Event> all = new ArrayList<>();
         for (double t = 0; t < seconds - 1e-9; t += FRAME) {
             final Arms.Stepped stepped = arms.step(trigger, FRAME);
-            all.addAll(stepped.events());
+            stepped.events().stream().filter(e -> !(e instanceof Event.Struck)).forEach(all::add);
             arms = stepped.arms();
         }
         end.add(arms);
@@ -31,14 +34,16 @@ class ArmsTest {
         // two rifles at 600 rounds a minute each, for two seconds: about 40 rounds
         assertEquals(2 * 2 * Arms.RIFLE_RATE / 60, fired.size(), 1);
         for (int i = 0; i < fired.size(); i++) {
-            assertEquals(new Event.Fired(i % 2 == 0), fired.get(i), "left, right, left...");
+            assertEquals(i % 2 == 0, ((Event.Fired) fired.get(i)).left(), "left, right, left...");
         }
     }
 
     @Test
     void theFirstRoundGoesAtOnceAndLettingGoStopsIt() {
         final Arms.Stepped first = Arms.holding(Weapon.RIFLES).step(true, FRAME);
-        assertEquals(List.of(new Event.Fired(true)), first.events(), "no wait for the first round");
+        final List<Event> rounds = first.events().stream().filter(e -> e instanceof Event.Fired).toList();
+        assertEquals(1, rounds.size(), "no wait for the first round");
+        assertTrue(((Event.Fired) rounds.get(0)).left(), "from the left rifle");
         assertEquals(0, first.arms().sinceLeft(), FRAME, "and the left rifle has just fired");
         final List<Arms> end = new ArrayList<>();
         assertTrue(hold(first.arms(), false, 1, end).isEmpty(), "let go, and nothing fires");
@@ -52,7 +57,7 @@ class ArmsTest {
         int rounds = 0;
         for (int i = 0; i < 30; i++) {
             final Arms.Stepped stepped = slow.step(true, 0.1);
-            rounds += stepped.events().size();
+            rounds += (int) stepped.events().stream().filter(e -> e instanceof Event.Fired).count();
             slow = stepped.arms();
         }
         assertEquals(fast.size(), rounds, 1, "ten frames a second fire as many rounds as sixty");

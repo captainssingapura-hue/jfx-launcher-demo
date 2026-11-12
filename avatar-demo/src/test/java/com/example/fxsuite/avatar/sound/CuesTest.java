@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.sound;
 
+import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Controls;
@@ -8,6 +9,7 @@ import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Weapon;
 
 import org.junit.jupiter.api.Test;
 
@@ -84,6 +86,32 @@ class CuesTest {
         final Cues.Play bump = Cues.of(with(0, false, new Event.Bumped(Body.RUN)), PROFILE).plays().get(0);
         assertEquals(Sound.BUMP, bump.sound());
         assertEquals(Body.RUN / Body.BOOST, bump.amount(), 1e-9);
+    }
+
+    @Test
+    void shotsSoundFromEachMuzzleAndStrokesFromTheBlade() {
+        final Body still = Body.standing(Vec3.ZERO, 0);
+        final Vec3 far = new Vec3(0, -130, 5000);
+        final List<Cues.Play> shots = Cues.of(with(0, false, new Event.Fired(true, Arms.muzzle(still, true), far),
+                new Event.Fired(false, Arms.muzzle(still, false), far)), PROFILE).plays();
+        assertEquals(List.of(Sound.RIFLE_SHOT, Sound.RIFLE_SHOT), shots.stream().map(Cues.Play::sound).toList());
+        assertTrue(shots.get(0).at().dotProduct(Num.right(0)) < 0, "the left rifle, on the left");
+        assertTrue(shots.get(1).at().dotProduct(Num.right(0)) > 0, "the right, on the right");
+        assertTrue(shots.get(0).at().dotProduct(Num.heading(0)) > Body.RADIUS, "out ahead of the body");
+        assertEquals(List.of(Sound.ROUND_ON_BLOCK, Sound.ROUND_ON_GROUND, Sound.BLADE_ON_BLOCK, Sound.BLADE_ON_GROUND),
+                played(with(0, false,
+                        new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK, Weapon.RIFLES),
+                        new Event.Struck(far, new Vec3(0, -1, 0), Surface.GROUND, Weapon.RIFLES),
+                        new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK, Weapon.GLAIVE),
+                        new Event.Struck(far, new Vec3(0, -1, 0), Surface.GROUND, Weapon.GLAIVE))));
+        assertEquals(far, Cues.of(with(0, false, new Event.Struck(far, new Vec3(0, 0, -1), Surface.BLOCK,
+                Weapon.RIFLES)), PROFILE).plays().get(0).at(), "heard where it struck");
+        assertEquals(Arms.muzzle(still, true), shots.get(0).at(), "and a shot from its muzzle");
+        assertEquals(List.of(Sound.GLAIVE_CLEAVE, Sound.GLAIVE_SWEEP),
+                played(with(0, false, new Event.Swung(Arms.CLEAVE), new Event.Swung(Arms.SWEEP))));
+        assertEquals(List.of(Sound.RIFLES_DRAWN, Sound.GLAIVE_DRAWN),
+                played(with(0, false, new Event.Drew(Weapon.RIFLES), new Event.Drew(Weapon.GLAIVE),
+                        new Event.Drew(Weapon.NONE))), "putting a weapon away is silent");
     }
 
     @Test

@@ -46,9 +46,9 @@ public final class Gait {
      * <ul>
      *   <li><b>Rifles:</b> held from the hip, as a soldier fires from it: the upper arms down along
      *       the body, clamping each rifle's stock against its side, the forearms folded forward
-     *       along the rifles to the pistol grips. Aimed level whatever the body's lean, and up or
-     *       down as the player looks. Each round kicks its forearm up, and it settles back in a
-     *       few hundredths of a second.</li>
+     *       along the rifles to the pistol grips. Straight ahead of the body, whatever its lean and
+     *       wherever the head is looking, tilted up or down by the aim: as they shoot. Each round
+     *       kicks its forearm up, and it settles back in a few hundredths of a second.</li>
      *   <li><b>Glaive:</b> at rest it stands upright in the right hand, blade high above the head.
      *       A stroke winds up, comes through, and recovers, by the keyframes below.</li>
      * </ul>
@@ -60,8 +60,9 @@ public final class Gait {
             case NONE -> pose;
             case RIFLES -> {
                 // the body leans forward by a negative turn, the arms by positive ones: so to
-                // hold a forearm level, the upper arm and elbow together turn as far as the lean
-                final double forearm = 90 + pose.lean() - TUCK + Num.clamp(lookUp * 0.8, -AIM, AIM);
+                // hold a forearm level, the upper arm and elbow together turn as far as the lean.
+                // Straight ahead, wherever the head is looking, tilted only by the aim: as they shoot
+                final double forearm = 90 + pose.lean() - TUCK + arms.pitch();
                 yield pose.withArms(TUCK, TUCK, -PRESS, -PRESS,
                         forearm + kick(arms.sinceLeft()), forearm + kick(arms.sinceRight()), 0);
             }
@@ -81,12 +82,10 @@ public final class Gait {
 
     /**
      * Rifles: the upper arms a little forward of hanging straight, and pressed in to the body by
-     * this much, to clamp the stocks; how far up or down the look aims them; a round's kick, and
-     * how fast it settles.
+     * this much, to clamp the stocks; a round's kick, and how fast it settles.
      */
     static final double TUCK = 6;
     static final double PRESS = 4;
-    static final double AIM = 35;
     static final double RECOIL = 9;
     static final double RECOIL_SETTLE = 0.045;
     /** The glaive's arm is all but straight, so the long weapon swings from the shoulder. */

@@ -4,6 +4,8 @@ import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
+import com.example.fxsuite.avatar.look.Impacts;
+import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
@@ -63,7 +65,8 @@ import java.util.Set;
  *
  * <p>For runs without a keyboard: {@code -Davatar.script="F;W:2;W+D+SHIFT:1.5"} holds each
  * step's keys for its seconds (a step without seconds is a tap, and {@code :1} just waits); an
- * {@code @90} among a step's keys turns 90° over the step, as the mouse would.
+ * {@code @90} among a step's keys turns 90° over the step, as the mouse would, and
+ * {@code ^20} tilts the view up 20° (down, when negative).
  * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
  * {@code -Davatar.settle=<ms>} picks the moment instead. Either leaves the mouse alone.
  */
@@ -79,6 +82,8 @@ public final class AvatarDemo extends Application {
     private final Course course = new Course();
     private final Obstacles obstacles = course.obstacles();
     private final World world = new World(course);
+    private final Impacts impacts = new Impacts();
+    private final Reticle reticle = new Reticle();
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
@@ -91,6 +96,8 @@ public final class AvatarDemo extends Application {
     private Hearing hearing;
     /** Degrees per second the script is turning, as the mouse would. */
     private double scriptedTurn;
+    /** Degrees per second the script is tilting the view, as the mouse would. */
+    private double scriptedTilt;
     /** The trigger: the left mouse button held while the mouse is captured, or a script's FIRE. */
     private boolean clicking;
     private boolean scriptedTrigger;
@@ -104,7 +111,8 @@ public final class AvatarDemo extends Application {
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
-        final SubScene view = new SubScene(new Group(world.node(), rig.node(), rig.effects(), eye), 0, 0, true,
+        final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), reticle.node(), eye);
+        final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
         view.setFill(World.SKY);
         view.setCamera(eye);
@@ -185,10 +193,12 @@ public final class AvatarDemo extends Application {
                 axis(KeyCode.SPACE) - axis(KeyCode.CONTROL),
                 // full speed by default, as in most shooters; Shift held to go carefully
                 !held.contains(KeyCode.SHIFT),
-                clicking || scriptedTrigger);
+                clicking || scriptedTrigger,
+                // aimed up or down as far as the view is tilted from rest, so level as it walks
+                chase.pitch() - Chase.DEFAULT_PITCH);
         avatar = avatar.step(controls, seconds, obstacles);
         final Body body = avatar.body();
-        final double tilt = look.takeTilt();
+        final double tilt = look.takeTilt() + scriptedTilt * seconds;
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
         if (tilt != 0 || circling != 0) {
             chase = chase.turned(circling * CIRCLE * seconds, tilt);
@@ -196,6 +206,8 @@ public final class AvatarDemo extends Application {
         chase = chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
         rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
+        impacts.show(avatar);
+        reticle.show(avatar, obstacles, chase.position());
         world.shadowUnder(body, obstacles);
         hearing.hear(avatar, chase);
 
@@ -291,6 +303,12 @@ public final class AvatarDemo extends Application {
                         // the trigger, as the left mouse button held
                         steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTrigger = true));
                         steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTrigger = false));
+                        continue;
+                    }
+                    if (name.trim().startsWith("^")) {
+                        final double rate = Double.parseDouble(name.trim().substring(1)) / hold;
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t), e -> scriptedTilt = rate));
+                        steps.getKeyFrames().add(new KeyFrame(Duration.seconds(t + hold), e -> scriptedTilt = 0));
                         continue;
                     }
                     if (name.trim().startsWith("@")) {

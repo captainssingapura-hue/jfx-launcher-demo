@@ -55,6 +55,30 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
         return new Footing(floor, floor > 0 ? Surface.BLOCK : Surface.GROUND);
     }
 
+    /**
+     * The first thing a ray from {@code from} along {@code direction} (a unit vector) meets
+     * within {@code reach}: a block, or the ground; {@code null} for open sky.
+     */
+    public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
+        Hit first = null;
+        // the ground, at height 0 (y down), from above
+        if (direction.y() > 1e-12 && from.y() < 0) {
+            final double t = -from.y() / direction.y();
+            if (t <= reach) {
+                final Vec3 down = from.add(direction.multiply(t));
+                first = new Hit(new Vec3(down.x(), 0, down.z()),
+                        new Vec3(0, -1, 0), Surface.GROUND, t);
+            }
+        }
+        for (final Block block : blocks) {
+            final Hit hit = block.ray(from, direction, first == null ? reach : first.distance());
+            if (hit != null && (first == null || hit.distance() < first.distance())) {
+                first = hit;
+            }
+        }
+        return first;
+    }
+
     /** Just the height of the {@linkplain #footing footing}. */
     public double floor(final double x, final double z, final double radius, final double within) {
         return footing(x, z, radius, within).height();

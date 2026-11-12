@@ -55,7 +55,7 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms, Li
         final double swung = Num.ease(sweep, Wings.sweepFor(wearingPack, body), Wings.SWING, seconds);
         final Body.Moved moved = body.move(controls, seconds, world, wearingPack ? new Wings(swung) : null);
         final Body after = moved.body();
-        final Arms.Stepped armed = arms.step(controls.trigger(), seconds);
+        final Arms.Stepped armed = arms.step(controls.trigger(), seconds, body, world, controls.aim());
         final List<Event> happened = new ArrayList<>(moved.events());
         happened.addAll(armed.events());
         for (final Gate gate : world.gates()) {
