@@ -89,6 +89,11 @@ public final class Damage {
      * piece has left after it, and a {@link Event.Broke} after the one that broke it.
      */
     public Taken took(final List<Blow> blows) {
+        return took(blows, 0);
+    }
+
+    /** As {@link #took(List)}, {@code seconds} after the start: what moves of itself breaks where it then is. */
+    public Taken took(final List<Blow> blows, final double seconds) {
         double[] left = null;
         Obstacles standing = obstacles;
         final List<Event> happened = new ArrayList<>();
@@ -110,7 +115,7 @@ public final class Damage {
             left[piece] = Math.max(0, left[piece] - blow.by().blow());
             happened.add(Event.Struck.of(blow, share(piece, left)));
             if (left[piece] <= 0) {
-                final Course.Piece what = pieces.get(piece);
+                final Course.Piece what = pieces.get(piece).at(seconds);
                 standing = standing.without(piece);
                 happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by()));
             }
@@ -155,6 +160,22 @@ public final class Damage {
 
     public boolean broken(final int piece) {
         return health[piece] <= 0;
+    }
+
+    /** Piece {@code piece} of the course, as it was built: where it starts, if it moves ({@link Course.Piece#at}). */
+    public Course.Piece piece(final int piece) {
+        return pieces.get(piece);
+    }
+
+    /** The pieces that move of themselves and are still standing, by number: the airships left. */
+    public List<Integer> moving() {
+        final List<Integer> moving = new ArrayList<>();
+        for (int i = 0; i < health.length; i++) {
+            if (pieces.get(i).moves() && health[i] > 0) {
+                moving.add(i);
+            }
+        }
+        return moving;
     }
 
     /** How many pieces there are, broken or not. */

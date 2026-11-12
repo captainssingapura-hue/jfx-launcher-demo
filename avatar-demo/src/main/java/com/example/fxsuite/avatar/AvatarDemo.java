@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar;
 
 import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.hear.Hearing;
+import com.example.fxsuite.avatar.look.Bombs;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.Impacts;
@@ -17,9 +18,11 @@ import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Keys;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Script;
+import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.view.Chase;
@@ -95,9 +98,12 @@ public final class AvatarDemo extends Application {
     private final Course course = new Course();
     /** What the weapons have done to the course, and so what still stands in it. */
     private Damage damage = Damage.of(course);
+    /** What moves of itself: the airships along their routes, and their bombs. */
+    private Sky sky = Sky.START;
     private final World world = new World(course);
     private final Impacts impacts = new Impacts();
     private final Wreckage wreckage = new Wreckage();
+    private final Bombs bombs = new Bombs();
     private final Reticle reticle = new Reticle();
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Translate eyeAt = new Translate();
@@ -162,6 +168,7 @@ public final class AvatarDemo extends Application {
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
+                bombs.node(),
                 reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
@@ -303,9 +310,10 @@ public final class AvatarDemo extends Application {
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
-            final Play.Stepped stepped = new Play(avatar, damage).step(controls, Clock.STEP);
+            final Play.Stepped stepped = new Play(avatar, damage, sky).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
+            sky = stepped.play().sky();
             journal.append(++step, stepped.events());
             if (recorder != null) {
                 recorder.step(step, controls, stepped.play());
@@ -327,13 +335,18 @@ public final class AvatarDemo extends Application {
 
         rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         // each reads what is new to it in the journal
+        // what moves of itself is shown where it was as far behind its latest step as the avatar is
+        final double behind = (1 - ticked.blend()) * Clock.STEP;
+        final Play now = new Play(this.avatar, damage, sky);
+        final Obstacles standing = now.obstacles();
         impacts.show(avatar, forImpacts.read().events());
-        wreckage.show(avatar, forWreckage.read().events(), world, damage.obstacles());
-        world.show(damage, seconds, chase.yaw());
-        reticle.show(avatar, damage.obstacles(), chase.position());
-        world.shadowUnder(body, damage.obstacles());
+        wreckage.show(avatar, forWreckage.read().events(), world, standing);
+        world.show(damage, sky.time() - behind, seconds, chase.yaw());
+        bombs.show(sky, behind);
+        reticle.show(avatar, standing, chase.position());
+        world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
-        hearing.hear(avatar, forSound.read().events(), chase, damage.standing(Course.Kind.AIRSHIP).stream()
+        hearing.hear(avatar, forSound.read().events(), chase, now.airships().stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList());
 
         // boosting widens the view a little, for a sense of speed

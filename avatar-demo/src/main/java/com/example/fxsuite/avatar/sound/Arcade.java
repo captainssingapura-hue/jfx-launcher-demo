@@ -67,7 +67,7 @@ public final class Arcade implements Profile {
             case BLADE_ON_GROUND -> impact("blade-on-ground", 2000, 6, 110, 5, 0.45, variant);
             case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
             case BREAK_WOOD -> breakWood(amount, variant);
-            case BREAK_DRONE -> breakDrone(variant);
+            case BREAK_DRONE, BOMB -> breakDrone(variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();

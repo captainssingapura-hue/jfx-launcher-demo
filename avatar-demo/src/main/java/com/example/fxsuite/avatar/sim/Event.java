@@ -94,4 +94,15 @@ public sealed interface Event {
     /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */
     record Swung(int stroke) implements Event {
     }
+
+    /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */
+    record Dropped(Vec3 at, int from) implements Event {
+    }
+
+    /**
+     * A bomb went off at {@code at}, on the ground or a block. What it harmed comes after, each
+     * piece struck ({@link Struck}, by {@link Weapon#BOMB}) and what broke.
+     */
+    record Exploded(Vec3 at, Surface on) implements Event {
+    }
 }

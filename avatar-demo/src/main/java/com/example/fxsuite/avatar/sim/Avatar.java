@@ -140,6 +140,11 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
         return new Stepped(new Avatar(after, wearingPack, swung, armed.arms()), happened, armed.blows());
     }
 
+    /** Carried by what it stands on, moved from {@code from} to {@code to}: see {@link Body#carried}. */
+    public Avatar carried(final Place from, final Place to) {
+        return new Avatar(body.carried(from, to), wearingPack, sweep, arms);
+    }
+
     // The same actions as plain changes of state, for setting one up (in a test, say): what
     // happened on the way is let go. A running game does them as Actions, in a step.
 

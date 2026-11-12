@@ -74,7 +74,8 @@ public final class Impacts {
                 if (avatar.holding() != Weapon.GATLING || ++gatlingRounds % 3 == 0) {
                     tracer(fired.from(), fired.to());
                 }
-            } else if (event instanceof Event.Struck struck) {
+            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB) {
+                // a bomb leaves no mark of its own on each thing it reaches: its blast is the wreckage's
                 struck(struck, avatar.body().yaw());
             } else if (event instanceof Event.Broke broke) {
                 // what was marked is gone, and its marks with it

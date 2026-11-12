@@ -44,10 +44,12 @@ characters, and a separate sound bench is for working on the sounds.
   into the ground in front, and a sweep catches what is beside; on a block the blade leaves a
   gash. The marks fade after a while.
 - **Targets and damage.** A range of wooden target dummies stands off to the left of the start,
-  more behind it, and drones hover all round. High over everything, far out, hang three great
-  armoured airships. Each is 18 m long, with a stepped steel hull banded in yellow, a cross of
-  tail fins, a lit gondola underneath and an engine with a turning propeller either side. Each
-  part of one is solid, so it can be landed on. They, and the crates, can be broken; pillars and
+  more behind it, and drones hover all round. High over everything, far out, three great
+  armoured airships go slowly round the start, a lap taking the best part of two minutes. Each
+  is 18 m long, with a stepped steel hull banded in yellow, a cross of tail fins, a lit gondola
+  underneath and an engine with a turning propeller either side. Each part of one is solid, so
+  it can be landed on, and whatever stands on one is carried along with it, turned as it turns,
+  and can walk about on it as it goes. They, and the crates, can be broken; pillars and
   gates stand whatever is thrown at them. Every round or stroke takes some of what a piece can
   take:
   - a rifle round takes 10, a Gatling round 8 (but 40 a second), and a stroke of the glaive 100;
@@ -60,6 +62,11 @@ characters, and a separate sound bench is for working on the sounds.
   drone goes up in a fireball. An airship goes up in blast after blast along its hull and rains
   wreckage from the sky. Broken is for good, until the demo starts again. It is gone from the world, so rounds fly on through where it stood and whatever stood
   on it falls. The HUD counts the targets down and the crates broken.
+- **Bombs.** Each airship lets a bomb go every three seconds, in turn, wherever it is: carpet
+  bombing. A bomb falls from under the gondola, carrying on the way the airship was going, and
+  goes off at the first thing it meets, in a fireball, embers and, on the ground, clods of earth
+  thrown up. Every crate or target within 3.5 m of it takes 150: a drone or a small crate goes at
+  once, a dummy takes two. The robot takes no harm from them yet.
 
 ## Build and run
 
@@ -117,10 +124,10 @@ ground; the blade clanging off a block, or chopping into the earth. What breaks 
 it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
 was, a drone blowing up, or an airship coming down in a chain of blasts with its frame
 groaning. Explosions are loud all through, as a blast overloads a microphone, and carry: a
-footstep is heard in full only within 3 m, a drone blowing up within 15 m, an airship coming
+footstep is heard in full only within 3 m, a drone blowing up within 15 m, a bomb within 30 m, an airship coming
 down within 60 m. For a moment each one pushes the rest down (the jets, the wind, the Gatling
 gun's roar), as games mix them, so it punches through. The nearest airship still in the sky
-drones from where it hangs, faint from the ground and loud alongside it. The jets roar as
+drones from where it is, faint from the ground and loud alongside it. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.
@@ -217,9 +224,9 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar and the damage together), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves of itself together: the airships on their routes and their bombs, `Sky`), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, and a drone's fireball), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

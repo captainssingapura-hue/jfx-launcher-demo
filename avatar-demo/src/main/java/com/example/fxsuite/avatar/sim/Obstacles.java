@@ -112,6 +112,20 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         return first;
     }
 
+    /**
+     * Which piece a body standing at ({@code x}, {@code z}), {@code height} up, stands on: the
+     * piece whose top it is on; -1 on the ground or in the air.
+     */
+    public int under(final double x, final double z, final double radius, final double height) {
+        for (int i = 0; i < blocks.size(); i++) {
+            final Block block = blocks.get(i);
+            if (Math.abs(block.top() - height) < 0.5 && block.covers(x, z, radius)) {
+                return pieces.get(i);
+            }
+        }
+        return -1;
+    }
+
     /** Just the height of the {@linkplain #footing footing}. */
     public double floor(final double x, final double z, final double radius, final double within) {
         return footing(x, z, radius, within).height();

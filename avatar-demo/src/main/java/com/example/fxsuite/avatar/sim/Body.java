@@ -310,6 +310,16 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         return (from < mark && to >= mark) || (from < mark + 2 * Math.PI && to >= mark + 2 * Math.PI);
     }
 
+    /**
+     * Carried by what it stands on, which moved from {@code from} to {@code to}: moved and turned
+     * with it, its facing and the way it was going turned too, its own speeds kept as they were.
+     */
+    public Body carried(final Place from, final Place to) {
+        final double turn = Num.wrap(to.yaw() - from.yaw());
+        return new Body(from.carry(position, to), Num.wrap(yaw + turn), Num.wrap(travel + turn), speed, drift,
+                turnRate, climb, flying, onGround, phase, time);
+    }
+
     /** Up off whatever it stands on, if standing; otherwise unchanged. The jump keeps to its heading now. */
     public Body jumped() {
         return grounded()

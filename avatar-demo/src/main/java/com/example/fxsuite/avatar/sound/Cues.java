@@ -106,7 +106,7 @@ public final class Cues {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
                         case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
-                        case NONE -> {
+                        case NONE, BOMB -> {
                         }
                     }
                 }
@@ -116,7 +116,15 @@ public final class Cues {
                         plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
                     }
                 }
-                case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
+                // a bomb's blast is heard once, going off, not on each thing it reaches
+                case Event.Struck s -> {
+                    if (s.by() != Weapon.BOMB) {
+                        plays.add(new Play(struck(s), 1, s.at()));
+                    }
+                }
+                case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
+                case Event.Dropped _ -> {
+                }
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());

@@ -69,7 +69,7 @@ public final class Robot implements Profile {
             case BLADE_ON_GROUND -> bladeOnGround(variant);
             case GATLING_DRAWN -> gatlingDrawn(variant);
             case BREAK_WOOD -> breakWood(amount, variant);
-            case BREAK_DRONE -> breakDrone(variant);
+            case BREAK_DRONE, BOMB -> breakDrone(variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
