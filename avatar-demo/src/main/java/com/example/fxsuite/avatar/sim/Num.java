@@ -42,13 +42,21 @@ public final class Num {
      * so even counting 1, 2, 3 gives values that don't fall into lines, as a single multiply would.
      */
     public static double hash(final long... numbers) {
-        long state = 0x5DEECE66DL;
+        long state = SEED;
         for (final long n : numbers) {
-            long z = state + n * 0x9E3779B97F4A7C15L + 0x9E3779B97F4A7C15L;
-            z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-            z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-            state = z ^ (z >>> 31);
+            state = mix(state, n);
         }
         return (state >>> 11) * 0x1.0p-53;
+    }
+
+    /** Where {@link #hash} and {@link #mix} start from. */
+    public static final long SEED = 0x5DEECE66DL;
+
+    /** {@code n} stirred into {@code state}, all 64 bits of it: for hashes and checksums. */
+    public static long mix(final long state, final long n) {
+        long z = state + n * 0x9E3779B97F4A7C15L + 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        return z ^ (z >>> 31);
     }
 }

@@ -58,13 +58,23 @@ public sealed interface Event {
     /**
      * A weapon struck something: at {@code at}, on a surface facing {@code normal}, the ground or a
      * block, which is piece {@code piece} of the {@link Course} (-1 for the ground). A round
-     * fired, or the glaive's blade coming through.
+     * fired, or the glaive's blade coming through. What came of a {@link Blow}, once the world had
+     * taken it.
+     *
+     * <p>It carries its result: {@code left}, how much the piece has left of what it can take
+     * after this blow, 1 unharmed to 0 broken, and always 1 for what cannot break and for the
+     * ground. A reader that missed the blows before it still knows where the piece stands.
      */
-    record Struck(Vec3 at, Vec3 normal, Surface on, Weapon by, int piece) implements Event {
+    record Struck(Vec3 at, Vec3 normal, Surface on, Weapon by, int piece, double left) implements Event {
 
-        /** Struck, on no piece in particular. */
+        /** Struck, on no piece in particular, and none the worse. */
         public Struck(final Vec3 at, final Vec3 normal, final Surface on, final Weapon by) {
-            this(at, normal, on, by, -1);
+            this(at, normal, on, by, -1, 1);
+        }
+
+        /** What came of {@code blow}: the piece it reached has {@code left} after it. */
+        public static Struck of(final Blow blow, final double left) {
+            return new Struck(blow.at(), blow.normal(), blow.on(), blow.by(), blow.piece(), left);
         }
     }
 
@@ -83,5 +93,16 @@ public sealed interface Event {
 
     /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */
     record Swung(int stroke) implements Event {
+    }
+
+    /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */
+    record Dropped(Vec3 at, int from) implements Event {
+    }
+
+    /**
+     * A bomb went off at {@code at}, on the ground or a block. What it harmed comes after, each
+     * piece struck ({@link Struck}, by {@link Weapon#BOMB}) and what broke.
+     */
+    record Exploded(Vec3 at, Surface on) implements Event {
     }
 }

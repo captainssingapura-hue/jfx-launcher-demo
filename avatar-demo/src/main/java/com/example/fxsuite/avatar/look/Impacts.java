@@ -1,7 +1,10 @@
 package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -14,11 +17,14 @@ import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.transform.Rotate;
 
+import java.util.List;
+
 /**
  * What the weapons do to the world, as seen: a tracer along each round's flight, sparks where a
  * round or the blade strikes a block, a puff of dust off the ground, and marks left behind, a
- * bullet hole or a gash, which fade after a while. All from the simulation's events; nothing
- * here changes the world.
+ * bullet hole or a gash, which fade after a while. A mark is part of what it is on: put in that
+ * piece's own group, it goes with an airship as it flies, and is gone when the piece breaks. All
+ * from the simulation's events; nothing here changes the world.
  *
  * <p>Every effect comes from a fixed pool of shapes, reused oldest first. Making a shape for each
  * spark of a burst at twenty rounds a second would stutter.
@@ -43,8 +49,15 @@ public final class Impacts {
     private double lastTime = Double.NaN;
     private int count;
     private int gatlingRounds;
+    /**
+     * The world as drawn: a mark on a piece is put in that piece's own group ({@link World#group}),
+     * so it is part of the piece, going where it goes, and gone when it is broken.
+     */
+    private final World world;
 
-    public Impacts() {
+    /** The effects of the weapons on {@code world}. */
+    public Impacts(final World world) {
+        this.world = world;
         final PhongMaterial light = BoxRig.glow("#fff1a8");
         final PhongMaterial spark = BoxRig.glow("#ffb347");
         final PhongMaterial earth = BoxRig.matte("#7a6a4f");
@@ -60,20 +73,25 @@ public final class Impacts {
         return root;
     }
 
-    /** Adds what this frame's events made, and moves on what is already flying or fading. */
-    public void show(final Avatar avatar) {
+    /**
+     * Adds what this frame's {@code entries} made, and moves on what is already flying or fading.
+     * Each is stamped with its step, so a mark on what moves goes where that was when it was struck.
+     */
+    public void show(final Avatar avatar, final List<Journal.Logged> entries) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(0.1, time - lastTime));
         lastTime = time;
-        for (final Event event : avatar.events()) {
+        for (final Journal.Logged entry : entries) {
+            final Event event = entry.event();
             if (event instanceof Event.Fired fired) {
                 // the Gatling gun's belt carries a tracer every third round, as real belts do:
                 // forty a second would be one solid beam
                 if (avatar.holding() != Weapon.GATLING || ++gatlingRounds % 3 == 0) {
                     tracer(fired.from(), fired.to());
                 }
-            } else if (event instanceof Event.Struck struck) {
-                struck(struck, avatar.body().yaw());
+            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB) {
+                // a bomb leaves no mark of its own on each thing it reaches: its blast is the wreckage's
+                struck(struck, avatar.body().yaw(), entry.step() * Clock.STEP);
             } else if (event instanceof Event.Broke broke) {
                 // what was marked is gone, and its marks with it
                 holes.clear(broke.piece());
@@ -92,7 +110,8 @@ public final class Impacts {
         tracer.place(from.add(along.multiply(0.5)), Vec3.ZERO, along, false);
     }
 
-    private void struck(final Event.Struck struck, final double yaw) {
+    /** What a round or the blade does where it struck, {@code seconds} after the start, the avatar facing {@code yaw}. */
+    private void struck(final Event.Struck struck, final double yaw, final double seconds) {
         final boolean blade = struck.by() == Weapon.GLAIVE;
         final Vec3 off = struck.at().add(struck.normal().multiply(0.4));
         if (struck.on() == Surface.BLOCK) {
@@ -106,16 +125,35 @@ public final class Impacts {
                 dust.next(DUST * (0.6 + 0.4 * unit())).place(off, fly, null, true);
             }
         }
+        // the mark is part of what it is on: in that piece's own frame, as the piece was when struck;
+        // on the ground, in the world's
+        final int piece = struck.piece();
+        final Group on;
+        final Vec3 at;
+        final Vec3 facing;
+        final double turned;
+        if (piece >= 0) {
+            final Block block = world.at(piece, seconds);
+            on = world.group(piece);
+            at = block.toLocal(off);
+            facing = block.turnToLocal(struck.normal());
+            turned = block.yaw();
+        } else {
+            on = root;
+            at = off;
+            facing = struck.normal();
+            turned = 0;
+        }
         if (blade) {
             if (struck.on() == Surface.BLOCK) {
                 // a gash across the face, turned with the avatar
-                gashes.next(MARK).mark(off, struck.normal(), yaw, struck.piece());
+                gashes.next(MARK).mark(on, at, facing, yaw - turned, piece);
             }
         } else {
             // a steady stream lands in one place: one hole there, not one on top of another, which would
             // lie in the same plane and flicker
-            if (!holes.anyNear(off, HOLE_APART)) {
-                holes.next(MARK).mark(off, struck.normal(), count * 47.0, struck.piece());
+            if (!holes.anyNear(at, HOLE_APART, piece)) {
+                holes.next(MARK).mark(on, at, facing, count * 47.0, piece);
             }
         }
     }
@@ -145,11 +183,14 @@ public final class Impacts {
             }
         }
 
-        /** Whether one of the few last handed out is showing within {@code apart} of {@code at}. */
-        boolean anyNear(final Vec3 at, final double apart) {
+        /**
+         * Whether one of the few last handed out is showing on piece {@code piece} (-1, the ground)
+         * within {@code apart} of {@code at}, in that piece's own frame.
+         */
+        boolean anyNear(final Vec3 at, final double apart, final int piece) {
             for (int back = 1; back <= Math.min(RECENT, items.length); back++) {
                 final Particle recent = items[(next - back + items.length) % items.length];
-                if (recent.shape.isVisible() && recent.at.distance(at) < apart) {
+                if (recent.shape.isVisible() && recent.piece == piece && recent.at.distance(at) < apart) {
                     return true;
                 }
             }
@@ -210,8 +251,16 @@ public final class Impacts {
             show();
         }
 
-        /** Flat on a surface facing {@code normal}, turned {@code spin} degrees about it, on piece {@code on}. */
-        void mark(final Vec3 where, final Vec3 normal, final double spin, final int on) {
+        /**
+         * Flat on a surface facing {@code normal}, turned {@code spin} degrees about it, on piece
+         * {@code on} (-1, the ground): put in {@code group}, that piece's own, and {@code where} and
+         * {@code normal} in its frame.
+         */
+        void mark(final Group group, final Vec3 where, final Vec3 normal, final double spin, final int on) {
+            if (shape.getParent() != group) {
+                ((Group) shape.getParent()).getChildren().remove(shape);
+                group.getChildren().add(shape);
+            }
             at = where;
             velocity = Vec3.ZERO;
             falls = false;

@@ -58,20 +58,21 @@ public final class Cues {
     }
 
     /** As {@link #of(Avatar, Profile, List)}, with no airships about. */
-    public static Heard of(final Avatar avatar, final Profile profile) {
-        return of(avatar, profile, List.of());
+    public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile) {
+        return of(avatar, events, profile, List.of());
     }
 
     /**
      * What to hear this frame. {@code airships} are where the airships still in the sky are; the
      * nearest is heard droning, from where it hangs, and none when none is left.
      */
-    public static Heard of(final Avatar avatar, final Profile profile, final List<Vec3> airships) {
+    public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
+                           final List<Vec3> airships) {
         final Body body = avatar.body();
         final Vec3 feet = body.position();
         final Vec3 pack = pack(body);
         final List<Play> plays = new ArrayList<>();
-        for (final Event event : avatar.events()) {
+        for (final Event event : events) {
             switch (event) {
                 case Event.Footfall f -> plays.add(new Play(
                         f.on() == Surface.BLOCK ? Sound.STEP_BLOCK : Sound.STEP_GROUND,
@@ -105,7 +106,7 @@ public final class Cues {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
                         case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
-                        case NONE -> {
+                        case NONE, BOMB -> {
                         }
                     }
                 }
@@ -115,7 +116,15 @@ public final class Cues {
                         plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
                     }
                 }
-                case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
+                // a bomb's blast is heard once, going off, not on each thing it reaches
+                case Event.Struck s -> {
+                    if (s.by() != Weapon.BOMB) {
+                        plays.add(new Play(struck(s), 1, s.at()));
+                    }
+                }
+                case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
+                case Event.Dropped _ -> {
+                }
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());

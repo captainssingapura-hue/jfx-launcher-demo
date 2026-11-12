@@ -18,14 +18,14 @@ class EventTest {
     private static final double FRAME = 1.0 / 60;
     private static final Controls AHEAD = new Controls(1, 0, 0, 0, false);
 
-    /** Runs the avatar, handing on each frame's events as the app does, and gathers them all. */
+    /** Runs the avatar, a step at a time, and gathers what each step reports. */
     private static List<Event> heard(Avatar avatar, final Controls controls, final double seconds,
                                      final Obstacles world, final List<Avatar> last) {
         final List<Event> all = new ArrayList<>();
         for (double t = 0; t < seconds - 1e-9; t += FRAME) {
-            avatar = avatar.step(controls, FRAME, world);
-            all.addAll(avatar.events());
-            avatar = avatar.delivered();
+            final Avatar.Stepped stepped = avatar.step(controls, FRAME, world);
+            all.addAll(stepped.events());
+            avatar = stepped.avatar();
         }
         last.add(avatar);
         return all;
@@ -57,10 +57,10 @@ class EventTest {
 
     @Test
     void aJumpIsHeardLeavingAndLandingAndHowHard() {
-        final Avatar jumped = standing(false).jumped();
+        final Avatar.Stepped jumped = standing(false).act(Action.JUMP);
         assertEquals(List.of(new Event.Jumped()), jumped.events());
-        final List<Event> heard = heard(jumped, Controls.NONE, 1.5, Obstacles.NONE, new ArrayList<>());
-        assertEquals(Event.Jumped.class, heard.get(0).getClass(), "the jump, still waiting to be heard");
+        final List<Event> heard = heard(jumped.avatar(), Controls.NONE, 1.5, Obstacles.NONE, new ArrayList<>());
+        assertTrue(heard.stream().noneMatch(e -> e instanceof Event.Jumped), "the jump was reported once, as it was done");
         final Event.Landed landed = (Event.Landed) heard.stream()
                 .filter(e -> e instanceof Event.Landed).findFirst().orElseThrow();
         assertEquals(Body.JUMP, landed.speed(), Body.JUMP * 0.05, "lands as fast as it left");
@@ -123,8 +123,8 @@ class EventTest {
 
     @Test
     void aJumpThatCannotHappenIsNotHeard() {
-        final Avatar inAir = standing(false).jumped().step(Controls.NONE, 0.1, Obstacles.NONE).delivered();
-        assertTrue(inAir.jumped().events().isEmpty());
+        final Avatar inAir = standing(false).jumped().step(Controls.NONE, 0.1, Obstacles.NONE).avatar();
+        assertTrue(inAir.act(Action.JUMP).events().isEmpty());
     }
 
     @Test
@@ -138,10 +138,10 @@ class EventTest {
 
     @Test
     void flyingIsHeardTakingOffAndTouchingDown() {
-        final Avatar off = standing(true).toggledFlight();
+        final Avatar.Stepped off = standing(true).act(Action.FLY);
         assertEquals(List.of(new Event.TookOff()), off.events());
         final List<Avatar> end = new ArrayList<>();
-        heard(off, new Controls(0, 0, 0, 1, false), 1, Obstacles.NONE, end);
+        heard(off.avatar(), new Controls(0, 0, 0, 1, false), 1, Obstacles.NONE, end);
         final List<Event> down = heard(end.get(0), new Controls(0, 0, 0, -1, false), 5, Obstacles.NONE,
                 new ArrayList<>());
         final Event.Landed landed = (Event.Landed) down.stream()
@@ -152,27 +152,27 @@ class EventTest {
 
     @Test
     void thePackIsHeardGoingOnAndOffAndCuttingAFlight() {
-        assertEquals(List.of(new Event.PackOn()), standing(false).toggledPack().events());
-        final Avatar flying = standing(true).toggledFlight().delivered();
-        assertEquals(List.of(new Event.FlightCut(), new Event.PackOff()), flying.toggledPack().events());
-        assertTrue(standing(false).toggledFlight().events().isEmpty(), "no pack, no take-off, nothing heard");
+        assertEquals(List.of(new Event.PackOn()), standing(false).act(Action.PACK).events());
+        final Avatar flying = standing(true).toggledFlight();
+        assertEquals(List.of(new Event.FlightCut(), new Event.PackOff()), flying.act(Action.PACK).events());
+        assertTrue(standing(false).act(Action.FLY).events().isEmpty(), "no pack, no take-off, nothing heard");
     }
 
     @Test
-    void deliveredEventsAreNotHeardTwice() {
-        final Avatar jumped = standing(false).jumped();
-        final Avatar next = jumped.delivered().step(Controls.NONE, FRAME, Obstacles.NONE);
-        assertTrue(next.events().stream().noneMatch(e -> e instanceof Event.Jumped));
+    void eachStepReportsOnlyWhatHappenedInIt() {
+        final Avatar jumped = standing(false).act(Action.JUMP).avatar();
+        final Avatar.Stepped next = jumped.step(Controls.NONE, FRAME, Obstacles.NONE);
+        assertTrue(next.events().stream().noneMatch(e -> e instanceof Event.Jumped), "the jump was its own");
     }
 
     @Test
     void theJetFiresOnlyFlyingAndWithThePack() {
         assertEquals(0, standing(true).thrust(), 1e-9, "on the ground");
-        final Avatar hovering = standing(true).toggledFlight().step(Controls.NONE, 1, Obstacles.NONE);
+        final Avatar hovering = standing(true).toggledFlight().step(Controls.NONE, 1, Obstacles.NONE).avatar();
         assertTrue(hovering.thrust() > 0);
         Avatar boosting = hovering;
         for (int i = 0; i < 120; i++) {
-            boosting = boosting.step(new Controls(1, 0, 0, 0, true), FRAME, Obstacles.NONE);
+            boosting = boosting.step(new Controls(1, 0, 0, 0, true), FRAME, Obstacles.NONE).avatar();
         }
         assertTrue(boosting.thrust() > hovering.thrust(), "harder to go fast");
         assertEquals(0, new Avatar(boosting.body(), false).thrust(), 1e-9, "no pack, no jet");

@@ -24,7 +24,8 @@ import java.util.List;
  *
  * <p>A round flies from its muzzle straight ahead of the body, wherever the head or the camera
  * is looking, tilted up or down only by the aim ({@link Controls#aim}), and spread a little as
- * rounds fired from the hip are. It strikes the first block, or the ground, in its way.
+ * rounds fired from the hip are. It strikes the first block, or the ground, in its way: a
+ * {@link Blow}, for the world to take within the step.
  * {@link #sight} marks where that line meets the world, for the player to see where they are
  * shooting. The spread goes by the rounds' count, not by chance, so a run repeats exactly.
  *
@@ -101,8 +102,24 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
         return new Arms(weapon, 0, true, LONG_AGO, LONG_AGO, -1, 0, 0, 0, 0);
     }
 
-    /** What changed, and what happened. */
-    public record Stepped(Arms arms, List<Event> events) {
+    /**
+     * What changed, what happened (rounds fired, strokes swung), and the {@link Blow}s they dealt:
+     * intents, for the world to take within the same step, never outputs themselves.
+     */
+    public record Stepped(Arms arms, List<Event> events, List<Blow> blows) {
+
+        public Stepped {
+            events = List.copyOf(events);
+            blows = List.copyOf(blows);
+        }
+    }
+
+    /** What a step is gathering as it goes: what happened, and the blows dealt. */
+    private record Out(List<Event> events, List<Blow> blows) {
+
+        Stepped stepped(final Arms arms) {
+            return new Stepped(arms, events, blows);
+        }
     }
 
     /** As {@link #step(boolean, double, Body, Obstacles, double)}, standing at the origin on open ground, level. */
@@ -116,14 +133,15 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
      */
     public Stepped step(final boolean trigger, final double seconds, final Body body, final Obstacles world,
                         final double aim) {
-        final List<Event> events = new ArrayList<>();
+        final Out out = new Out(new ArrayList<>(), new ArrayList<>());
         final Arms aimed = new Arms(held, reload, leftNext, sinceLeft, sinceRight, stroke, strokes, rounds,
                 Num.clamp(aim, -limit(held), limit(held)), spin);
         return switch (held) {
-            case NONE -> new Stepped(aimed, events);
-            case RIFLES -> aimed.fire(trigger, seconds, body, world, events);
-            case GATLING -> aimed.crank(trigger, seconds, body, world, events);
-            case GLAIVE -> aimed.swing(trigger, seconds, body, world, events);
+            // no one holds a bomb
+            case NONE, BOMB -> out.stepped(aimed);
+            case RIFLES -> aimed.fire(trigger, seconds, body, world, out);
+            case GATLING -> aimed.crank(trigger, seconds, body, world, out);
+            case GLAIVE -> aimed.swing(trigger, seconds, body, world, out);
         };
     }
 
@@ -196,7 +214,7 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
     }
 
     private Stepped fire(final boolean trigger, final double seconds, final Body body, final Obstacles world,
-                         final List<Event> events) {
+                         final Out out) {
         double left = sinceLeft + seconds;
         double right = sinceRight + seconds;
         double wait = reload - seconds;
@@ -211,18 +229,18 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
                 right = ago;
             }
             count++;
-            shoot(muzzle(body, nextLeft), nextLeft, count, SPREAD, Weapon.RIFLES, body, world, pitch, events);
+            shoot(muzzle(body, nextLeft), nextLeft, count, SPREAD, Weapon.RIFLES, body, world, pitch, out);
             nextLeft = !nextLeft;
             wait += RIFLE_INTERVAL;
         }
         // let go, and the next squeeze fires at once, once the action has cycled
         final double next = trigger ? wait : Math.max(0, wait);
-        return new Stepped(new Arms(held, next, nextLeft, left, right, stroke, strokes, count, pitch, spin), events);
+        return out.stepped(new Arms(held, next, nextLeft, left, right, stroke, strokes, count, pitch, spin));
     }
 
     /** The Gatling gun: spinning up or down, and firing once up to speed with the trigger held. */
     private Stepped crank(final boolean trigger, final double seconds, final Body body, final Obstacles world,
-                          final List<Event> events) {
+                          final Out out) {
         double since = sinceRight + seconds;
         int count = rounds;
         double turning = spin;
@@ -238,27 +256,26 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
             while (turning >= 1 && wait <= 0) {
                 since = -wait;
                 count++;
-                shoot(gatlingMuzzle(body), false, count, GATLING_SPREAD, Weapon.GATLING, body, world, pitch, events);
+                shoot(gatlingMuzzle(body), false, count, GATLING_SPREAD, Weapon.GATLING, body, world, pitch, out);
                 wait += GATLING_INTERVAL;
             }
         }
-        return new Stepped(new Arms(held, wait, leftNext, sinceLeft, since, stroke, strokes, count, pitch, turning),
-                events);
+        return out.stepped(new Arms(held, wait, leftNext, sinceLeft, since, stroke, strokes, count, pitch, turning));
     }
 
     /** One round: from {@code from} straight ahead of the body, tilted by the aim, a little off true, to whatever it strikes. */
     private static void shoot(final Vec3 from, final boolean left, final int round, final double spread,
                               final Weapon by, final Body body, final Obstacles world, final double pitch,
-                              final List<Event> events) {
+                              final Out out) {
         // off true by up to the spread each way, by the round's count
         final Vec3 across = Num.right(body.yaw());
         final double tan = Math.tan(Math.toRadians(spread));
         final Vec3 direction = line(body, pitch).add(across.multiply(tan * scatter(round, 1)))
                 .add(0, tan * scatter(round, 2), 0).normalize();
         final Hit hit = world.ray(from, direction, RANGE);
-        events.add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(RANGE)) : hit.at()));
+        out.events().add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(RANGE)) : hit.at()));
         if (hit != null) {
-            events.add(new Event.Struck(hit.at(), hit.normal(), hit.on(), by, hit.piece()));
+            out.blows().add(new Blow(hit.at(), hit.normal(), hit.on(), by, hit.piece()));
         }
     }
 
@@ -268,7 +285,7 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
     }
 
     private Stepped swing(final boolean trigger, final double seconds, final Body body, final Obstacles world,
-                          final List<Event> events) {
+                          final Out out) {
         double at = stroke;
         int count = strokes;
         if (at < 0 && trigger) {
@@ -276,12 +293,12 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
             count++;
         }
         if (at < 0) {
-            return new Stepped(this, events);
+            return out.stepped(this);
         }
         final double was = at;
         at += seconds;
         if (was < STRIKE * STROKE && at >= STRIKE * STROKE) {
-            strike((count - 1) % 2, body, world, events);
+            strike((count - 1) % 2, body, world, out);
         }
         if (at >= STROKE) {
             if (trigger) {
@@ -289,19 +306,18 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
                 at -= STROKE;
                 count++;
                 if (at >= STRIKE * STROKE) {
-                    strike((count - 1) % 2, body, world, events);
+                    strike((count - 1) % 2, body, world, out);
                 }
             } else {
                 at = -1;
             }
         }
-        return new Stepped(new Arms(held, reload, leftNext, sinceLeft, sinceRight, at, count, rounds, pitch, spin),
-                events);
+        return out.stepped(new Arms(held, reload, leftNext, sinceLeft, sinceRight, at, count, rounds, pitch, spin));
     }
 
     /** The blade comes through: heard, and striking the nearest thing within its reach, if any. */
-    private static void strike(final int kind, final Body body, final Obstacles world, final List<Event> events) {
-        events.add(new Event.Swung(kind));
+    private static void strike(final int kind, final Body body, final Obstacles world, final Out out) {
+        out.events().add(new Event.Swung(kind));
         final Vec3 from = shoulder(body);
         final Vec3 ahead = Num.heading(body.yaw());
         final List<Vec3> paths = new ArrayList<>();
@@ -322,8 +338,7 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
             }
         }
         if (nearest != null) {
-            events.add(new Event.Struck(nearest.at(), nearest.normal(), nearest.on(), Weapon.GLAIVE,
-                    nearest.piece()));
+            out.blows().add(new Blow(nearest.at(), nearest.normal(), nearest.on(), Weapon.GLAIVE, nearest.piece()));
         }
     }
 }

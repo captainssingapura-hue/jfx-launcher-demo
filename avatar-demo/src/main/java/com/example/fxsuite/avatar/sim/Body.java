@@ -85,6 +85,28 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         return -position.y();
     }
 
+    /**
+     * Where this body is {@code share} of the way on from {@code before} (0 there, 1 here): for
+     * drawing between two steps of the {@link Clock}. Turns go the short way round, and the walk
+     * cycle across its wrap; what is or is not (flying, on its feet) is as it is here.
+     */
+    public Body between(final Body before, final double share) {
+        final double s = Num.clamp(share, 0, 1);
+        if (s >= 1) {
+            return this;
+        }
+        final Vec3 at = before.position.add(position.subtract(before.position).multiply(s));
+        final double cycle = 2 * Math.PI;
+        double walked = phase - before.phase;
+        walked -= cycle * Math.round(walked / cycle);
+        return new Body(at, Num.wrap(before.yaw + Num.wrap(yaw - before.yaw) * s),
+                Num.wrap(before.travel + Num.wrap(travel - before.travel) * s),
+                before.speed + (speed - before.speed) * s, before.drift + (drift - before.drift) * s,
+                before.turnRate + (turnRate - before.turnRate) * s, before.climb + (climb - before.climb) * s,
+                flying, onGround, ((before.phase + walked * s) % cycle + cycle) % cycle,
+                before.time + (time - before.time) * s);
+    }
+
     /** On its feet: not flying, and standing on something. */
     public boolean grounded() {
         return !flying && onGround;
@@ -286,6 +308,16 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
     /** Whether the walk cycle, going from {@code from} on to {@code to}, passes the point {@code mark} of a turn. */
     private static boolean passes(final double from, final double to, final double mark) {
         return (from < mark && to >= mark) || (from < mark + 2 * Math.PI && to >= mark + 2 * Math.PI);
+    }
+
+    /**
+     * Carried by what it stands on, which moved from {@code from} to {@code to}: moved and turned
+     * with it, its facing and the way it was going turned too, its own speeds kept as they were.
+     */
+    public Body carried(final Place from, final Place to) {
+        final double turn = Num.wrap(to.yaw() - from.yaw());
+        return new Body(from.carry(position, to), Num.wrap(yaw + turn), Num.wrap(travel + turn), speed, drift,
+                turnRate, climb, flying, onGround, phase, time);
     }
 
     /** Up off whatever it stands on, if standing; otherwise unchanged. The jump keeps to its heading now. */

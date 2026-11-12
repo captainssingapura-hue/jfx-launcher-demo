@@ -23,8 +23,9 @@ import java.util.List;
  *       falls.</li>
  * </ul>
  *
- * <p>Each break is reported ({@link Event.Broke}), for the graphics to throw the pieces about and
- * the sound to be heard.
+ * <p>The weapons deal {@link Blow}s, and the world takes them here, within the step; what came
+ * of each goes out: struck, with what the piece has left ({@link Event.Struck}), and what broke
+ * ({@link Event.Broke}), for the graphics to throw the pieces about and the sound to be heard.
  */
 public final class Damage {
 
@@ -72,7 +73,7 @@ public final class Damage {
         };
     }
 
-    /** The new damage, and what broke. */
+    /** The new damage, and what came of the blows: each one struck, and what broke. */
     public record Taken(Damage damage, List<Event> events) {
         public Taken {
             events = List.copyOf(events);
@@ -80,41 +81,57 @@ public final class Damage {
     }
 
     /**
-     * The blows among {@code events} ({@link Event.Struck}) taken, in order: each one on a piece
-     * that can break wears it down, and the one that takes the last of it breaks it. Blows on the
-     * ground, on what cannot break, or on what is already broken change nothing.
+     * {@code blows} taken, in order: each one on a piece that can break wears it down, and the one
+     * that takes the last of it breaks it. Blows on the ground, on what cannot break, or on what is
+     * already broken change nothing.
+     *
+     * <p>What came of each blow goes out: a {@link Event.Struck} for every one, carrying what the
+     * piece has left after it, and a {@link Event.Broke} after the one that broke it.
      */
-    public Taken took(final List<Event> events) {
+    public Taken took(final List<Blow> blows) {
+        return took(blows, 0);
+    }
+
+    /** As {@link #took(List)}, {@code seconds} after the start: what moves of itself breaks where it then is. */
+    public Taken took(final List<Blow> blows, final double seconds) {
         double[] left = null;
         Obstacles standing = obstacles;
-        final List<Event> broke = new ArrayList<>();
-        for (final Event event : events) {
-            if (!(event instanceof Event.Struck struck) || !harms(struck)) {
+        final List<Event> happened = new ArrayList<>();
+        for (final Blow blow : blows) {
+            final int piece = blow.piece();
+            if (!harms(blow)) {
+                happened.add(Event.Struck.of(blow, piece >= 0 && piece < health.length ? share(piece, health) : 1));
                 continue;
             }
-            final int piece = struck.piece();
             final double[] now = left == null ? health : left;
             if (now[piece] <= 0) {
-                continue;  // broken earlier this frame
+                // broken earlier this step: struck where it stood, and nothing more to break
+                happened.add(Event.Struck.of(blow, 0));
+                continue;
             }
             if (left == null) {
                 left = health.clone();
             }
-            left[piece] = Math.max(0, left[piece] - struck.by().blow());
+            left[piece] = Math.max(0, left[piece] - blow.by().blow());
+            happened.add(Event.Struck.of(blow, share(piece, left)));
             if (left[piece] <= 0) {
-                final Course.Piece what = pieces.get(piece);
+                final Course.Piece what = pieces.get(piece).at(seconds);
                 standing = standing.without(piece);
-                broke.add(new Event.Broke(piece, what.kind(), what.block(), struck.at(), struck.by()));
+                happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by()));
             }
         }
-        return left == null ? new Taken(this, List.of())
-                : new Taken(new Damage(pieces, toughness, left, standing), broke);
+        return left == null ? new Taken(this, happened)
+                : new Taken(new Damage(pieces, toughness, left, standing), happened);
     }
 
-    private boolean harms(final Event.Struck struck) {
-        final int piece = struck.piece();
-        return piece >= 0 && piece < health.length && pieces.get(piece).kind().breakable()
-                && struck.by().blow() > 0;
+    private boolean harms(final Blow blow) {
+        final int piece = blow.piece();
+        return piece >= 0 && piece < health.length && pieces.get(piece).kind().breakable() && blow.by().blow() > 0;
+    }
+
+    /** How much of what it can take piece {@code piece} has in {@code health}: 1 for what cannot break. */
+    private double share(final int piece, final double[] health) {
+        return Double.isInfinite(toughness[piece]) ? 1 : health[piece] / toughness[piece];
     }
 
     /** What is still standing, to move among and shoot at: the course, less what is broken. */
@@ -124,7 +141,7 @@ public final class Damage {
 
     /** How much piece {@code piece} has left of what it can take: 1 unharmed, 0 broken; always 1 for what cannot break. */
     public double left(final int piece) {
-        return Double.isInfinite(toughness[piece]) ? 1 : health[piece] / toughness[piece];
+        return share(piece, health);
     }
 
     /** What piece {@code piece} has left to take, in the weapons' own units; infinite for what cannot break. */
@@ -132,8 +149,33 @@ public final class Damage {
         return health[piece];
     }
 
+    /** Every piece's health, stirred together, to the bit: for checking two worlds are the same. */
+    public long checksum() {
+        long sum = Num.SEED;
+        for (final double h : health) {
+            sum = Num.mix(sum, Double.doubleToLongBits(h));
+        }
+        return sum;
+    }
+
     public boolean broken(final int piece) {
         return health[piece] <= 0;
+    }
+
+    /** Piece {@code piece} of the course, as it was built: where it starts, if it moves ({@link Course.Piece#at}). */
+    public Course.Piece piece(final int piece) {
+        return pieces.get(piece);
+    }
+
+    /** The pieces that move of themselves and are still standing, by number: the airships left. */
+    public List<Integer> moving() {
+        final List<Integer> moving = new ArrayList<>();
+        for (int i = 0; i < health.length; i++) {
+            if (pieces.get(i).moves() && health[i] > 0) {
+                moving.add(i);
+            }
+        }
+        return moving;
     }
 
     /** How many pieces there are, broken or not. */

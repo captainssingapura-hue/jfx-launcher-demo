@@ -149,6 +149,34 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         return new Hit(from.add(direction.multiply(enter)), normal, Surface.BLOCK, enter);
     }
 
+    /**
+     * A point in the world, in the block's own frame: from its middle, and turned back by its yaw.
+     * The frame a node is in when it is placed at the middle and turned with {@code Rotate(yaw, Y)},
+     * so something put there at this point is at {@code world} now, and goes with the block when
+     * it moves.
+     */
+    public Vec3 toLocal(final Vec3 world) {
+        final Vec3 turned = turnToLocal(new Vec3(world.x() - x, 0, world.z() - z));
+        return new Vec3(turned.x(), world.y() + (bottom + top) / 2, turned.z());
+    }
+
+    /** A point in the block's own frame, in the world: the inverse of {@link #toLocal}. */
+    public Vec3 toWorld(final Vec3 local) {
+        final double c = Math.cos(Math.toRadians(yaw));
+        final double s = Math.sin(Math.toRadians(yaw));
+        // Rotate(yaw, Y)
+        return new Vec3(x + local.x() * c + local.z() * s, local.y() - (bottom + top) / 2,
+                z - local.x() * s + local.z() * c);
+    }
+
+    /** A direction in the world, in the block's own frame: turned back by its yaw. */
+    public Vec3 turnToLocal(final Vec3 direction) {
+        final double c = Math.cos(Math.toRadians(yaw));
+        final double s = Math.sin(Math.toRadians(yaw));
+        // the inverse of Rotate(yaw, Y)
+        return new Vec3(direction.x() * c - direction.z() * s, direction.y(), direction.x() * s + direction.z() * c);
+    }
+
     /** Whether a circle at ({@code px}, {@code pz}) overlaps the footprint. */
     public boolean covers(final double px, final double pz, final double radius) {
         return push(px, pz, radius) != null;

@@ -16,7 +16,7 @@ import java.util.Random;
  *   <li>gates up in the air, four bars round an opening to fly through;</li>
  *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, drones
  *       hovering round it, and, high over everything else and far out, three great armoured
- *       airships.</li>
+ *       airships going slowly round on their {@link Route}s ({@link Piece#at}).</li>
  * </ul>
  *
  * <p>Crates and targets can be broken ({@link Damage}); pillars and gates are what the world is
@@ -50,15 +50,50 @@ public final class Course {
      * (the same box, but for an airship, whose hull, fins, gondola and engines are each one).
      * Broken, all of it goes at once.
      */
-    public record Piece(Block block, Kind kind, int tint, List<Block> solid) {
+    public record Piece(Block block, Kind kind, int tint, List<Block> solid, Route route) {
 
         public Piece {
             solid = List.copyOf(solid);
         }
 
+        /** A piece that stays where it is, its solid blocks given. */
+        public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid) {
+            this(block, kind, tint, solid, null);
+        }
+
         /** A piece that is just its box. */
         public Piece(final Block block, final Kind kind, final int tint) {
             this(block, kind, tint, List.of(block));
+        }
+
+        /** Whether it moves of itself, along its {@link #route}: an airship. */
+        public boolean moves() {
+            return route != null;
+        }
+
+        /** Where it is {@code seconds} after the start: along its route, if it has one, or where it always is. */
+        public Piece at(final double seconds) {
+            if (route == null) {
+                return this;
+            }
+            final Place place = route.at(seconds);
+            return new Piece(AIRSHIP_BOX.placed(place), kind, tint, airship(place), route);
+        }
+    }
+
+    /**
+     * The way an airship goes: round the start, {@code radius} out, at {@code height}, from
+     * {@code heading} at the start, at {@code speed} (units a second; round the other way when
+     * negative), nose first along its way.
+     */
+    public record Route(double heading, double radius, double height, double speed) {
+
+        /** Where along it, {@code seconds} after the start. */
+        public Place at(final double seconds) {
+            final double angle = heading + Math.toDegrees(speed * seconds / radius);
+            final Vec3 at = Num.heading(angle).multiply(radius);
+            // going round, its way is square to the line out from the start
+            return new Place(at.x(), at.z(), height, Num.wrap(angle + (speed >= 0 ? 90 : -90)));
         }
     }
 
@@ -75,6 +110,11 @@ public final class Course {
             final Vec3 at = new Vec3(x, 0, z).add(Num.right(yaw).multiply(across))
                     .add(Num.heading(yaw).multiply(along));
             return new Block(at.x(), at.z(), halfAcross, halfAlong, yaw, height + up - halfUp, height + up + halfUp);
+        }
+
+        /** As a block, for an airship at {@code place}. */
+        public Block placed(final Place place) {
+            return placed(place.x(), place.height(), place.z(), place.yaw());
         }
     }
 
@@ -105,11 +145,15 @@ public final class Course {
             new Section(330, -60, -40, 40, 80, 40));
     /** All of an airship's box: out to the fins' tips, nose to tail, gondola to the top fin. */
     public static final Section AIRSHIP_BOX = new Section(0, 0, 25, 380, 900, 355);
-    /** The airships: where each hangs (heading from the start, how far, how high) and which way it points. */
+    /**
+     * The airships' routes: where each starts (heading from the start, and how far), how high it
+     * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
+     * minutes, the middle one going round the other way.
+     */
     private static final double[][] AIRSHIPS = {
-            {70, 6500, 3100, 160},
-            {190, 7500, 3300, 100},
-            {300, 5500, 3500, 20},
+            {70, 6500, 3100, 400},
+            {190, 7500, 3300, -350},
+            {300, 5500, 3500, 300},
     };
 
     /** The heading the avatar starts on: the staircase lies along it. */
@@ -188,18 +232,24 @@ public final class Course {
                     low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
         }
 
-        // and the airships, high over everything else, far out round the start
+        // and the airships, high over everything else, going slowly round far out
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];
-            final Vec3 at = Num.heading(a[0]).multiply(a[1]);
-            final List<Block> solid = new ArrayList<>();
-            for (final List<Section> parts : List.of(HULL, FINS, List.of(GONDOLA), PYLONS, ENGINES)) {
-                for (final Section part : parts) {
-                    solid.add(part.placed(at.x(), a[2], at.z(), a[3]));
-                }
-            }
-            pieces.add(new Piece(AIRSHIP_BOX.placed(at.x(), a[2], at.z(), a[3]), Kind.AIRSHIP, i % 2, solid));
+            final Route route = new Route(a[0], a[1], a[2], a[3]);
+            final Place start = route.at(0);
+            pieces.add(new Piece(AIRSHIP_BOX.placed(start), Kind.AIRSHIP, i % 2, airship(start), route));
         }
+    }
+
+    /** An airship's solid parts, at {@code place}: the hull, the fins, the gondola, the pylons and the engines. */
+    public static List<Block> airship(final Place place) {
+        final List<Block> solid = new ArrayList<>();
+        for (final List<Section> parts : List.of(HULL, FINS, List.of(GONDOLA), PYLONS, ENGINES)) {
+            for (final Section part : parts) {
+                solid.add(part.placed(place));
+            }
+        }
+        return solid;
     }
 
     /** How high the airships' hulls run, each one's line through the middle of its hull: for the graphics. */

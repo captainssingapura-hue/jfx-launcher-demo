@@ -76,6 +76,8 @@ class GatlingTest {
         for (int i = 0; i < 90; i++) {
             final Arms.Stepped stepped = arms.step(true, FRAME, body, wall, 0);
             events.addAll(stepped.events());
+            // each blow dealt, as what the world makes of it where nothing breaks: struck
+            stepped.blows().forEach(blow -> events.add(Event.Struck.of(blow, 1)));
             arms = stepped.arms();
         }
         final List<Event.Fired> fired = events.stream().filter(e -> e instanceof Event.Fired)

@@ -18,7 +18,7 @@ class AvatarTest {
 
     private static Avatar run(Avatar avatar, final Controls controls, final double seconds) {
         for (double t = 0; t < seconds - 1e-9; t += FRAME) {
-            avatar = avatar.step(controls, FRAME, Obstacles.NONE);
+            avatar = avatar.step(controls, FRAME, Obstacles.NONE).avatar();
         }
         return avatar;
     }

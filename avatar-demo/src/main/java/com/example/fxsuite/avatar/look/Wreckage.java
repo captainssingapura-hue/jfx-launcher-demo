@@ -6,6 +6,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
+import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import javafx.geometry.Point3D;
@@ -17,6 +18,8 @@ import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
+
+import java.util.List;
 
 /**
  * What is left when something breaks ({@link Event.Broke}): its pieces, thrown out from where
@@ -41,6 +44,8 @@ public final class Wreckage {
     private final Blast[] blasts = new Blast[8];
     private int nextBlast;
     private final PhongMaterial ember = BoxRig.glow("#ffb347");
+    /** Earth thrown up by a bomb going off on the ground. */
+    private final PhongMaterial earth = BoxRig.matte("#4f5a43");
     private final PhongMaterial[] flames = {flame("#ffc23a"), flame("#ff8a1e"), flame("#e8571a"), flame("#9c3416")};
     private int next;
     private int count;
@@ -65,13 +70,15 @@ public final class Wreckage {
      * Throws out the pieces of whatever broke this frame, in the colours {@code world} drew it,
      * and moves on what is already flying, onto what is under it in {@code standing}.
      */
-    public void show(final Avatar avatar, final World world, final Obstacles standing) {
+    public void show(final Avatar avatar, final List<Event> events, final World world, final Obstacles standing) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, Math.min(0.1, time - lastTime));
         lastTime = time;
-        for (final Event event : avatar.events()) {
+        for (final Event event : events) {
             if (event instanceof Event.Broke broke) {
                 burst(broke, world.material(broke.piece()));
+            } else if (event instanceof Event.Exploded exploded) {
+                explode(exploded);
             }
         }
         for (final Chunk chunk : chunks) {
@@ -123,6 +130,20 @@ public final class Wreckage {
                 blast(at, 340 - 40 * k, after[k]);
             }
             embers(broke.middle(), 36, 2200);
+        }
+    }
+
+    /** A bomb going off: a fireball, embers, and, on the ground, clods of earth thrown up. */
+    private void explode(final Event.Exploded exploded) {
+        final Vec3 at = exploded.at();
+        blast(at, 260, 0);
+        embers(at, 14, 1600);
+        if (exploded.on() == Surface.GROUND) {
+            for (int i = 0; i < 12; i++) {
+                final Vec3 fly = new Vec3((unit() - 0.5) * 900, -(500 + 700 * unit()), (unit() - 0.5) * 900);
+                final double size = 10 + 22 * unit();
+                chunk().throwFrom(at.add(0, -size, 0), fly, size, size * 0.7, size, earth, unit());
+            }
         }
     }
 

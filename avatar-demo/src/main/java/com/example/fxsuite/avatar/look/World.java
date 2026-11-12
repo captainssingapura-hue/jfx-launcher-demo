@@ -62,6 +62,8 @@ public final class World {
     private final List<Course.Piece> pieces;
     /** Each piece: all of it, the part that darkens, its material as built, and how much it had left when last drawn. */
     private final Group[] parts;
+    /** Each piece's turn about the vertical, for what moves. */
+    private final Rotate[] turns;
     private final Shape3D[] bodies;
     private final Color[] colours;
     private final double[] shown;
@@ -89,6 +91,7 @@ public final class World {
 
         pieces = course.pieces();
         parts = new Group[pieces.size()];
+        turns = new Rotate[pieces.size()];
         bodies = new Shape3D[pieces.size()];
         colours = new Color[pieces.size()];
         shown = new double[pieces.size()];
@@ -107,7 +110,8 @@ public final class World {
             part.setTranslateX(block.x());
             part.setTranslateY(-(block.top() + block.bottom()) / 2);
             part.setTranslateZ(block.z());
-            part.getTransforms().add(new Rotate(block.yaw(), Rotate.Y_AXIS));
+            turns[i] = new Rotate(block.yaw(), Rotate.Y_AXIS);
+            part.getTransforms().add(turns[i]);
             bodies[i] = switch (piece.kind()) {
                 case PILLAR -> plain(part, block, BoxRig.matte(stone[piece.tint() % stone.length]));
                 case CRATE -> plain(part, block, BoxRig.matte(crate[piece.tint() % crate.length]));
@@ -142,11 +146,21 @@ public final class World {
     }
 
     /**
-     * Draws what the weapons have done, and moves on what moves of itself: the rotors and the
-     * lights. {@code viewYaw} turns the bars to face the camera.
+     * Draws what the weapons have done, and moves on what moves of itself: the airships, where
+     * they are {@code skyTime} seconds after the start, the rotors and the lights.
+     * {@code viewYaw} turns the bars to face the camera.
      */
-    public void show(final Damage damage, final double seconds, final double viewYaw) {
+    public void show(final Damage damage, final double skyTime, final double seconds, final double viewYaw) {
         time += seconds;
+        for (int i = 0; i < parts.length; i++) {
+            if (pieces.get(i).moves() && !damage.broken(i)) {
+                final Block block = pieces.get(i).at(skyTime).block();
+                parts[i].setTranslateX(block.x());
+                parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
+                parts[i].setTranslateZ(block.z());
+                turns[i].setAngle(block.yaw());
+            }
+        }
         for (final Rotate rotor : rotors) {
             rotor.setAngle((rotor.getAngle() + ROTORS * seconds) % 360);
         }
@@ -186,11 +200,25 @@ public final class World {
         for (int k = 0; k < BARS; k++) {
             if (k < showing.size()) {
                 final int i = showing.get(k);
-                bars[k].show(pieces.get(i).block(), shown[i], viewYaw);
+                bars[k].show(pieces.get(i).at(skyTime).block(), shown[i], viewYaw);
             } else {
                 bars[k].node.setVisible(false);
             }
         }
+    }
+
+    /**
+     * Piece {@code piece}'s own group: placed at its middle and turned with it, and moved with it
+     * if it moves. What is put in it is part of the piece: it goes where the piece goes, and is
+     * gone when the piece is broken.
+     */
+    Group group(final int piece) {
+        return parts[piece];
+    }
+
+    /** Piece {@code piece}'s box {@code seconds} after the start: where it was, if it moves. */
+    Block at(final int piece, final double seconds) {
+        return pieces.get(piece).at(seconds).block();
     }
 
     /** What piece {@code piece} is made of, as it now looks: for its broken pieces. */
