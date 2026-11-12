@@ -32,16 +32,22 @@ import java.util.TreeMap;
  * The blows never leave the step: they follow from the state and the inputs, and only what came
  * of them is an output.
  */
-public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
+public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List<Person> people) {
 
     /**
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 6;
+    public static final int RULES = 7;
 
     public Play {
         lifts = List.copyOf(lifts);
+        people = List.copyOf(people);
+    }
+
+    /** The avatar, the world, the sky and the platforms, with the people where they were put, on the platforms as they are. */
+    public Play(final Avatar avatar, final Damage damage, final Sky sky, final List<Lift> lifts) {
+        this(avatar, damage, sky, lifts, Person.of(damage, lifts));
     }
 
     /** The avatar and the world, with the sky as it starts and the platforms where they were built. */
@@ -61,12 +67,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
 
     /**
      * The whole world stirred into one number, to the bit: two worlds with the same checksum are,
-     * as near as matters, the same. The avatar, the sky and the platforms are all records, so
-     * their text is exact and complete.
+     * as near as matters, the same. The avatar, the sky, the platforms and the people are all
+     * records, so their text is exact and complete.
      */
     public long checksum() {
         long sum = damage.checksum();
-        final String text = avatar.toString() + sky.toString() + lifts.toString();
+        final String text = avatar.toString() + sky.toString() + lifts.toString() + people.toString();
         for (int i = 0; i < text.length(); i++) {
             sum = Num.mix(sum, text.charAt(i));
         }
@@ -127,18 +133,31 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
         final List<Lift> moved = moved(controls, seconds, to, was, handed, happened);
         final Avatar carried = carried(avatar, was, handed, moved, to);
         final Obstacles now = obstacles(to, moved);
-        // act: the avatar does what it was asked, moves, and deals its blows; the bombs fall
-        final Avatar.Stepped acted = carried.step(own, seconds, now);
+        // the people go on as they were going, carried by what they stand on
+        final List<Person> going = people(seconds, to, was, now, handed, moved);
+        // act: the avatar does what it was asked, moves, and deals its blows, at the world and the
+        // people in it; the bombs fall
+        final Avatar.Stepped acted = carried.step(own, seconds, now, targets(now, going));
         final Sky.Stepped fell = sky.step(seconds, damage, now);
-        // resolve: the world takes the blows, the avatar's and then the bombs'
-        final List<Blow> blows = new ArrayList<>(acted.blows());
+        // resolve: the world takes the blows, the avatar's and then the bombs'; and so do the people
+        final List<Blow> blows = new ArrayList<>();
+        final List<Blow> atPeople = new ArrayList<>();
+        for (final Blow blow : acted.blows()) {
+            (Person.is(blow.piece()) ? atPeople : blows).add(blow);
+        }
         blows.addAll(fell.blows());
         final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved));
-        // report: the controls changing hands, the avatar's own events, the bombs', then what came of the blows
+        final List<Event> toPeople = new ArrayList<>();
+        final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
+        // and whoever the avatar walks into is pushed out of its way
+        final List<Person> pushed = pushed(acted.avatar().body(), hurt, toPeople);
+        // report: the controls changing hands, the avatar's own events, the bombs', what came of the
+        // blows, and what came to the people
         happened.addAll(acted.events());
         happened.addAll(fell.events());
         happened.addAll(taken.events());
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved), happened);
+        happened.addAll(toPeople);
+        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved, pushed), happened);
     }
 
     /**
@@ -276,26 +295,151 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts) {
      */
     private Avatar carried(final Avatar avatar, final Obstacles was, final List<Lift> from, final List<Lift> moved,
                            final double to) {
-        final Body body = avatar.body();
+        final Place[] motion = motion(avatar.body(), was, from, moved, to);
+        return motion == null ? avatar : avatar.carried(motion[0], motion[1]);
+    }
+
+    /**
+     * How what {@code body} stands on moves on this step, from where it was to where it will be;
+     * null if it stands on nothing that moves, or is not standing.
+     */
+    private Place[] motion(final Body body, final Obstacles was, final List<Lift> from, final List<Lift> moved,
+                           final double to) {
         if (!body.grounded()) {
-            return avatar;
+            return null;
         }
         final int under = was.under(body.position().x(), body.position().z(), Body.FOOTING, body.height());
         if (under < 0 || !damage.piece(under).moves()) {
-            return avatar;
+            return null;
         }
         // standing on what rides on something (the stall's table, on the barge), it goes as that goes
         final int piece = damage.piece(under).rides() ? damage.piece(under).carrier() : under;
         final Course.Piece what = damage.piece(piece);
         if (what.flies()) {
-            return avatar.carried(what.route().at(sky.time()), what.route().at(to));
+            return new Place[] {what.route().at(sky.time()), what.route().at(to)};
         }
         for (int i = 0; i < from.size(); i++) {
             if (from.get(i).piece() == piece) {
-                return avatar.carried(from.get(i).place(), moved.get(i).place());
+                // a platform that has not moved carries nothing anywhere
+                return from.get(i).place().equals(moved.get(i).place()) ? null
+                        : new Place[] {from.get(i).place(), moved.get(i).place()};
             }
         }
-        return avatar;
+        return null;
+    }
+
+    /**
+     * The people, a step on: carried by what they stand on as it moved, then going on as they
+     * were, among {@code world}: coming to a stop, or falling.
+     */
+    private List<Person> people(final double seconds, final double to, final Obstacles was, final Obstacles world,
+                                final List<Lift> from, final List<Lift> moved) {
+        final List<Person> now = new ArrayList<>();
+        for (final Person person : people) {
+            final Place[] motion = motion(person.body(), was, from, moved, to);
+            final Person carried = motion == null ? person : person.carried(motion[0], motion[1]);
+            now.add(carried.moved(world, seconds));
+        }
+        return now;
+    }
+
+    /** {@code world}, and the people in it as targets to strike, each by their number ({@link Person#piece}). */
+    private static Obstacles targets(final Obstacles world, final List<Person> people) {
+        if (people.isEmpty()) {
+            return world;
+        }
+        final List<Block> blocks = new ArrayList<>(world.blocks());
+        final List<Integer> pieces = new ArrayList<>(world.pieces());
+        for (final Person person : people) {
+            blocks.add(person.box());
+            pieces.add(person.piece());
+        }
+        return new Obstacles(blocks, world.gates(), pieces);
+    }
+
+    /**
+     * The people, struck: by the avatar's {@code blows} that met them, and by any bomb going off
+     * among {@code bombs}' events near enough, each knocked back from it. What came of it goes into
+     * {@code happened}: each one struck, with what they have left, and anyone knocked down.
+     */
+    private static List<Person> struck(final List<Person> people, final List<Blow> blows, final List<Event> bombs,
+                                       final List<Event> happened) {
+        final List<Person> now = new ArrayList<>(people);
+        for (final Blow blow : blows) {
+            final int k = Person.which(blow.piece());
+            final Vec3 back = blow.normal().multiply(-Person.FLINCH);
+            now.set(k, hit(now.get(k), blow, back.x(), back.z(), happened));
+        }
+        for (final Event event : bombs) {
+            if (event instanceof Event.Exploded exploded) {
+                for (int k = 0; k < now.size(); k++) {
+                    final Person person = now.get(k);
+                    final Vec3 at = person.body().position();
+                    final Vec3 away = at.subtract(exploded.at());
+                    final double across = Math.hypot(away.x(), away.z());
+                    if (across <= Sky.BLAST + Body.RADIUS && Math.abs(away.y()) <= Sky.BLAST + Body.TALL) {
+                        final Vec3 push = across < 1e-6 ? Vec3.ZERO
+                                : new Vec3(away.x() / across, 0, away.z() / across).multiply(4 * Person.FLINCH);
+                        final Blow blow = new Blow(exploded.at(), new Vec3(0, -1, 0), Surface.BLOCK, Weapon.BOMB,
+                                person.piece());
+                        now.set(k, hit(person, blow, push.x(), push.z(), happened));
+                    }
+                }
+            }
+        }
+        return now;
+    }
+
+    private static Person hit(final Person person, final Blow blow, final double vx, final double vz,
+                              final List<Event> happened) {
+        final Person after = person.struck(blow.by().blow()).shoved(vx, vz);
+        happened.add(Event.Struck.of(blow, after.health() / Person.TOUGHNESS));
+        if (after.down() && !person.down()) {
+            happened.add(new Event.KnockedDown(person.id(), after.body().position()));
+        }
+        return after;
+    }
+
+    /**
+     * The people, pushed: whoever the avatar's {@code body} walks into is shoved out of its way, sent
+     * along at its pace and a little more, and up off their seat; and people pushed into each other
+     * part, each going half the way. A shove hard enough is heard.
+     */
+    private static List<Person> pushed(final Body body, final List<Person> people, final List<Event> happened) {
+        final List<Person> now = new ArrayList<>(people);
+        final double reach = 2 * Body.RADIUS;
+        for (int k = 0; k < now.size(); k++) {
+            final Person person = now.get(k);
+            final Vec3 apart = person.body().position().subtract(body.position());
+            final double across = Math.hypot(apart.x(), apart.z());
+            if (across >= reach || Math.abs(apart.y()) >= Body.TALL) {
+                continue;
+            }
+            final Vec3 out = across < 1e-6 ? Num.heading(body.yaw()) : new Vec3(apart.x() / across, 0, apart.z() / across);
+            Person shoved = person.shifted(out.x() * (reach - across), out.z() * (reach - across));
+            final double pushing = body.going().dotProduct(out) * Person.SHOVE;
+            final double going = person.body().going().dotProduct(out);
+            if (pushing > going) {
+                shoved = shoved.shoved(out.x() * (pushing - going), out.z() * (pushing - going));
+                if (pushing > 200 && going < 100) {
+                    happened.add(new Event.Shoved(person.id(), pushing, person.body().position()));
+                }
+            }
+            now.set(k, shoved);
+        }
+        for (int i = 0; i < now.size(); i++) {
+            for (int j = i + 1; j < now.size(); j++) {
+                final Vec3 apart = now.get(j).body().position().subtract(now.get(i).body().position());
+                final double across = Math.hypot(apart.x(), apart.z());
+                if (across >= reach || across < 1e-6 || Math.abs(apart.y()) >= Body.TALL) {
+                    continue;
+                }
+                final double half = (reach - across) / 2 / across;
+                now.set(i, now.get(i).shifted(-apart.x() * half, -apart.z() * half));
+                now.set(j, now.get(j).shifted(apart.x() * half, apart.z() * half));
+            }
+        }
+        return now;
     }
 
     /** Piece {@code piece} where it is {@code seconds} after the start, the platforms being {@code lifts}. */

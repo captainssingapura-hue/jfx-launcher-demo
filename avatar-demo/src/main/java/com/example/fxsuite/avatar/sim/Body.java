@@ -320,6 +320,32 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
                 turnRate, climb, flying, onGround, phase, time);
     }
 
+    /**
+     * Shoved, across the ground: {@code vx} and {@code vz} added to how fast it is going, in the
+     * world's terms. Its own speeds are reckoned along the way it is going ({@code travel}), so
+     * the shove is turned into those.
+     */
+    public Body shoved(final double vx, final double vz) {
+        final Vec3 ahead = Num.heading(travel);
+        final Vec3 right = Num.right(travel);
+        final double x = ahead.x() * speed + right.x() * drift + vx;
+        final double z = ahead.z() * speed + right.z() * drift + vz;
+        return new Body(position, yaw, travel, x * ahead.x() + z * ahead.z(), x * right.x() + z * right.z(), turnRate,
+                climb, flying, onGround, phase, time);
+    }
+
+    /** How fast it is going across the ground, in the world's terms: x and z. */
+    public Vec3 going() {
+        final Vec3 ahead = Num.heading(travel);
+        final Vec3 right = Num.right(travel);
+        return new Vec3(ahead.x() * speed + right.x() * drift, 0, ahead.z() * speed + right.z() * drift);
+    }
+
+    /** Moved {@code dx} and {@code dz} across the ground, as it is: pushed clear of something. */
+    public Body shifted(final double dx, final double dz) {
+        return new Body(position.add(dx, 0, dz), yaw, travel, speed, drift, turnRate, climb, flying, onGround, phase, time);
+    }
+
     /** Up off whatever it stands on, if standing; otherwise unchanged. The jump keeps to its heading now. */
     public Body jumped() {
         return grounded()

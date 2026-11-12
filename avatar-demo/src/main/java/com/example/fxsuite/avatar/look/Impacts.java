@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -120,6 +121,13 @@ public final class Impacts {
     private void struck(final Event.Struck struck, final double yaw, final long step) {
         final boolean blade = struck.by() == Weapon.GLAIVE;
         final Vec3 off = struck.at().add(struck.normal().multiply(0.4));
+        if (Person.is(struck.piece())) {
+            // someone hit: a puff off their clothes, and no mark left on them
+            for (int i = 0; i < 4; i++) {
+                dust.next(DUST * 0.6).place(off, struck.normal().multiply(90).add(scatter(80)), null, true);
+            }
+            return;
+        }
         if (struck.piece() >= 0 && world.kind(struck.piece()) == Course.Kind.FRUIT) {
             // fruit struck splashes juice, not sparks
             final Pool splash = world.fruit(struck.piece()) == Fruit.PINEAPPLE ? nectar : juice;

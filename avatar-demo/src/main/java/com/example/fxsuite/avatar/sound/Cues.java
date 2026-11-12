@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -118,10 +119,16 @@ public final class Cues {
                 }
                 // a bomb's blast is heard once, going off, not on each thing it reaches
                 case Event.Struck s -> {
-                    if (s.by() != Weapon.BOMB) {
+                    if (Person.is(s.piece())) {
+                        // someone hit: a dull thump, not a ring off metal or wood
+                        plays.add(new Play(Sound.BUMP, 0.5, s.at()));
+                    } else if (s.by() != Weapon.BOMB) {
                         plays.add(new Play(struck(s), 1, s.at()));
                     }
                 }
+                // someone shoved stumbles off; knocked down, they hit the floor
+                case Event.Shoved s -> plays.add(new Play(Sound.BUMP, Num.clamp(s.speed() / Body.RUN, 0.2, 1), s.at()));
+                case Event.KnockedDown k -> plays.add(new Play(Sound.LANDING, 0.7, k.at()));
                 case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
                 case Event.Dropped _ -> {
                 }

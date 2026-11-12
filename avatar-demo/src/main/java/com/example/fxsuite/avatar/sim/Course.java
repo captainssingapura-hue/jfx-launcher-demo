@@ -280,6 +280,23 @@ public final class Course {
      * 70 cm high.
      */
     public static final Section TABLE = new Section(0, -120, 35, 120, 50, 35);
+
+    /**
+     * Someone put in the world at the start ({@link Person}): who, on which platform's deck (as
+     * big as {@code deck}), where on it in its frame ({@code across}, {@code along}), which way they
+     * face from the way it heads, and whether they sit.
+     */
+    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, boolean sitting) {
+    }
+
+    /**
+     * The people at the fruit stall on the barge: the stallholder on a stool behind the table,
+     * facing the start; a customer before it; and another sat on a scooter parked to one side.
+     */
+    public static final List<Cast> CAST = List.of(
+            new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, true),
+            new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, false),
+            new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, true));
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two

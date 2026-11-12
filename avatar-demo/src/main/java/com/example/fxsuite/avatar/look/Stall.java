@@ -1,10 +1,14 @@
 package com.example.fxsuite.avatar.look;
 
+import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Weapon;
 
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Cylinder;
@@ -16,26 +20,29 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The people at the melon stall on the barge, drawn in the barge's own group, so they go where it
- * flies: the stallholder on a stool behind the table, a customer before it, and another sat on a
- * scooter parked to one side. They are only to be seen: nothing solid, and nothing harms them.
+ * The people ({@link Person}), drawn where the simulation has them, between its last two steps
+ * as the avatar is: standing, sat, or knocked down and lying on their back. And at the fruit
+ * stall on the barge, what they sit on: the stallholder's stool and the scooter, drawn in the
+ * barge's own group, so they go where it flies.
  *
- * <p>They do notice what happens to the fruit, from the simulation's events: a piece of fruit
- * struck and the stallholder shakes a fist; one bursting and everyone jumps, hands in the air, and the
- * stallholder is up off the stool.
+ * <p>They react to what happens, from the simulation's events: a piece of fruit struck and the
+ * stallholder shakes a fist; one bursting and everyone still up jumps, hands in the air; anyone
+ * hit or shoved staggers, arms out.
  */
 public final class Stall {
 
-    /** How long a start lasts, and how long a fist is shaken, in seconds. */
+    /** How long a start lasts, how long a fist is shaken, and how long a stagger, in seconds. */
     private static final double STARTLE = 1.3;
     private static final double SHAKE = 0.9;
+    private static final double STAGGER = 0.6;
 
+    private final Group root = new Group();
     private final Set<Integer> fruit = new HashSet<>();
-    private final Person keeper;
-    private final List<Person> people = new ArrayList<>();
+    /** Each person's figure, by their number. */
+    private final List<Figure> figures = new ArrayList<>();
     private double time;
 
-    /** At the stall on {@code course}'s barge, drawn into {@code world}. Nothing, if it has none. */
+    /** For the people of {@code course}'s cast, and the stall on its barge in {@code world}. */
     public Stall(final World world, final Course course) {
         int barge = -1;
         for (int i = 0; i < course.pieces().size(); i++) {
@@ -46,55 +53,83 @@ public final class Stall {
                 barge = i;
             }
         }
-        if (barge < 0) {
-            keeper = null;
-            return;
-        }
-        final Group deck = world.group(barge);
         // the barge's frame has its box's middle at the origin; its deck is that far below (y is down)
-        final double floor = course.pieces().get(barge).shape().box().up();
-        final Course.Section table = Course.TABLE;
-        // the stall faces the back of the barge, toward the start: the stallholder between it and the console
-        final double behind = table.along() + table.halfAlong() + 45;
-        final double before = table.along() - table.halfAlong() - 55;
-
-        final Cylinder stool = new Cylinder(16, 45);
-        stool.setMaterial(BoxRig.matte("#7a5a3a"));
-        stool.setTranslateX(-30);
-        stool.setTranslateY(floor - 22.5);
-        stool.setTranslateZ(behind);
-        deck.getChildren().add(stool);
-        keeper = new Person("#3a3f45", "#4a4f58", "#1c1c1c");
-        keeper.at(deck, -30, floor, behind, 180).sitting(45);
-        people.add(keeper);
-
-        people.add(new Person("#18191b", "#18191b", "#121212").at(deck, 45, floor, before, 0));
-
-        final Group scooter = scooter();
-        scooter.setTranslateX(-310);
-        scooter.setTranslateY(floor);
-        scooter.setTranslateZ(before - 20);
-        scooter.getTransforms().add(new Rotate(30, Rotate.Y_AXIS));
-        deck.getChildren().add(scooter);
-        people.add(new Person("#5a3d2b", "#2f4560", "#2a1d14").at(scooter, 0, 0, -8, 0).sitting(58).reaching());
+        final Group deck = barge < 0 ? null : world.group(barge);
+        final double floor = barge < 0 ? 0 : course.pieces().get(barge).shape().box().up();
+        for (final Course.Cast cast : Course.CAST) {
+            final Figure figure = switch (cast.role()) {
+                case STALLHOLDER -> new Figure("#3a3f45", "#4a4f58", "#1c1c1c", 45, false);
+                case CUSTOMER -> new Figure("#18191b", "#18191b", "#121212", 45, false);
+                case RIDER -> new Figure("#5a3d2b", "#2f4560", "#2a1d14", 58, true);
+            };
+            figures.add(figure);
+            root.getChildren().add(figure.root);
+            if (deck == null || !cast.deck().equals(Course.BARGE)) {
+                continue;
+            }
+            // what they sit on, where they were put
+            if (cast.role() == Person.Role.STALLHOLDER) {
+                final Cylinder stool = new Cylinder(16, 45);
+                stool.setMaterial(BoxRig.matte("#7a5a3a"));
+                stool.setTranslateX(cast.across());
+                stool.setTranslateY(floor - 22.5);
+                stool.setTranslateZ(cast.along());
+                deck.getChildren().add(stool);
+            } else if (cast.role() == Person.Role.RIDER) {
+                // the rider sits a little back of the scooter's middle
+                final Group scooter = scooter();
+                scooter.setTranslateX(cast.across() + 8 * Num.heading(cast.facing()).x());
+                scooter.setTranslateY(floor);
+                scooter.setTranslateZ(cast.along() + 8 * Num.heading(cast.facing()).z());
+                scooter.getTransforms().add(new Rotate(cast.facing(), Rotate.Y_AXIS));
+                deck.getChildren().add(scooter);
+            }
+        }
     }
 
-    /** Moves them on {@code seconds}, as they react to this frame's {@code events}. */
-    public void show(final List<Event> events, final double seconds) {
-        if (keeper == null) {
-            return;
-        }
+    public Node node() {
+        return root;
+    }
+
+    /**
+     * Shows the people as they are, {@code now}, part way ({@code share}) from as they were a step
+     * before ({@code before}), reacting to this frame's {@code events}, {@code seconds} on.
+     */
+    public void show(final List<Person> now, final List<Person> before, final double share, final List<Event> events,
+                     final double seconds) {
         time += seconds;
         for (final Event event : events) {
             if (event instanceof Event.Broke broke && broke.kind() == Course.Kind.FRUIT) {
-                people.forEach(person -> person.startled = STARTLE);
+                figures.forEach(figure -> figure.startled = STARTLE);
+            } else if (event instanceof Event.Struck struck && Person.is(struck.piece())) {
+                staggers(Person.which(struck.piece()));
             } else if (event instanceof Event.Struck struck && fruit.contains(struck.piece())
                     && struck.by() != Weapon.BOMB) {
-                keeper.shaking = SHAKE;
+                for (int k = 0; k < Math.min(figures.size(), now.size()); k++) {
+                    if (now.get(k).role() == Person.Role.STALLHOLDER) {
+                        figures.get(k).shaking = SHAKE;
+                    }
+                }
+            } else if (event instanceof Event.Shoved shoved) {
+                staggers(shoved.person());
             }
         }
-        for (final Person person : people) {
-            person.show(time, seconds);
+        for (int k = 0; k < figures.size(); k++) {
+            final Figure figure = figures.get(k);
+            if (k >= now.size()) {
+                figure.root.setVisible(false);
+                continue;
+            }
+            final Person person = now.get(k);
+            final Body seen = k < before.size() ? person.body().between(before.get(k).body(), share) : person.body();
+            figure.place(seen, person.sitting(), person.down());
+            figure.show(time, seconds);
+        }
+    }
+
+    private void staggers(final int person) {
+        if (person >= 0 && person < figures.size()) {
+            figures.get(person).staggering = STAGGER;
         }
     }
 
@@ -129,20 +164,28 @@ public final class Stall {
         return box;
     }
 
-    /** One of them: boxes hung from hips, knees and shoulders, facing its own z. */
-    private static final class Person {
+    /** One person as drawn: boxes hung from hips, knees and shoulders, facing its own z, its feet at its origin. */
+    private static final class Figure {
         private final Group root = new Group();
         private final Group body = new Group();
+        private final Rotate yaw = new Rotate(0, Rotate.Y_AXIS);
+        private final Rotate fallen = new Rotate(0, Rotate.X_AXIS);
         private final Rotate leftShoulder = new Rotate(0, Rotate.X_AXIS);
         private final Rotate rightShoulder = new Rotate(0, Rotate.X_AXIS);
         private final Rotate[] hips = {new Rotate(0, Rotate.X_AXIS), new Rotate(0, Rotate.X_AXIS)};
         private final Rotate[] knees = {new Rotate(0, Rotate.X_AXIS), new Rotate(0, Rotate.X_AXIS)};
-        private double seat = -1;
-        private boolean reaches;
+        private final double seat;
+        private final boolean reaches;
+        private boolean sitting;
+        private boolean down;
         private double startled;
         private double shaking;
+        private double staggering;
 
-        Person(final String jacket, final String trousers, final String hair) {
+        /** In these colours, sitting (when sat) on something {@code seat} high, hands before it if {@code reaches}. */
+        Figure(final String jacket, final String trousers, final String hair, final double seat, final boolean reaches) {
+            this.seat = seat;
+            this.reaches = reaches;
             final PhongMaterial coat = BoxRig.matte(jacket);
             final PhongMaterial legs = BoxRig.matte(trousers);
             final PhongMaterial skin = BoxRig.matte("#e0b48f");
@@ -173,37 +216,30 @@ public final class Stall {
                 shoulder.getChildren().addAll(box(11, 50, 11, 0, 25, 0, coat), box(9, 10, 9, 0, 54, 0, skin));
                 body.getChildren().add(shoulder);
             }
+            // turned to face its way; and, knocked down, laid on its back about its feet
+            root.getTransforms().addAll(yaw, fallen);
             root.getChildren().add(body);
         }
 
-        /** Put in {@code group} with its feet at ({@code x}, {@code y}, {@code z}), facing {@code yaw}. */
-        Person at(final Group group, final double x, final double y, final double z, final double yaw) {
-            root.setTranslateX(x);
-            root.setTranslateY(y);
-            root.setTranslateZ(z);
-            root.getTransforms().add(new Rotate(yaw, Rotate.Y_AXIS));
-            group.getChildren().add(root);
-            return this;
-        }
-
-        /** Sat on something {@code high}. */
-        Person sitting(final double high) {
-            seat = high;
-            return this;
-        }
-
-        /** Its hands on handlebars before it. */
-        Person reaching() {
-            reaches = true;
-            return this;
+        /** Where {@code seen} is, facing its way: sat, standing, or lying {@code down}. */
+        void place(final Body seen, final boolean sat, final boolean lying) {
+            root.setTranslateX(seen.position().x());
+            root.setTranslateY(seen.position().y() - (lying ? 12 : 0));
+            root.setTranslateZ(seen.position().z());
+            yaw.setAngle(seen.yaw());
+            sitting = sat;
+            down = lying;
         }
 
         void show(final double time, final double seconds) {
             startled = Math.max(0, startled - seconds);
             shaking = Math.max(0, shaking - seconds);
-            final double fright = startled > 0 ? Math.min(1, (STARTLE - startled) / 0.12) * Math.min(1, startled / 0.3) : 0;
+            staggering = Math.max(0, staggering - seconds);
+            fallen.setAngle(down ? 90 : 0);
+            final double fright = down ? 0
+                    : startled > 0 ? Math.min(1, (STARTLE - startled) / 0.12) * Math.min(1, startled / 0.3) : 0;
             // sat, or up off the seat in a fright
-            final boolean sat = seat >= 0 && fright < 0.5;
+            final boolean sat = sitting && !down && fright < 0.5;
             for (int side = 0; side < 2; side++) {
                 hips[side].setAngle(sat ? 90 : 0);
                 knees[side].setAngle(sat ? -90 : 0);
@@ -211,11 +247,14 @@ public final class Stall {
             final double lift = sat ? 85 - seat : 0;
             final double hop = fright > 0 && startled > STARTLE - 0.45 ? 22 * Math.sin(Math.PI * (STARTLE - startled) / 0.45) : 0;
             body.setTranslateY(lift - hop);
-            // the arms: at rest hanging, or on the handlebars, or flung up; and a fist shaken
-            final double rest = reaches ? 70 : 6 * Math.sin(time * 1.3);
+            // the arms: at rest hanging, or on the handlebars, or flung up; out to the sides
+            // staggering; a fist shaken; flat out, lying
+            final double rest = down ? 170 : reaches && sat ? 70 : 6 * Math.sin(time * 1.3);
             final double up = 165;
-            leftShoulder.setAngle(rest + (up - rest) * fright);
-            rightShoulder.setAngle(shaking > 0 ? 150 + 18 * Math.sin(time * 26) : rest + (up - rest) * fright);
+            final double stagger = staggering > 0 ? 55 + 25 * Math.sin(time * 18) : 0;
+            final double left = rest + (up - rest) * fright + stagger;
+            leftShoulder.setAngle(left);
+            rightShoulder.setAngle(shaking > 0 && !down ? 150 + 18 * Math.sin(time * 26) : left);
             // breathing, a little
             body.setScaleY(1 + 0.006 * Math.sin(time * 2.1));
         }

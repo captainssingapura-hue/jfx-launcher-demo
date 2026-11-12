@@ -22,6 +22,7 @@ import com.example.fxsuite.avatar.sim.Keys;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Script;
@@ -107,11 +108,14 @@ public final class AvatarDemo extends Application {
     private Sky sky = Sky.START;
     /** The platforms moved from their consoles. */
     private List<Lift> lifts = Lift.of(damage);
+    /** The people, as they are after the latest step and the one before: drawn between them. */
+    private List<Person> people = Person.of(damage, lifts);
+    private List<Person> peopleBefore = people;
     /** Where each piece that moves was after the step before the latest, and after the latest: drawn between them. */
     private Map<Integer, Block> movedBefore = Map.of();
     private Map<Integer, Block> movedNow = Map.of();
     private final World world = new World(course);
-    /** The people at the melon stall on the barge. */
+    /** The people as drawn, and what they sit on at the stall on the barge. */
     private final Stall stall = new Stall(world, course);
     private final Impacts impacts = new Impacts(world);
     private final Wreckage wreckage = new Wreckage();
@@ -181,7 +185,7 @@ public final class AvatarDemo extends Application {
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
-                bombs.node(),
+                bombs.node(), stall.node(),
                 reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
@@ -252,7 +256,7 @@ public final class AvatarDemo extends Application {
             }
         }
 
-        movedNow = new Play(avatar, damage, sky, lifts).moving();
+        movedNow = new Play(avatar, damage, sky, lifts, people).moving();
         movedBefore = movedNow;
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
@@ -326,11 +330,13 @@ public final class AvatarDemo extends Application {
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
-            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts).step(controls, Clock.STEP);
+            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
             sky = stepped.play().sky();
             lifts = stepped.play().lifts();
+            peopleBefore = people;
+            people = stepped.play().people();
             journal.append(++step, stepped.events());
             // where what moves now is, to draw it between its last two places, and to put marks on it
             movedBefore = movedNow;
@@ -358,13 +364,13 @@ public final class AvatarDemo extends Application {
         // each reads what is new to it in the journal
         // what moves of itself is shown where it was as far behind its latest step as the avatar is
         final double behind = (1 - ticked.blend()) * Clock.STEP;
-        final Play now = new Play(this.avatar, damage, sky, lifts);
+        final Play now = new Play(this.avatar, damage, sky, lifts, people);
         final Obstacles standing = now.obstacles();
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, between(movedBefore, movedNow, ticked.blend()), lifts, seconds, chase.yaw());
         bombs.show(sky, behind);
-        stall.show(forStall.read().events(), seconds);
+        stall.show(people, peopleBefore, ticked.blend(), forStall.read().events(), seconds);
         reticle.show(avatar, standing, chase.position());
         world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
@@ -440,11 +446,14 @@ public final class AvatarDemo extends Application {
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken")
                 + (damage.broken(Course.Kind.FRUIT) == 0 ? ""
                         : String.format(" · fruit smashed %d of %d", damage.broken(Course.Kind.FRUIT),
-                                damage.count(Course.Kind.FRUIT)));
+                                damage.count(Course.Kind.FRUIT)))
+                + (people.stream().noneMatch(Person::down) ? ""
+                        : String.format(" · knocked down %d of %d", people.stream().filter(Person::down).count(),
+                                people.size()));
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
-        final Play here = new Play(avatar, damage, sky, lifts);
+        final Play here = new Play(avatar, damage, sky, lifts, people);
         final String controls = here.atControls().map(lift -> lift.engine()
                 ? String.format(" · flying the platform, %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down,"
                         + " F engine off, T to let go", lift.place().height() / 100)

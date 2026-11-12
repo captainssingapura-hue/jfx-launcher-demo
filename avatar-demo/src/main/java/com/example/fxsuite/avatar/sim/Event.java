@@ -121,6 +121,14 @@ public sealed interface Event {
     record Settled(int piece, double speed, Vec3 at) implements Event {
     }
 
+    /** Person {@code person} was knocked down, there at {@code at}: their health gone, they lie where they fell. */
+    record KnockedDown(int person, Vec3 at) implements Event {
+    }
+
+    /** Person {@code person} was shoved, sent off {@code speed} fast, there at {@code at}. */
+    record Shoved(int person, double speed, Vec3 at) implements Event {
+    }
+
     /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */
     record Dropped(Vec3 at, int from) implements Event {
     }

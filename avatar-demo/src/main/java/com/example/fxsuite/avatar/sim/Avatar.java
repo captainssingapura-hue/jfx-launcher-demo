@@ -83,11 +83,16 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
      * the body moves with them as they now are.
      */
     public Stepped step(final Controls controls, final double seconds, final Obstacles world) {
+        return step(controls, seconds, world, world);
+    }
+
+    /** As {@link #step(Controls, double, Obstacles)}, its weapons striking at {@code targets}: the world, and whoever is in it. */
+    public Stepped step(final Controls controls, final double seconds, final Obstacles world, final Obstacles targets) {
         Stepped done = Stepped.still(this);
         for (final Action action : controls.actions()) {
             done = done.then(done.avatar().act(action));
         }
-        return done.then(done.avatar().moved(controls, seconds, world));
+        return done.then(done.avatar().moved(controls, seconds, world, targets));
     }
 
     /** One thing done once, and what came of it. Whatever cannot be done is left undone, and nothing happens. */
@@ -125,11 +130,12 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
         };
     }
 
-    private Stepped moved(final Controls controls, final double seconds, final Obstacles world) {
+    private Stepped moved(final Controls controls, final double seconds, final Obstacles world,
+                          final Obstacles targets) {
         final double swung = Num.ease(sweep, Wings.sweepFor(wearingPack, body), Wings.SWING, seconds);
         final Body.Moved moved = body.move(controls, seconds, world, wearingPack ? new Wings(swung) : null);
         final Body after = moved.body();
-        final Arms.Stepped armed = arms.step(controls.trigger(), seconds, body, world, controls.aim());
+        final Arms.Stepped armed = arms.step(controls.trigger(), seconds, body, targets, controls.aim());
         final List<Event> happened = new ArrayList<>(moved.events());
         happened.addAll(armed.events());
         for (final Gate gate : world.gates()) {
