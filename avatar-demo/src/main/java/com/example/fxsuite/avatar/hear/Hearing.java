@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.hear;
 import com.example.fxsuite.avatar.audio.Outputs;
 import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
 import com.example.fxsuite.avatar.sound.Cues;
 import com.example.fxsuite.avatar.sound.Profile;
@@ -65,10 +66,18 @@ public final class Hearing implements AutoCloseable {
         return new Hearing(opened.speakers(), opened.notes(), Profiles.fromSettings());
     }
 
-    /** One frame: the listener moved, this frame's sounds played, the loops steered. */
+    /** As {@link #hear(Avatar, Chase, List)}, with no airships about. */
     public void hear(final Avatar avatar, final Chase chase) {
+        hear(avatar, chase, List.of());
+    }
+
+    /**
+     * One frame: the listener moved, this frame's sounds played, the loops steered; the nearest
+     * of the {@code airships} still in the sky droning where it hangs.
+     */
+    public void hear(final Avatar avatar, final Chase chase, final List<Vec3> airships) {
         speakers.listen(chase.pivot(), chase.yaw());
-        final Cues.Heard heard = Cues.of(avatar, profile);
+        final Cues.Heard heard = Cues.of(avatar, profile, airships);
         for (final Cues.Play play : heard.plays()) {
             final Clip clip = clip(play.sound(), play.amount(), nextTake(play.sound()));
             if (play.at() == null) {

@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -126,8 +127,7 @@ public final class Impacts {
 
     private double unit() {
         count++;
-        final long mixed = count * 0x9E3779B97F4A7C15L * 0x2545F4914F6CDD1DL;
-        return (mixed >>> 11) * 0x1.0p-53;
+        return Num.hash(count);
     }
 
     /** A fixed number of one kind of shape, handed out oldest first. */

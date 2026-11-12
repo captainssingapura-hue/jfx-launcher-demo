@@ -264,8 +264,7 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
 
     /** -1 to 1, the same for the same round and salt: a spread that repeats. */
     private static double scatter(final int round, final int salt) {
-        final long mixed = (round * 0x9E3779B97F4A7C15L + salt * 0xC2B2AE3D27D4EB4FL) * 0x2545F4914F6CDD1DL;
-        return ((mixed >>> 11) * 0x1.0p-53) * 2 - 1;
+        return Num.hash(round, salt) * 2 - 1;
     }
 
     private Stepped swing(final boolean trigger, final double seconds, final Body body, final Obstacles world,

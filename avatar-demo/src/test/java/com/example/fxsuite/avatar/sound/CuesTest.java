@@ -134,6 +134,25 @@ class CuesTest {
     }
 
     @Test
+    void theNearestAirshipDronesWhereItHangsAndOneComingDownIsHeard() {
+        final Vec3 near = new Vec3(0, -3000, 5000);
+        final Vec3 far = new Vec3(9000, -3000, 0);
+        final Cues.Hum engines = Cues.of(with(0, false), PROFILE, List.of(far, near)).hums().stream()
+                .filter(h -> h.loop() == Sound.AIRSHIP_ENGINES).findFirst().orElseThrow();
+        assertEquals(near, engines.at());
+        assertTrue(engines.level().gain() > 0);
+        assertEquals(0, Cues.of(with(0, false), PROFILE, List.of()).hums().stream()
+                .filter(h -> h.loop() == Sound.AIRSHIP_ENGINES).findFirst().orElseThrow().level().gain(), 1e-9,
+                "all brought down: silent");
+
+        final Block airship = Course.AIRSHIP_BOX.placed(0, 3000, 5000, 0);
+        final Cues.Play down = Cues.of(with(0, false, new Event.Broke(4, Course.Kind.AIRSHIP, airship,
+                near, Weapon.GATLING)), PROFILE).plays().getFirst();
+        assertEquals(Sound.BREAK_AIRSHIP, down.sound());
+        assertEquals(new Vec3(0, -3025, 5000), down.at(), "from the middle of where it hung");
+    }
+
+    @Test
     void theGatlingGunIsHeardAsItsRoarNotRoundByRound() {
         Avatar gun = new Avatar(Body.standing(Vec3.ZERO, 0), false).drawn(Weapon.GATLING);
         assertEquals(List.of(Sound.GATLING_DRAWN), played(gun));
@@ -168,6 +187,10 @@ class CuesTest {
         for (final Cues.Hum hum : boosting.hums()) {
             if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
                 assertEquals(0, hum.level().gain(), 1e-9, "no gun drawn, no gun heard");
+                continue;
+            }
+            if (hum.loop() == Sound.AIRSHIP_ENGINES) {
+                assertEquals(0, hum.level().gain(), 1e-9, "no airship about, none heard");
                 continue;
             }
             assertTrue(hum.level().gain() > 0, hum.loop() + " sounds while boosting");

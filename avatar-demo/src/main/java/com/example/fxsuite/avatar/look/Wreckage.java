@@ -22,7 +22,8 @@ import javafx.scene.transform.Rotate;
  * What is left when something breaks ({@link Event.Broke}): its pieces, thrown out from where
  * the last blow struck, tumbling, bouncing and coming to rest on whatever is under them, then
  * after a while sinking away. A drone goes up in a fireball, and throws out glowing embers
- * with its parts. Only a sight: the pieces are in nobody's way.
+ * with its parts; an airship goes up in blast after blast along its hull, and rains wreckage
+ * from the sky. Only a sight: the pieces are in nobody's way.
  *
  * <p>Every piece comes from a fixed pool, reused oldest first, as {@link Impacts} does.
  */
@@ -37,12 +38,12 @@ public final class Wreckage {
 
     private final Group root = new Group();
     private final Chunk[] chunks = new Chunk[POOL];
-    private final Sphere fireball = new Sphere(1, 16);
+    private final Blast[] blasts = new Blast[8];
+    private int nextBlast;
     private final PhongMaterial ember = BoxRig.glow("#ffb347");
     private final PhongMaterial[] flames = {flame("#ffc23a"), flame("#ff8a1e"), flame("#e8571a"), flame("#9c3416")};
     private int next;
     private int count;
-    private double blasted = Double.POSITIVE_INFINITY;
     private double lastTime = Double.NaN;
 
     public Wreckage() {
@@ -50,8 +51,10 @@ public final class Wreckage {
             chunks[i] = new Chunk();
             root.getChildren().add(chunks[i].box);
         }
-        fireball.setVisible(false);
-        root.getChildren().add(fireball);
+        for (int i = 0; i < blasts.length; i++) {
+            blasts[i] = new Blast();
+            root.getChildren().add(blasts[i].ball);
+        }
     }
 
     public Node node() {
@@ -74,29 +77,23 @@ public final class Wreckage {
         for (final Chunk chunk : chunks) {
             chunk.fly(seconds, standing);
         }
-        blasted += seconds;
-        if (blasted < FIREBALL) {
-            // swelling, and dimming from yellow through orange to a dull red as it goes
-            final double share = blasted / FIREBALL;
-            final double radius = 20 + 100 * Math.sqrt(share);
-            fireball.setScaleX(radius);
-            fireball.setScaleY(radius * 0.85);
-            fireball.setScaleZ(radius);
-            fireball.setMaterial(flames[Math.min(flames.length - 1, (int) (share * flames.length))]);
-            fireball.setVisible(true);
-        } else {
-            fireball.setVisible(false);
+        for (final Blast blast : blasts) {
+            blast.burn(seconds, flames);
         }
     }
 
     private void burst(final Event.Broke broke, final PhongMaterial material) {
         final Block block = broke.block();
-        final double width = block.halfWidth() * 2;
+        final boolean airship = broke.kind() == Course.Kind.AIRSHIP;
+        final Course.Section hull = Course.HULL.get(3);
+        // an airship comes apart along its hull, not out to its fins' tips
+        final double width = airship ? hull.halfAcross() * 2 : block.halfWidth() * 2;
         final double depth = block.halfDepth() * 2;
-        final double tall = block.top() - block.bottom();
+        final double tall = airship ? hull.halfUp() * 2 : block.top() - block.bottom();
         final boolean drone = broke.kind() == Course.Kind.DRONE;
         final double volume = width * depth * tall;
-        final int pieces = drone ? 10 : (int) Num.clamp(8 + volume / 600_000, 10, 26);
+        final int pieces = airship ? 48 : drone ? 10 : (int) Num.clamp(8 + volume / 600_000, 10, 26);
+        final double biggest = airship ? 130 : 60;
         // about the size the pieces would be, cut that many ways
         final double cut = Math.cbrt(volume / pieces);
         for (int i = 0; i < pieces; i++) {
@@ -110,19 +107,73 @@ public final class Wreckage {
             final double speed = drone ? 650 : 380;
             final Vec3 fly = out.multiply(speed * (0.5 + unit()))
                     .add((unit() - 0.5) * 240, -(drone ? 380 : 300) * (0.6 + unit()), (unit() - 0.5) * 240);
-            final double size = Num.clamp(cut * (0.45 + 0.5 * unit()), 6, 60);
+            final double size = Num.clamp(cut * (0.45 + 0.5 * unit()), 6, biggest);
             chunk().throwFrom(at, fly, size * (0.6 + 0.8 * unit()), size * (0.5 + 0.6 * unit()),
                     size * (0.6 + 0.8 * unit()), material, unit());
         }
         if (drone) {
-            for (int i = 0; i < 12; i++) {
-                final Vec3 fly = new Vec3((unit() - 0.5) * 1400, -(300 + 700 * unit()), (unit() - 0.5) * 1400);
-                chunk().throwFrom(broke.middle(), fly, 3, 3, 3, ember, unit()).burnsOut(0.5 + 0.6 * unit());
+            embers(broke.middle(), 12, 1400);
+            blast(broke.middle(), 120, 0);
+        } else if (airship) {
+            // blast after blast along the hull, as it is heard
+            final double[] along = {150, -420, 560, -80};
+            final double[] after = {0, 0.45, 0.95, 1.6};
+            for (int k = 0; k < along.length; k++) {
+                final Vec3 at = broke.middle().add(Num.heading(block.yaw()).multiply(along[k]));
+                blast(at, 340 - 40 * k, after[k]);
             }
-            fireball.setTranslateX(broke.middle().x());
-            fireball.setTranslateY(broke.middle().y());
-            fireball.setTranslateZ(broke.middle().z());
-            blasted = 0;
+            embers(broke.middle(), 36, 2200);
+        }
+    }
+
+    /** {@code count} glowing embers flung out from {@code from}, as fast as {@code speed}. */
+    private void embers(final Vec3 from, final int count, final double speed) {
+        for (int i = 0; i < count; i++) {
+            final Vec3 fly = new Vec3((unit() - 0.5) * speed, -(300 + speed / 2 * unit()), (unit() - 0.5) * speed);
+            chunk().throwFrom(from, fly, 3 + speed / 700, 3 + speed / 700, 3 + speed / 700, ember, unit())
+                    .burnsOut(0.5 + 0.6 * unit());
+        }
+    }
+
+    /** A fireball at {@code at}, as big as {@code size} across, {@code after} seconds from now. */
+    private void blast(final Vec3 at, final double size, final double after) {
+        final Blast blast = blasts[nextBlast];
+        nextBlast = (nextBlast + 1) % blasts.length;
+        blast.light(at, size, after);
+    }
+
+    /** A fireball: waiting its turn, then swelling and dimming from yellow through orange to a dull red. */
+    private static final class Blast {
+        private final Sphere ball = new Sphere(1, 16);
+        private double age = Double.POSITIVE_INFINITY;
+        private double size;
+
+        Blast() {
+            ball.setVisible(false);
+        }
+
+        void light(final Vec3 at, final double across, final double after) {
+            ball.setTranslateX(at.x());
+            ball.setTranslateY(at.y());
+            ball.setTranslateZ(at.z());
+            size = across;
+            age = -after;
+        }
+
+        void burn(final double seconds, final PhongMaterial[] flames) {
+            age += seconds;
+            final double life = FIREBALL * Math.sqrt(size / 120);
+            if (age < 0 || age >= life) {
+                ball.setVisible(false);
+                return;
+            }
+            final double share = age / life;
+            final double radius = size * (0.17 + 0.83 * Math.sqrt(share));
+            ball.setScaleX(radius);
+            ball.setScaleY(radius * 0.85);
+            ball.setScaleZ(radius);
+            ball.setMaterial(flames[Math.min(flames.length - 1, (int) (share * flames.length))]);
+            ball.setVisible(true);
         }
     }
 
@@ -152,8 +203,7 @@ public final class Wreckage {
     /** 0 to 1, by count, so a run looks the same each time. */
     private double unit() {
         count++;
-        final long mixed = (count * 0x9E3779B97F4A7C15L + 0x51ED27L) * 0x2545F4914F6CDD1DL;
-        return (mixed >>> 11) * 0x1.0p-53;
+        return Num.hash(count, 0x51ED27L);
     }
 
     /** One piece: tumbling through the air, then lying where it came down. */

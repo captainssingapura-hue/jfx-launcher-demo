@@ -70,6 +70,8 @@ public final class Robot implements Profile {
             case GATLING_DRAWN -> gatlingDrawn(variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE -> breakDrone(variant);
+            case BREAK_AIRSHIP -> breakAirship(variant);
+            case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> jetRumble();
@@ -94,6 +96,10 @@ public final class Robot implements Profile {
         }
         if (loop == Sound.GATLING_FIRE) {
             return drive.firing() ? new Level(1, 1) : Level.OFF;
+        }
+        if (loop == Sound.AIRSHIP_ENGINES) {
+            // always turning: how near it is does the rest
+            return new Level(1, 1);
         }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
@@ -713,6 +719,80 @@ public final class Robot implements Profile {
                     + 3 * b[i];
         }
         return new Clip("gatling-fire", Dsp.normalized(y, 0.85), true);
+    }
+
+    /**
+     * An airship's engines, heard from below: two big propellers a little out of step, a deep
+     * throb that beats slowly between them, pulsing with each blade's pass, over a low rumble
+     * of the motors. Every tone turns a whole number of times in the loop, so it joins seamlessly.
+     */
+    public static Clip airshipEngines() {
+        final int length = samples(2);
+        final Noise noise = new Noise(9700);
+        final Filter rumble = new Filter(140, 0.7);
+        final double[] raw = new double[length + samples(0.25)];
+        for (int i = 0; i < raw.length; i++) {
+            raw[i] = rumble.push(noise.next()).low;
+        }
+        final double[] low = Dsp.seamless(raw, length);
+        final double[] y = new double[length];
+        for (int i = 0; i < length; i++) {
+            final double t = time(i);
+            double throb = 0;
+            for (final double f : new double[] {36, 37.5}) {
+                // a blunt pulse: the tone and its first few overtones
+                throb += Math.sin(TAU * f * t) + 0.5 * Math.sin(TAU * 2 * f * t) + 0.25 * Math.sin(TAU * 3 * f * t);
+            }
+            final double blades = 0.65 + 0.35 * Math.sin(TAU * 12 * t);
+            y[i] = 0.5 * throb * blades + 4 * low[i];
+        }
+        return new Clip("airship-engines", Dsp.normalized(y, 0.7), true);
+    }
+
+    /**
+     * An airship coming down: blast after blast along its hull, each a deep boom and a roar of
+     * air, the groan of its frame twisting, the crackle of fire, and a long rumble dying away.
+     */
+    public static Clip breakAirship(final int variant) {
+        final Noise noise = new Noise(23_000L + variant);
+        final Noise chance = new Noise(23_500L + variant);
+        final double tune = 1 + 0.04 * noise.next();
+        final double[] y = new double[samples(3.8)];
+        final double[] blasts = {0, 0.45, 0.95, 1.6};
+        final double[] booms = new double[blasts.length];
+        final Filter roar = new Filter(2500, 0.8);
+        final Filter tail = new Filter(110, 0.7);
+        final Filter groan = new Filter(320 * tune, 4);
+        final Filter crackle = new Filter(2800 * tune, 1.5);
+        double saw = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            double boom = 0;
+            double air = 0;
+            for (int k = 0; k < blasts.length; k++) {
+                final double since = t - blasts[k];
+                if (since < 0) {
+                    continue;
+                }
+                booms[k] += TAU * (30 + 70 * Math.exp(-since / 0.12)) * tune / Dsp.RATE;
+                final double strength = 1 - 0.15 * k;
+                boom += strength * Math.sin(booms[k]) * hit(since, 0.003, 0.35);
+                air += strength * hit(since, 0.002, 0.3);
+            }
+            roar.tune(250 + 2300 * Math.exp(-t / 0.8), 0.8).push(w);
+            tail.push(w);
+            // the frame's groan, a buzz sliding down, through a hollow resonance
+            saw += (90 * Math.exp(-t / 1.5) + 30) * tune / Dsp.RATE;
+            groan.push(2 * (saw - Math.floor(saw)) - 1);
+            final double density = 400 * Math.exp(-t / 1.2);
+            crackle.push((chance.next() + 1) / 2 < density / Dsp.RATE ? chance.next() * 8 : 0);
+            y[i] = 1.2 * boom + 1.5 * roar.low * air
+                    + 0.5 * groan.band * hit(t - 0.3, 0.4, 1.0)
+                    + 0.7 * crackle.band
+                    + 2.5 * tail.low * hit(t, 0.05, 1.4);
+        }
+        return new Clip(name("break-airship", 1, variant), Dsp.finish(y, 0.95), false);
     }
 
     /** The jets' deep roar: brown noise, low-passed, with a slight flutter. */

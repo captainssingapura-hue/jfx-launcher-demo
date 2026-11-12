@@ -12,7 +12,8 @@ import java.util.List;
  *   <li><b>What can break:</b> crates and the targets, the dummies and the drones
  *       ({@link Course.Kind#breakable}). Pillars and gates are what the world is built on, and
  *       stand whatever is thrown at them.</li>
- *   <li><b>How tough:</b> a dummy takes {@link #DUMMY} and a drone {@link #DRONE}. A crate's
+ *   <li><b>How tough:</b> a dummy takes {@link #DUMMY}, a drone {@link #DRONE}, and an airship,
+ *       armoured as it is, {@link #AIRSHIP}: most of ten seconds of the Gatling gun. A crate's
  *       toughness goes by its size, from {@link #CRATE} for the smallest up: a small crate falls to
  *       a short burst, the biggest takes a couple of seconds of the Gatling gun.</li>
  *   <li><b>A blow</b> takes away what its weapon does ({@link Weapon#blow}): a round, or a stroke
@@ -27,9 +28,10 @@ import java.util.List;
  */
 public final class Damage {
 
-    /** How tough a dummy is, a drone, and the smallest crate. */
+    /** How tough a dummy is, a drone, an airship, and the smallest crate. */
     public static final double DUMMY = 300;
     public static final double DRONE = 120;
+    public static final double AIRSHIP = 3000;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
     public static final double CRATE_VOLUME = 30_000;
@@ -63,6 +65,7 @@ public final class Damage {
         return switch (piece.kind()) {
             case DUMMY -> DUMMY;
             case DRONE -> DRONE;
+            case AIRSHIP -> AIRSHIP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case PILLAR, GATE -> Double.POSITIVE_INFINITY;
@@ -141,6 +144,17 @@ public final class Damage {
     /** How many pieces of {@code kind} there were, and how many of them are broken. */
     public int count(final Course.Kind kind) {
         return (int) pieces.stream().filter(p -> p.kind() == kind).count();
+    }
+
+    /** The pieces of {@code kind} still standing. */
+    public List<Course.Piece> standing(final Course.Kind kind) {
+        final List<Course.Piece> standing = new ArrayList<>();
+        for (int i = 0; i < health.length; i++) {
+            if (pieces.get(i).kind() == kind && health[i] > 0) {
+                standing.add(pieces.get(i));
+            }
+        }
+        return standing;
     }
 
     public int broken(final Course.Kind kind) {

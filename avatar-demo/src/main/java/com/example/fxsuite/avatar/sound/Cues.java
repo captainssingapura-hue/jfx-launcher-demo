@@ -57,7 +57,16 @@ public final class Cues {
         }
     }
 
+    /** As {@link #of(Avatar, Profile, List)}, with no airships about. */
     public static Heard of(final Avatar avatar, final Profile profile) {
+        return of(avatar, profile, List.of());
+    }
+
+    /**
+     * What to hear this frame. {@code airships} are where the airships still in the sky are; the
+     * nearest is heard droning, from where it hangs, and none when none is left.
+     */
+    public static Heard of(final Avatar avatar, final Profile profile, final List<Vec3> airships) {
         final Body body = avatar.body();
         final Vec3 feet = body.position();
         final Vec3 pack = pack(body);
@@ -107,9 +116,11 @@ public final class Cues {
                     }
                 }
                 case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
-                case Event.Broke b -> plays.add(b.kind() == Course.Kind.DRONE
-                        ? new Play(Sound.BREAK_DRONE, 1, b.middle())
-                        : new Play(Sound.BREAK_WOOD, size(b.block()), b.middle()));
+                case Event.Broke b -> plays.add(switch (b.kind()) {
+                    case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
+                    case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());
+                    default -> new Play(Sound.BREAK_WOOD, size(b.block()), b.middle());
+                });
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
                         : Sound.GLAIVE_SWEEP, 1, hands(body, BLADE_AHEAD)));
             }
@@ -121,7 +132,13 @@ public final class Cues {
                 + body.climb() * body.climb());
         final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, arms.firing());
         final List<Hum> hums = new ArrayList<>();
+        final Vec3 airship = nearest(airships, feet);
         for (final Sound loop : Sound.loops()) {
+            if (loop == Sound.AIRSHIP_ENGINES) {
+                hums.add(airship == null ? new Hum(loop, Level.OFF, null)
+                        : new Hum(loop, profile.level(loop, drive), airship));
+                continue;
+            }
             final Vec3 at = switch (loop) {
                 case WIND -> null;
                 case GATLING_SPIN, GATLING_FIRE -> Arms.gatlingMuzzle(body);
@@ -130,6 +147,17 @@ public final class Cues {
             hums.add(new Hum(loop, profile.level(loop, drive), at));
         }
         return new Heard(plays, hums);
+    }
+
+    /** The one of {@code points} nearest {@code to}, or null if there are none. */
+    private static Vec3 nearest(final List<Vec3> points, final Vec3 to) {
+        Vec3 nearest = null;
+        for (final Vec3 point : points) {
+            if (nearest == null || point.distance(to) < nearest.distance(to)) {
+                nearest = point;
+            }
+        }
+        return nearest;
     }
 
     /** The middle of the jet-pack, on the avatar's back. */

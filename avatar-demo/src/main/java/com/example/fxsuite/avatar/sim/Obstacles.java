@@ -42,16 +42,22 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         this(blocks, List.of());
     }
 
-    /** The same world with piece {@code piece} gone from it: broken, and no longer in the way. */
+    /**
+     * The same world with piece {@code piece} gone from it, every block of it: broken, and no
+     * longer in the way.
+     */
     public Obstacles without(final int piece) {
-        final int at = pieces.indexOf(piece);
-        if (at < 0) {
+        if (!pieces.contains(piece)) {
             return this;
         }
-        final List<Block> left = new ArrayList<>(blocks);
-        final List<Integer> numbers = new ArrayList<>(pieces);
-        left.remove(at);
-        numbers.remove(at);
+        final List<Block> left = new ArrayList<>();
+        final List<Integer> numbers = new ArrayList<>();
+        for (int i = 0; i < blocks.size(); i++) {
+            if (pieces.get(i) != piece) {
+                left.add(blocks.get(i));
+                numbers.add(pieces.get(i));
+            }
+        }
         return new Obstacles(left, gates, numbers);
     }
 

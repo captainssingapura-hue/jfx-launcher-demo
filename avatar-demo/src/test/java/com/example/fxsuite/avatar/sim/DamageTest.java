@@ -134,7 +134,7 @@ class DamageTest {
         final Damage broken = Damage.of(course).took(blows(dummy, Weapon.GLAIVE, 3)).damage();
         final Hit through = broken.obstacles().ray(from, toward, 5000);
         assertTrue(through == null || through.piece() != dummy, "rounds fly on where it stood");
-        assertEquals(course.pieces().size() - 1, broken.obstacles().blocks().size());
+        assertEquals(course.obstacles().blocks().size() - 1, broken.obstacles().blocks().size());
         assertEquals(course.obstacles().blocks().size(), Damage.of(course).obstacles().blocks().size());
     }
 
@@ -196,5 +196,68 @@ class DamageTest {
                 assertTrue(s.piece() != middle);
             }
         }
+    }
+
+    @Test
+    void anAirshipIsManyBlocksAllOnePieceAndGoesAllAtOnce() {
+        final int airship = first(Course.Kind.AIRSHIP);
+        final Course.Piece piece = course.pieces().get(airship);
+        final int parts = Course.HULL.size() + Course.FINS.size() + 1 + Course.PYLONS.size() + Course.ENGINES.size();
+        assertEquals(parts, piece.solid().size());
+        final Obstacles world = course.obstacles();
+        assertEquals(parts, world.pieces().stream().filter(n -> n == airship).count(), "each block numbered as it");
+
+        // a round up into the gondola, and one into a fin, both strike the airship
+        final Block gondola = piece.solid().get(Course.HULL.size() + Course.FINS.size());
+        final Block fin = piece.solid().get(Course.HULL.size());
+        for (final Block part : List.of(gondola, fin)) {
+            final Vec3 below = new Vec3(part.x(), -(part.bottom() - 500), part.z());
+            assertEquals(airship, world.ray(below, new Vec3(0, -1, 0), 1000).piece());
+        }
+
+        final Damage down = Damage.of(course).took(blows(airship, Weapon.GLAIVE, 30)).damage();
+        assertTrue(down.broken(airship));
+        assertFalse(down.obstacles().pieces().contains(airship), "not a block of it left");
+        assertEquals(world.blocks().size() - parts, down.obstacles().blocks().size());
+    }
+
+    @Test
+    void anAirshipTakesMuchMoreThanAnythingElse() {
+        final int airship = first(Course.Kind.AIRSHIP);
+        final Course.Piece piece = course.pieces().get(airship);
+        for (final Course.Piece other : course.pieces()) {
+            if (other.kind() != Course.Kind.AIRSHIP && other.kind().breakable()) {
+                assertTrue(Damage.toughness(piece) > 4 * Damage.toughness(other), other.toString());
+            }
+        }
+        final int rounds = (int) Math.ceil(Damage.AIRSHIP / Weapon.GATLING.blow());
+        assertFalse(Damage.of(course).took(blows(airship, Weapon.GATLING, rounds - 1)).damage().broken(airship));
+        assertTrue(Damage.of(course).took(blows(airship, Weapon.GATLING, rounds)).damage().broken(airship));
+        final double seconds = rounds / (Arms.GATLING_RATE / 60);
+        assertTrue(seconds > 8 && seconds < 12, "most of ten seconds of the Gatling gun: " + seconds);
+    }
+
+    @Test
+    void theAirshipsHangOverEverythingElseWithinReachOfTheJets() {
+        final List<Course.Piece> airships = course.pieces().stream()
+                .filter(p -> p.kind() == Course.Kind.AIRSHIP).toList();
+        assertEquals(3, airships.size());
+        final double highest = course.pieces().stream().filter(p -> p.kind() != Course.Kind.AIRSHIP)
+                .mapToDouble(p -> p.block().top()).max().orElseThrow();
+        for (final Course.Piece airship : airships) {
+            assertTrue(airship.block().bottom() > highest + 100, "clear over the tallest pillar: " + airship);
+            assertTrue(airship.block().top() < Body.CEILING, "and under the jets' ceiling");
+            for (final Block part : airship.solid()) {
+                assertTrue(Math.abs(part.x()) < Body.EDGE && Math.abs(part.z()) < Body.EDGE, "within the world");
+            }
+        }
+    }
+
+    @Test
+    void theRobotCanLandOnAnAirshipsBack() {
+        final Course.Piece airship = course.pieces().get(first(Course.Kind.AIRSHIP));
+        final Block top = airship.solid().get(3);
+        final Obstacles.Footing footing = course.obstacles().footing(top.x(), top.z(), Body.FOOTING, top.top() + 1);
+        assertEquals(top.top(), footing.height(), 1e-9);
     }
 }

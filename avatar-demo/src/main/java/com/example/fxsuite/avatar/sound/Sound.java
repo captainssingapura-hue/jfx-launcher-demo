@@ -34,12 +34,14 @@ public enum Sound {
     GATLING_DRAWN("Gatling gun drawn", null, false),
     BREAK_WOOD("A crate or dummy breaks", "size", false),
     BREAK_DRONE("A drone blows up", null, false),
+    BREAK_AIRSHIP("An airship comes down", null, false),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),
     JET_WHINE("Jet whine", null, true),
     WIND("Wind", null, true),
     GATLING_SPIN("Gatling gun spinning", null, true),
-    GATLING_FIRE("Gatling gun firing", null, true);
+    GATLING_FIRE("Gatling gun firing", null, true),
+    AIRSHIP_ENGINES("Airship engines", null, true);
 
     private final String title;
     private final String amount;

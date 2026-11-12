@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 
 import javafx.geometry.Point3D;
@@ -68,6 +69,8 @@ public final class World {
     private final double[] struckAt;
     private final List<Rotate> rotors = new ArrayList<>();
     private final List<Node> lights = new ArrayList<>();
+    private final List<Node> fires = new ArrayList<>();
+    private final PhongMaterial flame = BoxRig.glow("#ff7a1a");
     private final Bar[] bars = new Bar[BARS];
     private final PhongMaterial crack = BoxRig.matte("#1d1915");
     private double time;
@@ -96,6 +99,7 @@ public final class World {
         final String[] lit = {"#ffd166", "#7df9ff", "#ff8fab"};
         final String[] board = {"#d9c39a", "#c2a878"};
         final String[] drone = {"#3a3f47", "#4b4f3a", "#4a3c3c"};
+        final String[] hull = {"#6c757e", "#6e6c58"};
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
             final Block block = piece.block();
@@ -110,6 +114,7 @@ public final class World {
                 case GATE -> plain(part, block, BoxRig.glow(lit[piece.tint() % lit.length]));
                 case DUMMY -> dummy(part, block, BoxRig.matte(board[piece.tint() % board.length]));
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
+                case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -148,6 +153,13 @@ public final class World {
         final boolean on = time % 1.2 < 0.15;
         for (final Node light : lights) {
             light.setVisible(on);
+        }
+        for (int k = 0; k < fires.size(); k++) {
+            // flickering, each out of step with the rest
+            final double flicker = 0.8 + 0.25 * Math.sin(time * 17 + k * 2.1) + 0.15 * Math.sin(time * 41 + k);
+            fires.get(k).setScaleX(flicker);
+            fires.get(k).setScaleY(0.7 + 0.6 * flicker * flicker);
+            fires.get(k).setScaleZ(flicker);
         }
         for (int i = 0; i < parts.length; i++) {
             final double left = damage.left(i);
@@ -202,13 +214,18 @@ public final class World {
     /** Darkened as far as it is worn (each piece has a material of its own), and cracked at each step down. */
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
-        if (pieces.get(piece).kind() == Course.Kind.DRONE) {
+        final Course.Kind kind = pieces.get(piece).kind();
+        if (kind == Course.Kind.DRONE) {
             return;  // a drone's box is mostly air: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
             for (int k = 0; k < 2; k++) {
-                crack(piece, cracked[piece] * 2 + k);
+                if (kind == Course.Kind.AIRSHIP) {
+                    fire(piece, cracked[piece] * 2 + k);
+                } else {
+                    crack(piece, cracked[piece] * 2 + k);
+                }
             }
         }
     }
@@ -258,11 +275,30 @@ public final class World {
         parts[piece].getChildren().add(line);
     }
 
+    /**
+     * A fire broken out on an airship's hull, the {@code n}th: on top or down a side of its
+     * middle, where by number. The airship's frame has the hull's line at its middle, and its
+     * box's middle {@link Course#AIRSHIP_BOX} above that.
+     */
+    private void fire(final int piece, final int n) {
+        final Course.Section middle = Course.HULL.get(3);
+        final double along = (unit(piece, n, 1) - 0.5) * 1.6 * middle.halfAlong();
+        final double round = (unit(piece, n, 2) - 0.5) * Math.PI * 1.2;
+        // round the hull's square middle, from one side over the top to the other
+        final double across = Math.sin(round) * middle.halfAcross();
+        final double up = Math.cos(round) * middle.halfUp();
+        final Box burning = new Box(46, 54, 70);
+        burning.setMaterial(flame);
+        burning.setTranslateX(Math.max(-middle.halfAcross(), Math.min(middle.halfAcross(), across * 1.3)));
+        burning.setTranslateY(-(Math.min(middle.halfUp(), up * 1.3) - Course.AIRSHIP_BOX.up()) - 20);
+        burning.setTranslateZ(along);
+        fires.add(burning);
+        parts[piece].getChildren().add(burning);
+    }
+
     /** 0 to 1, the same for the same piece, crack and salt. */
     private static double unit(final int piece, final int n, final int salt) {
-        final long mixed = (piece * 0x9E3779B97F4A7C15L + n * 0xC2B2AE3D27D4EB4FL + salt * 0x165667B19E3779F9L)
-                * 0x2545F4914F6CDD1DL;
-        return (mixed >>> 11) * 0x1.0p-53;
+        return Num.hash(piece, n, salt);
     }
 
     /** A block as a box filling the piece's box. */
@@ -347,6 +383,83 @@ public final class World {
         return body;
     }
 
+    /**
+     * An airship, from {@link Course}'s own parts, so each box drawn is a box that is solid:
+     * the stepped hull, banded in yellow, the fins, the gondola with its windows lit, the
+     * engines on their pylons with a propeller turning at the back of each, and lights
+     * blinking at the nose and on the top fin.
+     */
+    private Shape3D airship(final Group part, final PhongMaterial shell) {
+        final PhongMaterial dark = BoxRig.matte("#3b4148");
+        final PhongMaterial band = BoxRig.matte("#c9a227");
+        final PhongMaterial windows = BoxRig.glow("#ffe9a8");
+        final PhongMaterial blade = BoxRig.matte("#22262b");
+        Shape3D middle = null;
+        for (final Course.Section section : Course.HULL) {
+            final Box hull = section(part, section, shell);
+            if (section == Course.HULL.get(3)) {
+                middle = hull;
+            }
+        }
+        // two bands round the middle, a hair proud of it
+        for (final double along : new double[] {-260, 300}) {
+            final Course.Section m = Course.HULL.get(3);
+            section(part, new Course.Section(0, along, 0, m.halfAcross() + 1, 22, m.halfUp() + 1), band);
+        }
+        for (final Course.Section fin : Course.FINS) {
+            section(part, fin, dark);
+        }
+        final Course.Section gondola = Course.GONDOLA;
+        section(part, gondola, dark);
+        for (double along = gondola.along() - 150; along <= gondola.along() + 150; along += 50) {
+            for (final double side : new double[] {-1, 1}) {
+                section(part, new Course.Section(side * (gondola.halfAcross() + 0.5), along, gondola.up() + 12,
+                        1, 14, 12), windows);
+            }
+        }
+        for (final Course.Section pylon : Course.PYLONS) {
+            section(part, pylon, dark);
+        }
+        for (final Course.Section engine : Course.ENGINES) {
+            section(part, engine, shell);
+            // the propeller: two blades crossed, turning about the engine's length
+            final Group propeller = new Group();
+            final Rotate spin = new Rotate(30 * rotors.size(), Rotate.Z_AXIS);
+            propeller.getTransforms().add(spin);
+            rotors.add(spin);
+            for (final double turn : new double[] {0, 90}) {
+                final Box b = new Box(170, 12, 4);
+                b.setMaterial(blade);
+                b.getTransforms().add(new Rotate(turn, Rotate.Z_AXIS));
+                propeller.getChildren().add(b);
+            }
+            propeller.setTranslateX(engine.across());
+            propeller.setTranslateY(-(engine.up() - Course.AIRSHIP_BOX.up()));
+            propeller.setTranslateZ(engine.along() - engine.halfAlong() - 6);
+            part.getChildren().add(propeller);
+        }
+        final PhongMaterial red = BoxRig.glow("#ff3b30");
+        final Course.Section nose = Course.HULL.getFirst();
+        final Course.Section fin = Course.FINS.getFirst();
+        for (final Course.Section light : new Course.Section[] {
+                new Course.Section(0, nose.along() + nose.halfAlong() + 4, 0, 10, 4, 10),
+                new Course.Section(0, fin.along() - fin.halfAlong() + 10, fin.up() + fin.halfUp() + 6, 8, 8, 6)}) {
+            lights.add(section(part, light, red));
+        }
+        return middle;
+    }
+
+    /** One of an airship's parts, as a box in its frame. */
+    private static Box section(final Group part, final Course.Section section, final PhongMaterial material) {
+        final Box box = new Box(section.halfAcross() * 2, section.halfUp() * 2, section.halfAlong() * 2);
+        box.setTranslateX(section.across());
+        box.setTranslateY(-(section.up() - Course.AIRSHIP_BOX.up()));
+        box.setTranslateZ(section.along());
+        box.setMaterial(material);
+        part.getChildren().add(box);
+        return box;
+    }
+
     private static Box flat(final Box box, final double x, final double z, final PhongMaterial material) {
         box.setTranslateX(x);
         box.setTranslateY(-0.6);
@@ -372,8 +485,13 @@ public final class World {
         }
 
         void show(final Block block, final double left, final double viewYaw) {
+            // as wide as a dummy is, or bigger over something much bigger: an airship
+            final double scale = Math.max(1, Math.max(block.halfWidth(), block.halfDepth()) / 120);
+            node.setScaleX(scale);
+            node.setScaleY(scale);
+            node.setScaleZ(scale);
             node.setTranslateX(block.x());
-            node.setTranslateY(-block.top() - 30);
+            node.setTranslateY(-block.top() - 30 * scale);
             node.setTranslateZ(block.z());
             facing.setAngle(viewYaw);
             node.setVisible(true);

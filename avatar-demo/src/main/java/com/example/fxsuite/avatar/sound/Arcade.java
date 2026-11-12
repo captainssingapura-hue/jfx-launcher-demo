@@ -68,6 +68,8 @@ public final class Arcade implements Profile {
             case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE -> breakDrone(variant);
+            case BREAK_AIRSHIP -> breakAirship(variant);
+            case AIRSHIP_ENGINES -> airshipEngines();
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
@@ -90,6 +92,9 @@ public final class Arcade implements Profile {
         }
         if (loop == Sound.GATLING_FIRE) {
             return drive.firing() ? new Level(volume(0.8), 1) : Level.OFF;
+        }
+        if (loop == Sound.AIRSHIP_ENGINES) {
+            return new Level(1, 1);
         }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
@@ -422,6 +427,48 @@ public final class Arcade implements Profile {
                     + 0.8 * triangle(phase) * fall(t, 18)) * onset(t);
         }
         return clip("break-drone", 1, variant, y, 0.8);
+    }
+
+    /**
+     * An airship coming down: three explosions in turn along its length, each the noise channel
+     * roaring and sinking, then a last long one with a deep triangle rolling under it.
+     */
+    private static Clip breakAirship(final int variant) {
+        final Chip noise = new Chip(new Noise(23_000L + variant));
+        final double tune = tune(variant);
+        final int[] starts = {0, 24, 50, 78};
+        final int[] lengths = {30, 30, 30, 80};
+        final double[] y = new double[samples((starts[3] + lengths[3] + 1) * FRAME)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            // one noise channel: the latest explosion to have begun is the one heard
+            int k = 0;
+            while (k + 1 < starts.length && t >= starts[k + 1] * FRAME) {
+                k++;
+            }
+            final double since = t - starts[k] * FRAME;
+            final double share = Math.min(1, tick(since) / (lengths[k] * FRAME));
+            phase += (60 - 30 * share) / Dsp.RATE;
+            y[i] = (noise.next(3200 * tune * Math.pow(0.1, share)) * fall(since, lengths[k])
+                    + 0.8 * triangle(phase) * fall(since, k == 3 ? 40 : 14)) * onset(t);
+        }
+        return clip("break-airship", 1, variant, y, 0.85);
+    }
+
+    /**
+     * An airship's engines: a deep triangle and a narrow pulse an octave under it, the volume
+     * stepping up and down eight times a second as the propellers' blades go by.
+     */
+    private static Clip airshipEngines() {
+        final int length = samples(2);
+        final double[] y = new double[length];
+        for (int i = 0; i < length; i++) {
+            final double t = time(i);
+            final double blades = (Math.floor(t * 16) % 2 == 0) ? 1 : 0.6;
+            y[i] = (triangle(55 * t) + 0.5 * square(27.5 * t, 0.25)) * volume(0.7 * blades);
+        }
+        return new Clip("airship-engines", Dsp.normalized(y, 0.5), true);
     }
 
     // ---- the loops

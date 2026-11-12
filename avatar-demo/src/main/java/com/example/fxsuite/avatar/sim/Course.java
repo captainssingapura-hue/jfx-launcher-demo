@@ -14,8 +14,9 @@ import java.util.Random;
  *   <li>crates scattered about, from knee height to just out of a jump's reach;</li>
  *   <li>tall pillars, to walk between and fly over and land on;</li>
  *   <li>gates up in the air, four bars round an opening to fly through;</li>
- *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, and
- *       drones hovering round it.</li>
+ *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, drones
+ *       hovering round it, and, high over everything else and far out, three great armoured
+ *       airships.</li>
  * </ul>
  *
  * <p>Crates and targets can be broken ({@link Damage}); pillars and gates are what the world is
@@ -24,7 +25,7 @@ import java.util.Random;
 public final class Course {
 
     public enum Kind {
-        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true);
+        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true);
 
         private final boolean breakable;
 
@@ -39,13 +40,77 @@ public final class Course {
 
         /** Whether it is something put there to be shot at. */
         public boolean target() {
-            return this == DUMMY || this == DRONE;
+            return this == DUMMY || this == DRONE || this == AIRSHIP;
         }
     }
 
-    /** One block, with what it is and which of its kind's colours to draw it in. */
-    public record Piece(Block block, Kind kind, int tint) {
+    /**
+     * One thing in the world, with what it is and which of its kind's colours to draw it in:
+     * {@code block}, the box it fills, and {@code solid}, the blocks that are actually in the way
+     * (the same box, but for an airship, whose hull, fins, gondola and engines are each one).
+     * Broken, all of it goes at once.
+     */
+    public record Piece(Block block, Kind kind, int tint, List<Block> solid) {
+
+        public Piece {
+            solid = List.copyOf(solid);
+        }
+
+        /** A piece that is just its box. */
+        public Piece(final Block block, final Kind kind, final int tint) {
+            this(block, kind, tint, List.of(block));
+        }
     }
+
+    /**
+     * A part of an airship, a box in the airship's own frame: its middle {@code across} to the
+     * right of the hull's line, {@code along} it toward the nose and {@code up} from it, and half
+     * as wide, long and tall as these.
+     */
+    public record Section(double across, double along, double up, double halfAcross, double halfAlong,
+                          double halfUp) {
+
+        /** As a block, for an airship at ({@code x}, {@code height}, {@code z}) heading {@code yaw}. */
+        public Block placed(final double x, final double height, final double z, final double yaw) {
+            final Vec3 at = new Vec3(x, 0, z).add(Num.right(yaw).multiply(across))
+                    .add(Num.heading(yaw).multiply(along));
+            return new Block(at.x(), at.z(), halfAcross, halfAlong, yaw, height + up - halfUp, height + up + halfUp);
+        }
+    }
+
+    /**
+     * An airship's hull: stepping out from a blunt nose to its full girth and back in to the
+     * tail, 18 m long and 4.4 m across. Then a cross of fins at the tail, a gondola under the
+     * middle, and an engine either side on a pylon. Each is solid.
+     */
+    public static final List<Section> HULL = List.of(
+            new Section(0, 840, 0, 100, 60, 100),
+            new Section(0, 700, 0, 160, 80, 160),
+            new Section(0, 520, 0, 200, 100, 200),
+            new Section(0, 40, 0, 220, 380, 220),
+            new Section(0, -460, 0, 200, 120, 200),
+            new Section(0, -680, 0, 160, 100, 160),
+            new Section(0, -840, 0, 100, 60, 100));
+    public static final List<Section> FINS = List.of(
+            new Section(0, -760, 250, 8, 140, 130),
+            new Section(0, -760, -250, 8, 140, 130),
+            new Section(-250, -760, 0, 130, 140, 8),
+            new Section(250, -760, 0, 130, 140, 8));
+    public static final Section GONDOLA = new Section(0, 80, -275, 75, 190, 55);
+    public static final List<Section> PYLONS = List.of(
+            new Section(-255, -60, -40, 40, 30, 7),
+            new Section(255, -60, -40, 40, 30, 7));
+    public static final List<Section> ENGINES = List.of(
+            new Section(-330, -60, -40, 40, 80, 40),
+            new Section(330, -60, -40, 40, 80, 40));
+    /** All of an airship's box: out to the fins' tips, nose to tail, gondola to the top fin. */
+    public static final Section AIRSHIP_BOX = new Section(0, 0, 25, 380, 900, 355);
+    /** The airships: where each hangs (heading from the start, how far, how high) and which way it points. */
+    private static final double[][] AIRSHIPS = {
+            {70, 6500, 3100, 160},
+            {190, 7500, 3300, 100},
+            {300, 5500, 3500, 20},
+    };
 
     /** The heading the avatar starts on: the staircase lies along it. */
     public static final double START_YAW = 30;
@@ -122,6 +187,24 @@ public final class Course {
             pieces.add(new Piece(new Block(at.x(), at.z(), DRONE_SIZE / 2, DRONE_SIZE / 2, heading,
                     low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
         }
+
+        // and the airships, high over everything else, far out round the start
+        for (int i = 0; i < AIRSHIPS.length; i++) {
+            final double[] a = AIRSHIPS[i];
+            final Vec3 at = Num.heading(a[0]).multiply(a[1]);
+            final List<Block> solid = new ArrayList<>();
+            for (final List<Section> parts : List.of(HULL, FINS, List.of(GONDOLA), PYLONS, ENGINES)) {
+                for (final Section part : parts) {
+                    solid.add(part.placed(at.x(), a[2], at.z(), a[3]));
+                }
+            }
+            pieces.add(new Piece(AIRSHIP_BOX.placed(at.x(), a[2], at.z(), a[3]), Kind.AIRSHIP, i % 2, solid));
+        }
+    }
+
+    /** How high the airships' hulls run, each one's line through the middle of its hull: for the graphics. */
+    public static double hullHeight(final Piece airship) {
+        return airship.block().bottom() + AIRSHIP_BOX.halfUp() - AIRSHIP_BOX.up();
     }
 
     /**
@@ -148,7 +231,16 @@ public final class Course {
     }
 
     public Obstacles obstacles() {
-        return new Obstacles(pieces.stream().map(Piece::block).toList(), gates);
+        // each piece's solid blocks, numbered as the piece is
+        final List<Block> blocks = new ArrayList<>();
+        final List<Integer> numbers = new ArrayList<>();
+        for (int i = 0; i < pieces.size(); i++) {
+            for (final Block block : pieces.get(i).solid()) {
+                blocks.add(block);
+                numbers.add(i);
+            }
+        }
+        return new Obstacles(blocks, gates, numbers);
     }
 
     /**

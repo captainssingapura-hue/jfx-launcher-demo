@@ -35,4 +35,20 @@ public final class Num {
         final double y = Math.toRadians(yaw);
         return new Vec3(Math.cos(y), 0, -Math.sin(y));
     }
+
+    /**
+     * 0 to 1, the same for the same numbers, and as good as random from one to the next: for
+     * scatter that repeats run to run. Each number is stirred in in turn (SplitMix64's mixing),
+     * so even counting 1, 2, 3 gives values that don't fall into lines, as a single multiply would.
+     */
+    public static double hash(final long... numbers) {
+        long state = 0x5DEECE66DL;
+        for (final long n : numbers) {
+            long z = state + n * 0x9E3779B97F4A7C15L + 0x9E3779B97F4A7C15L;
+            z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+            z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+            state = z ^ (z >>> 31);
+        }
+        return (state >>> 11) * 0x1.0p-53;
+    }
 }

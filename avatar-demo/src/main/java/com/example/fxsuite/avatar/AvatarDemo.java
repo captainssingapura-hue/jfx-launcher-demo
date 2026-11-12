@@ -221,7 +221,9 @@ public final class AvatarDemo extends Application {
         world.show(damage, seconds, chase.yaw());
         reticle.show(avatar, damage.obstacles(), chase.position());
         world.shadowUnder(body, damage.obstacles());
-        hearing.hear(avatar, chase);
+        // the airships still in the sky drone from the middle of their hulls
+        hearing.hear(avatar, chase, damage.standing(Course.Kind.AIRSHIP).stream()
+                .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList());
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -254,8 +256,10 @@ public final class AvatarDemo extends Application {
         final String sound = hearing.output() == Speakers.Kind.SILENT ? "no sound"
                 : hearing.muted() ? "sound muted" : hearing.profile().title() + " sounds";
         final String weapon = avatar.holding() == Weapon.NONE ? "" : " · " + avatar.holding().title();
-        final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE);
-        final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE);
+        final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE)
+                + damage.count(Course.Kind.AIRSHIP);
+        final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE)
+                + damage.broken(Course.Kind.AIRSHIP);
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = String.format(" · targets down %d of %d%s", down, targets,
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");

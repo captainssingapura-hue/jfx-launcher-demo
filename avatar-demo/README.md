@@ -44,16 +44,21 @@ characters, and a separate sound bench is for working on the sounds.
   into the ground in front, and a sweep catches what is beside; on a block the blade leaves a
   gash. The marks fade after a while.
 - **Targets and damage.** A range of wooden target dummies stands off to the left of the start,
-  more behind it, and drones hover all round. They and the crates can be broken; pillars and
+  more behind it, and drones hover all round. High over everything, far out, hang three great
+  armoured airships. Each is 18 m long, with a stepped steel hull banded in yellow, a cross of
+  tail fins, a lit gondola underneath and an engine with a turning propeller either side. Each
+  part of one is solid, so it can be landed on. They, and the crates, can be broken; pillars and
   gates stand whatever is thrown at them. Every round or stroke takes some of what a piece can
   take:
   - a rifle round takes 10, a Gatling round 8 (but 40 a second), and a stroke of the glaive 100;
-  - a dummy can take 300 and a drone 120; a crate from about 90 to 600, by its size.
+  - a dummy can take 300, a drone 120, and an airship 3,000: most of ten seconds of the
+    Gatling gun. A crate takes from about 90 to 600, by its size.
 
-  As it wears down it darkens and cracks, and a bar over it shows what it has left. The blow
-  that takes the last of it breaks it: a crate or dummy bursts into pieces that tumble, bounce
-  and come to rest, and a drone goes up in a fireball. Broken is for good, until the demo starts
-  again. It is gone from the world, so rounds fly on through where it stood and whatever stood
+  As it wears down it darkens and cracks, and a bar over it shows what it has left. An airship
+  catches fire instead, in more places as it nears its end. The blow that takes the last of it
+  breaks it: a crate or dummy bursts into pieces that tumble, bounce and come to rest, and a
+  drone goes up in a fireball. An airship goes up in blast after blast along its hull and rains
+  wreckage from the sky. Broken is for good, until the demo starts again. It is gone from the world, so rounds fly on through where it stood and whatever stood
   on it falls. The HUD counts the targets down and the crates broken.
 
 ## Build and run
@@ -110,7 +115,9 @@ motor whines up and down with its spin, and it roars while it fires. What they s
 is heard where it is struck: a round on a block, ticking or ricocheting, or thudding into the
 ground; the blade clanging off a block, or chopping into the earth. What breaks is heard where
 it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
-was, or a drone blowing up. The jets roar as
+was, a drone blowing up, or an airship coming down in a chain of blasts with its frame
+groaning. The nearest airship still in the sky drones from where it hangs, faint from the
+ground and loud alongside it. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.
