@@ -111,6 +111,14 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms, Li
         return wearingPack ? body.thrust() : 0;
     }
 
+    /**
+     * The same avatar, with more to report: what its blows did to the world ({@link Damage}),
+     * heard and seen with the rest of this frame's events.
+     */
+    public Avatar reporting(final List<Event> more) {
+        return more.isEmpty() ? this : new Avatar(body, wearingPack, sweep, arms, with(more));
+    }
+
     /** The same avatar, its events handed on: what happens next starts a fresh list. */
     public Avatar delivered() {
         return events.isEmpty() ? this : new Avatar(body, wearingPack, sweep, arms, List.of());

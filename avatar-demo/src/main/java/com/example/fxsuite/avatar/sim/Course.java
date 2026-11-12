@@ -13,12 +13,35 @@ import java.util.Random;
  *   <li>a staircase of crates straight ahead of the start, each step a jump up from the last;</li>
  *   <li>crates scattered about, from knee height to just out of a jump's reach;</li>
  *   <li>tall pillars, to walk between and fly over and land on;</li>
- *   <li>gates up in the air, four bars round an opening to fly through.</li>
+ *   <li>gates up in the air, four bars round an opening to fly through;</li>
+ *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, and
+ *       drones hovering round it.</li>
  * </ul>
+ *
+ * <p>Crates and targets can be broken ({@link Damage}); pillars and gates are what the world is
+ * built on, and stand whatever is thrown at them.
  */
 public final class Course {
 
-    public enum Kind { PILLAR, CRATE, GATE }
+    public enum Kind {
+        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true);
+
+        private final boolean breakable;
+
+        Kind(final boolean breakable) {
+            this.breakable = breakable;
+        }
+
+        /** Whether it can be worn down and broken. */
+        public boolean breakable() {
+            return breakable;
+        }
+
+        /** Whether it is something put there to be shot at. */
+        public boolean target() {
+            return this == DUMMY || this == DRONE;
+        }
+    }
 
     /** One block, with what it is and which of its kind's colours to draw it in. */
     public record Piece(Block block, Kind kind, int tint) {
@@ -30,6 +53,18 @@ public final class Course {
     public static final double STEP_RISE = 60;
     public static final double GATE_SPAN = 600;
     public static final double GATE_BAR = 36;
+    /** The range of dummies: which way from the start, and how far. */
+    public static final double RANGE_HEADING = -40;
+    public static final double RANGE_OUT = 1100;
+    /** A dummy: a board on legs, as wide, as thick and as tall as this; and how far apart in a row. */
+    public static final double DUMMY_WIDTH = 90;
+    public static final double DUMMY_DEPTH = 24;
+    public static final double DUMMY_HEIGHT = 180;
+    public static final double DUMMY_APART = 200;
+    /** The drones: how many, how wide across, and how deep top to bottom. */
+    public static final int DRONES = 8;
+    public static final double DRONE_SIZE = 130;
+    public static final double DRONE_HEIGHT = 40;
 
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Gate> gates = new ArrayList<>();
@@ -74,6 +109,32 @@ public final class Course {
             final double reach = 1800 + random.nextDouble() * 8000;
             gate(Math.sin(angle) * reach, 500 + random.nextDouble() * 1500, Math.cos(angle) * reach,
                     random.nextDouble() * 180, i % 3);
+        }
+
+        // the targets, last, in the open ring round the start: a range of dummies off to the
+        // left, another few behind, and drones hovering all round
+        range(RANGE_HEADING, RANGE_OUT, 5);
+        range(START_YAW + 180, RANGE_OUT + 50, 3);
+        for (int i = 0; i < DRONES; i++) {
+            final double heading = 10 + 360.0 * i / DRONES;
+            final Vec3 at = Num.heading(heading).multiply(i % 2 == 0 ? 800 : 1200);
+            final double low = 280 + 110 * (i % 4);
+            pieces.add(new Piece(new Block(at.x(), at.z(), DRONE_SIZE / 2, DRONE_SIZE / 2, heading,
+                    low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
+        }
+    }
+
+    /**
+     * A row of {@code count} dummies, {@code out} from the start along {@code heading}, each
+     * facing back toward it, side by side.
+     */
+    private void range(final double heading, final double out, final int count) {
+        final Vec3 middle = Num.heading(heading).multiply(out);
+        final Vec3 across = Num.right(heading);
+        for (int k = 0; k < count; k++) {
+            final Vec3 at = middle.add(across.multiply((k - (count - 1) / 2.0) * DUMMY_APART));
+            pieces.add(new Piece(Block.standing(at.x(), at.z(), DUMMY_WIDTH, DUMMY_DEPTH, DUMMY_HEIGHT, heading),
+                    Kind.DUMMY, k % 2));
         }
     }
 

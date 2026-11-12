@@ -7,12 +7,13 @@ import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.World;
+import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Num;
-import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.view.Chase;
@@ -80,9 +81,11 @@ public final class AvatarDemo extends Application {
     private final Set<KeyCode> held = EnumSet.noneOf(KeyCode.class);
     private final BoxRig rig = new BoxRig();
     private final Course course = new Course();
-    private final Obstacles obstacles = course.obstacles();
+    /** What the weapons have done to the course, and so what still stands in it. */
+    private Damage damage = Damage.of(course);
     private final World world = new World(course);
     private final Impacts impacts = new Impacts();
+    private final Wreckage wreckage = new Wreckage();
     private final Reticle reticle = new Reticle();
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Translate eyeAt = new Translate();
@@ -113,7 +116,8 @@ public final class AvatarDemo extends Application {
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
-        final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), reticle.node(), eye);
+        final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
+                reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
         view.setFill(World.SKY);
@@ -198,7 +202,11 @@ public final class AvatarDemo extends Application {
                 clicking || scriptedTrigger,
                 // aimed up or down as far as the view is tilted from rest, so level as it walks
                 chase.pitch() - Chase.DEFAULT_PITCH);
-        avatar = avatar.step(controls, seconds, obstacles);
+        avatar = avatar.step(controls, seconds, damage.obstacles());
+        // what its blows did to the world, reported with the rest of what happened this frame
+        final Damage.Taken taken = damage.took(avatar.events());
+        damage = taken.damage();
+        avatar = avatar.reporting(taken.events());
         final Body body = avatar.body();
         final double tilt = look.takeTilt() + scriptedTilt * seconds;
         final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
@@ -209,8 +217,10 @@ public final class AvatarDemo extends Application {
 
         rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
         impacts.show(avatar);
-        reticle.show(avatar, obstacles, chase.position());
-        world.shadowUnder(body, obstacles);
+        wreckage.show(avatar, world, damage.obstacles());
+        world.show(damage, seconds, chase.yaw());
+        reticle.show(avatar, damage.obstacles(), chase.position());
+        world.shadowUnder(body, damage.obstacles());
         hearing.hear(avatar, chase);
 
         // boosting widens the view a little, for a sense of speed
@@ -244,9 +254,14 @@ public final class AvatarDemo extends Application {
         final String sound = hearing.output() == Speakers.Kind.SILENT ? "no sound"
                 : hearing.muted() ? "sound muted" : hearing.profile().title() + " sounds";
         final String weapon = avatar.holding() == Weapon.NONE ? "" : " · " + avatar.holding().title();
-        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s · %s%s", what, metres, body.height() / 100,
-                avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon, sound,
-                look.captured() ? "" : " · mouse free: Esc to turn with it");
+        final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE);
+        final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE);
+        final int crates = damage.broken(Course.Kind.CRATE);
+        final String score = String.format(" · targets down %d of %d%s", down, targets,
+                crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken");
+        final String text = String.format("%s · %.1f m/s · %.1f m up · %s%s%s · %s%s", what, metres,
+                body.height() / 100, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on", weapon,
+                score, sound, look.captured() ? "" : " · mouse free: Esc to turn with it");
         if (!text.equals(shown)) {
             shown = text;
             status.setText(text);

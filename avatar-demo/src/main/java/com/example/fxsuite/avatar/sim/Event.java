@@ -1,10 +1,11 @@
 package com.example.fxsuite.avatar.sim;
 
 /**
- * Something that happened to the avatar, as the simulation reports it: the moments that cannot
- * be read back from its state afterwards, because a landing has already zeroed the fall that
- * made it, or a bump the speed it took away. Each output (the graphics, the sound) listens for
- * the ones it has a use for. Speeds are in world units per second.
+ * Something that happened, as the simulation reports it: to the avatar, or to the world at its
+ * hands. The moments that cannot be read back from its state afterwards, because a landing has
+ * already zeroed the fall that made it, or a bump the speed it took away. Each output (the
+ * graphics, the sound) listens for the ones it has a use for. Speeds are in world units per
+ * second.
  */
 public sealed interface Event {
 
@@ -56,9 +57,28 @@ public sealed interface Event {
 
     /**
      * A weapon struck something: at {@code at}, on a surface facing {@code normal}, the ground or a
-     * block. A round fired, or the glaive's blade coming through.
+     * block, which is piece {@code piece} of the {@link Course} (-1 for the ground). A round
+     * fired, or the glaive's blade coming through.
      */
-    record Struck(Vec3 at, Vec3 normal, Surface on, Weapon by) implements Event {
+    record Struck(Vec3 at, Vec3 normal, Surface on, Weapon by, int piece) implements Event {
+
+        /** Struck, on no piece in particular. */
+        public Struck(final Vec3 at, final Vec3 normal, final Surface on, final Weapon by) {
+            this(at, normal, on, by, -1);
+        }
+    }
+
+    /**
+     * Something was broken: piece {@code piece} of the {@link Course}, a {@code kind} that was
+     * the box {@code block}, its last blow struck at {@code struck} by {@code by}. It is gone from
+     * the world for good ({@link Damage}).
+     */
+    record Broke(int piece, Course.Kind kind, Block block, Vec3 struck, Weapon by) implements Event {
+
+        /** The middle of what broke. */
+        public Vec3 middle() {
+            return new Vec3(block.x(), -(block.bottom() + block.top()) / 2, block.z());
+        }
     }
 
     /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */

@@ -66,6 +66,8 @@ public final class Arcade implements Profile {
             case BLADE_ON_BLOCK -> clink(variant);
             case BLADE_ON_GROUND -> impact("blade-on-ground", 2000, 6, 110, 5, 0.45, variant);
             case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
+            case BREAK_WOOD -> breakWood(amount, variant);
+            case BREAK_DRONE -> breakDrone(variant);
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
@@ -371,6 +373,55 @@ public final class Arcade implements Profile {
             y[i] = (square(1318.51 * tune * t, 0.125) + square(1975.53 * tune * t, 0.125)) * fall(t, 7) * onset(t);
         }
         return clip("blade-on-block", 1, variant, y, 0.4);
+    }
+
+    // ---- what breaks
+
+    /**
+     * A crate or a dummy breaking: a crunch of noise sliding down, a square "bonk" falling an
+     * octave under it, then three short rattles as the pieces land. Bigger ({@code size}, 0 to 1)
+     * is lower and longer.
+     */
+    private static Clip breakWood(final double size, final int variant) {
+        final Chip noise = new Chip(new Noise(21_000L + variant));
+        final double tune = tune(variant);
+        final int crunch = 12 + (int) Math.round(8 * size);
+        final int[] rattles = {crunch + 4, crunch + 9, crunch + 13};
+        final double[] y = new double[samples((rattles[2] + 3) * FRAME)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double share = Math.min(1, tick(t) / (crunch * FRAME));
+            phase += (220 - 80 * size) * tune * Math.pow(2, -share) / Dsp.RATE;
+            double s = noise.next((5000 - 2000 * size) * tune * (1 - 0.6 * share)) * fall(t, crunch)
+                    + 0.6 * square(phase, 0.25) * fall(t, 6);
+            for (int k = 0; k < rattles.length; k++) {
+                s += 0.5 * (1 - 0.25 * k) * noise.next(9000 * tune) * fall(t - rattles[k] * FRAME, 2);
+            }
+            y[i] = s * onset(t);
+        }
+        return clip("break-wood", size, variant, y, 0.45 + 0.3 * size);
+    }
+
+    /**
+     * A drone blowing up, as every old game's explosion did: the noise channel at its lowest,
+     * roaring and sinking, stepping down to silence over most of a second, with a low triangle
+     * thud under it.
+     */
+    private static Clip breakDrone(final int variant) {
+        final Chip noise = new Chip(new Noise(22_000L + variant));
+        final double tune = tune(variant);
+        final int frames = 48;
+        final double[] y = new double[samples((frames + 1) * FRAME)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double share = Math.min(1, tick(t) / (frames * FRAME));
+            phase += (70 - 35 * share) / Dsp.RATE;
+            y[i] = (noise.next(3600 * tune * Math.pow(0.12, share)) * fall(t, frames)
+                    + 0.8 * triangle(phase) * fall(t, 18)) * onset(t);
+        }
+        return clip("break-drone", 1, variant, y, 0.8);
     }
 
     // ---- the loops

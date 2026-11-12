@@ -73,6 +73,10 @@ public final class Impacts {
                 }
             } else if (event instanceof Event.Struck struck) {
                 struck(struck, avatar.body().yaw());
+            } else if (event instanceof Event.Broke broke) {
+                // what was marked is gone, and its marks with it
+                holes.clear(broke.piece());
+                gashes.clear(broke.piece());
             }
         }
         for (final Pool pool : new Pool[] {tracers, sparks, dust, holes, gashes}) {
@@ -104,13 +108,13 @@ public final class Impacts {
         if (blade) {
             if (struck.on() == Surface.BLOCK) {
                 // a gash across the face, turned with the avatar
-                gashes.next(MARK).mark(off, struck.normal(), yaw);
+                gashes.next(MARK).mark(off, struck.normal(), yaw, struck.piece());
             }
         } else {
             // a steady stream lands in one place: one hole there, not one on top of another, which would
             // lie in the same plane and flicker
             if (!holes.anyNear(off, HOLE_APART)) {
-                holes.next(MARK).mark(off, struck.normal(), count * 47.0);
+                holes.next(MARK).mark(off, struck.normal(), count * 47.0, struck.piece());
             }
         }
     }
@@ -165,6 +169,16 @@ public final class Impacts {
                 particle.fly(seconds);
             }
         }
+
+        /** Takes away every mark on piece {@code piece}. */
+        void clear(final int piece) {
+            for (final Particle particle : items) {
+                if (particle.piece == piece) {
+                    particle.shape.setVisible(false);
+                    particle.piece = -1;
+                }
+            }
+        }
     }
 
     /** One shape: where it is, how it moves, and how long it has. */
@@ -177,6 +191,8 @@ public final class Impacts {
         private boolean falls;
         private double life;
         private double age;
+        /** The piece of the course it is marked on; -1 for none (the ground, or not a mark). */
+        private int piece = -1;
 
         Particle(final Box shape) {
             this.shape = shape;
@@ -194,11 +210,12 @@ public final class Impacts {
             show();
         }
 
-        /** Flat on a surface facing {@code normal}, turned {@code spin} degrees about it. */
-        void mark(final Vec3 where, final Vec3 normal, final double spin) {
+        /** Flat on a surface facing {@code normal}, turned {@code spin} degrees about it, on piece {@code on}. */
+        void mark(final Vec3 where, final Vec3 normal, final double spin, final int on) {
             at = where;
             velocity = Vec3.ZERO;
             falls = false;
+            piece = on;
             align(normal, spin);
             show();
         }

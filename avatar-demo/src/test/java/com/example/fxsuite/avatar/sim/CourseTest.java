@@ -128,4 +128,48 @@ class CourseTest {
                 .dotProduct(ahead);
         return past > 300;
     }
+
+    @Test
+    void theTargetsStandInTheOpenEachClearOfEverythingElse() {
+        final List<Course.Piece> pieces = course.pieces();
+        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target()).toList();
+        assertEquals(8, targets.stream().filter(p -> p.kind() == Course.Kind.DUMMY).count());
+        assertEquals(Course.DRONES, targets.stream().filter(p -> p.kind() == Course.Kind.DRONE).count());
+        for (final Course.Piece target : targets) {
+            final Block t = target.block();
+            // a circle round the whole footprint, with room to spare, touches nothing at its heights
+            final double round = Math.hypot(t.halfWidth(), t.halfDepth()) + 40;
+            for (final Course.Piece other : pieces) {
+                final Block o = other.block();
+                if (other == target || o.top() <= t.bottom() || o.bottom() >= t.top()) {
+                    continue;
+                }
+                assertFalse(o.covers(t.x(), t.z(), round), target + " overlaps " + other);
+            }
+        }
+    }
+
+    @Test
+    void dummiesFaceTheStartAndDronesHoverOutOfAJumpsReach() {
+        final double reach = Body.JUMP * Body.JUMP / (2 * Body.GRAVITY) + Body.STEP;
+        for (final Course.Piece piece : course.pieces()) {
+            final Block b = piece.block();
+            if (piece.kind() == Course.Kind.DUMMY) {
+                assertEquals(0, b.bottom(), "standing on the ground");
+                // its broad face square on to the start, give or take the row's spread
+                final Vec3 facing = Num.heading(b.yaw());
+                final Vec3 toward = new Vec3(-b.x(), 0, -b.z()).normalize();
+                assertTrue(-facing.dotProduct(toward) > 0.9, piece + " faces the start");
+            } else if (piece.kind() == Course.Kind.DRONE) {
+                assertTrue(b.bottom() > reach, piece + " hovers out of a jump's reach");
+            }
+        }
+    }
+
+    @Test
+    void onlyCratesAndTargetsCanBreak() {
+        for (final Course.Kind kind : Course.Kind.values()) {
+            assertEquals(kind == Course.Kind.CRATE || kind.target(), kind.breakable(), kind.name());
+        }
+    }
 }

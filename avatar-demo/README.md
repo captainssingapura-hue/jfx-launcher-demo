@@ -42,7 +42,19 @@ characters, and a separate sound bench is for working on the sounds.
   it strikes a block it throws sparks and leaves a bullet hole; on the ground, a puff of dust.
   The glaive strikes whatever is within its reach as the blade comes through. A cleave chops
   into the ground in front, and a sweep catches what is beside; on a block the blade leaves a
-  gash. The marks fade after a while, and the world itself is unharmed.
+  gash. The marks fade after a while.
+- **Targets and damage.** A range of wooden target dummies stands off to the left of the start,
+  more behind it, and drones hover all round. They and the crates can be broken; pillars and
+  gates stand whatever is thrown at them. Every round or stroke takes some of what a piece can
+  take:
+  - a rifle round takes 10, a Gatling round 8 (but 40 a second), and a stroke of the glaive 100;
+  - a dummy can take 300 and a drone 120; a crate from about 90 to 600, by its size.
+
+  As it wears down it darkens and cracks, and a bar over it shows what it has left. The blow
+  that takes the last of it breaks it: a crate or dummy bursts into pieces that tumble, bounce
+  and come to rest, and a drone goes up in a fireball. Broken is for good, until the demo starts
+  again. It is gone from the world, so rounds fly on through where it stood and whatever stood
+  on it falls. The HUD counts the targets down and the crates broken.
 
 ## Build and run
 
@@ -96,7 +108,9 @@ as the fall), bump and gate flown through, the pack, and its wings swinging. So 
 rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun's
 motor whines up and down with its spin, and it roars while it fires. What they strike
 is heard where it is struck: a round on a block, ticking or ricocheting, or thudding into the
-ground; the blade clanging off a block, or chopping into the earth. The jets roar as
+ground; the blade clanging off a block, or chopping into the earth. What breaks is heard where
+it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
+was, or a drone blowing up. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.
@@ -167,9 +181,9 @@ rule of the world can be tested without a window or a sound card.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit`), and the gates' openings (`Gate`). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, and what each struck. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Reticle` (the crosshair, out in the world) and `World` draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, and a drone's fireball), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

@@ -2,8 +2,10 @@ package com.example.fxsuite.avatar.sound;
 
 import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Controls;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
@@ -112,6 +114,23 @@ class CuesTest {
         assertEquals(List.of(Sound.RIFLES_DRAWN, Sound.GLAIVE_DRAWN),
                 played(with(0, false, new Event.Drew(Weapon.RIFLES), new Event.Drew(Weapon.GLAIVE),
                         new Event.Drew(Weapon.NONE))), "putting a weapon away is silent");
+    }
+
+    @Test
+    void whatBreaksIsHeardWhereItStoodBiggerCratesDeeper() {
+        final Block dummy = Block.standing(0, 1000, Course.DUMMY_WIDTH, Course.DUMMY_DEPTH, Course.DUMMY_HEIGHT, 0);
+        final Block crate = Block.standing(0, 1000, 260, 260, 240, 0);
+        final Block drone = new Block(0, 1000, 65, 65, 0, 400, 440);
+        final Vec3 hit = new Vec3(0, -100, 990);
+        final List<Cues.Play> plays = Cues.of(with(0, false,
+                new Event.Broke(1, Course.Kind.DUMMY, dummy, hit, Weapon.RIFLES),
+                new Event.Broke(2, Course.Kind.CRATE, crate, hit, Weapon.GATLING),
+                new Event.Broke(3, Course.Kind.DRONE, drone, hit, Weapon.RIFLES)), PROFILE).plays();
+        assertEquals(List.of(Sound.BREAK_WOOD, Sound.BREAK_WOOD, Sound.BREAK_DRONE),
+                plays.stream().map(Cues.Play::sound).toList());
+        assertEquals(0, plays.get(0).amount(), 1e-9, "a dummy is the smallest");
+        assertEquals(1, plays.get(1).amount(), 1e-9, "the biggest crate the biggest");
+        assertEquals(new Vec3(0, -420, 1000), plays.get(2).at(), "from the middle of where it was");
     }
 
     @Test

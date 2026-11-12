@@ -68,6 +68,8 @@ public final class Robot implements Profile {
             case BLADE_ON_BLOCK -> bladeOnBlock(variant);
             case BLADE_ON_GROUND -> bladeOnGround(variant);
             case GATLING_DRAWN -> gatlingDrawn(variant);
+            case BREAK_WOOD -> breakWood(amount, variant);
+            case BREAK_DRONE -> breakDrone(variant);
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> jetRumble();
@@ -541,6 +543,104 @@ public final class Robot implements Profile {
                     + 0.4 * grit.band * hit(t - 0.01, 0.005, 0.06);
         }
         return new Clip(name("blade-on-ground", 1, variant), Dsp.finish(y, 0.55), false);
+    }
+
+    // ---- what breaks
+
+    /**
+     * A crate or a dummy breaking: a sharp snap as it gives, a crackle of splintering wood, the
+     * hollow knock of the boards, and the pieces clattering down after. {@code size}, 0 to 1,
+     * from a dummy or a small crate to the biggest: deeper, louder, and longer to settle.
+     */
+    public static Clip breakWood(final double size, final int variant) {
+        final Noise noise = new Noise(21_000L + variant);
+        final Noise chance = new Noise(21_500L + variant);
+        final double tune = 1 + 0.06 * noise.next();
+        final double[] y = new double[samples(0.95 + 0.45 * size)];
+        final Filter snap = new Filter(3200 * tune, 1);
+        final Filter splinter = new Filter(2400 * tune, 2.2);
+        final Filter boards = new Filter((170 - 60 * size) * tune, 6);
+        final Filter dull = new Filter(500, 0.7);
+        // the pieces landing: when, and how each one rings
+        final int pieces = 5;
+        final double[] when = new double[pieces];
+        final Filter[] knocks = new Filter[pieces];
+        for (int k = 0; k < pieces; k++) {
+            when[k] = (0.22 + 0.13 * k + 0.05 * chance.next()) * (1 + 0.4 * size);
+            knocks[k] = new Filter((420 + 260 * Math.abs(chance.next())) * tune, 7);
+        }
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            final double strike = w * hit(t, 0.0003, 0.006);
+            snap.push(strike);
+            boards.push(strike);
+            dull.push(w);
+            // a crackle: ticks at random, thick at first and thinning out
+            final double density = 900 * Math.exp(-t / (0.1 + 0.08 * size));
+            final double tick = (chance.next() + 1) / 2 < density / Dsp.RATE ? chance.next() * 8 : 0;
+            splinter.push(tick);
+            double clatter = 0;
+            for (int k = 0; k < pieces; k++) {
+                final double since = t - when[k];
+                knocks[k].push(since >= 0 && since < 0.002 ? w * (1 - 0.12 * k) : 0);
+                clatter += knocks[k].band;
+            }
+            phase += TAU * (48 + 70 * Math.exp(-t / 0.05)) * tune / Dsp.RATE;
+            y[i] = 1.5 * snap.band + 0.9 * splinter.band + (2.5 + 2 * size) * boards.band
+                    + (0.6 + 0.6 * size) * Math.sin(phase) * hit(t, 0.002, 0.08 + 0.08 * size)
+                    + 0.8 * dull.low * hit(t, 0.002, 0.06 + 0.06 * size)
+                    + 1.8 * clatter;
+        }
+        return new Clip(name("break-wood", size, variant), Dsp.finish(y, 0.5 + 0.35 * size), false);
+    }
+
+    /**
+     * A drone blowing up: a deep boom and a blast of air that darkens as it dies away, a crackle
+     * of burning parts, its motors whining down to nothing, and bits of metal pinging as they
+     * fall.
+     */
+    public static Clip breakDrone(final int variant) {
+        final Noise noise = new Noise(22_000L + variant);
+        final Noise chance = new Noise(22_500L + variant);
+        final double tune = 1 + 0.05 * noise.next();
+        final double[] y = new double[samples(1.7)];
+        final Filter blast = new Filter(3000, 0.8);
+        final Filter crackle = new Filter(3200 * tune, 1.5);
+        final Filter fizz = new Filter(6500, 1);
+        final int bits = 3;
+        final double[] when = new double[bits];
+        final Filter[] pings = new Filter[bits];
+        for (int k = 0; k < bits; k++) {
+            when[k] = 0.55 + 0.2 * k + 0.06 * chance.next();
+            pings[k] = new Filter((1300 + 1100 * Math.abs(chance.next())) * tune, 25);
+        }
+        double boom = 0;
+        double whine = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double w = noise.next();
+            blast.tune(300 + 2700 * Math.exp(-t / 0.18), 0.8).push(w);
+            fizz.push(w);
+            final double density = 500 * Math.exp(-t / 0.45);
+            crackle.push((chance.next() + 1) / 2 < density / Dsp.RATE ? chance.next() * 8 : 0);
+            boom += TAU * (34 + 60 * Math.exp(-t / 0.12)) * tune / Dsp.RATE;
+            whine += TAU * (220 + 1700 * Math.exp(-t / 0.3)) * tune / Dsp.RATE;
+            double ping = 0;
+            for (int k = 0; k < bits; k++) {
+                final double since = t - when[k];
+                pings[k].push(since >= 0 && since < 0.001 ? w : 0);
+                ping += pings[k].band;
+            }
+            y[i] = 1.3 * Math.sin(boom) * hit(t, 0.003, 0.28)
+                    + 1.4 * blast.low * hit(t, 0.002, 0.35)
+                    + 0.8 * crackle.band
+                    + 0.22 * Math.sin(whine) * hit(t - 0.02, 0.01, 0.35)
+                    + 0.3 * fizz.band * hit(t, 0.005, 0.15)
+                    + 1.2 * ping;
+        }
+        return new Clip(name("break-drone", 1, variant), Dsp.finish(y, 0.85), false);
     }
 
     /** Drawing the Gatling gun: a heavy clunk as it is hefted, and its motor blipping into life. */

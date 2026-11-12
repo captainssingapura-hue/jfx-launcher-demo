@@ -2,7 +2,9 @@ package com.example.fxsuite.avatar.sound;
 
 import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Surface;
@@ -33,6 +35,8 @@ public final class Cues {
     static final double HANDS_HEIGHT = 130;
     /** The glaive's blade as it comes through, ahead of the chest. */
     static final double BLADE_AHEAD = 120;
+    /** The biggest crate there is, in cubic units: it breaks as loud and deep as a break can sound. */
+    static final double BIGGEST_CRATE = 260 * 260 * 240;
 
     private Cues() {
     }
@@ -103,6 +107,9 @@ public final class Cues {
                     }
                 }
                 case Event.Struck s -> plays.add(new Play(struck(s), 1, s.at()));
+                case Event.Broke b -> plays.add(b.kind() == Course.Kind.DRONE
+                        ? new Play(Sound.BREAK_DRONE, 1, b.middle())
+                        : new Play(Sound.BREAK_WOOD, size(b.block()), b.middle()));
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
                         : Sound.GLAIVE_SWEEP, 1, hands(body, BLADE_AHEAD)));
             }
@@ -136,6 +143,16 @@ public final class Cues {
         return struck.by() == Weapon.GLAIVE
                 ? (block ? Sound.BLADE_ON_BLOCK : Sound.BLADE_ON_GROUND)
                 : (block ? Sound.ROUND_ON_BLOCK : Sound.ROUND_ON_GROUND);
+    }
+
+    /**
+     * How big something broken was, 0 to 1, for how it sounds: by its volume, 0 for a dummy's,
+     * 1 for the biggest crate's.
+     */
+    static double size(final Block block) {
+        final double volume = 4 * block.halfWidth() * block.halfDepth() * (block.top() - block.bottom());
+        final double dummy = Course.DUMMY_WIDTH * Course.DUMMY_DEPTH * Course.DUMMY_HEIGHT;
+        return Num.clamp(Math.log(volume / dummy) / Math.log(BIGGEST_CRATE / dummy), 0, 1);
     }
 
     /** In front of the chest, {@code ahead} further out: the hands, or where a stroke goes through. */

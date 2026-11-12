@@ -1,7 +1,8 @@
 package com.example.fxsuite.avatar.sim;
 
-
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * Everything solid, and the three questions {@link Body#step} asks of it each sub-step: what
@@ -11,10 +12,13 @@ import java.util.List;
  * <p>And the gates' openings, which are not solid at all, for telling when the avatar flies
  * through one.
  *
+ * <p>Each block is a piece of the {@link Course}, by number ({@code pieces}), so a ray can say
+ * which one it met, and a broken one can be taken out ({@link #without}).
+ *
  * <p>A couple of hundred blocks are checked one by one: cheap at this size. A grid of cells,
  * each listing the blocks over it, would take over if the world grew a hundredfold.
  */
-public record Obstacles(List<Block> blocks, List<Gate> gates) {
+public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> pieces) {
 
     /** Open ground and nothing else. */
     public static final Obstacles NONE = new Obstacles(List.of());
@@ -22,11 +26,33 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
     public Obstacles {
         blocks = List.copyOf(blocks);
         gates = List.copyOf(gates);
+        pieces = List.copyOf(pieces);
+        if (pieces.size() != blocks.size()) {
+            throw new IllegalArgumentException(blocks.size() + " blocks but " + pieces.size() + " piece numbers");
+        }
+    }
+
+    /** Blocks and gates, the blocks numbered in order from 0. */
+    public Obstacles(final List<Block> blocks, final List<Gate> gates) {
+        this(blocks, gates, IntStream.range(0, blocks.size()).boxed().toList());
     }
 
     /** Blocks, and no gates to go through. */
     public Obstacles(final List<Block> blocks) {
         this(blocks, List.of());
+    }
+
+    /** The same world with piece {@code piece} gone from it: broken, and no longer in the way. */
+    public Obstacles without(final int piece) {
+        final int at = pieces.indexOf(piece);
+        if (at < 0) {
+            return this;
+        }
+        final List<Block> left = new ArrayList<>(blocks);
+        final List<Integer> numbers = new ArrayList<>(pieces);
+        left.remove(at);
+        numbers.remove(at);
+        return new Obstacles(left, gates, numbers);
     }
 
     /** What there is to stand on: how high, and what it is. */
@@ -57,7 +83,8 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
 
     /**
      * The first thing a ray from {@code from} along {@code direction} (a unit vector) meets
-     * within {@code reach}: a block, or the ground; {@code null} for open sky.
+     * within {@code reach}: a block, which piece it is among them, or the ground; {@code null}
+     * for open sky.
      */
     public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
         Hit first = null;
@@ -70,10 +97,10 @@ public record Obstacles(List<Block> blocks, List<Gate> gates) {
                         new Vec3(0, -1, 0), Surface.GROUND, t);
             }
         }
-        for (final Block block : blocks) {
-            final Hit hit = block.ray(from, direction, first == null ? reach : first.distance());
+        for (int i = 0; i < blocks.size(); i++) {
+            final Hit hit = blocks.get(i).ray(from, direction, first == null ? reach : first.distance());
             if (hit != null && (first == null || hit.distance() < first.distance())) {
-                first = hit;
+                first = hit.on(pieces.get(i));
             }
         }
         return first;

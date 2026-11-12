@@ -32,6 +32,8 @@ public enum Sound {
     BLADE_ON_BLOCK("Blade strikes a block", null, false),
     BLADE_ON_GROUND("Blade strikes the ground", null, false),
     GATLING_DRAWN("Gatling gun drawn", null, false),
+    BREAK_WOOD("A crate or dummy breaks", "size", false),
+    BREAK_DRONE("A drone blows up", null, false),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),
     JET_WHINE("Jet whine", null, true),

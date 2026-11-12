@@ -258,7 +258,7 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
         final Hit hit = world.ray(from, direction, RANGE);
         events.add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(RANGE)) : hit.at()));
         if (hit != null) {
-            events.add(new Event.Struck(hit.at(), hit.normal(), hit.on(), by));
+            events.add(new Event.Struck(hit.at(), hit.normal(), hit.on(), by, hit.piece()));
         }
     }
 
@@ -323,7 +323,8 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
             }
         }
         if (nearest != null) {
-            events.add(new Event.Struck(nearest.at(), nearest.normal(), nearest.on(), Weapon.GLAIVE));
+            events.add(new Event.Struck(nearest.at(), nearest.normal(), nearest.on(), Weapon.GLAIVE,
+                    nearest.piece()));
         }
     }
 }
