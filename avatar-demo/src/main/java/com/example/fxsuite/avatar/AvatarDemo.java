@@ -101,7 +101,8 @@ public final class AvatarDemo extends Application {
     /** What moves of itself: the airships along their routes, and their bombs. */
     private Sky sky = Sky.START;
     private final World world = new World(course);
-    private final Impacts impacts = new Impacts();
+    // no marks on the airships: they would be left behind as they go
+    private final Impacts impacts = new Impacts(piece -> damage.piece(piece).moves());
     private final Wreckage wreckage = new Wreckage();
     private final Bombs bombs = new Bombs();
     private final Reticle reticle = new Reticle();

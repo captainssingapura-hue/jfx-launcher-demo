@@ -15,6 +15,7 @@ import javafx.scene.shape.Box;
 import javafx.scene.transform.Rotate;
 
 import java.util.List;
+import java.util.function.IntPredicate;
 
 /**
  * What the weapons do to the world, as seen: a tracer along each round's flight, sparks where a
@@ -45,8 +46,21 @@ public final class Impacts {
     private double lastTime = Double.NaN;
     private int count;
     private int gatlingRounds;
+    /**
+     * Which pieces move of themselves (an airship). A mark is left in the world where it was made,
+     * not on the piece, so one on something that moves would hang in the air behind it: for now,
+     * none is left on what moves. Marks that go with what they are on are for later.
+     */
+    private final IntPredicate moves;
 
+    /** For a world where nothing moves of itself. */
     public Impacts() {
+        this(piece -> false);
+    }
+
+    /** Leaving no marks on the pieces that {@code moves}. */
+    public Impacts(final IntPredicate moves) {
+        this.moves = moves;
         final PhongMaterial light = BoxRig.glow("#fff1a8");
         final PhongMaterial spark = BoxRig.glow("#ffb347");
         final PhongMaterial earth = BoxRig.matte("#7a6a4f");
@@ -108,6 +122,9 @@ public final class Impacts {
                 final Vec3 fly = new Vec3(0, -(blade ? 260 : 140), 0).add(scatter(blade ? 160 : 70));
                 dust.next(DUST * (0.6 + 0.4 * unit())).place(off, fly, null, true);
             }
+        }
+        if (struck.piece() >= 0 && moves.test(struck.piece())) {
+            return;  // no mark on what moves: it would be left behind
         }
         if (blade) {
             if (struck.on() == Surface.BLOCK) {
