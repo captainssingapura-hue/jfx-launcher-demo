@@ -70,6 +70,27 @@ public interface Speakers extends AutoCloseable {
         void stop();
     }
 
+    /**
+     * A sound made as it plays, rather than a clip made beforehand: an engine, say, whose sound
+     * is worked out from its revs as they change. The output asks it for each next stretch, on
+     * whichever thread it mixes on (the frame's, or a mixing thread of its own), never two at once;
+     * so whatever steers it from the frames must reach it safely.
+     */
+    interface Source {
+        /** The next {@code count} samples, mono, -1 to 1, into {@code into} from its start. */
+        void fill(float[] into, int count);
+    }
+
+    /** A {@link Source} playing; it starts silent. */
+    interface Stream {
+        void set(double gain);
+
+        /** Puts it somewhere in the world; until then, or given null, it plays at the listener. */
+        void place(Vec3 at);
+
+        void stop();
+    }
+
     Kind kind();
 
     /** The device it plays on, as the system names it. */
@@ -96,6 +117,9 @@ public interface Speakers extends AutoCloseable {
     void play(Clip clip, double gain, double pitch, Vec3 at, double near);
 
     Loop loop(Clip clip);
+
+    /** Plays what {@code source} makes as it goes, until stopped, fading with distance as most sounds do. */
+    Stream stream(Source source);
 
     /** Stops everything and lets the device go. */
     @Override

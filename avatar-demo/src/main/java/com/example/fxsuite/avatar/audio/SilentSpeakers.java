@@ -20,6 +20,20 @@ final class SilentSpeakers implements Speakers {
         }
     };
 
+    private static final Stream QUIET_STREAM = new Stream() {
+        @Override
+        public void set(final double gain) {
+        }
+
+        @Override
+        public void place(final Vec3 at) {
+        }
+
+        @Override
+        public void stop() {
+        }
+    };
+
     @Override
     public Kind kind() {
         return Kind.SILENT;
@@ -49,6 +63,12 @@ final class SilentSpeakers implements Speakers {
     @Override
     public Loop loop(final Clip clip) {
         return QUIET;
+    }
+
+    /** Nothing plays, so nothing is asked of {@code source}. */
+    @Override
+    public Stream stream(final Source source) {
+        return QUIET_STREAM;
     }
 
     @Override

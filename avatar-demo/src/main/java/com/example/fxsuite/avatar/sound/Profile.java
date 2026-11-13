@@ -58,6 +58,15 @@ public interface Profile {
         return level(loop, new Drive(thrust, speed, 0, false));
     }
 
+    /**
+     * Whether it makes a land vehicle's engine as it runs ({@link EngineVoice}), from its revs,
+     * throttle and load, rather than playing its engine loops faster or slower. Off, for a profile
+     * whose engines keep a character of their own: the Arcade's chip.
+     */
+    default boolean enginesAsTheyRun() {
+        return false;
+    }
+
     /** Speed as a share of full boost, from 0, capped at 1.5: what the wind follows. */
     static double pace(final double speed) {
         return Num.clamp(speed / Body.BOOST, 0, 1.5);

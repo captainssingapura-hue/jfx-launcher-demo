@@ -23,3 +23,6 @@ verify-key*.b64
 # OS
 Thumbs.db
 .DS_Store
+
+# Java runtime crash reports, written where a crashed JVM was started
+hs_err_pid*.log

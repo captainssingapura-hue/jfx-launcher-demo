@@ -21,7 +21,7 @@ import java.util.List;
  */
 public final class Mix {
 
-    private final List<Voice> voices = new ArrayList<>();
+    private final List<Sounding> voices = new ArrayList<>();
     private Vec3 ear = Vec3.ZERO;
     private double yaw;
     private double volume = 1;
@@ -58,6 +58,13 @@ public final class Mix {
         return voice;
     }
 
+    /** Plays what {@code source} makes as it goes, until stopped, starting silent. */
+    public synchronized Speakers.Stream stream(final Speakers.Source source) {
+        final Fed fed = new Fed(source);
+        voices.add(fed);
+        return fed;
+    }
+
     /** How many voices are sounding. */
     public synchronized int playing() {
         return voices.size();
@@ -70,7 +77,7 @@ public final class Mix {
     /** The next {@code frames} of sound, into {@code out} as left and right in turn. */
     public synchronized void render(final float[] out, final int frames) {
         Arrays.fill(out, 0, frames * 2, 0);
-        final Iterator<Voice> each = voices.iterator();
+        final Iterator<Sounding> each = voices.iterator();
         while (each.hasNext()) {
             if (!each.next().mixInto(out, frames)) {
                 each.remove();
@@ -78,8 +85,14 @@ public final class Mix {
         }
     }
 
+    /** Anything sounding: it adds itself into the mix, a render at a time, until it has finished. */
+    interface Sounding {
+        /** Adds this into {@code out}; false once it has finished. */
+        boolean mixInto(float[] out, int frames);
+    }
+
     /** One clip playing. As a loop, the handle to steer it by. */
-    public final class Voice implements Speakers.Loop {
+    public final class Voice implements Speakers.Loop, Sounding {
         private final Clip clip;
         private final boolean looping;
         private double position;
@@ -120,8 +133,8 @@ public final class Mix {
             }
         }
 
-        /** Adds this voice into {@code out}; false once it has finished. */
-        private boolean mixInto(final float[] out, final int frames) {
+        @Override
+        public boolean mixInto(final float[] out, final int frames) {
             double level = stopping ? 0 : Math.max(0, gain) * volume;
             double side = 0;
             if (at != null) {
@@ -166,6 +179,74 @@ public final class Mix {
             left = toLeft;
             right = toRight;
             return playing && !stopping;
+        }
+    }
+
+    /** What a {@link Speakers.Source} makes, playing: asked for as much as each render needs. */
+    final class Fed implements Speakers.Stream, Sounding {
+        private final Speakers.Source source;
+        private float[] made = new float[0];
+        private double gain;
+        private Vec3 at;
+        private boolean stopping;
+        private boolean started;
+        private double left;
+        private double right;
+
+        private Fed(final Speakers.Source source) {
+            this.source = source;
+        }
+
+        @Override
+        public void set(final double gain) {
+            synchronized (Mix.this) {
+                this.gain = gain;
+            }
+        }
+
+        @Override
+        public void place(final Vec3 at) {
+            synchronized (Mix.this) {
+                this.at = at;
+            }
+        }
+
+        /** Fades out over the next render, then is gone. */
+        @Override
+        public void stop() {
+            synchronized (Mix.this) {
+                stopping = true;
+            }
+        }
+
+        @Override
+        public boolean mixInto(final float[] out, final int frames) {
+            double level = stopping ? 0 : Math.max(0, gain) * volume;
+            double side = 0;
+            if (at != null) {
+                level *= Space.fade(at.distance(ear), Space.NEAR);
+                side = Space.side(ear, yaw, at);
+            }
+            final double angle = (side + 1) * Math.PI / 4;
+            final double toLeft = level * Math.cos(angle);
+            final double toRight = level * Math.sin(angle);
+            if (!started) {
+                left = toLeft;
+                right = toRight;
+                started = true;
+            }
+            if (made.length < frames) {
+                made = new float[frames];
+            }
+            source.fill(made, frames);
+            for (int f = 0; f < frames; f++) {
+                final double ramp = (f + 1.0) / frames;
+                out[2 * f] += (float) (made[f] * (left + (toLeft - left) * ramp));
+                out[2 * f + 1] += (float) (made[f] * (right + (toRight - right) * ramp));
+            }
+            left = toLeft;
+            right = toRight;
+            return !stopping;
         }
     }
 }

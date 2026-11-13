@@ -4,7 +4,8 @@ A standalone experiment: a small robot built from boxes that walks, runs and jum
 world of pillars, crates and floating gates, followed by a chase camera. Put on its jet-pack
 and it flies as a drone does: upright, tipped gently toward where it goes, holding its place
 when let go. Everything is heard as well as seen. Two sound profiles give the same world two
-characters, and a separate sound bench is for working on the sounds.
+characters, and two separate benches are for working on the sounds: one for all of them, one
+for the engines.
 
 ![Hovering among the pillars, the wings spread](images/flying.jpg)
 
@@ -40,8 +41,30 @@ characters, and a separate sound bench is for working on the sounds.
   standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
   its legs out ahead and its hands on the wheel, and is carried with it.
   Low on the right, as racing games have them, its instruments: a round tachometer, its needle
-  sweeping up to the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
+  sweeping up toward the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
+  Each is a vehicle of the engine bench's (`Vehicle.of`), and goes as it does: its real top
+  speed, as its engine, its gears and the air make it there (the car about 249 km/h, the pickup
+  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser 182), and
+  getting up to speed as it does, briskly from a standstill, less and less so as it nears its top,
+  as quick as on the bench to make most of it (`Course.Drive.accelAt`). Its gearbox (`Gearbox`) is
+  the bench vehicle's too, the same gears, final drive and wheels (`Vehicle.rpm`): at any speed,
+  in any gear, the same revs as on the bench. Six gears in the car and the pickup, eight in the
+  truck. It changes by itself, as a quick automatic does: up near the red line pulling hard, up
+  early cruising (a car at 90 km/h in sixth, under 2,000 rpm), down as it slows, down a gear or
+  two flooring it; the throttle cut for a moment at each change, blipped going down; the clutch
+  slipping pulling away. On a cross-slope, a banked turn, a land vehicle rolls as the ground
+  under its left wheels and its right does, its driver rolled with it (`Lift.roll`).
+- **The track.** A NASCAR-style oval, a demo of its own (`Course.trackDemo`), in a world now
+  900 m across: two straights of 400 m and two turns of 120 m radius, 24 m wide, about 1.55 km
+  round, like a one-mile oval. Flat all round for now: banked turns (`Course.TRACK_BANK`, the
+  banking easing in and out over the first and last fifth of each turn) wait on vehicles settling
+  well on uneven ground. A concrete wall all round its outside, a paler apron round its inside, a
+  white line across the front straight to start and finish at, pit road inside the front
+  straight, and grandstands outside it. Every land vehicle stands on pit road, heading the way
+  they race, round to the left: the roadster, the van, the pickup, the truck, the scooter, the
+  sport bike and the cruiser. Driven flat out, the roadster laps it from a standing start, at
+  240 km/h down the straights.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
@@ -69,6 +92,24 @@ characters, and a separate sound bench is for working on the sounds.
   parts and the body's together. With the body round the seat, a vehicle is got into from the
   ground beside the driver's door (T), and let out there; at the wheel, the driver sits still in
   it, carried.
+- **Two-wheelers: a scooter and motorcycles.** The same chassis, on two wheels in line under a
+  narrow frame, with handlebars over the front wheel on raked forks (`Course.Chassis`,
+  `twoWheels`): a scooter, small-wheeled, teal, its engine under a cowl beneath the seat, a
+  floorboard for the feet and a shield before the legs; a sport bike, red, its nose fairing, a
+  tank to tuck down over, a raised tail and a pipe out the back, the quickest of everything that
+  drives; and a cruiser, long and low, dark blue, a teardrop tank, its V-twin's two cylinders
+  standing out of the engine, fenders over both wheels and long chrome pipes down the right.
+  Got onto from beside them (T), ridden as a car is driven, and got off again there. The rider
+  sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
+  tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
+  wide bars. Each leans into its turns as a rider would lean it to balance going round
+  (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
+  rider leaning with it about where its tyres touch the ground; only how it is shown, to the
+  world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
+  single on a CVT, which holds it most of the way up its revs as the speed builds (D on the
+  dial); the sport bike a 90° L-twin with six gears, changed in a flash; the cruiser a 45°
+  V-twin, its uneven beat, with five. They stand behind the start on the Roads demo, and along
+  the street on the playground.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -220,16 +261,17 @@ It opens on a choice of demos: the **playground**, everything at once (the cours
 airships, the flyovers, the four vehicles, the bunker, the gunship and an airship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
-and a gunship, each with a heavy Gatling gun, and crates and dummies out in front (`Demo`).
+bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
+and a gunship, each with a heavy Gatling gun, and crates and dummies out in front; and the **track**, a NASCAR-style
+oval to take every land vehicle round flat out (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -284,9 +326,14 @@ gun's roar), as games mix them, so it punches through. The nearest airship still
 drones from where it is, faint from the ground and loud alongside it. The vehicle being driven
   is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
   of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
-  order giving it its lumpy burble. Each is built pulse by pulse from its cylinders firing,
-  idling at 900 turns a minute; it climbs in pitch through four gears as the vehicle gathers
-  speed, dropping back at each change, and is louder the harder it is worked. The jets roar as
+  order giving it its lumpy burble; a buzzing single in the scooter, an L-twin's hard beat in the
+  sport bike, and a V-twin's uneven one in the cruiser. In the Robot profile the engine is made as it runs, the
+  engine bench's own (`EngineVoice`, played as a stream by `EngineStream`): each cylinder firing
+  in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through its
+  gears as the vehicle gathers speed and drops back at each change, its note the revs' while its
+  pipes ring where they are; louder and harsher with the throttle open and worked hard; and
+  lifting off at speed, held back, popping. The Arcade profile loops its chip's engines, pitched
+  up with the revs, as ever. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.
@@ -323,6 +370,75 @@ java -jar avatar-demo/target/avatar-demo.jar --bench
 With no window or sound card at all, `--sounds [folder]` writes every sound of every profile to
 WAV files, a folder for each. It also writes two scenes mixed in stereo (footsteps walking
 past, the jets flying by) and says which outputs this machine can open.
+
+### Engine bench
+
+The engines are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --engine
+```
+
+An engine here is not a recording sped up: its sound is made as it runs, from its revs and
+throttle (`EngineVoice`). The crank turns, and each cylinder fires as the crank comes round to
+its place in the cycle, by the engine's own firing pattern, into its bank's pipe. The pipes ring
+at a few notes of their own, which stay put whatever the revs. So the firing note climbs with
+the revs while the pipes' ring stays where it is, and it sounds like the same engine working
+harder. On top come the intake, roaring with the throttle open; a harsher, louder note when it
+is worked hard; and pops and crackle off the throttle at speed.
+
+- Pick an engine (`Engine`). For cars: an inline four; an inline five, its odd number of
+  cylinders (every 144°) giving it a warble; a V6; a cross-plane V8 with its lopsided burble;
+  or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
+  four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
+  a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
+  then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
+  twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
+  red line, how briskly it revs, its pipes), so another engine is another set of figures.
+- Pipe it (`Exhaust`). Each engine fires in its real firing order (1-8-4-3-6-5-7-2 for the
+  cross-plane V8, 1-5-3-7-4-8-2-6 for the flat-plane, 1-2-4-5-3 for the five, ...), each
+  cylinder on the bank that order puts it on, and each cylinder's pulse goes down a runner of
+  its own: as late as the runner is long, ringing at its note, into its bank's collector. Runners
+  of unlike lengths bring evenly fired pulses to the collector unevenly, so the order is heard:
+  the five's stock manifold makes its warble. Choose the stock manifold or equal-length headers;
+  and, on an engine with two banks, true dual pipes, an H-pipe, or an X-pipe, which evens out a
+  cross-plane V8's burble.
+- Charge a car's engine, or not (`Charger`): any of the five may be turbocharged or
+  supercharged, by the Induction choice.
+  - A turbocharger (`Turbo`, heard by `TurboVoice`) is spun by the exhaust, so its boost comes
+    late, after a lag, and only under load; it whistles higher as it spins up, softens the
+    exhaust, and its blow-off valve hisses whenever the throttle snaps shut on boost, lifting
+    off or changing gear.
+  - A supercharger (`Supercharger`, heard by `SuperchargerVoice`) is driven off the crank, so
+    its boost comes at once, some even low down; it whines at a note geared to the revs, and
+    off the throttle lets the boost go without a hiss.
+
+  Either way the readout shows the boost, and driven, the engine pulls harder the more there
+  is. The rally coupe's five comes turbocharged.
+- Rev it free: hold Space (or W) for full throttle, or set the throttle by its slider. It revs
+  up as briskly as that engine does, falls back to its idle, and held flat out it bounces off
+  the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
+- Set the load, from revving free to pulling hard.
+- Or drive it: each engine is in a vehicle of its own (`Vehicle`): a hatchback, a saloon, a
+  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
+  bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
+  limited to; and the game's own: its car (the roadster's and the van's), its pickup and its
+  truck, and its scooter, sport bike and cruiser, which go here exactly as in the game, the same
+  revs at the same speed (the Vehicle choice, of those with the engine picked;
+  `-Dengine.vehicle=pickup`). W or Space is the throttle,
+  S the brake, E or Up changes up and Q or Down changes down, or the gearbox changes by itself:
+  up near the red line flat out, up early cruising, down as it slows (`Driving`). It pulls away
+  on a slipping clutch; in gear the revs follow the road speed, dropping at each change up and
+  blipped at each change down; off the throttle it holds back, and pops; braked to a stop, the
+  clutch goes out and it idles. The scooters' CVTs hold the revs steady as the speed builds.
+  The tachometer shows the gear and the speed.
+- Watch the tachometer, the sound as it is made, and its frequencies: the firing note marked
+  in orange, moving with the revs, and the pipes' notes in blue, staying put.
+
+It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
+`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
+`-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's V6 and V8 are these,
+stock, made the same way as they are driven ([Sound](#sound)).
 
 ## Unattended runs
 
@@ -388,10 +504,10 @@ of steps, and lets the rest go rather than falling ever further behind.
 | `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
-| `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
-| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
+| `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
+| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
-| `bench` | The sound bench (`SoundBench`) and the WAV renderer (`Render`) |
+| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
 All but the drawing, the devices and the app is unit-tested, and a test (`LayersTest`) keeps

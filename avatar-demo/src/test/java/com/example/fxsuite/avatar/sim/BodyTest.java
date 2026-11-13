@@ -139,7 +139,8 @@ class BodyTest {
 
     @Test
     void staysInsideTheWorld() {
-        final Body far = run(Body.standing(Vec3.ZERO, 90).toggledFlight(), RUNNING, 15);
+        // flown east from near the edge, it goes no further
+        final Body far = run(Body.standing(new Vec3(Body.EDGE - 3000, 0, 0), 90).toggledFlight(), RUNNING, 15);
         assertEquals(Body.EDGE, far.position().x(), 1e-9);
         final Body high = run(still().toggledFlight(), new Controls(0, 0, 0, 1, true), 8);
         assertEquals(Body.CEILING, high.height(), 1e-9);

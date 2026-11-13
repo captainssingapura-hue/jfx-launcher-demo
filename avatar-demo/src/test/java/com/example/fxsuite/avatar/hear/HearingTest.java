@@ -13,6 +13,8 @@ import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Clip;
+import com.example.fxsuite.avatar.sound.Cues;
+import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.sound.Profiles;
 import com.example.fxsuite.avatar.sound.Sound;
 import com.example.fxsuite.avatar.view.Chase;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -94,6 +97,39 @@ class HearingTest {
                 @Override
                 public void stop() {
                     stopped++;
+                }
+            };
+        }
+
+        /** Each stream started: what makes it, and its gain and place as last set, and whether stopped. */
+        static final class Streamed {
+            Source source;
+            double gain;
+            Vec3 at;
+            boolean stopped;
+        }
+
+        final List<Streamed> streams = new ArrayList<>();
+
+        @Override
+        public Stream stream(final Source source) {
+            final Streamed streamed = new Streamed();
+            streamed.source = source;
+            streams.add(streamed);
+            return new Stream() {
+                @Override
+                public void set(final double gain) {
+                    streamed.gain = gain;
+                }
+
+                @Override
+                public void place(final Vec3 at) {
+                    streamed.at = at;
+                }
+
+                @Override
+                public void stop() {
+                    streamed.stopped = true;
                 }
             };
         }
@@ -189,5 +225,65 @@ class HearingTest {
         assertTrue(hearing.muted());
         hearing.toggleMute();
         assertEquals(normal, speakers.volume);
+    }
+
+    private static final Vec3 BONNET = new Vec3(0, -20, 200);
+
+    private void driving(final Cues.Motor motor) {
+        hearing.hear(STANDING, List.of(), chase, List.of(), null, motor);
+    }
+
+    /** How loud the loops made from clips named {@code start...} are now, all told. */
+    private double looping(final String start) {
+        double gain = 0;
+        for (int i = 0; i < speakers.looped.size(); i++) {
+            if (speakers.looped.get(i).name().startsWith(start)) {
+                gain += speakers.gains.get(i)[0];
+            }
+        }
+        return gain;
+    }
+
+    @Test
+    void aDrivenEngineIsMadeAsItRunsFromUnderItsBonnet() {
+        driving(new Cues.Motor(Engine.V8, 3000, 1, 0.5, BONNET));
+        driving(new Cues.Motor(Engine.V8, 3200, 1, 0.5, BONNET));
+        assertEquals(1, speakers.streams.size(), "one engine, one stream, kept");
+        final Notebook.Streamed stream = speakers.streams.getFirst();
+        assertFalse(stream.stopped);
+        assertEquals(BONNET, stream.at);
+        assertTrue(stream.gain > 0.5);
+        final float[] made = new float[Clip.RATE / 4];
+        stream.source.fill(made, made.length);
+        double sum = 0;
+        for (final float s : made) {
+            sum += s * s;
+        }
+        assertTrue(Math.sqrt(sum / made.length) > 0.02, "and it is heard");
+        assertEquals(0, looping("engine"), "not the engine loops as well");
+    }
+
+    @Test
+    void anotherEngineStartsAnotherStreamAndGettingOutStopsIt() {
+        driving(new Cues.Motor(Engine.V8, 3000, 1, 0.5, BONNET));
+        driving(new Cues.Motor(Engine.V6, 3000, 1, 0.5, BONNET));
+        assertEquals(2, speakers.streams.size());
+        assertTrue(speakers.streams.get(0).stopped, "the V8 stopped");
+        assertFalse(speakers.streams.get(1).stopped, "the V6 running");
+        driving(null);
+        assertTrue(speakers.streams.get(1).stopped, "out of the vehicle, silent");
+        driving(null);
+        assertEquals(2, speakers.streams.size(), "and nothing started");
+    }
+
+    @Test
+    void theArcadeLoopsItsEnginesAsEverAndChangingProfileStopsTheStream() {
+        driving(new Cues.Motor(Engine.V8, 3000, 1, 0.5, BONNET));
+        hearing.nextProfile();
+        assertTrue(speakers.streams.getFirst().stopped, "the engine made as it runs, stopped");
+        driving(new Cues.Motor(Engine.V8, 3000, 1, 0.5, BONNET));
+        assertEquals(1, speakers.streams.size(), "the Arcade makes no engine so");
+        assertTrue(looping("engine-v8") > 0, "it loops its chip's V8");
+        assertEquals(0, looping("engine-v6"));
     }
 }

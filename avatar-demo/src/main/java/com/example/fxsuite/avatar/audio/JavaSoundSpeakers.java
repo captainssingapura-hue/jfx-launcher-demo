@@ -107,6 +107,11 @@ final class JavaSoundSpeakers implements Speakers {
     }
 
     @Override
+    public Stream stream(final Source source) {
+        return mix.stream(source);
+    }
+
+    @Override
     public void close() {
         running = false;
         mix.clear();

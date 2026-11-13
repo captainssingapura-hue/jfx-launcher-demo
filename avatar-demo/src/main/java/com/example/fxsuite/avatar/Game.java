@@ -37,6 +37,9 @@ import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Cues;
+import com.example.fxsuite.avatar.sound.Engine;
+import com.example.fxsuite.avatar.sound.Gearbox;
+import com.example.fxsuite.avatar.sound.Vehicle;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
@@ -157,14 +160,16 @@ public final class Game {
     /** Behind a gun, in first person: how far back of where it turns, and how far up. */
     private static final double SIGHT_BACK = 70;
     private static final double SIGHT_UP = 34;
-    /** The gears a land vehicle's engine revs up through; and how hard it was worked, and how fast it was going, at the last frame. */
-    private static final int GEARS = 4;
-    /** An engine at idle, turns a minute. */
-    private static final double IDLE = 900;
+    /** How hard the land vehicle driven was worked, and how fast it was going, at the last frame; and
+     * which gear it is in ({@link #gearbox}), and of which vehicle. */
+    private Gearbox.Geared geared;
+    private int gearedPiece = -1;
     /** A land vehicle's instruments. */
     private final Dashboard dashboard = new Dashboard();
     private double engineLoad;
     private double lastAhead;
+    /** The controls the last step was taken with: the throttle a driven engine is heard to have. */
+    private Controls lastControls = Controls.NONE;
     private static final double GUN_REST = -4;
     private static final double OPEN_GUN_VIEW = 560;
     private static final double OPEN_GUN_EYE = 170;
@@ -207,7 +212,11 @@ public final class Game {
     private static final String DRIVE_HELP = "The chassis: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + VIEW_KEYS;
-    private static final String ARMED_DRIVE_HELP = "At the wheel: W accelerate · S brake, then reverse · A/D steer ·"
+    private static final String RIDE_HELP = "Astride: W throttle · S brake, then back · A/D steer ·"
+            + " Space brake hard · Shift gently · T get off\n"
+            + "It leans into its turns, the harder the faster it goes round; the gears change by themselves\n"
+            + VIEW_KEYS;
+    private static final String ARMED_DRIVE_HELP ="At the wheel: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Click fire its gun, fixed beside the seat: held, it spins up, then fires the way the car faces\n"
             + VIEW_KEYS;
@@ -314,7 +323,7 @@ public final class Game {
     /** Plays it in {@code stage}. */
     private void start(final Stage stage) {
         eye.setNearClip(10);
-        eye.setFarClip(60_000);
+        eye.setFarClip(150_000);
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
@@ -479,6 +488,7 @@ public final class Game {
                 pressed.clear();
             }
             before = avatar;
+            lastControls = controls;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
             final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people, props, turrets).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
@@ -565,7 +575,12 @@ public final class Game {
         final Pose looking = Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH);
         final Lift driven = flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null);
         if (driven != null && craft != null) {
-            rig.show(seated(avatar, (Course.Chassis) driven.craft(), craft), Gait.seated(looking));
+            // in a car, sat; on a two-wheeler, astride, leaning with it into its turns
+            final Course.Chassis chassis = (Course.Chassis) driven.craft();
+            // and on a banked turn, rolled with it
+            final double tipped = driven.lean() + driven.roll();
+            rig.show(seated(avatar, chassis, craft, tipped),
+                    chassis.twoWheels() ? Gait.astride(looking, chassis, tipped) : Gait.seated(looking, tipped));
         } else {
             rig.show(avatar, looking);
         }
@@ -675,12 +690,21 @@ public final class Game {
             final String gun = fixedGun(lift).map(g -> " · gun " + (g.firing() ? "firing" : g.gun().spin() >= 1
                     ? "up to speed" : g.gun().spin() > 0 ? String.format("spinning, %.0f%%", 100 * g.gun().spin()) : "still"))
                     .orElse("");
+            if (chassis.twoWheels()) {
+                // ridden, leaning into its turns
+                return String.format("Riding the %s · %.1f m/s%s · bars %+.0f° · leaning %+.0f°%s · %.0f%% left",
+                        chassis.name(), Math.abs(speed), speed < -0.05 ? " in reverse" : "", lift.steer(), lift.lean(),
+                        lift.climb() > 0 || Math.abs(lift.tilt()) > 1
+                                ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
+                        left);
+            }
             // by its body, if it wears one: a van, a roadster; else its chassis, bare
             final Course.Bodywork body = damage.piece(lift.piece()).body();
             return String.format("Driving the %s · %.1f m/s%s · wheels %+.0f°%s%s · %.0f%% left",
                     body != null ? body.name() : chassis.name() + " chassis",
                     Math.abs(speed), speed < -0.05 ? " in reverse" : "", lift.steer(),
-                    lift.climb() > 0 || Math.abs(lift.tilt()) > 1 ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
+                    lift.climb() > 0 || Math.abs(lift.tilt()) > 1
+                            ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
                     gun, left);
         }
         if (lift.craft().closed()) {
@@ -751,7 +775,8 @@ public final class Game {
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts, people, props, turrets);
         final String reach = here.withinReach().map(lift -> lift.craft().closed() ? " · T: board the airship"
-                        : lift.craft() instanceof Course.Chassis ? " · T: get in" : " · T: take the controls")
+                        : lift.craft() instanceof Course.Chassis chassis
+                                ? (chassis.twoWheels() ? " · T: get on" : " · T: get in") : " · T: take the controls")
                 .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
                         : "");
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
@@ -771,8 +796,8 @@ public final class Game {
         final String keys = manned.isPresent() ? (manned.get().mount().closed() ? GUN_HELP
                 : lifts.stream().anyMatch(l -> l.piece() == manned.get().host() && l.craft() instanceof Course.Chassis)
                 ? PICKUP_HELP : GUNSHIP_HELP)
-                : flown.map(lift -> lift.craft() instanceof Course.Chassis
-                        ? (fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
+                : flown.map(lift -> lift.craft() instanceof Course.Chassis chassis
+                        ? (chassis.twoWheels() ? RIDE_HELP : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
         if (!keys.equals(help.getText())) {
             help.setText(keys);
@@ -911,11 +936,17 @@ public final class Game {
 
     /**
      * {@code avatar} as drawn in the seat of {@code chassis}, which is drawn at {@code block}: there,
-     * facing the way it heads, still. Only how it is drawn: where it is stays the world's own.
+     * facing the way it heads, still; on a two-wheeler leaning {@code lean} degrees, moved with it
+     * as it tips about its tyres ({@link Gait#leaning}). Only how it is drawn: where it is stays the
+     * world's own.
      */
-    private static Avatar seated(final Avatar avatar, final Course.Chassis chassis, final Block block) {
-        final Vec3 seat = new Vec3(block.x(), -(block.bottom() + chassis.ride()), block.z())
-                .add(Num.right(block.yaw()).multiply(chassis.driverAcross()))
+    private static Avatar seated(final Avatar avatar, final Course.Chassis chassis, final Block block,
+                                 final double lean) {
+        final double[] tipped = Gait.leaning(lean, chassis.ride());
+        // off the middle, as a car's driver is, it rises or drops as well, rolled to one side
+        final double off = chassis.driverAcross() * Math.sin(Math.toRadians(lean));
+        final Vec3 seat = new Vec3(block.x(), -(block.bottom() + chassis.ride() - tipped[1] - off), block.z())
+                .add(Num.right(block.yaw()).multiply(chassis.driverAcross() + tipped[0]))
                 .add(Num.heading(block.yaw()).multiply(chassis.driverAlong()));
         final Body body = avatar.body();
         return new Avatar(new Body(seat, block.yaw(), block.yaw(), 0, 0, 0, 0, false, true, body.phase(), body.time()),
@@ -924,53 +955,63 @@ public final class Game {
 
     /**
      * The engine of land vehicle {@code lift}, as it is heard {@code seconds} after the last frame:
-     * a V8 in the pickup and the truck, a V6 in the smaller ones; revving up through four gears as
-     * it gathers speed, dropping back at each change; worked as hard as it is speeding up.
+     * a V8 in the pickup and the truck, a V6 in the smaller ones; through its gearbox's gears as it
+     * gathers speed, the revs dropping at each change and the throttle cut as it changes, down
+     * them as it slows; worked as hard as it is speeding up.
      */
     private Cues.Motor motor(final Lift lift, final double seconds) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
-        final boolean v8 = v8(chassis);
-        final double rev = gearing(lift)[1];
+        final Engine engine = engine(chassis);
         final double speeding = seconds > 0 ? (Math.abs(lift.ahead()) - Math.abs(lastAhead)) / seconds : 0;
         lastAhead = lift.ahead();
         engineLoad = Num.ease(engineLoad, Num.clamp(speeding / chassis.drive().accel(), 0, 1), 6, seconds);
+        // the throttle: W going ahead, or S once it is going back; off it, it is held back, and pops
+        final double forward = lastControls.forward();
+        final boolean back = lift.ahead() < -1;
+        final double throttle = Math.min(1, forward > 0 ? forward : lift.ahead() < 1 && forward < 0 ? -forward : 0);
+        // through the gears: a new vehicle taken, it starts in first, idling
+        final Gearbox gearbox = gearbox(chassis);
+        if (geared == null || gearedPiece != lift.piece()) {
+            geared = gearbox.stopped();
+            gearedPiece = lift.piece();
+        }
+        // its speed, in metres a second: the world is in centimetres
+        geared = gearbox.step(geared, lift.ahead() / 100, throttle, back, seconds);
         final Vec3 bonnet = lift.at(new Course.Section(0, chassis.length() / 2 - 70, 20, 0, 0, 0));
-        return new Cues.Motor(v8, rev, engineLoad, bonnet);
-    }
-
-    /** Whether {@code chassis} has a V8: the pickup and the truck; the smaller ones a V6. */
-    private static boolean v8(final Course.Chassis chassis) {
-        return chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS;
+        return new Cues.Motor(engine, geared.rpm(), geared.firing(), engineLoad, bonnet);
     }
 
     /**
-     * Which gear land vehicle {@code lift} is in, from 0 (the first), and how far its engine is
-     * revved in it, 0 at idle to 1 at the limit: through four gears as it gathers speed, each from
-     * a little over idle up to the limit, dropping back at each change.
+     * The engine in {@code chassis}: its vehicle's, as the engine bench has it ({@link Vehicle#of}):
+     * a V8 in the pickup and the truck, a V6 in the car; a 125 cc single in the scooter, a 90°
+     * L-twin in the sport bike, a 45° V-twin in the cruiser.
      */
-    private static double[] gearing(final Lift lift) {
-        final Course.Chassis chassis = (Course.Chassis) lift.craft();
-        final double share = Math.min(1, Math.abs(lift.ahead()) / chassis.drive().top());
-        final double geared = share * GEARS;
-        final int gear = (int) Math.min(GEARS - 1, Math.floor(geared));
-        return new double[] {gear, gear == 0 ? geared : 0.3 + 0.7 * (geared - gear)};
+    private static Engine engine(final Course.Chassis chassis) {
+        return Vehicle.of(chassis).engine();
+    }
+
+    /**
+     * The gearbox in {@code chassis}: its vehicle's, as the engine bench has it, its gears, final
+     * drive and wheels the same, so at any speed the same gear and revs: six gears in the car and
+     * the pickup, eight in the truck; the scooter's CVT; the sport bike's six, the cruiser's five.
+     */
+    private static Gearbox gearbox(final Course.Chassis chassis) {
+        return new Gearbox(Vehicle.of(chassis));
     }
 
     /**
      * The instruments of land vehicle {@code lift} (null for none driven): its engine's turns a
-     * minute, from 900 at idle up to its red line, a V8's lower than a V6's; its gear, R going back;
-     * and its speed in kilometres an hour.
+     * minute, as its gearbox has them ({@link #motor}), from its idle up to its red line, a V8's
+     * lower than a V6's; its gear, R going back; and its speed in kilometres an hour.
      */
     private void instruments(final Lift lift, final double seconds) {
-        if (lift == null) {
+        if (lift == null || geared == null) {
             dashboard.hide();
+            geared = null;
             return;
         }
-        final double redline = v8((Course.Chassis) lift.craft()) ? 6000 : 6500;
-        final double[] gearing = gearing(lift);
-        final double rpm = IDLE + gearing[1] * (redline - IDLE);
-        final String gear = lift.ahead() < -1 ? "R" : Integer.toString((int) gearing[0] + 1);
-        dashboard.show(rpm, redline, gear, Math.abs(lift.ahead()) / 100 * 3.6, seconds);
+        final Engine engine = engine((Course.Chassis) lift.craft());
+        dashboard.show(geared.rpm(), engine.redline(), geared.shown(), Math.abs(lift.ahead()) / 100 * 3.6, seconds);
     }
 
     /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */

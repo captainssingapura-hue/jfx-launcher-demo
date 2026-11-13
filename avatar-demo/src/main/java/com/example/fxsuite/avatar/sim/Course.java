@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false);
 
         private final boolean breakable;
 
@@ -441,9 +441,23 @@ public final class Course {
      * left to itself ({@code drag}), all in units a second, a second; how far its front wheels turn
      * at most ({@code steer}, degrees, at a crawl: less the faster it goes), and how fast they turn
      * there ({@code steerRate}, degrees a second).
+     *
+     * <p>Its top speed is its real one, as its engine, gears and the air make it on the engine
+     * bench; and it gets up to speed as a real one does, briskly from a standstill, less and less
+     * so as it nears its top ({@link #accelAt}), {@code accel} set so it takes as long as on the
+     * bench to make most of its speed.
      */
     public record Drive(double top, double reverse, double accel, double brake, double drag, double steer,
                         double steerRate) {
+
+        /** It gets this much of its {@code accel} at its very top, so it gets there. */
+        private static final double LEAST = 0.02;
+
+        /** How briskly it gets up to speed going {@code speed}: its {@code accel} from a standstill, less near its top. */
+        public double accelAt(final double speed) {
+            final double share = Math.abs(speed) / top;
+            return accel * Math.max(LEAST, 1 - share * share);
+        }
     }
 
     /**
@@ -454,34 +468,58 @@ public final class Course {
      * that steers; and a steering wheel on a column, before whoever drives it, standing on the bed
      * at ({@code driverAcross}, {@code driverAlong}). Open: the driver is seen. It drives as
      * {@code drive} says ({@link Lift}).
+     *
+     * <p>Or, {@code twoWheels}, what a scooter or a motorcycle is built on: one wheel on each of its
+     * two axles, in line, under a narrow frame; {@code width} the width of its handlebars, which
+     * stand where a steering wheel would; ridden astride, at {@code driverAcross} 0. It drives as a
+     * car does, and is shown leaning into its turns as a two-wheeler must ({@link Lift#lean}).
      */
     public record Chassis(String name, double width, double length, double ride, double wheelRadius,
-                          double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive)
+                          double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive,
+                          boolean twoWheels)
             implements Craft {
 
         /** How thick the bed is, and how high the steering wheel stands over it: within reach of a seated driver. */
         public static final double BED = 30;
         public static final double WHEEL_HEIGHT = 80;
+        /** A two-wheeler's frame, in place of a bed: this narrow; and its handlebars this high over it. */
+        public static final double FRAME = 24;
+        public static final double BARS = 45;
 
         public Chassis {
             axles = List.copyOf(axles);
+            if (twoWheels && (axles.size() != 2 || driverAcross != 0)) {
+                throw new IllegalArgumentException(name + ": two wheels in line, ridden astride");
+            }
         }
 
-        /** The bed, a slab, its top where the vehicle is. */
+        /** A car's or a truck's: a wheel either side of each axle. */
+        public Chassis(final String name, final double width, final double length, final double ride,
+                       final double wheelRadius, final double wheelWidth, final List<Double> axles,
+                       final double driverAcross, final double driverAlong, final Drive drive) {
+            this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, false);
+        }
+
+        /** The bed, a slab, its top where the vehicle is: a two-wheeler's, its narrow frame. */
         public Section bed() {
-            return new Section(0, 0, -BED / 2, width / 2, length / 2, BED / 2);
+            return new Section(0, 0, -BED / 2, twoWheels ? FRAME / 2 : width / 2, length / 2, BED / 2);
         }
 
-        /** How far out from the middle each wheel is: just clear of the bed's side. */
+        /** How far out from the middle each wheel is: just clear of the bed's side; a two-wheeler's, in the middle. */
         public double wheelOut() {
-            return width / 2 + 2 + wheelWidth / 2;
+            return twoWheels ? 0 : width / 2 + 2 + wheelWidth / 2;
+        }
+
+        /** How far out it reaches either side, all told: its wheels, or a two-wheeler's handlebars. */
+        public double half() {
+            return twoWheels ? width / 2 : wheelOut() + wheelWidth / 2;
         }
 
         /** Its wheels, left then right on each axle, front to back: each touching the ground when it rests. */
         public List<Section> wheels() {
             final List<Section> wheels = new ArrayList<>();
             for (final double along : axles) {
-                for (final double side : new double[] {-1, 1}) {
+                for (final double side : twoWheels ? new double[] {0} : new double[] {-1, 1}) {
                     wheels.add(new Section(side * wheelOut(), along, wheelRadius - ride, wheelWidth / 2, wheelRadius,
                             wheelRadius));
                 }
@@ -489,9 +527,14 @@ public final class Course {
             return wheels;
         }
 
+        /** How high the steering wheel stands over the bed; or the handlebars over a two-wheeler's frame. */
+        public double bars() {
+            return twoWheels ? BARS : WHEEL_HEIGHT;
+        }
+
         /** The steering column, from the bed up to the steering wheel, in front of the driver. */
         public Section column() {
-            return new Section(driverAcross, driverAlong + 50, WHEEL_HEIGHT / 2, 4, 4, WHEEL_HEIGHT / 2);
+            return new Section(driverAcross, driverAlong + 50, bars() / 2, 4, 4, bars() / 2);
         }
 
         /** From its front axle back to the middle of those behind: what it turns about. */
@@ -508,8 +551,8 @@ public final class Course {
         public Shape shape() {
             final List<Section> parts = new ArrayList<>(List.of(bed(), column()));
             parts.addAll(wheels());
-            final double out = wheelOut() + wheelWidth / 2;
-            return new Shape(new Section(0, 0, (WHEEL_HEIGHT - ride) / 2, out, length / 2, (WHEEL_HEIGHT + ride) / 2),
+            final double out = half();
+            return new Shape(new Section(0, 0, (bars() - ride) / 2, out, length / 2, (bars() + ride) / 2),
                     parts);
         }
 
@@ -524,7 +567,7 @@ public final class Course {
             final List<Section> parts = new ArrayList<>(shape().parts());
             parts.addAll(body.solid());
             double out = 0;
-            double top = WHEEL_HEIGHT;
+            double top = bars();
             double front = length / 2;
             for (final Section s : parts) {
                 out = Math.max(out, Math.abs(s.across()) + s.halfAcross());
@@ -547,20 +590,20 @@ public final class Course {
         @Override
         public Section door() {
             final double side = driverAcross < 0 ? -1 : 1;
-            return new Section(side * (wheelOut() + wheelWidth / 2 + 60), driverAlong, -ride, 0, 0, 0);
+            return new Section(side * (half() + 60), driverAlong, -ride, 0, 0, 0);
         }
 
         /** From the ground it stands on up as high as whoever rides it: nothing it drives under or past goes through a rider. */
         @Override
         public Section room() {
             final double top = Body.TALL + 30;
-            return new Section(0, 0, (top - ride) / 2, wheelOut() + wheelWidth / 2, length / 2, (top + ride) / 2);
+            return new Section(0, 0, (top - ride) / 2, half(), length / 2, (top + ride) / 2);
         }
 
         /** It stands on its wheels: the bottom of them. */
         @Override
         public Section footing() {
-            return new Section(0, 0, 1 - ride, wheelOut() + wheelWidth / 2, length / 2, 1);
+            return new Section(0, 0, 1 - ride, half(), length / 2, 1);
         }
 
         /** As fast as it drives; not flown, and its engine is not cut. */
@@ -583,17 +626,38 @@ public final class Course {
 
     /** A car's chassis: 4 m long, 1.8 m wide, four wheels; quick, and nimble. */
     public static final Chassis CAR_CHASSIS = new Chassis("car", 180, 400, 75, 35, 24, List.of(130.0, -130.0), -40,
-            40, new Drive(2200, 700, 900, 2600, 350, 34, 140));
+            40, new Drive(6905, 700, 405, 2600, 350, 34, 140));
     /** A truck's: 7 m long, 2.4 m wide, six wheels, the back four on two axles together; slower, and wider in its turns. */
     public static final Chassis TRUCK_CHASSIS = new Chassis("truck", 240, 700, 105, 50, 30,
-            List.of(240.0, -150.0, -280.0), -60, 170, new Drive(1600, 450, 550, 1900, 300, 30, 100));
+            List.of(240.0, -150.0, -280.0), -60, 170, new Drive(3334, 450, 449, 1900, 300, 30, 100));
     /**
      * A pickup's: 5.2 m long, 2 m wide, four wheels, its seat well forward to leave the back of it
      * free, for a gun on a post ({@link #REAR_GUN}); what a pickup with a gun, or an armoured
      * vehicle, is built on.
      */
     public static final Chassis PICKUP_CHASSIS = new Chassis("pickup", 200, 520, 85, 40, 26, List.of(170.0, -170.0),
-            -45, 110, new Drive(1900, 600, 750, 2300, 330, 32, 120));
+            -45, 110, new Drive(5140, 600, 514, 2300, 330, 32, 120));
+    /**
+     * A scooter's: 1.8 m long, on two small wheels, its rider sat upright well back, feet on the
+     * floorboard between them; not quick, but nimble. The first of the two-wheelers.
+     */
+    public static final Chassis SCOOTER = new Chassis("scooter", 70, 180, 40, 22, 12, List.of(62.0, -62.0), 0, -22,
+            new Drive(2696, 300, 344, 1800, 300, 26, 130), true);
+    /**
+     * A sport bike's: 2.05 m long, on big wheels, its rider tucked forward over the tank; the
+     * quickest of everything that drives, though a little less nimble than a scooter.
+     */
+    public static final Chassis SPORT_BIKE = new Chassis("sport bike", 70, 205, 45, 31, 18, List.of(70.0, -70.0),
+            0, -25,
+            new Drive(6556, 300, 926, 2600, 320, 22, 110), true);
+    /**
+     * A cruiser's: 2.4 m long and low, its wheels far apart, its rider sat back, feet forward, arms
+     * out to wide bars; steady, slower to turn.
+     */
+    public static final Chassis CRUISER = new Chassis("cruiser", 90, 240, 40, 32, 16, List.of(88.0, -82.0), 0, -30,
+            new Drive(5056, 300, 581, 2200, 300, 20, 90), true);
+    /** The two-wheelers. */
+    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER);
     /**
      * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
      * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
@@ -635,7 +699,8 @@ public final class Course {
             new Section(0, 0, 80, 118, 202, 108)));
 
     /** Every chassis there is, to know one by its shape. */
-    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
+    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS, SCOOTER, SPORT_BIKE,
+            CRUISER);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -799,6 +864,7 @@ public final class Course {
             case AIRSHIP -> airshipDemo();
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
+            case TRACK -> trackDemo();
         }
     }
 
@@ -874,6 +940,89 @@ public final class Course {
                     Kind.DUMMY, k % 3));
         }    }
 
+    /** The race track's oval: how far its straights run, the radius of its turns at its middle, how wide it
+     * is, how far its turns are banked, and how far east of the start its front straight runs. */
+    public static final double TRACK_STRAIGHT = 40000;
+    public static final double TRACK_RADIUS = 12000;
+    public static final double TRACK_WIDTH = 2400;
+    public static final double TRACK_BANK = 0;
+    public static final double TRACK_X = 3500;
+    /** Its surface stands this high off the ground; its turns are made of this many pieces each. */
+    private static final double SURFACE = 2;
+    private static final int SEGMENTS = 60;
+    /** How wide its apron, its pit road and its outer wall are, and how tall the wall stands over the track. */
+    private static final double APRON = 600;
+    private static final double PIT = 800;
+    private static final double WALL = 100;
+    private static final double WALL_HEIGHT = 110;
+
+    /**
+     * A race track, NASCAR-style: an oval a mile round, 24 m wide, its straights flat and, for now, its
+     * turns too ({@link #TRACK_BANK} 0: banked turns wait on vehicles settling well on uneven ground);
+     * banked, the banking would ease in and out over the first and last fifth of each turn. It has
+     * a concrete wall all round its outside, a paler apron round its inside, and a white line
+     * across the front straight to start and finish at. Inside the front straight, pit road, every
+     * land vehicle parked on it heading the way they race (round to the left); outside it, the
+     * grandstands. The avatar starts on the infield beside pit road, the vehicles before it.
+     */
+    private void trackDemo() {
+        final double middle = TRACK_X - TRACK_RADIUS;
+        final double half = TRACK_STRAIGHT / 2;
+        final double inner = TRACK_RADIUS - TRACK_WIDTH / 2;
+        final double outer = TRACK_RADIUS + TRACK_WIDTH / 2;
+        // the straights, flat: the front one east of the middle, the back one west; each with its wall and apron
+        for (final double side : new double[] {1, -1}) {
+            pieces.add(new Piece(new Block(middle + side * TRACK_RADIUS, 0, TRACK_WIDTH / 2, half, 0, 0, SURFACE),
+                    Kind.TRACK, 0));
+            pieces.add(new Piece(new Block(middle + side * (outer + WALL / 2), 0, WALL / 2, half, 0, 0,
+                    SURFACE + WALL_HEIGHT), Kind.WALL, 0));
+            pieces.add(new Piece(new Block(middle + side * (inner - APRON / 2), 0, APRON / 2, half, 0, 0, SURFACE),
+                    Kind.TRACK, 1));
+        }
+        // the turns, north and south, from the front straight round to the back: banked, the banking easing in and out
+        for (final double end : new double[] {1, -1}) {
+            for (int i = 0; i < SEGMENTS; i++) {
+                final double share = (i + 0.5) / SEGMENTS;
+                final double round = Math.toRadians(180 * share);
+                final double ease = Num.clamp(Math.min(share, 1 - share) / 0.2, 0, 1);
+                final double bank = TRACK_BANK * ease * ease * (3 - 2 * ease);
+                final double rise = TRACK_WIDTH * Math.tan(Math.toRadians(bank));
+                // out from the turn's middle, and the way out, as a heading: the slope runs up it, across the track
+                final double outX = Math.cos(round);
+                final double outZ = end * Math.sin(round);
+                final double yaw = Math.toDegrees(Math.atan2(outX, outZ));
+                final double centreZ = end * half;
+                final double step = Math.PI / SEGMENTS / 2;
+                pieces.add(new Piece(new Block(middle + outX * TRACK_RADIUS, centreZ + outZ * TRACK_RADIUS,
+                        outer * step + 30, TRACK_WIDTH / 2, yaw, 0, SURFACE + rise, SURFACE), Kind.TRACK, 0));
+                pieces.add(new Piece(new Block(middle + outX * (outer + WALL / 2), centreZ + outZ * (outer + WALL / 2),
+                        (outer + WALL) * step + 20, WALL / 2, yaw, 0, SURFACE + rise + WALL_HEIGHT), Kind.WALL, 0));
+                pieces.add(new Piece(new Block(middle + outX * (inner - APRON / 2), centreZ + outZ * (inner - APRON / 2),
+                        inner * step + 20, APRON / 2, yaw, 0, SURFACE), Kind.TRACK, 1));
+            }
+        }
+        // the line to start and finish at, across the front straight
+        pieces.add(new Piece(new Block(TRACK_X, 0, TRACK_WIDTH / 2, 60, 0, SURFACE, SURFACE + 1), Kind.TRACK, 2));
+        // pit road, inside the front straight, and the vehicles on it, heading north, the way they race
+        final double pit = TRACK_X - TRACK_WIDTH / 2 - APRON - PIT / 2;
+        pieces.add(new Piece(new Block(pit, 0, PIT / 2, half * 0.8, 0, 0, SURFACE), Kind.TRACK, 1));
+        final Object[][] parked = {
+                {CAR_CHASSIS, ROADSTER}, {CAR_CHASSIS, VAN}, {PICKUP_CHASSIS, PICKUP_BODY}, {TRUCK_CHASSIS, TRUCK_CAB},
+                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}};
+        double along = 2400;
+        for (int k = 0; k < parked.length; k++) {
+            final Chassis chassis = (Chassis) parked[k][0];
+            along -= chassis.length() / 2 + 150;
+            pieces.add(Piece.vehicle(chassis, (Bodywork) parked[k][1], new Place(pit, along, chassis.ride() + SURFACE, 0), k % 4));
+            along -= chassis.length() / 2 + 150;
+        }
+        // and the grandstands outside the front straight, beyond its wall, stepping up away from it
+        for (int tier = 0; tier < 3; tier++) {
+            pieces.add(new Piece(Block.standing(TRACK_X + outer - TRACK_RADIUS + WALL + 900 + tier * 900, 0, 900,
+                    half * 1.1, 350 + tier * 450, 0), Kind.WALL, 1));
+        }
+    }
+
     private void flyoverDemo() {
         scenery(19, true);
         roads(flyover(0, FLYOVER_Z, 90));
@@ -884,6 +1033,11 @@ public final class Course {
         pieces.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-950, 250, CAR_CHASSIS.ride(), 0), 3));
         // and a pickup's, its gun on the back, behind the start
         pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
+        // and the two-wheelers beside it: the scooter, the sport bike and the cruiser, each with a clear
+        // way ahead between the cars
+        pieces.add(Piece.vehicle(SCOOTER, null, new Place(-700, -700, SCOOTER.ride(), 0), 0));
+        pieces.add(Piece.vehicle(SPORT_BIKE, null, new Place(320, -700, SPORT_BIKE.ride(), 0), 0));
+        pieces.add(Piece.vehicle(CRUISER, null, new Place(1000, -700, CRUISER.ride(), 0), 0));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {
@@ -961,6 +1115,9 @@ public final class Course {
         extras.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-650, -2650, CAR_CHASSIS.ride(), 0), 3));
         extras.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(650, -2000, PICKUP_CHASSIS.ride(), 0), 2));
         extras.add(Piece.vehicle(TRUCK_CHASSIS, TRUCK_CAB, new Place(700, -2700, TRUCK_CHASSIS.ride(), 0), 1));
+        extras.add(Piece.vehicle(SCOOTER, null, new Place(-650, -1500, SCOOTER.ride(), 0), 0));
+        extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
+        extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(GUNSHIP.shape(), new Place(-2600, -300, LIFT_LOW, -90), Kind.PLATFORM, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
@@ -1204,7 +1361,11 @@ public final class Course {
         gates.add(new Gate(x, z, yaw, height, GATE_SPAN - GATE_BAR));
     }
 
+    /** How far out from the start the course's pillars, crates and gates are scattered, either way: the
+     * playground as it was, whatever size the world it stands in. */
+    private static final double SPREAD = 12000 - 400;
+
     private static double spot(final Random random) {
-        return (random.nextDouble() * 2 - 1) * (Body.EDGE - 400);
+        return (random.nextDouble() * 2 - 1) * SPREAD;
     }
 }

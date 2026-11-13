@@ -32,6 +32,12 @@ public final class Robot implements Profile {
         return "robot";
     }
 
+    /** Its engines are made as they run: the real thing, as near as it comes. */
+    @Override
+    public boolean enginesAsTheyRun() {
+        return true;
+    }
+
     @Override
     public String title() {
         return "Robot";

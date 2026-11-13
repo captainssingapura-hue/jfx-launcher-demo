@@ -77,8 +77,18 @@ class ChassisTest {
         Play play = driving(open());
         assertTrue(car(play).held());
         play = run(play, GO, 4, events);
-        assertEquals(Course.CAR_CHASSIS.drive().top(), car(play).ahead(), 1e-9, "flat out");
-        assertTrue(car(play).place().z() > -6000 + 4000, "a long way ahead");
+        final Course.Drive drive = Course.CAR_CHASSIS.drive();
+        assertTrue(car(play).ahead() > 0.2 * drive.top() && car(play).ahead() < drive.top(), "well under way: "
+                + car(play).ahead());
+        assertTrue(car(play).place().z() > -6000 + 2500, "a long way ahead");
+        // and, flat out, up to its top speed in the end, less and less briskly as it nears it, and no further
+        assertEquals(drive.accel(), drive.accelAt(0), 1e-9);
+        assertTrue(drive.accelAt(0.9 * drive.top()) < 0.25 * drive.accel());
+        double speed = 0;
+        for (int i = 0; i < 300 / Clock.STEP; i++) {
+            speed = Math.min(drive.top(), speed + drive.accelAt(speed) * Clock.STEP);
+        }
+        assertEquals(drive.top(), speed, 1e-9, "flat out");
         assertEquals(0, car(play).place().x() + 9000, 1e-6, "straight on, unsteered");
         assertEquals(0, play.avatar().body().position().distance(car(play).pilot()), 1, "its driver with it");
     }
@@ -87,7 +97,7 @@ class ChassisTest {
     void sBrakesThenReverses() {
         final List<Event> events = new ArrayList<>();
         Play play = driving(open());
-        play = run(play, GO, 1, events);
+        play = run(play, GO, 3, events);
         final Controls back = new Controls(-1, 0, 0, 0, true, false, 0);
         play = run(play, back, 0.3, events);
         assertTrue(car(play).ahead() > 0, "braking");
