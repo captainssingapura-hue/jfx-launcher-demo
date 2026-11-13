@@ -961,6 +961,24 @@ public final class Course {
         return road;
     }
 
+    /**
+     * What the playground has of the rest: parked beside the street that runs out behind the start,
+     * a roadster and a van on the left of it, a pickup and a truck on the right, all facing the
+     * start; off to the west, a bunker looking out over the field, and a gunship beside it; and off
+     * to the east, an airship moored broadside on, to walk in under and fly.
+     */
+    private static List<Piece> playgroundExtras() {
+        final List<Piece> extras = new ArrayList<>();
+        extras.add(Piece.vehicle(CAR_CHASSIS, ROADSTER, new Place(-650, -2000, CAR_CHASSIS.ride(), 0), 0));
+        extras.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-650, -2650, CAR_CHASSIS.ride(), 0), 3));
+        extras.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(650, -2000, PICKUP_CHASSIS.ride(), 0), 2));
+        extras.add(Piece.vehicle(TRUCK_CHASSIS, TRUCK_CAB, new Place(700, -2700, TRUCK_CHASSIS.ride(), 0), 1));
+        extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
+        extras.add(Piece.moving(GUNSHIP.shape(), new Place(-2600, -300, LIFT_LOW, -90), Kind.PLATFORM, 0, null));
+        extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
+        return extras;
+    }
+
     /** Whether {@code block} stands on or near any of {@code road}: crates and pillars there are cleared away. */
     private static boolean inTheWay(final Block block, final List<Block> road) {
         for (final Block stretch : road) {
@@ -1041,7 +1059,11 @@ public final class Course {
 
         // the roads have the ground they run over to themselves: what was scattered there is cleared
         final List<Block> roads = playgroundRoads();
-        pieces.removeIf(p -> (p.kind() == Kind.CRATE || p.kind() == Kind.PILLAR) && inTheWay(p.block(), roads));
+        // and so do the vehicles parked about it, the bunker and the gunship, and the airship moored to fly
+        final List<Piece> extras = playgroundExtras();
+        final List<Block> clear = new ArrayList<>(roads);
+        extras.forEach(p -> clear.add(p.block()));
+        pieces.removeIf(p -> (p.kind() == Kind.CRATE || p.kind() == Kind.PILLAR) && inTheWay(p.block(), clear));
 
         for (int i = 0; i < 14; i++) {
             final double angle = i * 2 * Math.PI / 14 + 0.4;
@@ -1086,6 +1108,7 @@ public final class Course {
 
         // and the roads, last, so that nothing else is numbered differently for them
         roads(roads);
+        pieces.addAll(extras);
     }
 
     /**

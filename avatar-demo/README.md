@@ -24,6 +24,11 @@ characters, and a separate sound bench is for working on the sounds.
   a street that runs out from the start under it, and another off to the right, carrying a road
   over a street running out east. The crates and pillars that were scattered where the roads run
   are cleared away; everything else is where it was.
+  And everything since is in it too: down the street behind the start, the four vehicles parked
+  two each side of it, the roadster and the van on its west side, the pickup and the truck on
+  its east; out west, the bunker with its heavy Gatling gun and the gunship standing ready by it;
+  and off to the east, behind the start, an airship moored low to be boarded and flown, bombs and all, beside
+  the three that sail their routes overhead.
 - **Land vehicles: a bare chassis.** What a car or a truck is built on (`Course.Chassis`): a flat
   bed on wheels, a steering wheel on a column, and nothing else yet. The car's is 4 m long on four
   wheels; the truck's 7 m on six, its back four on two axles together. Stand beside the driver's door (or at the
@@ -210,7 +215,8 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of demos: the **playground**, everything at once, or one built round a
+It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
+airships, the flyovers, the four vehicles, the bunker, the gunship and an airship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
@@ -219,7 +225,7 @@ Click one or press its number. In a demo, the menu bar along the top has them to
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, or writes every sound to WAV files with `--sounds [folder]` (see

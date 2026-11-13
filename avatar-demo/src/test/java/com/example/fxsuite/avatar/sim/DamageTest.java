@@ -233,7 +233,9 @@ class DamageTest {
         final int airship = first(Course.Kind.AIRSHIP);
         final Course.Piece piece = course.pieces().get(airship);
         for (final Course.Piece other : course.pieces()) {
-            if (other.kind() != Course.Kind.AIRSHIP && other.kind().breakable()) {
+            // the vehicles and the bunker, armoured in their own right, aside
+            if (other.kind() != Course.Kind.AIRSHIP && other.kind() != Course.Kind.CAR
+                    && other.kind() != Course.Kind.BUNKER && other.kind().breakable()) {
                 assertTrue(Damage.toughness(piece) > 4 * Damage.toughness(other), other.toString());
             }
         }
@@ -247,8 +249,8 @@ class DamageTest {
     @Test
     void theAirshipsHangOverEverythingElseWithinReachOfTheJets() {
         final List<Course.Piece> airships = course.pieces().stream()
-                .filter(p -> p.kind() == Course.Kind.AIRSHIP).toList();
-        assertEquals(3, airships.size());
+                .filter(p -> p.kind() == Course.Kind.AIRSHIP && p.route() != null).toList();
+        assertEquals(3, airships.size(), "three sailing, the fourth moored to be flown");
         final double highest = course.pieces().stream().filter(p -> p.kind() != Course.Kind.AIRSHIP)
                 .mapToDouble(p -> p.block().top()).max().orElseThrow();
         for (final Course.Piece airship : airships) {

@@ -12,7 +12,8 @@ package com.example.fxsuite.avatar.sim;
 public enum Demo {
 
     /** Everything at once: the course, the range, the airships going round, the platforms and the stall. */
-    PLAYGROUND("Playground", "The course, the targets, the airships and their bombs, the platforms and the fruit stall.",
+    PLAYGROUND("Playground", "Everything at once: the course, the targets, the airships, the stall, the flyovers, the vehicles,"
+            + " the bunker, the gunship, and an airship to fly.",
             Course.START_YAW),
     /** A flying platform, open: the avatar rides it, on its deck at the console. */
     PLATFORM("Flying platform", "A platform to fly like a magic carpet, among a few pillars and gates.", 0),

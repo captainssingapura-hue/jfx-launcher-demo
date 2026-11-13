@@ -169,7 +169,7 @@ class TurretTest {
 
     @Test
     void aWorldWithoutGunsSumsAsItAlwaysHas() {
-        final Play play = Play.start(false);
+        final Play play = Play.start(Demo.PLATFORM, false);
         assertTrue(play.turrets().isEmpty());
         assertEquals(play.checksum(), new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), play.people(),
                 play.props(), List.of()).checksum());
