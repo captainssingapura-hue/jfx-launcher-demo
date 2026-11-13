@@ -14,8 +14,8 @@ import java.util.Random;
  *   <li>crates scattered about, from knee height to just out of a jump's reach;</li>
  *   <li>tall pillars, to walk between and fly over and land on;</li>
  *   <li>gates up in the air, four bars round an opening to fly through;</li>
- *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, drones
- *       hovering round it, and, high over everything else and far out, three great armoured
+ *   <li>targets to shoot at: wooden dummies standing in rows, each facing the start, and,
+ *       high over everything else and far out, three great armoured
  *       airships going slowly round on their {@link Route}s ({@link Piece#at});</li>
  *   <li>and platforms, flown about from the console on each ({@link Lift}): a small one to
  *       ride like a magic carpet, and a broad barge.</li>
@@ -782,10 +782,6 @@ public final class Course {
     public static final double DUMMY_DEPTH = 24;
     public static final double DUMMY_HEIGHT = 180;
     public static final double DUMMY_APART = 200;
-    /** The drones: how many, how wide across, and how deep top to bottom. */
-    public static final int DRONES = 8;
-    public static final double DRONE_SIZE = 130;
-    public static final double DRONE_HEIGHT = 40;
 
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Gate> gates = new ArrayList<>();
@@ -851,8 +847,8 @@ public final class Course {
     /**
      * The guns' demo: a bunker just ahead of the start, its door toward it and its gun facing away,
      * and a gunship off to the right, a platform with a gun on its console;
-     * over open ground with something to shoot at: rows of crates and of dummies out in front, and
-     * drones hovering further out. Pillars about, as in the vehicles' demos.
+     * over open ground with something to shoot at: rows of crates and of dummies out in front.
+     * Pillars about, as in the vehicles' demos.
      */
     private void gunsDemo() {
         scenery(23);
@@ -876,15 +872,7 @@ public final class Course {
             final double across = (k - 3) * 300;
             pieces.add(new Piece(Block.standing(across, 2000, DUMMY_WIDTH, DUMMY_DEPTH, DUMMY_HEIGHT, 0),
                     Kind.DUMMY, k % 3));
-        }
-        for (int i = 0; i < 6; i++) {
-            final double heading = -40 + 16.0 * i;
-            final Vec3 at = Num.heading(heading).multiply(3800 + 400 * (i % 2)).add(0, 0, 700);
-            final double low = 500 + 150 * (i % 3);
-            pieces.add(new Piece(new Block(at.x(), at.z(), DRONE_SIZE / 2, DRONE_SIZE / 2, 180 + heading,
-                    low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
-        }
-    }
+        }    }
 
     private void flyoverDemo() {
         scenery(19, true);
@@ -1073,17 +1061,9 @@ public final class Course {
         }
 
         // the targets, last, in the open ring round the start: a range of dummies off to the
-        // left, another few behind, and drones hovering all round
+        // left, and another few behind
         range(RANGE_HEADING, RANGE_OUT, 5);
         range(START_YAW + 180, RANGE_OUT + 50, 3);
-        for (int i = 0; i < DRONES; i++) {
-            final double heading = 10 + 360.0 * i / DRONES;
-            final Vec3 at = Num.heading(heading).multiply(i % 2 == 0 ? 800 : 1200);
-            final double low = 280 + 110 * (i % 4);
-            pieces.add(new Piece(new Block(at.x(), at.z(), DRONE_SIZE / 2, DRONE_SIZE / 2, heading,
-                    low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
-        }
-
         // and the airships, high over everything else, going slowly round far out
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];

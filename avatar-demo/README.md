@@ -116,7 +116,8 @@ characters, and a separate sound bench is for working on the sounds.
   into the ground in front, and a sweep catches what is beside; on a block the blade leaves a
   gash. The marks fade after a while.
 - **Targets and damage.** A range of wooden target dummies stands off to the left of the start,
-  more behind it, and drones hover all round. High over everything, far out, three great
+  more behind it. (Drones are left off the maps for now: their model got in the way of the land
+  vehicles. The kind, its looks and its sound are all still there, to bring back.) High over everything, far out, three great
   armoured airships go slowly round the start, a lap taking the best part of two minutes. Each
   is 18 m long, with a stepped steel hull banded in yellow, a cross of tail fins, a lit gondola
   underneath and an engine with a turning propeller either side. Each part of one is solid, so
@@ -220,7 +221,7 @@ airships, the flyovers, the four vehicles, the bunker, the gunship and an airshi
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
-and a gunship, each with a heavy Gatling gun, and crates, dummies and drones out in front (`Demo`).
+and a gunship, each with a heavy Gatling gun, and crates and dummies out in front (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
