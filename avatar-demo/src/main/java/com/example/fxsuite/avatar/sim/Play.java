@@ -167,7 +167,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // turning it, and the mouse is the gun's
         final List<Lift> handed = gunshipsHeld(reached, manned);
         final int gunship = gunning(manned) < 0 ? -1 : liftOf(handed, manned.get(gunning(manned)).host());
-        final Controls steering = gunship >= 0 ? gunshipControls(controls, seconds) : controls;
+        // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it)
+        final Controls steering = gunship >= 0 && !(handed.get(gunship).craft() instanceof Course.Chassis)
+                ? gunshipControls(controls, seconds) : controls;
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);
         final boolean still = inside >= 0 || gunning >= 0;

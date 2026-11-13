@@ -535,8 +535,15 @@ public final class Course {
     /** A truck's: 7 m long, 2.4 m wide, six wheels, the back four on two axles together; slower, and wider in its turns. */
     public static final Chassis TRUCK_CHASSIS = new Chassis("truck", 240, 700, 105, 50, 30,
             List.of(240.0, -150.0, -280.0), -60, 170, new Drive(1600, 450, 550, 1900, 300, 30, 100));
+    /**
+     * A pickup's: 5.2 m long, 2 m wide, four wheels, its seat well forward to leave the back of it
+     * free, for a gun on a post ({@link #REAR_GUN}); what a pickup with a gun, or an armoured
+     * vehicle, is built on.
+     */
+    public static final Chassis PICKUP_CHASSIS = new Chassis("pickup", 200, 520, 85, 40, 26, List.of(170.0, -170.0),
+            -45, 110, new Drive(1900, 600, 750, 2300, 330, 32, 120));
     /** Every chassis there is, to know one by its shape. */
-    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS);
+    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -546,6 +553,16 @@ public final class Course {
     public static final Mount CAR_GUN = new Mount(Gun.HEAVY_GATLING,
             new Section(CAR_CHASSIS.driverAcross() + 62, CAR_CHASSIS.driverAlong() + 10, 70, 0, 0, 0), 230, 0, 0, 0,
             0, false, false, CAR_CHASSIS.station(), CAR_CHASSIS.station(), false);
+
+    /**
+     * The pickup's gun: a heavy Gatling gun on a post at the back, high enough to fire over the
+     * driver's head; all round, 10° down and 45° up, turning 100° a second at most, and holding its
+     * aim on the world as the pickup turns under it. Whoever sits at the wheel drives and fires both,
+     * as one: the keys drive, the mouse aims the gun.
+     */
+    public static final Mount REAR_GUN = new Mount(Gun.HEAVY_GATLING,
+            new Section(0, -PICKUP_CHASSIS.length() / 2 + 80, 190, 0, 0, 0), 230, 180, 10, 45, 100, true, false,
+            PICKUP_CHASSIS.station(), PICKUP_CHASSIS.station(), false);
 
     /**
      * A gun on a mount ({@link Turret}): which gun ({@link Gun}), where it turns about on what
@@ -783,6 +800,21 @@ public final class Course {
         // and a car's chassis and a truck's, either side of the way ahead, to drive on them
         pieces.add(Piece.moving(CAR_CHASSIS.shape(), new Place(-450, 300, CAR_CHASSIS.ride(), 0), Kind.CAR, 0, null));
         pieces.add(Piece.moving(TRUCK_CHASSIS.shape(), new Place(550, 250, TRUCK_CHASSIS.ride(), 0), Kind.CAR, 1, null));
+        // and a pickup's, its gun on the back, behind the start
+        pieces.add(Piece.moving(PICKUP_CHASSIS.shape(), new Place(0, -700, PICKUP_CHASSIS.ride(), 0), Kind.CAR, 2, null));
+        // and crates to shoot, out on the open ground either side of the road
+        final Random random = new Random(31);
+        for (int i = 0; i < 16; i++) {
+            final double side = i % 2 == 0 ? -1 : 1;
+            final Vec3 at = new Vec3(side * (800 + random.nextDouble() * 1800), 0, -2600 - random.nextDouble() * 3200);
+            final double size = 120 + random.nextDouble() * 140;
+            final Block crate = Block.standing(at.x(), at.z(), size, size, 80 + random.nextDouble() * 180,
+                    random.nextDouble() * 90);
+            final int tint = random.nextInt(3);
+            if (pieces.stream().noneMatch(p -> p.block().overlaps(crate))) {
+                pieces.add(new Piece(crate, Kind.CRATE, tint));
+            }
+        }
         // a ramp to leap off: one in three, up to a metre and a half, open at its head
         pieces.add(new Piece(Block.ramp(0, 3000, 0, 0, 3450, 150, 500), Kind.ROAD, 0));
     }

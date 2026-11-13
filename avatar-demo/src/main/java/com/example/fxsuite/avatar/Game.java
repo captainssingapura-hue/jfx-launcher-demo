@@ -192,6 +192,10 @@ public final class Game {
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Click fire its gun, fixed beside the seat: held, it spins up, then fires the way the car faces\n"
             + VIEW_KEYS;
+    private static final String PICKUP_HELP = "The pickup: W accelerate · S brake, then reverse · A/D steer ·"
+            + " Space handbrake · Shift gently · T let go\n"
+            + "The mouse aims the gun at the back, all round, 10° down and 45° up; it holds its aim as the pickup"
+            + " turns · click fire\n" + VIEW_KEYS;
     private static final String GUNSHIP_HELP = "The gunship: W/S ahead and back · A/D turn · Space climb ·"
             + " Ctrl descend · Shift carefully · T step away from the gun\n"
             + "The mouse aims the gun, all round, 30° down and 40° up; it holds its aim as the gunship turns"
@@ -624,6 +628,11 @@ public final class Game {
                 : String.format(" · heat %.0f%%%s", 100 * gun.heat(), gun.cooling() ? ", too hot: cooling" : "");
         final double left = 100 * damage.left(gun.host());
         final Lift ship = lifts.stream().filter(l -> l.piece() == gun.host()).findFirst().orElse(null);
+        if (ship != null && ship.craft() instanceof Course.Chassis chassis) {
+            final double speed = ship.ahead() / 100;
+            return String.format("Driving the %s · %.1f m/s%s · wheels %+.0f° · gun %s%s · %.0f%% left", chassis.name(),
+                    Math.abs(speed), speed < -0.05 ? " in reverse" : "", ship.steer(), barrels, heat, left);
+        }
         if (ship != null) {
             return String.format("Flying the gunship · %.1f m/s · %.1f m up · gun %s%s · %.0f%% left",
                     ship.speed() / 100, ship.place().height() / 100, barrels, heat, left);
@@ -728,7 +737,9 @@ public final class Game {
             shown = text;
             status.setText(text);
         }
-        final String keys = manned.isPresent() ? (manned.get().mount().closed() ? GUN_HELP : GUNSHIP_HELP)
+        final String keys = manned.isPresent() ? (manned.get().mount().closed() ? GUN_HELP
+                : lifts.stream().anyMatch(l -> l.piece() == manned.get().host() && l.craft() instanceof Course.Chassis)
+                ? PICKUP_HELP : GUNSHIP_HELP)
                 : flown.map(lift -> lift.craft() instanceof Course.Chassis
                         ? (fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);

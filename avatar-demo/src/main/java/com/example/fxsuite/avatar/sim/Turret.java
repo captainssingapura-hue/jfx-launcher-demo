@@ -45,7 +45,7 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         this(host, mount, base, 0, 0, 0, 0, Gun.State.READY, 0, false, false);
     }
 
-    /** The guns mounted among {@code damage}'s pieces: one in each bunker, one on each gunship, and one on each car. */
+    /** The guns mounted among {@code damage}'s pieces: one in each bunker, one on each gunship, and one on each car and pickup. */
     public static List<Turret> of(final Damage damage) {
         final List<Turret> turrets = new ArrayList<>();
         for (int piece = 0; piece < damage.size(); piece++) {
@@ -56,6 +56,8 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
                 turrets.add(new Turret(piece, Course.GUNSHIP_GUN, what.place()));
             } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.CAR_CHASSIS) {
                 turrets.add(new Turret(piece, Course.CAR_GUN, what.place()));
+            } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.PICKUP_CHASSIS) {
+                turrets.add(new Turret(piece, Course.REAR_GUN, what.place()));
             }
         }
         return turrets;

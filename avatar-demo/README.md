@@ -39,6 +39,12 @@ characters, and a separate sound bench is for working on the sounds.
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
   is held: moving with what holds it, as the hands hold theirs, rather than aimed freely on a
   mount (`Course.Mount#fixed`).
+  The pickup (5.2 m, four wheels) has its seat well forward, and on a post at its back, high
+  enough to fire over the driver's head, a heavy Gatling gun aimed freely: what a pickup with a
+  gun, or an armoured vehicle, is built on. T at its wheel takes both, as one: the keys drive it,
+  A and D steering as ever, and the mouse aims the gun all round, 10° down and 45° up; the gun
+  holds its aim on the world as the pickup turns under it, and the view rides behind the gun.
+  Crates stand about behind the start, to turn it on.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.

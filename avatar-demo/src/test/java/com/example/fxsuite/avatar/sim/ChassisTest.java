@@ -32,6 +32,11 @@ class ChassisTest {
         return play.lifts().stream().filter(l -> l.craft() == Course.CAR_CHASSIS).findFirst().orElseThrow();
     }
 
+    /** The gun on the car. */
+    private static Turret carGun(final Play play) {
+        return play.turrets().stream().filter(t -> t.mount() == Course.CAR_GUN).findFirst().orElseThrow();
+    }
+
     /** The roads demo, the car put at {@code place}, and the avatar at its wheel, driving. */
     private static Play driving(final Place place) {
         final Play start = Play.start(Demo.FLYOVER, false);
@@ -183,9 +188,10 @@ class ChassisTest {
 
     @Test
     void theCarHasAGunFixedBesideTheSeatAndTheTruckNone() {
+        assertTrue(Play.start(Demo.FLYOVER, false).turrets().stream().noneMatch(t -> t.host() == Play.start(Demo.FLYOVER,
+                false).lifts().stream().filter(l -> l.craft() == Course.TRUCK_CHASSIS).findFirst().orElseThrow().piece()));
         final Play start = Play.start(Demo.FLYOVER, false);
-        assertEquals(1, start.turrets().size());
-        final Turret gun = start.turrets().getFirst();
+        final Turret gun = carGun(start);
         assertEquals(car(start).piece(), gun.host());
         assertTrue(gun.mount().fixed());
         assertEquals(Weapon.HEAVY_GATLING, gun.mount().gun().by());
@@ -244,7 +250,7 @@ class ChassisTest {
         }
         assertTrue(car(play).tilt() > 13);
         play = run(play, new Controls(0.2, 0, 0, 0, false, false, 0), Clock.STEP, events);
-        assertEquals(car(play).tilt(), play.turrets().getFirst().pitch(), 1e-9);
+        assertEquals(car(play).tilt(), carGun(play).pitch(), 1e-9);
     }
 
     @Test
