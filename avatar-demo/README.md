@@ -4,7 +4,8 @@ A standalone experiment: a small robot built from boxes that walks, runs and jum
 world of pillars, crates and floating gates, followed by a chase camera. Put on its jet-pack
 and it flies as a drone does: upright, tipped gently toward where it goes, holding its place
 when let go. Everything is heard as well as seen. Two sound profiles give the same world two
-characters, and a separate sound bench is for working on the sounds.
+characters, and two separate benches are for working on the sounds: one for all of them, one
+for the engines.
 
 ![Hovering among the pillars, the wings spread](images/flying.jpg)
 
@@ -229,7 +230,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -324,6 +325,40 @@ With no window or sound card at all, `--sounds [folder]` writes every sound of e
 WAV files, a folder for each. It also writes two scenes mixed in stereo (footsteps walking
 past, the jets flying by) and says which outputs this machine can open.
 
+### Engine bench
+
+The engines are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --engine
+```
+
+An engine here is not a recording sped up: its sound is made as it runs, from its revs and
+throttle (`EngineVoice`). The crank turns, and each cylinder fires as the crank comes round to
+its place in the cycle, by the engine's own firing pattern, into its bank's pipe. The pipes ring
+at a few notes of their own, which stay put whatever the revs. So the firing note climbs with
+the revs while the pipes' ring stays where it is, and it sounds like the same engine working
+harder. On top come the intake, roaring with the throttle open; a harsher, louder note when it
+is worked hard; and pops and crackle off the throttle at speed.
+
+- Pick an engine (`Engine`). For cars: an inline four, a V6, a cross-plane V8 with its
+  lopsided burble, or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc
+  two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
+  four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
+  a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
+  then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
+  twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
+  red line, how briskly it revs, its pipes), so another engine is another set of figures.
+- Rev it free: hold Space (or W) for full throttle, or set the throttle by its slider. It revs
+  up as briskly as that engine does, falls back to its idle, and held flat out it bounces off
+  the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
+- Set the load, from revving free to pulling hard.
+- Watch the tachometer, the sound as it is made, and its frequencies: the firing note marked
+  in orange, moving with the revs, and the pipes' notes in blue, staying put.
+
+It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
+`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with. The game's engines are not yet made this way.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the
@@ -388,10 +423,10 @@ of steps, and lets the rest go rather than falling ever further behind.
 | `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
-| `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. Pure: no JavaFX, no sound library |
+| `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, and `Revs` revs it free. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
-| `bench` | The sound bench (`SoundBench`) and the WAV renderer (`Render`) |
+| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
 All but the drawing, the devices and the app is unit-tested, and a test (`LayersTest`) keeps

@@ -15,15 +15,15 @@ import javafx.scene.text.TextAlignment;
  * A land vehicle's instruments, low on the screen as racing games have them: a round tachometer,
  * its needle sweeping up the dial as the engine revs, the last of it red; the gear it is in, big,
  * in the middle of the dial (R going back); and how fast it is going, in kilometres an hour, read
- * out under it. Seen only while a land vehicle is driven.
+ * out under it. Seen only while a land vehicle is driven, and on the engine bench.
  */
-final class Dashboard {
+public final class Dashboard {
 
     /** How big it is, and how far round the dial goes: from low on the left, over the top, to low on the right. */
     private static final double SIZE = 250;
     private static final double SWEEP = 270;
     private static final double START = 225;
-    /** The dial reads up to this, in thousands of turns a minute. */
+    /** The dial reads up to this, in thousands of turns a minute; or a thousand past the red line, if higher. */
     private static final int THOUSANDS = 8;
     /** How briskly the needle follows the engine. */
     private static final double FOLLOW = 18;
@@ -31,17 +31,17 @@ final class Dashboard {
     private final Canvas canvas = new Canvas(SIZE, SIZE);
     private double needle = -1;
 
-    Dashboard() {
+    public Dashboard() {
         canvas.setMouseTransparent(true);
         canvas.setVisible(false);
     }
 
-    Node node() {
+    public Node node() {
         return canvas;
     }
 
     /** Not seen: no land vehicle driven. */
-    void hide() {
+    public void hide() {
         canvas.setVisible(false);
         needle = -1;
     }
@@ -50,7 +50,7 @@ final class Dashboard {
      * Seen, {@code seconds} after the last frame: the engine turning {@code rpm} times a minute, its
      * red line at {@code redline}; in gear {@code gear} ("R", "1", ...); going {@code kmh}.
      */
-    void show(final double rpm, final double redline, final String gear, final double kmh, final double seconds) {
+    public void show(final double rpm, final double redline, final String gear, final double kmh, final double seconds) {
         canvas.setVisible(true);
         needle = needle < 0 ? rpm : needle + (rpm - needle) * (1 - Math.exp(-FOLLOW * seconds));
         final GraphicsContext g = canvas.getGraphicsContext2D();
@@ -64,7 +64,8 @@ final class Dashboard {
         g.setLineWidth(2);
         g.strokeOval(4, 4, SIZE - 8, SIZE - 8);
         // the red zone, from the red line up
-        final double top = THOUSANDS * 1000;
+        final int thousands = Math.max(THOUSANDS, (int) Math.ceil(redline / 1000) + 1);
+        final double top = thousands * 1000;
         g.setStroke(Color.web("#e0342b"));
         g.setLineWidth(9);
         g.setLineCap(StrokeLineCap.BUTT);
@@ -75,8 +76,8 @@ final class Dashboard {
         g.setTextAlign(TextAlignment.CENTER);
         g.setTextBaseline(VPos.CENTER);
         g.setFont(Font.font("System", FontWeight.BOLD, 15));
-        for (int half = 0; half <= THOUSANDS * 2; half++) {
-            final double a = Math.toRadians(angle(half / (THOUSANDS * 2.0)));
+        for (int half = 0; half <= thousands * 2; half++) {
+            final double a = Math.toRadians(angle(half / (thousands * 2.0)));
             final boolean major = half % 2 == 0;
             final double from = radius - (major ? 16 : 9);
             final boolean hot = half * 500 >= redline;

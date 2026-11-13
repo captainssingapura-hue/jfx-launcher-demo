@@ -495,7 +495,7 @@ public final class SoundBench extends Application {
     }
 
     /** Saves the window to {@code -Dbench.snapshot}, if set, and exits. */
-    private static void snapshotIfAsked(final Scene scene) {
+    static void snapshotIfAsked(final Scene scene) {
         final String path = System.getProperty("bench.snapshot");
         if (path == null) {
             return;
