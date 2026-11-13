@@ -155,6 +155,8 @@ public final class Gait {
 
     /** How high a seat is, from what it stands on to the top of its cushion. */
     public static final double SEAT = 40;
+    /** How much lower its head is sat than stood: its hips come down from where they stand onto the seat. */
+    public static final double SEATED_LOWER = BoxRig.HIP - SEAT;
 
     /**
      * {@code looking}, sat down: at the wheel of a land vehicle, kart-fashion. The hips come down
@@ -164,7 +166,7 @@ public final class Gait {
      */
     public static Pose seated(final Pose looking) {
         return new Pose(-6, 0, SEAT - BoxRig.HIP,
-                52, 52, 12, 12, 38, 38,
+                40, 40, 12, 12, 34, 34,
                 84, 84, 6,
                 looking.headYaw(), looking.headPitch(), 0);
     }

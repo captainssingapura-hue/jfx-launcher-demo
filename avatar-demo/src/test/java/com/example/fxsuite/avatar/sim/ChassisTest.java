@@ -164,6 +164,17 @@ class ChassisTest {
     }
 
     @Test
+    void crawlingUpTheLoneRampItTipsOverItsHeadAndDrivesOn() {
+        final List<Event> events = new ArrayList<>();
+        Play play = driving(new Place(0, 2200, Course.CAR_CHASSIS.ride(), 0));
+        for (int i = 0; i < 120 * 30 && car(play).place().z() < 4000; i++) {
+            play = run(play, new Controls(0.3, 0, 0, 0, false, false, 0), Clock.STEP, events);
+        }
+        assertTrue(car(play).place().z() >= 4000, "over it, not stuck on it: " + car(play).place());
+        assertEquals(Course.CAR_CHASSIS.ride(), car(play).place().height(), 1e-6);
+    }
+
+    @Test
     void itStopsDeadAgainstARampsSide() {
         final List<Event> events = new ArrayList<>();
         // beside the flyover's west ramp, near its head, heading straight at its side

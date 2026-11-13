@@ -454,9 +454,9 @@ public final class Course {
                           double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive)
             implements Craft {
 
-        /** How thick the bed is, and how high the steering wheel stands over it. */
+        /** How thick the bed is, and how high the steering wheel stands over it: within reach of a seated driver. */
         public static final double BED = 30;
-        public static final double WHEEL_HEIGHT = 110;
+        public static final double WHEEL_HEIGHT = 80;
 
         public Chassis {
             axles = List.copyOf(axles);

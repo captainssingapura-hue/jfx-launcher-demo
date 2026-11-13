@@ -26,6 +26,7 @@ import com.example.fxsuite.avatar.sim.Hit;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Turret;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Play;
@@ -149,6 +150,14 @@ public final class Game {
     private static final double GUN_EYE = 30;
     /** How much higher the camera looks from over a vehicle wearing a body. */
     private static final double BODY_OVER = 140;
+    /** Whether the view at a vehicle's controls is first person (V), and how far the head is turned from ahead, in a land vehicle. */
+    private boolean firstPerson;
+    private double headYaw;
+    /** How far round a driver's head turns, either way. */
+    private static final double HEAD_TURN = 120;
+    /** Behind a gun, in first person: how far back of where it turns, and how far up. */
+    private static final double SIGHT_BACK = 70;
+    private static final double SIGHT_UP = 34;
     private static final double GUN_REST = -4;
     private static final double OPEN_GUN_VIEW = 560;
     private static final double OPEN_GUN_EYE = 170;
@@ -176,7 +185,8 @@ public final class Game {
     private final Label status = new Label();
     /** The keys, for whatever the avatar is doing: on foot, or at the controls of each kind of vehicle. */
     private final Label help = new Label();
-    private static final String VIEW_KEYS = "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
+    private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person, at the controls ·"
+            + " scroll to zoom · Esc frees the mouse · "
             + "M mute · P sound profile · Tab or right click: the demos";
     private static final String ON_FOOT_HELP = "Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
             + "Space jump or climb · Ctrl descend\n"
@@ -438,7 +448,8 @@ public final class Game {
      */
     private void frame(final double seconds) {
         // the mouse's turn this frame waits until a step takes it, and is shared among the steps
-        turning += look.takeTurn();
+        final double mouse = look.takeTurn();
+        turning += mouse;
         final Clock.Ticked ticked = clock.advance(seconds);
         clock = ticked.clock();
         for (int i = 0; i < ticked.steps(); i++) {
@@ -535,9 +546,19 @@ public final class Game {
                 seconds, circling != 0)
                 : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
-        // inside a closed vehicle the avatar is out of sight: no figure, no shadow, no sights
-        rig.node().setVisible(!inside);
-        rig.effects().setVisible(!inside);
+        // in first person at a vehicle's controls, the view is from where its driver's eyes are: the
+        // seat, the console, the front of the gondola, or behind a gun; in a land vehicle the mouse,
+        // which does not steer it, turns the head
+        final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
+                && gunned.isEmpty();
+        headYaw = firstPerson && seated ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
+        final View cockpit = firstPerson ? cockpit(flying.orElse(null), gunned.orElse(null), shownAt) : null;
+        world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
+        final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
+        // inside a closed vehicle the avatar is out of sight: no figure, no shadow, no sights; looking
+        // out from where its eyes are, its own figure is not seen either
+        rig.node().setVisible(!inside && cockpit == null);
+        rig.effects().setVisible(!inside && cockpit == null);
         reticle.node().setVisible(!inside);
         world.shadowShown(!inside);
         // at the wheel of a land vehicle, sat in its seat, facing the way it heads, as it is drawn now
@@ -561,9 +582,9 @@ public final class Game {
         // the gun the player fires: one manned, or one fixed to what it drives
         final Optional<Turret> firing = gunned.or(() -> fixedGun(flying.orElse(null)));
         if (firing.isPresent()) {
-            reticle.showAt(gunSight(firing.get(), standing), chase.position());
+            reticle.showAt(gunSight(firing.get(), standing), viewer);
         } else {
-            reticle.show(avatar, standing, chase.position());
+            reticle.show(avatar, standing, viewer);
         }
         // each gun drawn where what carries it is drawn, between its last two steps, as that is
         final Map<Integer, Vec3> lag = new HashMap<>();
@@ -594,12 +615,12 @@ public final class Game {
                 ? Num.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
         fieldOfView = Num.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
-        final Vec3 at = chase.position();
+        final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
         eyeAt.setY(at.y());
         eyeAt.setZ(at.z());
-        eyeYaw.setAngle(chase.yaw());
-        eyePitch.setAngle(chase.pitch());
+        eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());
+        eyePitch.setAngle(cockpit != null ? cockpit.pitch() : chase.pitch());
 
         showStatus();
         snapshotIfDue();
@@ -808,7 +829,11 @@ public final class Game {
     /** What a key does outside the world: the camera, the mouse and the sound. */
     private void view(final KeyCode code) {
         switch (code) {
-            case C -> chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
+            case C -> {
+                chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
+                headYaw = 0;
+            }
+            case V -> firstPerson = !firstPerson;
             case ESCAPE -> look.toggle();
             case TAB -> back.run();
             case M -> hearing.toggleMute();
@@ -874,6 +899,54 @@ public final class Game {
         final Body body = avatar.body();
         return new Avatar(new Body(seat, block.yaw(), block.yaw(), 0, 0, 0, 0, false, true, body.phase(), body.time()),
                 avatar.wearingPack(), avatar.sweep(), avatar.arms());
+    }
+
+    /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */
+    private record View(Vec3 at, double yaw, double pitch) {
+    }
+
+    /**
+     * The first-person view at the controls of {@code lift}, or behind {@code gun}, as they are drawn
+     * ({@code shownAt}): from where its driver's eyes are, looking the way it heads (and the head
+     * turned, in a land vehicle), up or down as the view is tilted, and tipped as it is; behind a
+     * gun, looking where it is aimed. Null when there are none.
+     */
+    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt) {
+        final double look = chase.pitch() - restPitch();
+        if (gun != null) {
+            final Block was = movedNow.get(gun.host());
+            final Block drawn = shownAt.get(gun.host());
+            final Vec3 lag = was == null || drawn == null ? Vec3.ZERO
+                    : new Vec3(drawn.x() - was.x(), -(drawn.bottom() - was.bottom()), drawn.z() - was.z());
+            final double yaw = Num.wrap(gun.base().yaw() + gun.wantYaw());
+            final Vec3 eye = gun.pivot().add(lag).add(0, -SIGHT_UP, 0).add(Num.heading(yaw).multiply(-SIGHT_BACK));
+            return new View(eye, yaw, look);
+        }
+        if (lift == null) {
+            return null;
+        }
+        final Block block = shownAt.get(lift.piece());
+        if (block == null) {
+            return null;
+        }
+        final Course.Shape shape = damage.piece(lift.piece()).shape();
+        final Place drawn = new Place(block.x(), block.z(), (block.bottom() + block.top()) / 2 - shape.box().up(),
+                block.yaw());
+        return switch (lift.craft()) {
+            case Course.Chassis chassis -> new View(spot(drawn, chassis.driverAcross(), chassis.driverAlong(),
+                    Chase.EYE_HEIGHT - Gait.SEATED_LOWER
+                            + Math.tan(Math.toRadians(lift.tilt())) * chassis.driverAlong()),
+                    Num.wrap(block.yaw() + headYaw), look + lift.tilt());
+            case Course.Deck deck -> new View(spot(drawn, 0, deck.pilot(), Chase.EYE_HEIGHT), block.yaw(), look);
+            case Course.Ship ship -> new View(spot(drawn, 0, Course.GONDOLA.along() + Course.GONDOLA.halfAlong() + 12,
+                    Course.GONDOLA.up()), block.yaw(), look);
+        };
+    }
+
+    /** The point {@code across}, {@code along} and {@code up} in the frame of {@code place}. */
+    private static Vec3 spot(final Place place, final double across, final double along, final double up) {
+        return new Vec3(place.x(), -(place.height() + up), place.z()).add(Num.right(place.yaw()).multiply(across))
+                .add(Num.heading(place.yaw()).multiply(along));
     }
 
     /** How much higher the camera looks from over a vehicle wearing a body, to see over its roof: a van's is tall. */

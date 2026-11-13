@@ -130,4 +130,27 @@ class PickupTest {
         play = run(play, Controls.NONE, 8, events);
         assertEquals(0, pickup(play).ahead(), 1e-9);
     }
+
+    /** Up the lone ramp ahead and off its head: at any pace, launched or tipping over it, never stuck on it. */
+    @Test
+    void itGoesOverTheLoneRampAtAnyPace() {
+        for (final Controls go : List.of(new Controls(0.3, 0, 0, 0, false, false, 0), new Controls(0.35, 0, 0, 0, true, false, 0),
+                new Controls(1, 0, 0, 0, true, false, 0))) {
+            final List<Event> events = new ArrayList<>();
+            Play play = atTheWheel(events);
+            double peak = 0;
+            for (int i = 0; i < 120 * 60 && pickup(play).place().z() < 4400; i++) {
+                play = run(play, go, Clock.STEP, events);
+                if (pickup(play).place().z() > 3450) {
+                    peak = Math.max(peak, pickup(play).place().height());
+                }
+            }
+            assertTrue(pickup(play).place().z() >= 4400, "past the ramp at " + go + ", not stuck at "
+                    + pickup(play).place());
+            assertTrue(peak > Course.PICKUP_CHASSIS.ride() + 100, "coming off its head");
+            play = run(play, Controls.NONE, 1, events);
+            assertEquals(Course.PICKUP_CHASSIS.ride(), pickup(play).place().height(), 1e-6, "down on its wheels");
+            assertEquals(0, pickup(play).tilt(), 1e-6);
+        }
+    }
 }

@@ -244,6 +244,7 @@ the window, so clicks stay free for actions.
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
 | Left click (held) | Fire, or swing; aboard an airship, drop a bomb (held, a stick of them) | Fire, or swing |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
+| V | At a vehicle's controls: first person, or back | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
 | Right click | The menu of demos: switch to another, start this one again, or all of them (also the button at the top right) | The same |
 

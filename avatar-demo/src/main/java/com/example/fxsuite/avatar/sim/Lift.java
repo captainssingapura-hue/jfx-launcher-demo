@@ -253,6 +253,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double STEER_FADE = 1800;
     /** The handbrake, how much harder than the brakes it stops it. */
     public static final double HANDBRAKE = 1.5;
+    /** Going up faster than this, units a second, a land vehicle is launched off the top of a slope. */
+    public static final double LAUNCH = 300;
 
     /**
      * A land vehicle, {@code seconds} on: steered, sped up, braked or rolling, turned about its back
@@ -322,8 +324,10 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     private Settled settle(final Course.Chassis chassis, final Place at, final double v, final double nowSteer,
                            final double seconds, final Obstacles others) {
-        // the ground under the wheels of each axle, no higher than a kerb above where they are
+        // the ground under the wheels of each axle, no higher than a kerb above where they are: each
+        // where it is along it, as it is tipped, so that up a steep slope its front wheels find it too
         final double underside = place.height() - chassis.ride();
+        final double lean = Math.tan(Math.toRadians(tilt));
         final double reach = underside + KERB;
         final List<Double> axles = chassis.axles();
         final double[] ground = new double[axles.size()];
@@ -332,7 +336,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 final Vec3 wheel = new Vec3(at.x(), 0, at.z())
                         .add(Num.right(at.yaw()).multiply(side * chassis.wheelOut()))
                         .add(Num.heading(at.yaw()).multiply(axles.get(k)));
-                ground[k] = Math.max(ground[k], others.floor(wheel.x(), wheel.z(), chassis.wheelWidth() / 2, reach));
+                ground[k] = Math.max(ground[k], others.floor(wheel.x(), wheel.z(), chassis.wheelWidth() / 2,
+                        reach + lean * axles.get(k)));
             }
         }
         double back = 0;
@@ -340,11 +345,29 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             back += ground[k];
         }
         back /= ground.length - 1;
-        final double front = ground[0];
+        // going up a slope fast, past its top the nose keeps the line it was climbing along until
+        // the back wheels leave it too: it is launched off a ramp's head, rather than tipping over it
+        final double line = back + Math.tan(Math.toRadians(tilt)) * chassis.wheelbase();
+        final double front = climb > LAUNCH && ground[0] < line ? line : ground[0];
         // under the middle: between the front wheels and the back
-        final double middle = back + (front - back) * (0 - chassis.rear()) / chassis.wheelbase();
-        final double target = middle + chassis.ride();
+        double middle = back + (front - back) * (0 - chassis.rear()) / chassis.wheelbase();
         final double slope = Math.toDegrees(Math.atan2(front - back, chassis.wheelbase()));
+        // and never lower than lets its underside clear the ground under all of it: over a ramp's crest
+        // between its wheels, it rests on its belly, high-centred, rather than sinking into it
+        final double rise = Math.tan(Math.toRadians(slope));
+        final double clearance = chassis.ride() - Course.Chassis.BED;
+        final double half = chassis.wheelOut() + chassis.wheelWidth() / 2;
+        final int rows = (int) Math.ceil(chassis.length() / 100) + 1;
+        for (int r = 0; r < rows; r++) {
+            final double along = -chassis.length() / 2 + chassis.length() * r / (rows - 1);
+            for (final double across : new double[] {-half, 0, half}) {
+                final Vec3 under = new Vec3(at.x(), 0, at.z()).add(Num.right(at.yaw()).multiply(across))
+                        .add(Num.heading(at.yaw()).multiply(along));
+                final double floor = others.floor(under.x(), under.z(), 1, reach + lean * along);
+                middle = Math.max(middle, floor - rise * along - clearance);
+            }
+        }
+        final double target = middle + chassis.ride();
         // on its wheels, it keeps to the ground going down too, unless it is going up off it
         final boolean grounded = climb <= 0 && place.height() - target <= SNAP;
         if (target >= place.height() || grounded) {

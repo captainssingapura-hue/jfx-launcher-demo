@@ -94,6 +94,8 @@ public final class World {
     private final Map<Integer, Rig> rigs = new HashMap<>();
     /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
     private final Map<Integer, Wheels> wheeled = new HashMap<>();
+    /** Each vehicle's glass, by piece: hidden from inside, when it is looked out of. */
+    private final Map<Integer, Node> glass = new HashMap<>();
     /**
      * Where each piece that moves was, step by step, the last {@link #HISTORY} of them: so a mark
      * made in a step goes where the piece was in that step ({@link #at}).
@@ -292,6 +294,11 @@ public final class World {
     /** What piece {@code piece} is made of, as it now looks: for its broken pieces. */
     public PhongMaterial material(final int piece) {
         return (PhongMaterial) bodies[piece].getMaterial();
+    }
+
+    /** Shows each vehicle's glass, but for piece {@code inside}'s (-1 for none): looked out of from in it. */
+    public void glassFrom(final int inside) {
+        glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
     }
 
     /** Shows the blob shadow, or hides it: when the avatar is out of sight, inside a vehicle. */
@@ -1011,6 +1018,9 @@ public final class World {
             for (final Node node : panels.getChildren()) {
                 if (node instanceof Shape3D panel && panel.getMaterial() == colours.get(Sheets.Slot.PAINT)) {
                     painted = panel;
+                }
+                if (node instanceof Shape3D panel && panel.getMaterial() == colours.get(Sheets.Slot.GLASS)) {
+                    glass.put(piece, panel);
                 }
             }
         }
