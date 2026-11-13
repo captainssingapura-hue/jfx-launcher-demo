@@ -34,6 +34,9 @@ characters, and a separate sound bench is for working on the sounds.
   flyover, tipped as the slope is, leaps off a ramp's head, and stops dead against anything
   standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
   its legs out ahead and its hands on the wheel, and is carried with it.
+  Low on the right, as racing games have them, its instruments: a round tachometer, its needle
+  sweeping up to the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
+  of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun

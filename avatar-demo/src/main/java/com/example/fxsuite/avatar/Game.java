@@ -160,6 +160,10 @@ public final class Game {
     private static final double SIGHT_UP = 34;
     /** The gears a land vehicle's engine revs up through; and how hard it was worked, and how fast it was going, at the last frame. */
     private static final int GEARS = 4;
+    /** An engine at idle, turns a minute. */
+    private static final double IDLE = 900;
+    /** A land vehicle's instruments. */
+    private final Dashboard dashboard = new Dashboard();
     private double engineLoad;
     private double lastAhead;
     private static final double GUN_REST = -4;
@@ -345,11 +349,14 @@ public final class Game {
                 + " -fx-background-radius: 6; -fx-padding: 6 12 6 12; -fx-cursor: hand;");
         menu();
         switcher.setOnAction(e -> showDemos(() -> demos.show(switcher, Side.BOTTOM, 0, 4)));
-        final StackPane root = new StackPane(view, hud, switcher);
+        final StackPane root = new StackPane(view, hud, switcher, dashboard.node());
         StackPane.setAlignment(hud, Pos.TOP_LEFT);
         StackPane.setMargin(hud, new Insets(12));
         StackPane.setAlignment(switcher, Pos.TOP_RIGHT);
         StackPane.setMargin(switcher, new Insets(12));
+        // a land vehicle's instruments, low on the right, as racing games have them
+        StackPane.setAlignment(dashboard.node(), Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(dashboard.node(), new Insets(0, 24, 20, 0));
         // and a right click anywhere opens the same menu, where it is
         root.addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED, e -> {
             showDemos(() -> demos.show(root, e.getScreenX(), e.getScreenY()));
@@ -614,6 +621,8 @@ public final class Game {
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
                 firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null),
                 flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
+        // and its instruments, while one is driven
+        instruments(flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null), seconds);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -914,16 +923,48 @@ public final class Game {
      */
     private Cues.Motor motor(final Lift lift, final double seconds) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
-        final boolean v8 = chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS;
-        final double share = Math.min(1, Math.abs(lift.ahead()) / chassis.drive().top());
-        final double geared = share * GEARS;
-        final int gear = (int) Math.min(GEARS - 1, Math.floor(geared));
-        final double rev = gear == 0 ? geared : 0.3 + 0.7 * (geared - gear);
+        final boolean v8 = v8(chassis);
+        final double rev = gearing(lift)[1];
         final double speeding = seconds > 0 ? (Math.abs(lift.ahead()) - Math.abs(lastAhead)) / seconds : 0;
         lastAhead = lift.ahead();
         engineLoad = Num.ease(engineLoad, Num.clamp(speeding / chassis.drive().accel(), 0, 1), 6, seconds);
         final Vec3 bonnet = lift.at(new Course.Section(0, chassis.length() / 2 - 70, 20, 0, 0, 0));
         return new Cues.Motor(v8, rev, engineLoad, bonnet);
+    }
+
+    /** Whether {@code chassis} has a V8: the pickup and the truck; the smaller ones a V6. */
+    private static boolean v8(final Course.Chassis chassis) {
+        return chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS;
+    }
+
+    /**
+     * Which gear land vehicle {@code lift} is in, from 0 (the first), and how far its engine is
+     * revved in it, 0 at idle to 1 at the limit: through four gears as it gathers speed, each from
+     * a little over idle up to the limit, dropping back at each change.
+     */
+    private static double[] gearing(final Lift lift) {
+        final Course.Chassis chassis = (Course.Chassis) lift.craft();
+        final double share = Math.min(1, Math.abs(lift.ahead()) / chassis.drive().top());
+        final double geared = share * GEARS;
+        final int gear = (int) Math.min(GEARS - 1, Math.floor(geared));
+        return new double[] {gear, gear == 0 ? geared : 0.3 + 0.7 * (geared - gear)};
+    }
+
+    /**
+     * The instruments of land vehicle {@code lift} (null for none driven): its engine's turns a
+     * minute, from 900 at idle up to its red line, a V8's lower than a V6's; its gear, R going back;
+     * and its speed in kilometres an hour.
+     */
+    private void instruments(final Lift lift, final double seconds) {
+        if (lift == null) {
+            dashboard.hide();
+            return;
+        }
+        final double redline = v8((Course.Chassis) lift.craft()) ? 6000 : 6500;
+        final double[] gearing = gearing(lift);
+        final double rpm = IDLE + gearing[1] * (redline - IDLE);
+        final String gear = lift.ahead() < -1 ? "R" : Integer.toString((int) gearing[0] + 1);
+        dashboard.show(rpm, redline, gear, Math.abs(lift.ahead()) / 100 * 3.6, seconds);
     }
 
     /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */
