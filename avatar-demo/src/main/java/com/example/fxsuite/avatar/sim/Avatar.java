@@ -148,6 +148,11 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
         return new Stepped(new Avatar(after, wearingPack, swung, armed.arms()), happened, armed.blows());
     }
 
+    /** The same, {@code seconds} later: still, but its clock running on, for what keeps time by it. */
+    public Avatar aged(final double seconds) {
+        return new Avatar(body.aged(seconds), wearingPack, sweep, arms);
+    }
+
     /** Carried by what it stands on, moved from {@code from} to {@code to}: see {@link Body#carried}. */
     public Avatar carried(final Place from, final Place to) {
         return new Avatar(body.carried(from, to), wearingPack, sweep, arms);

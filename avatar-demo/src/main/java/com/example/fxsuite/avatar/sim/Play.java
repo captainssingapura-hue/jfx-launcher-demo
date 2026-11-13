@@ -32,18 +32,26 @@ import java.util.TreeMap;
  * The blows never leave the step: they follow from the state and the inputs, and only what came
  * of them is an output.
  */
-public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List<Person> people, List<Prop> props) {
+public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List<Person> people, List<Prop> props,
+                   List<Turret> turrets) {
 
     /**
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 12;
+    public static final int RULES = 13;
 
     public Play {
         lifts = List.copyOf(lifts);
         people = List.copyOf(people);
         props = List.copyOf(props);
+        turrets = List.copyOf(turrets);
+    }
+
+    /** The avatar, the world, the sky, the platforms, the people and the loose things, with the guns mounted as they were built. */
+    public Play(final Avatar avatar, final Damage damage, final Sky sky, final List<Lift> lifts,
+                final List<Person> people, final List<Prop> props) {
+        this(avatar, damage, sky, lifts, people, props, Turret.of(damage));
     }
 
     /** The avatar, the world, the sky, the platforms and the people, with the loose things where they were put. */
@@ -84,8 +92,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      */
     public long checksum() {
         long sum = damage.checksum();
+        // the guns mounted, if there are any: a world without them sums as it always has
         final String text = avatar.toString() + sky.toString() + lifts.toString() + people.toString()
-                + props.toString();
+                + props.toString() + (turrets.isEmpty() ? "" : turrets.toString());
         for (int i = 0; i < text.length(); i++) {
             sum = Num.mix(sum, text.charAt(i));
         }
@@ -139,11 +148,23 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Event> happened = new ArrayList<>();
         final Obstacles was = obstacles();
         // the controls change hands; at them, the climb and descent are the platform's
-        final List<Lift> handed = engines(controls, handed(controls, was, happened), happened);
+        // manning a gun, the controls are the gun's: no vehicle's are taken
+        final boolean gunner = turrets.stream().anyMatch(Turret::held);
+        final Controls forLifts = gunner ? withoutTaking(controls) : controls;
+        final List<Lift> handed = engines(forLifts, handed(forLifts, was, happened), happened);
         final boolean working = handed.stream().anyMatch(Lift::held);
         // going aboard a closed craft, the avatar is inside it, out of sight; stepping out, it is at its door
-        final Avatar self = boarded(handed);
+        final Avatar boarded = boarded(handed);
         final int inside = inside(handed);
+        // and a gun is manned or let go, with what is left of the controls once a vehicle's have changed hands
+        boolean changed = false;
+        for (int i = 0; i < handed.size(); i++) {
+            changed |= handed.get(i).held() != lifts.get(i).held();
+        }
+        final List<Turret> manned = manned(controls, changed, happened);
+        final Avatar self = gunner(boarded, manned);
+        final int gunning = gunning(manned);
+        final boolean still = inside >= 0 || gunning >= 0;
         final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
         // what each loose thing rests on, as things are
         final double to = sky.time() + seconds;
@@ -179,15 +200,32 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Moves moves = new Moves(handed, moved, props, settled);
         final Avatar carried = inside >= 0
                 ? self.carried(handed.get(inside).place(), moved.get(inside).place())
-                : carried(self, was, moves, to);
+                : gunning >= 0 ? self : carried(self, was, moves, to);
         final Obstacles now = obstacles(to, moved, settled);
         // the people go on as they were going, carried by what they stand on, hurt by coming down hard
         final List<Event> toPeople = new ArrayList<>();
         final List<Person> going = people(seconds, to, was, now, moves, toPeople);
         // act: the avatar does what it was asked, moves, and deals its blows, at the world and the
         // people in it; the bombs fall
-        final Avatar.Stepped acted = inside >= 0 ? Avatar.Stepped.still(carried)
-                : carried.step(own, seconds, now, targets(now, going));
+        final Obstacles aimedAt = targets(now, going);
+        final Avatar.Stepped acted = still ? Avatar.Stepped.still(carried.aged(seconds))
+                : carried.step(own, seconds, now, aimedAt);
+        // and the guns on their mounts are aimed and fired, by whoever mans one; their rounds pass
+        // through what carries them
+        final List<Turret> turned = new ArrayList<>();
+        final List<Event> gunfire = new ArrayList<>();
+        final List<Blow> rounds = new ArrayList<>(acted.blows());
+        for (final Turret turret : manned) {
+            if (damage.broken(turret.host())) {
+                turned.add(turret);
+                continue;
+            }
+            final Turret.Stepped fired = turret.step(turret.held() ? controls : Controls.NONE, seconds,
+                    aimedAt.without(turret.host()));
+            turned.add(fired.turret());
+            gunfire.addAll(fired.events());
+            rounds.addAll(fired.blows());
+        }
         // from inside a vehicle with a bomb bay, the trigger lets its bombs go; moored, it loads them back
         final List<Lift> loaded = new ArrayList<>(moved);
         Sky dropping = sky;
@@ -208,7 +246,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // resolve: the world takes the blows, the avatar's and then the bombs'; and so do the people
         final List<Blow> blows = new ArrayList<>();
         final List<Blow> atPeople = new ArrayList<>();
-        for (final Blow blow : acted.blows()) {
+        for (final Blow blow : rounds) {
             (Person.is(blow.piece()) ? atPeople : blows).add(blow);
         }
         blows.addAll(fell.blows());
@@ -216,15 +254,17 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved, settled));
         final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
         // and whoever the avatar walks into is pushed out of its way, and whatever it pushes against goes
-        final List<Person> pushed = inside >= 0 ? hurt : pushed(acted.avatar().body(), hurt, toPeople);
-        final List<Prop> shoved = inside >= 0 ? settled : shoved(settled, acted.avatar().body(), own, taken.damage());
+        final List<Person> pushed = still ? hurt : pushed(acted.avatar().body(), hurt, toPeople);
+        final List<Prop> shoved = still ? settled : shoved(settled, acted.avatar().body(), own, taken.damage());
         // report: the controls changing hands, the avatar's own events, the bombs', what came of the
         // blows, and what came to the people
         happened.addAll(acted.events());
+        happened.addAll(gunfire);
         happened.addAll(fell.events());
         happened.addAll(taken.events());
         happened.addAll(toPeople);
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), loaded, pushed, shoved), happened);
+        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
+                happened);
     }
 
     /** How everything that moves under its own rules moved on this step: the platforms, and the loose things. */
@@ -477,6 +517,81 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             }
         }
         return handed;
+    }
+
+    /** The gun the avatar mans, if it mans one. */
+    public Optional<Turret> manning() {
+        return turrets.stream().filter(Turret::held).findFirst();
+    }
+
+    /** The gun the avatar could man where it stands, if any, and it is at no controls or gun yet. */
+    public Optional<Turret> gunWithinReach() {
+        if (atControls().isPresent() || manning().isPresent()) {
+            return Optional.empty();
+        }
+        return turrets.stream().filter(t -> !damage.broken(t.host()) && t.reaches(avatar.body())).findFirst();
+    }
+
+    /** Whether the avatar is out of sight: inside a closed craft, or manning a gun from inside. */
+    public boolean hidden() {
+        return aboard().isPresent() || manning().filter(t -> t.mount().closed()).isPresent();
+    }
+
+    /**
+     * The guns, manned or let go: a {@link Action#TAKE} at a gun's station mans it, unless the
+     * controls of a vehicle have just changed hands with it ({@code taken}); another lets it go, as
+     * does what carries it breaking.
+     */
+    private List<Turret> manned(final Controls controls, final boolean taken, final List<Event> happened) {
+        boolean take = !taken && controls.actions().stream().anyMatch(a -> a instanceof Action.Take);
+        final List<Turret> manned = new ArrayList<>(turrets);
+        for (int i = 0; i < manned.size(); i++) {
+            final Turret turret = manned.get(i);
+            if (turret.held() && (take || damage.broken(turret.host()))) {
+                manned.set(i, turret.held(false));
+                happened.add(new Event.LetGo(turret.host()));
+                take = false;
+            }
+        }
+        for (int i = 0; take && i < manned.size(); i++) {
+            final Turret turret = manned.get(i);
+            if (!damage.broken(turret.host()) && turret.reaches(avatar.body())) {
+                manned.set(i, turret.held(true));
+                happened.add(new Event.TookControls(turret.host()));
+                take = false;
+            }
+        }
+        return manned;
+    }
+
+    /** Which of {@code manned} the avatar mans; -1 for none. */
+    private static int gunning(final List<Turret> manned) {
+        for (int i = 0; i < manned.size(); i++) {
+            if (manned.get(i).held()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * {@code avatar}, as a gun was manned or let go ({@code manned}): manning it, at its seat,
+     * facing the way it points; letting it go, back at its station, settling onto what is there.
+     */
+    private Avatar gunner(final Avatar avatar, final List<Turret> manned) {
+        for (int i = 0; i < manned.size(); i++) {
+            final Turret was = turrets.get(i);
+            final Turret now = manned.get(i);
+            if (was.held() == now.held()) {
+                continue;
+            }
+            final Body body = now.held()
+                    ? Body.standing(now.at(now.mount().seat()), now.heading())
+                    : new Body(now.at(now.mount().station()), Num.wrap(now.base().yaw() + 180),
+                    Num.wrap(now.base().yaw() + 180), 0, 0, 0, 0, false, false, 0, avatar.body().time());
+            return new Avatar(body, avatar.wearingPack(), avatar.sweep(), avatar.arms());
+        }
+        return avatar;
     }
 
     /** The closed craft the avatar is inside, at its controls, if it is in one: then it is out of sight. */

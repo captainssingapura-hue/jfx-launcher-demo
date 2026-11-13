@@ -5,6 +5,7 @@ import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.Bombs;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
+import com.example.fxsuite.avatar.look.Guns;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.Stall;
@@ -20,7 +21,9 @@ import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Keys;
+import com.example.fxsuite.avatar.sim.Hit;
 import com.example.fxsuite.avatar.sim.Lift;
+import com.example.fxsuite.avatar.sim.Turret;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Person;
@@ -31,6 +34,7 @@ import com.example.fxsuite.avatar.sim.Script;
 import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
+import com.example.fxsuite.avatar.sound.Cues;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
@@ -132,6 +136,20 @@ public final class Game {
     private List<Person> peopleBefore;
     /** The loose things: the furniture and the fruit. */
     private List<Prop> props;
+    /** The guns on their mounts, and how they are drawn. */
+    private List<Turret> turrets;
+    private final Guns guns;
+    /** How far back the camera is from a gun being manned, and how far over it. */
+    private static final double GUN_VIEW = 260;
+    private static final double GUN_EYE = 30;
+    /** How far the camera looks down at rest, manning a gun: next to level, so as to stay under a bunker's roof. */
+    private static final double GUN_REST = -4;
+    /** What the camera follows, while manning a gun: this and up, by what carries the gun; apart from any vehicle. */
+    private static final int GUNNING = 1_000_000;
+    /** How much deeper the heavy Gatling gun sounds than the hand-held one. */
+    private static final double GUN_PITCH = 0.72;
+    /** How far out a gun's sight is marked, at most. */
+    private static final double GUN_SIGHT = 6000;
     /** Where each piece that moves was after the step before the latest, and after the latest: drawn between them. */
     private Map<Integer, Block> movedBefore = Map.of();
     private Map<Integer, Block> movedNow = Map.of();
@@ -155,10 +173,13 @@ public final class Game {
             + "Space jump or climb · Ctrl descend\n"
             + "J jet-pack on or off · F fly or land (with the jet-pack) · " + VIEW_KEYS + "\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
-            + "T fly a platform (at its console) or board an airship (under its hatch)";
+            + "T fly a platform (at its console), board an airship (under its hatch) or man a gun (at its door)";
     private static final String PLATFORM_HELP = "The platform: W/S ahead and back · A/D sideways · mouse turns · "
             + "Space climb · Ctrl descend · Shift carefully · F engine on or off · T let go\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun · click to fire or swing\n" + VIEW_KEYS;
+    private static final String GUN_HELP = "The heavy Gatling gun: the mouse aims it, 55° either way, 8° down and 25° up;"
+            + " it swings round at its own pace · T step out\n"
+            + "Click fire: held, it spins up, then fires · held too long, it gets too hot and must cool\n" + VIEW_KEYS;
     private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · mouse turns (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
@@ -234,6 +255,8 @@ public final class Game {
         people = Person.of(damage, lifts);
         peopleBefore = people;
         props = Prop.of(damage);
+        turrets = Turret.of(damage);
+        guns = new Guns(turrets);
         world = new World(course);
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
@@ -254,7 +277,7 @@ public final class Game {
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
-                bombs.node(), stall.node(),
+                bombs.node(), stall.node(), guns.node(),
                 reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
@@ -336,7 +359,7 @@ public final class Game {
             }
         }
 
-        movedNow = new Play(avatar, damage, sky, lifts, people, props).moving();
+        movedNow = new Play(avatar, damage, sky, lifts, people, props, turrets).moving();
         movedBefore = movedNow;
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
@@ -401,7 +424,7 @@ public final class Game {
             if (replay != null && next <= replay.length()) {
                 // while a recording plays back, it alone drives the world, and the view tilts with its aim
                 controls = replay.controls(next);
-                chase = chase.turned(0, controls.aim() - (chase.pitch() - Chase.DEFAULT_PITCH));
+                chase = chase.turned(0, controls.aim() - (chase.pitch() - restPitch()));
                 scriptHeld = Set.of();
                 pressed.clear();
             } else if (next <= script.length()) {
@@ -415,13 +438,13 @@ public final class Game {
                 scriptHeld = Set.of();
                 controls = Keys.controls(names(held), i == 0 ? pressed : List.of(), turn, clicking,
                         // aimed up or down as far as the view is tilted from rest, so level as it walks
-                        chase.pitch() - Chase.DEFAULT_PITCH);
+                        chase.pitch() - restPitch());
                 // what was pressed since the last step, all at the first step that comes
                 pressed.clear();
             }
             before = avatar;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
-            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people, props).step(controls, Clock.STEP);
+            final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people, props, turrets).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
             damage = stepped.play().damage();
             sky = stepped.play().sky();
@@ -429,6 +452,7 @@ public final class Game {
             peopleBefore = people;
             people = stepped.play().people();
             props = stepped.play().props();
+            turrets = stepped.play().turrets();
             journal.append(++step, stepped.events());
             // where what moves now is, to draw it between its last two places, and to put marks on it
             movedBefore = movedNow;
@@ -453,13 +477,18 @@ public final class Game {
         // at a vehicle's controls, the view is the vehicle's: behind it, as far back as it is big
         final Map<Integer, Block> shownAt = between(movedBefore, movedNow, ticked.blend());
         final Optional<Lift> flying = lifts.stream().filter(Lift::held).findFirst();
-        final boolean inside = flying.filter(lift -> lift.craft().closed()).isPresent();
-        final int nowPiloting = flying.map(Lift::piece).orElse(-1);
+        // and manning a gun, the gun's: behind it and over it, looking along it
+        final Optional<Turret> gunned = turrets.stream().filter(Turret::held).findFirst();
+        final boolean inside = flying.filter(lift -> lift.craft().closed()).isPresent()
+                || gunned.filter(gun -> gun.mount().closed()).isPresent();
+        final int nowPiloting = flying.map(Lift::piece).orElse(gunned.map(gun -> GUNNING + gun.host()).orElse(-1));
         if (nowPiloting != piloting) {
             if (piloting < 0) {
                 zoomWas = chase.distance();
             }
-            zoomTo = flying.map(Game::viewFrom).orElse(zoomWas);
+            zoomTo = flying.map(Game::viewFrom).orElse(gunned.isPresent() ? GUN_VIEW : zoomWas);
+            // the view tipped to where the aim is level, as it rests for what is now looked along
+            chase = chase.turned(0, (gunned.isPresent() ? GUN_REST : Chase.DEFAULT_PITCH) - chase.pitch());
             piloting = nowPiloting;
         }
         if (!Double.isNaN(zoomTo)) {
@@ -469,8 +498,11 @@ public final class Game {
                 zoomTo = Double.NaN;
             }
         }
-        final Block craft = piloting >= 0 ? shownAt.get(piloting) : null;
-        chase = craft != null
+        final Block craft = flying.isPresent() ? shownAt.get(piloting) : null;
+        chase = gunned.isPresent()
+                ? chase.follow(gunned.get().pivot().add(0, -GUN_EYE, 0), gunned.get().heading(), 1, seconds,
+                circling != 0)
+                : craft != null
                 ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2, craft.z()), craft.yaw(), 1,
                 seconds, circling != 0)
                 : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
@@ -484,14 +516,19 @@ public final class Game {
         // each reads what is new to it in the journal
         // what moves of itself is shown where it was as far behind its latest step as the avatar is
         final double behind = (1 - ticked.blend()) * Clock.STEP;
-        final Play now = new Play(this.avatar, damage, sky, lifts, people, props);
+        final Play now = new Play(this.avatar, damage, sky, lifts, people, props, turrets);
         final Obstacles standing = now.obstacles();
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
         bombs.show(sky, behind);
         stall.show(people, peopleBefore, ticked.blend(), forStall.read().events(), seconds);
-        reticle.show(avatar, standing, chase.position());
+        if (gunned.isPresent()) {
+            reticle.showAt(gunSight(gunned.get(), standing), chase.position());
+        } else {
+            reticle.show(avatar, standing, chase.position());
+        }
+        guns.show(turrets, damage, seconds);
         world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
         // and so does one to be flown, while it stands
@@ -501,8 +538,10 @@ public final class Game {
                 droning.add(damage.piece(lift.piece()).placed(lift.place()));
             }
         }
+        // a gun being manned is heard spinning and roaring from its muzzle, deeper than the hand-held one
         hearing.hear(avatar, forSound.read().events(), chase, droning.stream()
-                .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList());
+                .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
+                gunned.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null));
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -532,6 +571,15 @@ public final class Game {
             seen.put(moved.getKey(), was == null ? moved.getValue() : moved.getValue().between(was, share));
         }
         return seen;
+    }
+
+    /** The gun being manned, in a few words: its barrels, its heat, and how much is left of what it is in. */
+    private String gunStatus(final Turret gun) {
+        final double spin = gun.gun().spin();
+        final String barrels = gun.firing() ? "firing" : spin >= 1 ? "up to speed"
+                : spin > 0 ? String.format("spinning, %.0f%%", 100 * spin) : "still";
+        return String.format("Manning the heavy Gatling gun · %s · heat %.0f%%%s · bunker %.0f%% left", barrels,
+                100 * gun.heat(), gun.cooling() ? ", too hot: cooling" : "", 100 * damage.left(gun.host()));
     }
 
     /** The vehicle being flown, in a few words: which it is, and how much of it is left. */
@@ -603,14 +651,17 @@ public final class Game {
         final String run = replay != null && step <= replay.length() ? (astray == 0 ? " · replaying" : " · replay astray")
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
-        final Play here = new Play(avatar, damage, sky, lifts, people, props);
+        final Play here = new Play(avatar, damage, sky, lifts, people, props, turrets);
         final String reach = here.withinReach().map(lift -> lift.craft().closed()
-                ? " · T: board the airship" : " · T: take the controls").orElse("");
+                ? " · T: board the airship" : " · T: take the controls")
+                .orElse(here.gunWithinReach().isPresent() ? " · T: man the gun" : "");
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
         // at a vehicle's controls, what there is to say is the vehicle's, and its keys are the help
         final Optional<Lift> flown = here.atControls();
-        final String text = flown.map(lift -> vehicleStatus(here, lift) + (lift.craft().closed() ? "" : weapon)
-                        + score + " · " + sound + run + free)
+        final Optional<Turret> manned = here.manning();
+        final String text = manned.map(gun -> gunStatus(gun) + score + " · " + sound + run + free)
+                .or(() -> flown.map(lift -> vehicleStatus(here, lift) + (lift.craft().closed() ? "" : weapon)
+                        + score + " · " + sound + run + free))
                 .orElse(String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                         body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
                         weapon, reach, score, sound, run, free));
@@ -618,7 +669,8 @@ public final class Game {
             shown = text;
             status.setText(text);
         }
-        final String keys = flown.map(lift -> lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
+        final String keys = manned.isPresent() ? GUN_HELP
+                : flown.map(lift -> lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
         if (!keys.equals(help.getText())) {
             help.setText(keys);
         }
@@ -731,6 +783,21 @@ public final class Game {
                     ? "replay the same run: all " + replay.checks() + " checksums matched, to step " + step
                     : "replay astray by step " + astray);
         }
+    }
+
+    /** Where gun {@code gun}'s line first meets {@code world} (not what carries it), just short of it; or as far as it is marked. */
+    private static Vec3 gunSight(final Turret gun, final Obstacles world) {
+        final Vec3 line = gun.line();
+        final Hit hit = world.without(gun.host()).ray(gun.muzzle(), line, GUN_SIGHT);
+        return hit == null ? gun.muzzle().add(line.multiply(GUN_SIGHT)) : hit.at().subtract(line.multiply(2));
+    }
+
+    /**
+     * How far the camera looks down when the aim is level: as it always does, or, manning a gun, next
+     * to level. The aim is how far the view is tilted up from this.
+     */
+    private double restPitch() {
+        return turrets.stream().anyMatch(Turret::held) ? GUN_REST : Chase.DEFAULT_PITCH;
     }
 
     /** How far back the camera is from vehicle {@code lift}: enough to see all of it, and some way round it. */

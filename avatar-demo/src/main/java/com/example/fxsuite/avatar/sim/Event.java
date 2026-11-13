@@ -49,10 +49,10 @@ public sealed interface Event {
     }
 
     /**
-     * A rifle fired a round: the one in the left hand, or the right. It flew from the muzzle
-     * {@code from} to {@code to}, where it struck something, or ran out of range.
+     * A gun fired a round, {@code by} what: of a pair, the one in the left hand, or the right. It
+     * flew from the muzzle {@code from} to {@code to}, where it struck something, or ran out of range.
      */
-    record Fired(boolean left, Vec3 from, Vec3 to) implements Event {
+    record Fired(boolean left, Vec3 from, Vec3 to, Weapon by) implements Event {
     }
 
     /**

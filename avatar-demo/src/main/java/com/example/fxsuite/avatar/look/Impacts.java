@@ -91,9 +91,14 @@ public final class Impacts {
         for (final Journal.Logged entry : entries) {
             final Event event = entry.event();
             if (event instanceof Event.Fired fired) {
-                // the Gatling gun's belt carries a tracer every third round, as real belts do:
-                // forty a second would be one solid beam
-                if (avatar.holding() != Weapon.GATLING || ++gatlingRounds % 3 == 0) {
+                // a Gatling gun's belt carries a tracer every third round, as real belts do: forty a
+                // second would be one solid beam; the heavy one's, every other
+                final int every = switch (fired.by()) {
+                    case GATLING -> 3;
+                    case HEAVY_GATLING -> 2;
+                    default -> 1;
+                };
+                if (every == 1 || ++gatlingRounds % every == 0) {
                     tracer(fired.from(), fired.to());
                 }
             } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB && struck.by() != Weapon.FALL) {

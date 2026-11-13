@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true);
 
         private final boolean breakable;
 
@@ -415,6 +415,42 @@ public final class Course {
     /** The airship to be flown, there being only one kind. */
     public static final Ship SHIP = new Ship();
 
+    /**
+     * A gun on a mount ({@link Turret}): which gun ({@link Gun}), where it turns about on what
+     * carries it ({@code pivot}, in that's frame, as for a vehicle's parts), how far its muzzle is
+     * out from there ({@code barrel}), how far it turns either way ({@code traverse}, degrees; 180
+     * for all round), down ({@code depression}) and up ({@code elevation}), how fast it turns at
+     * most ({@code slew}, degrees a second), whether it holds its aim on the world as what carries it
+     * turns ({@code stabilized}), whether whoever mans it is inside, out of sight ({@code closed}),
+     * where they stand to man it ({@code station}), and where they are while they do ({@code seat}).
+     */
+    public record Mount(Gun gun, Section pivot, double barrel, double traverse, double depression, double elevation,
+                        double slew, boolean stabilized, boolean closed, Section station, Section seat) {
+    }
+
+    /**
+     * A bunker: a concrete pillbox, 5.2 m across and 5 m deep, its walls 2.4 m high under a roof,
+     * a slit along its front from 1 m to 2.1 m up for its gun to fire through, and its gunner to see out of, and a door in the
+     * middle of its back. Each wall solid; the slit and the door open.
+     */
+    public static final List<Section> BUNKER_WALLS = List.of(
+            new Section(0, 250, 50, 260, 20, 50),
+            new Section(0, 250, 225, 260, 20, 15),
+            new Section(-240, 0, 120, 20, 270, 120),
+            new Section(240, 0, 120, 20, 270, 120),
+            new Section(-150, -250, 120, 110, 20, 120),
+            new Section(150, -250, 120, 110, 20, 120),
+            new Section(0, 0, 260, 260, 270, 20));
+    public static final Section BUNKER_BOX = new Section(0, 0, 140, 260, 270, 140);
+    public static final Shape BUNKER = new Shape(BUNKER_BOX, BUNKER_WALLS);
+    /**
+     * The bunker's gun: a heavy Gatling gun on a pedestal behind the slit, firing out through it,
+     * 55° either way, 8° down and 25° up, turning 70° a second at most. Manned from the door:
+     * whoever mans it is inside, out of sight.
+     */
+    public static final Mount BUNKER_GUN = new Mount(Gun.HEAVY_GATLING, new Section(0, 170, 150, 0, 0, 0), 240,
+            55, 8, 25, 70, false, true, new Section(0, -330, 0, 0, 0, 0), new Section(0, 60, 1, 0, 0, 0));
+
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
     public static final Deck BARGE = new Deck(1000, 600);
@@ -501,6 +537,7 @@ public final class Course {
             case PLATFORM -> platformDemo();
             case AIRSHIP -> airshipDemo();
             case FLYOVER -> flyoverDemo();
+            case GUNS -> gunsDemo();
         }
     }
 
@@ -546,6 +583,41 @@ public final class Course {
      * enough to run under, and down a ramp the other side; and further on, a ramp on its own, to
      * run up and leap off. Pillars about, as in the vehicles' demos.
      */
+    /**
+     * The guns' demo: a bunker just ahead of the start, its door toward it and its gun facing away,
+     * over open ground with something to shoot at: rows of crates and of dummies out in front, and
+     * drones hovering further out. Pillars about, as in the vehicles' demos.
+     */
+    private void gunsDemo() {
+        scenery(23);
+        pieces.add(Piece.moving(BUNKER, new Place(0, 700, 0, 0), Kind.BUNKER, 0, null));
+        final Random random = new Random(29);
+        for (int i = 0; i < 14; i++) {
+            final double heading = -45 + 90.0 * i / 13;
+            final double out = 2200 + random.nextDouble() * 2000;
+            final Vec3 at = Num.heading(heading).multiply(out).add(0, 0, 700);
+            final double size = 140 + random.nextDouble() * 140;
+            final Block crate = Block.standing(at.x(), at.z(), size, size, 80 + random.nextDouble() * 220,
+                    random.nextDouble() * 90);
+            final int tint = random.nextInt(3);
+            if (pieces.stream().noneMatch(p -> p.block().overlaps(crate))) {
+                pieces.add(new Piece(crate, Kind.CRATE, tint));
+            }
+        }
+        for (int k = 0; k < 7; k++) {
+            final double across = (k - 3) * 300;
+            pieces.add(new Piece(Block.standing(across, 2000, DUMMY_WIDTH, DUMMY_DEPTH, DUMMY_HEIGHT, 0),
+                    Kind.DUMMY, k % 3));
+        }
+        for (int i = 0; i < 6; i++) {
+            final double heading = -40 + 16.0 * i;
+            final Vec3 at = Num.heading(heading).multiply(3800 + 400 * (i % 2)).add(0, 0, 700);
+            final double low = 500 + 150 * (i % 3);
+            pieces.add(new Piece(new Block(at.x(), at.z(), DRONE_SIZE / 2, DRONE_SIZE / 2, 180 + heading,
+                    low, low + DRONE_HEIGHT), Kind.DRONE, i % 3));
+        }
+    }
+
     private void flyoverDemo() {
         scenery(19, true);
         roads(flyover(0, FLYOVER_Z, 90));

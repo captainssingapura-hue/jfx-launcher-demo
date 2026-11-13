@@ -150,6 +150,7 @@ public final class World {
                 };
                 case FRUIT -> fruit(part, piece.fruit());
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
+                case BUNKER -> bunker(part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -392,6 +393,20 @@ public final class World {
     /** 0 to 1, the same for the same piece, crack and salt. */
     private static double unit(final int piece, final int n, final int salt) {
         return Num.hash(piece, n, salt);
+    }
+
+    /** A bunker: its concrete walls and roof, the slit along its front and the door at its back left open. */
+    private static Shape3D bunker(final Group part) {
+        final PhongMaterial concrete = BoxRig.matte("#8d8a80");
+        final PhongMaterial roof = BoxRig.matte("#77746b");
+        Shape3D front = null;
+        for (final Course.Section wall : Course.BUNKER_WALLS) {
+            final Box box = section(part, Course.BUNKER_BOX, wall, wall == Course.BUNKER_WALLS.getLast() ? roof : concrete);
+            if (front == null) {
+                front = box;
+            }
+        }
+        return front;
     }
 
     /**

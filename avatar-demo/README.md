@@ -24,6 +24,16 @@ characters, and a separate sound bench is for working on the sounds.
   a street that runs out from the start under it, and another off to the right, carrying a road
   over a street running out east. The crates and pillars that were scattered where the roads run
   are cleared away; everything else is where it was.
+- **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
+  along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
+  of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
+  The gun is aimed freely, not by turning the robot (`Turret`): the mouse swings it round, 55°
+  either way, and up and down, 8° down to 25° up, no faster than 70° a second, as a heavy
+  thing turns. Click fires, as every gun fires (`Gun`): held, its six long barrels spin up over
+  1.2 s, then it fires 30 rounds a second, each five times the hand-held Gatling gun's. Held down
+  too long, about five seconds, it gets too hot and stops until it has cooled. Its rounds go
+  out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
+  again steps out of the door.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -156,7 +166,8 @@ java -jar avatar-demo/target/avatar-demo.jar
 It opens on a choice of demos: the **playground**, everything at once, or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; and the **flyover**, roads and ramps for the land vehicles to come (`Demo`).
+bomb; the **flyover**, roads and ramps for the land vehicles to come; and the **bunker**, with
+a heavy Gatling gun to man, and crates, dummies and drones out in front (`Demo`).
 Click one or press its number. In a demo, the button at the top right, or a right click
 anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
 comes back to the choice.
@@ -181,7 +192,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, or board an airship, under the hatch in its gondola's floor; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |

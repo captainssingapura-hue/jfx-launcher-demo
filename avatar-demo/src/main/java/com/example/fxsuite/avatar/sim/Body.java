@@ -328,6 +328,11 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
                 turnRate, climb, flying, onGround, phase, time);
     }
 
+    /** The same, {@code seconds} later: still, but its clock running on. */
+    public Body aged(final double seconds) {
+        return new Body(position, yaw, travel, speed, drift, turnRate, climb, flying, onGround, phase, time + seconds);
+    }
+
     /**
      * Shoved, across the ground: {@code vx} and {@code vz} added to how fast it is going, in the
      * world's terms. Its own speeds are reckoned along the way it is going ({@code travel}), so

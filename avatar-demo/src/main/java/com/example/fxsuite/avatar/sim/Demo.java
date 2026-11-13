@@ -19,7 +19,9 @@ public enum Demo {
     /** An airship, closed: the avatar goes aboard at the gondola, and is seen no more until it steps out. */
     AIRSHIP("Airship", "An airship moored by the start, to board, fly, and bomb a yard of crates with.", 0),
     /** Ramps: a flyover across the way ahead, to run up, over and under; and a ramp to leap off. */
-    FLYOVER("Flyover", "A road over a flyover, to run up, across and under; and a ramp to leap off.", 0);
+    FLYOVER("Flyover", "A road over a flyover, to run up, across and under; and a ramp to leap off.", 0),
+    /** A bunker with a heavy Gatling gun, to man and fire at crates, dummies and drones. */
+    GUNS("Bunker", "A bunker with a heavy Gatling gun, to man and turn on crates, dummies and drones.", 0);
 
     private final String title;
     private final String description;

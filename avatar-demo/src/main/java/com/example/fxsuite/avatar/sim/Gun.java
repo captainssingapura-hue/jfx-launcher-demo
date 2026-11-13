@@ -42,6 +42,11 @@ public record Gun(Weapon by, double interval, double spread, double spinUp, doub
     /** The hand-held Gatling gun, held dead steady. */
     public static final Gun GATLING = new Gun(Weapon.GATLING, Arms.GATLING_INTERVAL, Arms.GATLING_SPREAD,
             Arms.SPIN_UP, Arms.SPIN_DOWN, false, Arms.RANGE);
+    /**
+     * The heavy Gatling gun, on a mount: 1800 rounds a minute once its long barrels are up to
+     * speed, which takes twice as long; nearly steady on its mount; and reaching further.
+     */
+    public static final Gun HEAVY_GATLING = new Gun(Weapon.HEAVY_GATLING, 60.0 / 1800, 0.35, 1.2, 2.5, false, 40_000);
 
     /** Whether its barrels spin up before it fires. */
     public boolean spins() {
@@ -172,7 +177,7 @@ public record Gun(Weapon by, double interval, double spread, double spinUp, doub
         final Vec3 direction = bore.line().add(bore.across().multiply(tan * scatter(round, 1)))
                 .add(0, tan * scatter(round, 2), 0).normalize();
         final Hit hit = world.ray(from, direction, range);
-        events.add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(range)) : hit.at()));
+        events.add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(range)) : hit.at(), by));
         if (hit != null) {
             blows.add(new Blow(hit.at(), hit.normal(), hit.on(), by, hit.piece()));
         }
