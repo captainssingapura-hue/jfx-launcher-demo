@@ -11,9 +11,58 @@ package com.example.fxsuite.avatar.sim;
  * avatar's radius must move across the ground to stop overlapping the footprint. The test runs
  * in the block's own frame, where the footprint is an ordinary rectangle, and the answer is
  * turned back into the world's.
+ *
+ * <p>Its top may slope: a ramp. Then {@code toe} is how high the top is at the back of the
+ * footprint (its own {@code -z}, against its heading), and it rises (or falls) evenly to
+ * {@code top} at the front; a flat block has its toe as high as its top. What stands on it
+ * stands on the slope where it is ({@link #topAt}), and what is shot at it meets the slope.
  */
 public record Block(double x, double z, double halfWidth, double halfDepth, double yaw,
-                    double bottom, double top) {
+                    double bottom, double top, double toe) {
+
+    /** A box, its top flat. */
+    public Block(final double x, final double z, final double halfWidth, final double halfDepth, final double yaw,
+                 final double bottom, final double top) {
+        this(x, z, halfWidth, halfDepth, yaw, bottom, top, top);
+    }
+
+    /**
+     * A ramp standing on the ground, {@code width} across, from its foot at ({@code fromX},
+     * {@code fromZ}), {@code low} high, up to its head at ({@code toX}, {@code toZ}), {@code high}
+     * high: solid down to the ground under all of it.
+     */
+    public static Block ramp(final double fromX, final double fromZ, final double low, final double toX,
+                             final double toZ, final double high, final double width) {
+        final double length = Math.hypot(toX - fromX, toZ - fromZ);
+        final double yaw = Math.toDegrees(Math.atan2(toX - fromX, toZ - fromZ));
+        return new Block((fromX + toX) / 2, (fromZ + toZ) / 2, width / 2, length / 2, yaw, 0, high, low);
+    }
+
+    /** Whether its top slopes. */
+    public boolean sloped() {
+        return toe != top;
+    }
+
+    /** The highest its top reaches: at the front, or at the back if it slopes down. */
+    public double highest() {
+        return Math.max(top, toe);
+    }
+
+    /**
+     * How high its top is under a circle at ({@code px}, {@code pz}), {@code radius} across: where
+     * the circle reaches highest on it. Its top, if it is flat.
+     */
+    public double topAt(final double px, final double pz, final double radius) {
+        if (!sloped()) {
+            return top;
+        }
+        final double c = Math.cos(Math.toRadians(yaw));
+        final double s = Math.sin(Math.toRadians(yaw));
+        final double along = (px - x) * s + (pz - z) * c;
+        final double reach = top > toe ? along + radius : along - radius;
+        final double share = (Num.clamp(reach, -halfDepth, halfDepth) + halfDepth) / (2 * halfDepth);
+        return toe + (top - toe) * share;
+    }
 
     /** A block standing on the ground. */
     public static Block standing(final double x, final double z, final double width, final double depth,
@@ -118,7 +167,7 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         final double[] go = {direction.x() * c - direction.z() * s, -direction.y(),
                 direction.x() * s + direction.z() * c};
         final double[] low = {-halfWidth, bottom, -halfDepth};
-        final double[] high = {halfWidth, top, halfDepth};
+        final double[] high = {halfWidth, highest(), halfDepth};
         double enter = Double.NEGATIVE_INFINITY;
         double exit = Double.POSITIVE_INFINITY;
         int face = -1;
@@ -138,12 +187,38 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
             }
             exit = Math.min(exit, Math.max(t1, t2));
         }
+        // a sloped top: under the plane up - rise * along <= level, as well as in the box
+        final double rise = sloped() ? (top - toe) / (2 * halfDepth) : 0;
+        if (sloped()) {
+            final double level = toe + rise * halfDepth;
+            final double outside = at[1] - rise * at[2] - level;
+            final double going = go[1] - rise * go[2];
+            if (Math.abs(going) < 1e-12) {
+                if (outside > 0) {
+                    return null;
+                }
+            } else {
+                final double t = -outside / going;
+                if (going > 0) {
+                    exit = Math.min(exit, t);
+                } else if (t > enter) {
+                    enter = t;
+                    face = 3;
+                }
+            }
+        }
         if (enter > exit || enter < 0 || enter > reach) {
             return null;
         }
-        // out of the face it came through, against the way it was going
+        // out of the face it came through, against the way it was going: the slope's, square to it
         final double[] out = new double[3];
-        out[face] = go[face] > 0 ? -1 : 1;
+        if (face == 3) {
+            final double length = Math.sqrt(1 + rise * rise);
+            out[1] = 1 / length;
+            out[2] = -rise / length;
+        } else {
+            out[face] = go[face] > 0 ? -1 : 1;
+        }
         // (0.0 - and + 0.0 keep a zero from coming out as -0.0, which is not equal to 0.0)
         final Vec3 normal = new Vec3(out[0] * c + out[2] * s + 0.0, 0.0 - out[1], -out[0] * s + out[2] * c + 0.0);
         return new Hit(from.add(direction.multiply(enter)), normal, Surface.BLOCK, enter);
@@ -156,7 +231,7 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
     public Block between(final Block before, final double share) {
         return new Block(before.x + (x - before.x) * share, before.z + (z - before.z) * share, halfWidth, halfDepth,
                 Num.wrap(before.yaw + Num.wrap(yaw - before.yaw) * share), before.bottom + (bottom - before.bottom) * share,
-                before.top + (top - before.top) * share);
+                before.top + (top - before.top) * share, before.toe + (toe - before.toe) * share);
     }
 
     /**

@@ -246,6 +246,14 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
                     rise = 0;
                     newClimb = 0;
                 }
+            } else if (!stillFlying && onGround && rise <= 0 && height - floor <= STEP) {
+                // on its feet, going down a slope or off a low ledge: it keeps its footing, rather
+                // than hopping down step by step
+                height = floor;
+                footing = true;
+                underfoot = under.surface();
+                rise = 0;
+                newClimb = 0;
             }
             // and everything else in the way is slid along; a ledge within a step is left alone,
             // to be stepped up onto once the feet are over it

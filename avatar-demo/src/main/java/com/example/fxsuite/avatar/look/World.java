@@ -17,6 +17,9 @@ import javafx.scene.Node;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
+import javafx.scene.shape.CullFace;
+import javafx.scene.shape.MeshView;
+import javafx.scene.shape.TriangleMesh;
 import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Shape3D;
 import javafx.scene.shape.Sphere;
@@ -122,6 +125,7 @@ public final class World {
         final String[] board = {"#d9c39a", "#c2a878"};
         final String[] drone = {"#3a3f47", "#4b4f3a", "#4a3c3c"};
         final String[] hull = {"#6c757e", "#6e6c58"};
+        final String[] asphalt = {"#4f555b", "#62676c"};
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
             final Block block = piece.block();
@@ -145,6 +149,7 @@ public final class World {
                     case SCOOTER -> scooter(part, block);
                 };
                 case FRUIT -> fruit(part, piece.fruit());
+                case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -387,6 +392,65 @@ public final class World {
     /** 0 to 1, the same for the same piece, crack and salt. */
     private static double unit(final int piece, final int n, final int salt) {
         return Num.hash(piece, n, salt);
+    }
+
+    /**
+     * A stretch of road: a ramp as a wedge, its top sloping as the block's does, or a deck as a
+     * box; a yellow line down the middle of it and a white one along each edge, lying on its top.
+     */
+    private static Shape3D road(final Group part, final Block block, final PhongMaterial material) {
+        final Shape3D body = block.sloped() ? wedge(block) : new Box(block.halfWidth() * 2,
+                block.top() - block.bottom(), block.halfDepth() * 2);
+        body.setMaterial(material);
+        part.getChildren().add(body);
+        // the road runs along the ramp, or along the deck's longer side
+        final boolean along = block.sloped() || block.halfDepth() >= block.halfWidth();
+        final double length = along ? Math.hypot(block.halfDepth() * 2, block.top() - block.toe())
+                : block.halfWidth() * 2;
+        final double half = along ? block.halfWidth() : block.halfDepth();
+        final double mid = (block.top() + block.bottom()) / 2;
+        final double slope = Math.toDegrees(Math.atan2(block.top() - block.toe(), block.halfDepth() * 2));
+        final PhongMaterial yellow = BoxRig.matte("#f2c230");
+        final PhongMaterial white = BoxRig.matte("#e8e8e2");
+        for (final double across : new double[] {0, -(half - 25), half - 25}) {
+            final Box line = along ? new Box(across == 0 ? 14 : 10, 2, length) : new Box(length, 2, across == 0 ? 14 : 10);
+            line.setMaterial(across == 0 ? yellow : white);
+            if (along) {
+                line.setTranslateX(across);
+                line.getTransforms().add(new Rotate(slope, Rotate.X_AXIS));
+            } else {
+                line.setTranslateZ(across);
+            }
+            line.setTranslateY(mid - (block.top() + block.toe()) / 2 - 1.5);
+            part.getChildren().add(line);
+        }
+        return body;
+    }
+
+    /** A ramp's solid: its footprint at the bottom, its top sloping from its toe at the back up to its top at the front. */
+    private static Shape3D wedge(final Block block) {
+        final float w = (float) block.halfWidth();
+        final float d = (float) block.halfDepth();
+        final double mid = (block.top() + block.bottom()) / 2;
+        // heights up, as the part's own y (down), from its middle
+        final float under = (float) (mid - block.bottom());
+        final float back = (float) (mid - block.toe());
+        final float front = (float) (mid - block.top());
+        final TriangleMesh mesh = new TriangleMesh();
+        mesh.getPoints().addAll(
+                -w, under, -d, w, under, -d, w, under, d, -w, under, d,
+                -w, back, -d, w, back, -d, w, front, d, -w, front, d);
+        mesh.getTexCoords().addAll(0, 0);
+        final int[][] quads = {{0, 1, 2, 3}, {4, 7, 6, 5}, {0, 4, 5, 1}, {3, 2, 6, 7}, {0, 3, 7, 4}, {1, 5, 6, 2}};
+        for (int f = 0; f < quads.length; f++) {
+            final int[] q = quads[f];
+            // wound so that each face looks outward, and is lit from outside
+            mesh.getFaces().addAll(q[0], 0, q[2], 0, q[1], 0, q[0], 0, q[3], 0, q[2], 0);
+            mesh.getFaceSmoothingGroups().addAll(1 << f, 1 << f);
+        }
+        final MeshView view = new MeshView(mesh);
+        view.setCullFace(CullFace.NONE);
+        return view;
     }
 
     /** A block as a box filling the piece's box. */

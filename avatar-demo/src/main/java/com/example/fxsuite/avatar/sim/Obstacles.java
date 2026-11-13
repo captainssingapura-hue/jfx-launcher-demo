@@ -95,8 +95,12 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
     public Footing footing(final double x, final double z, final double radius, final double within) {
         double floor = 0;
         for (final Block block : blocks) {
-            if (block.top() > floor && block.top() <= within && block.covers(x, z, radius)) {
-                floor = block.top();
+            if (block.bottom() < within && block.covers(x, z, radius)) {
+                // a ramp's top where the circle stands on it
+                final double top = block.topAt(x, z, radius);
+                if (top > floor && top <= within) {
+                    floor = top;
+                }
             }
         }
         return new Footing(floor, floor > 0 ? Surface.BLOCK : Surface.GROUND);
@@ -134,7 +138,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
     public int under(final double x, final double z, final double radius, final double height) {
         for (int i = 0; i < blocks.size(); i++) {
             final Block block = blocks.get(i);
-            if (Math.abs(block.top() - height) < 0.5 && block.covers(x, z, radius)) {
+            if (block.covers(x, z, radius) && Math.abs(block.topAt(x, z, radius) - height) < 0.5) {
                 return pieces.get(i);
             }
         }
@@ -184,10 +188,13 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         boolean blocked = false;
         for (int pass = 0; pass < 2; pass++) {
             for (final Block block : blocks) {
-                if (block.top() <= feet || block.bottom() >= head) {
+                final boolean point = ax == bx && az == bz;
+                // a ramp is in the way only where its slope is higher than a step: up it, it is walked
+                final double top = !block.sloped() ? block.top()
+                        : Math.max(block.topAt(ax + dx, az + dz, radius), block.topAt(bx + dx, bz + dz, radius));
+                if (top <= feet || block.bottom() >= head) {
                     continue;
                 }
-                final boolean point = ax == bx && az == bz;
                 final Vec2 push = point ? block.push(ax + dx, az + dz, radius)
                         : block.push(ax + dx, az + dz, bx + dx, bz + dz, radius);
                 if (push == null) {

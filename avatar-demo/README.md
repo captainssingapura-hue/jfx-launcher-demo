@@ -14,6 +14,16 @@ characters, and a separate sound bench is for working on the sounds.
   jumps up onto the lower crates (try the staircase straight ahead of the start), falls off
   edges, and lands on pillars it flies down onto. The layout (`Course`) is plain data that is
   both drawn and collided with, so what you see is what stops you.
+- **Ramps.** A block's top can slope (`Block.ramp`): what stands on it stands on the slope where
+  it is, rounds meet the slope, and its high sides are walls. The robot runs up a ramp on its
+  feet and down one without a hop: on its feet, it keeps its footing on a surface falling away
+  under it, a slope or a ledge no higher than a step. The flyover demo has a road across the way
+  ahead of the start, up a ramp of one in four, over a deck 4 m up, and down the other side,
+  with room to run under the deck; and further on, a ramp on its own to leap off.
+  The playground has two flyovers of its own: one behind the start, carrying a road across over
+  a street that runs out from the start under it, and another off to the right, carrying a road
+  over a street running out east. The crates and pillars that were scattered where the roads run
+  are cleared away; everything else is where it was.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -146,7 +156,7 @@ java -jar avatar-demo/target/avatar-demo.jar
 It opens on a choice of demos: the **playground**, everything at once, or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb (`Demo`).
+bomb; and the **flyover**, roads and ramps for the land vehicles to come (`Demo`).
 Click one or press its number. In a demo, the button at the top right, or a right click
 anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
 comes back to the choice.

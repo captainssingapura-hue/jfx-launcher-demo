@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true);
+        FURNITURE(true), FRUIT(true), ROAD(false);
 
         private final boolean breakable;
 
@@ -500,6 +500,7 @@ public final class Course {
             case PLAYGROUND -> playground();
             case PLATFORM -> platformDemo();
             case AIRSHIP -> airshipDemo();
+            case FLYOVER -> flyoverDemo();
         }
     }
 
@@ -530,11 +531,98 @@ public final class Course {
         }
     }
 
+    /** Where the flyover crosses the way ahead of the start, how high its deck is, and how wide its road. */
+    public static final double FLYOVER_Z = 1500;
+    public static final double FLYOVER_HEIGHT = 400;
+    public static final double ROAD_WIDTH = 600;
+    /** How long the flyover's deck is, and each of its ramps: one in four. */
+    public static final double DECK_LENGTH = 1200;
+    public static final double RAMP_LENGTH = 4 * FLYOVER_HEIGHT;
+    /** How thick its deck is. */
+    public static final double DECK_THICK = 40;
+
+    /**
+     * The flyover's demo: a road across the way ahead of the start, up a ramp, over a deck high
+     * enough to run under, and down a ramp the other side; and further on, a ramp on its own, to
+     * run up and leap off. Pillars about, as in the vehicles' demos.
+     */
+    private void flyoverDemo() {
+        scenery(19, true);
+        roads(flyover(0, FLYOVER_Z, 90));
+        // a ramp to leap off: one in three, up to a metre and a half, open at its head
+        pieces.add(new Piece(Block.ramp(0, 3000, 0, 0, 3450, 150, 500), Kind.ROAD, 0));
+    }
+
+    /**
+     * A flyover, its middle at ({@code x}, {@code z}), its road heading {@code heading} (either
+     * way): a ramp up, one in four, a deck {@link #FLYOVER_HEIGHT} up, high enough to run or drive
+     * under, and a ramp down; each {@link #ROAD_WIDTH} wide.
+     */
+    private static List<Block> flyover(final double x, final double z, final double heading) {
+        final Vec3 along = Num.heading(heading);
+        final double end = DECK_LENGTH / 2;
+        final double foot = end + RAMP_LENGTH;
+        final List<Block> road = new ArrayList<>();
+        for (final double side : new double[] {-1, 1}) {
+            road.add(Block.ramp(x + along.x() * foot * side, z + along.z() * foot * side, 0,
+                    x + along.x() * end * side, z + along.z() * end * side, FLYOVER_HEIGHT, ROAD_WIDTH));
+        }
+        road.add(1, new Block(x, z, ROAD_WIDTH / 2, end, heading, FLYOVER_HEIGHT - DECK_THICK, FLYOVER_HEIGHT));
+        return road;
+    }
+
+    /** A road on the ground, from ({@code fromX}, {@code fromZ}) to ({@code toX}, {@code toZ}): a strip of tarmac, a step's fraction high. */
+    private static Block street(final double fromX, final double fromZ, final double toX, final double toZ) {
+        final double length = Math.hypot(toX - fromX, toZ - fromZ);
+        final double yaw = Math.toDegrees(Math.atan2(toX - fromX, toZ - fromZ));
+        return new Block((fromX + toX) / 2, (fromZ + toZ) / 2, ROAD_WIDTH / 2, length / 2, yaw, 0, STREET);
+    }
+
+    /** How high a road on the ground stands: hardly at all, to be walked onto without a step. */
+    public static final double STREET = 3;
+
+    /** Each of {@code road}'s blocks, laid as a piece of road: the ramps one shade, the decks and streets another. */
+    private void roads(final List<Block> road) {
+        for (final Block block : road) {
+            pieces.add(new Piece(block, Kind.ROAD, block.sloped() ? 0 : 1));
+        }
+    }
+
+    /**
+     * The playground's roads: a flyover behind the start, carrying a road east and west over a
+     * street that runs out from the start under it; and another, out to the right, carrying a road
+     * north and south over a street running east under it.
+     */
+    private static List<Block> playgroundRoads() {
+        final List<Block> road = new ArrayList<>(flyover(0, -3500, 90));
+        road.add(street(0, -1600, 0, -8500));
+        road.addAll(flyover(5200, 3800, 0));
+        road.add(street(2900, 3800, 10500, 3800));
+        return road;
+    }
+
+    /** Whether {@code block} stands on or near any of {@code road}: crates and pillars there are cleared away. */
+    private static boolean inTheWay(final Block block, final List<Block> road) {
+        for (final Block stretch : road) {
+            final Block clear = new Block(stretch.x(), stretch.z(), stretch.halfWidth() + 150, stretch.halfDepth() + 150,
+                    stretch.yaw(), 0, Double.MAX_VALUE);
+            if (clear.overlaps(block)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * What the vehicles' demos have about them: pillars of all heights in a wide ring, and gates high
      * up, all clear of the way straight ahead of the start, where the vehicle stands.
      */
     private void scenery(final long seed) {
+        scenery(seed, false);
+    }
+
+    /** As {@link #scenery(long)}, keeping clear of the flyover too, if {@code road}. */
+    private void scenery(final long seed, final boolean road) {
         final Random random = new Random(seed);
         for (int i = 0; i < 28; i++) {
             final double angle = i * 2 * Math.PI / 28 + random.nextDouble() * 0.2;
@@ -543,11 +631,12 @@ public final class Course {
             final double height = 400 + Math.pow(random.nextDouble(), 1.5) * 3000;
             final double x = Math.sin(angle) * reach;
             final double z = Math.cos(angle) * reach;
-            if (Math.abs(x) < 1200 && z > -800 && z < 4600) {
-                continue;  // keep the way ahead clear
+            if (Math.abs(x) < 1200 && z > -800 && z < 4600 || road && Math.abs(x) < 3000 && Math.abs(z - FLYOVER_Z) < 900) {
+                continue;  // keep the way ahead clear, and the road
             }
             pieces.add(new Piece(Block.standing(x, z, size, size, height, 0), Kind.PILLAR, random.nextInt(4)));
         }
+
         for (int i = 0; i < 4; i++) {
             final double angle = i * Math.PI / 2 + 0.7;
             gate(Math.sin(angle) * 4000, 900 + i * 400, Math.cos(angle) * 4000, random.nextDouble() * 180, i % 3);
@@ -590,6 +679,10 @@ public final class Course {
             pieces.add(new Piece(Block.standing(x, z, size, size, height, 0), Kind.PILLAR, random.nextInt(4)));
         }
 
+        // the roads have the ground they run over to themselves: what was scattered there is cleared
+        final List<Block> roads = playgroundRoads();
+        pieces.removeIf(p -> (p.kind() == Kind.CRATE || p.kind() == Kind.PILLAR) && inTheWay(p.block(), roads));
+
         for (int i = 0; i < 14; i++) {
             final double angle = i * 2 * Math.PI / 14 + 0.4;
             final double reach = 1800 + random.nextDouble() * 8000;
@@ -630,6 +723,9 @@ public final class Course {
                 stall(i);
             }
         }
+
+        // and the roads, last, so that nothing else is numbered differently for them
+        roads(roads);
     }
 
     /**
