@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 17;
+    public static final int RULES = 18;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -524,7 +524,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 continue;  // flown by whoever mans its gun
             }
             if (lift.held() && (take || damage.broken(lift.piece())
-                    || !lift.craft().closed() && !lift.reaches(avatar.body(), world))) {
+                    || !seated(lift) && !lift.reaches(avatar.body(), world))) {
                 handed.set(i, lift.held(false));
                 happened.add(new Event.LetGo(lift.piece()));
                 take = false;
@@ -653,8 +653,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         for (int i = 0; i < manned.size(); i++) {
             final Turret was = turrets.get(i);
             final Turret now = manned.get(i);
-            if (was.held() == now.held() || !now.held() && !now.mount().closed()) {
-                continue;  // at an open gun, whoever let it go is standing there still
+            if (was.held() == now.held()
+                    || !now.held() && !now.mount().closed() && now.mount().station().equals(now.mount().seat())) {
+                continue;  // at an open gun, manned where it stands, whoever let it go is standing there still
             }
             final Body body = now.held()
                     ? Body.standing(now.at(now.mount().seat()), now.heading())
@@ -671,9 +672,14 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     }
 
     /** Which of {@code handed} is a closed craft with the avatar at its controls, inside it; -1 for none. */
+    /** Whether whoever has {@code lift}'s controls sits in it, still, carried with it: in a closed craft, or a land vehicle. */
+    private static boolean seated(final Lift lift) {
+        return lift.craft().closed() || lift.craft() instanceof Course.Chassis;
+    }
+
     private static int inside(final List<Lift> handed) {
         for (int i = 0; i < handed.size(); i++) {
-            if (handed.get(i).held() && handed.get(i).craft().closed()) {
+            if (handed.get(i).held() && seated(handed.get(i))) {
                 return i;
             }
         }
@@ -683,18 +689,21 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     /**
      * The avatar, as the controls changed hands ({@code handed}): taking a closed craft's, it goes
      * inside, to its cabin, facing the way it does; letting them go, it drops out of the hatch, and
-     * falls from there if the craft is aloft. Otherwise, where it was.
+     * falls from there if the craft is aloft. Taking a land vehicle's, it sits in its seat; letting
+     * them go, it is out on the ground beside the door. Otherwise, where it was.
      */
     private Avatar boarded(final List<Lift> handed) {
         for (int i = 0; i < handed.size(); i++) {
             final Lift was = lifts.get(i);
             final Lift now = handed.get(i);
-            if (!now.craft().closed() || was.held() == now.held()) {
+            if (!seated(now) || was.held() == now.held()) {
                 continue;
             }
+            // out of a closed craft through its hatch; out of a land vehicle, beside its door
+            final Vec3 out = now.craft().closed() ? out(now) : now.at(now.craft().door());
             final Body body = now.held()
                     ? Body.standing(now.at(now.craft().cabin()), now.place().yaw())
-                    : new Body(out(now), now.place().yaw(), now.place().yaw(), 0, 0, 0, 0, false, false, 0,
+                    : new Body(out, now.place().yaw(), now.place().yaw(), 0, 0, 0, 0, false, false, 0,
                     avatar.body().time());
             return new Avatar(body, avatar.wearingPack(), avatar.sweep(), avatar.arms());
         }

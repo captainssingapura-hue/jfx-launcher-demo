@@ -242,8 +242,10 @@ class ChassisTest {
     @Test
     void theHandsDoNotFireWhileTheCarsGunIsThere() {
         final List<Event> events = new ArrayList<>();
+        // the rifles drawn before it got in
         Play play = driving(open());
-        play = run(play, Controls.doing(new Action.Draw(Weapon.RIFLES)), Clock.STEP, events);
+        play = new Play(play.avatar().drawn(Weapon.RIFLES), play.damage(), play.sky(), play.lifts(), play.people(),
+                play.props(), play.turrets());
         assertEquals(Weapon.RIFLES, play.avatar().holding());
         events.clear();
         play = run(play, new Controls(0, 0, 0, 0, true, true, 0), 2, events);

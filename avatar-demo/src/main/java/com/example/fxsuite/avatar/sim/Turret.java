@@ -119,10 +119,14 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         if (!body.grounded()) {
             return false;
         }
-        final Vec3 station = at(mount.station());
+        // at its station, or at the seat it is manned from, if that is elsewhere
         final Vec3 feet = body.position();
-        return Math.hypot(feet.x() - station.x(), feet.z() - station.z()) <= REACH
-                && Math.abs(feet.y() - station.y()) <= Body.STEP * 3;
+        for (final Vec3 spot : List.of(at(mount.station()), at(mount.seat()))) {
+            if (Math.hypot(feet.x() - spot.x(), feet.z() - spot.z()) <= REACH && Math.abs(feet.y() - spot.y()) <= Body.STEP * 3) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The same, manned or let go. */

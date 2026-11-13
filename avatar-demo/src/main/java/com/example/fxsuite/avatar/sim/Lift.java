@@ -166,7 +166,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /**
      * Whether {@code body}, among {@code world}, can reach its controls: standing on its deck
-     * within reach of the console, for a platform; standing under its hatch, for a closed craft.
+     * within reach of the console, for a platform; standing under its hatch, for a closed craft; and
+     * for a land vehicle, either at its seat or on the ground beside the driver's door.
      */
     public boolean reaches(final Body body, final Obstacles world) {
         if (!body.grounded()) {
@@ -179,6 +180,13 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             final double overhead = at.y() - station.y();
             return Math.hypot(at.x() - station.x(), at.z() - station.z()) <= REACH * 1.5
                     && overhead >= Body.TALL && overhead <= Body.TALL + 80;
+        }
+        if (craft instanceof Course.Chassis) {
+            // from the ground beside the driver's door
+            final Vec3 door = at(craft.door());
+            if (Math.hypot(at.x() - door.x(), at.z() - door.z()) <= REACH * 1.2 && Math.abs(at.y() - door.y()) <= KERB) {
+                return true;
+            }
         }
         if (world.under(at.x(), at.z(), Body.FOOTING, body.height()) != piece) {
             return false;

@@ -192,7 +192,7 @@ public final class Game {
             + "Space jump or climb · Ctrl descend\n"
             + "J jet-pack on or off · F fly or land (with the jet-pack) · " + VIEW_KEYS + "\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
-            + "T fly a platform (at its console), drive a chassis (at its wheel), board an airship (under its hatch)"
+            + "T fly a platform (at its console), drive a vehicle (at its door), board an airship (under its hatch)"
             + " or man a gun"; 
     private static final String PLATFORM_HELP = "The platform: W/S ahead and back · A/D sideways · mouse turns · "
             + "Space climb · Ctrl descend · Shift carefully · F engine on or off · T let go\n"
@@ -747,9 +747,10 @@ public final class Game {
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts, people, props, turrets);
-        final String reach = here.withinReach().map(lift -> lift.craft().closed()
-                ? " · T: board the airship" : " · T: take the controls")
-                .orElse(here.gunWithinReach().isPresent() ? " · T: man the gun" : "");
+        final String reach = here.withinReach().map(lift -> lift.craft().closed() ? " · T: board the airship"
+                        : lift.craft() instanceof Course.Chassis ? " · T: get in" : " · T: take the controls")
+                .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
+                        : "");
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
         // at a vehicle's controls, what there is to say is the vehicle's, and its keys are the help
         final Optional<Lift> flown = here.atControls();

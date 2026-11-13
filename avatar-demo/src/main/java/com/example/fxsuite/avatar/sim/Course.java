@@ -84,7 +84,7 @@ public final class Course {
          * wheels at {@code place}.
          */
         public static Piece vehicle(final Chassis chassis, final Bodywork body, final Place place, final int tint) {
-            final Shape shape = chassis.shape();
+            final Shape shape = chassis.shape(body);
             return new Piece(shape.box(place), Kind.CAR, tint, shape.solid(place), shape, place, null, -1, null, body);
         }
 
@@ -344,6 +344,11 @@ public final class Course {
             return station();
         }
 
+        /** Where whoever takes it from outside it stands, and is let out at: its station, unless it says otherwise. */
+        default Section door() {
+            return station();
+        }
+
         /** How many bombs its bay holds: none, unless it has one. */
         default int bombs() {
             return 0;
@@ -508,9 +513,41 @@ public final class Course {
                     parts);
         }
 
-        /** The chassis a shape was made from ({@link #shape}), among those there are ({@link #CHASSES}). */
+        /**
+         * It and the body it wears ({@code body}; null for none), as one: its own parts first, as
+         * {@link #shape} has them, then the body's boxes; its box round all of them.
+         */
+        public Shape shape(final Bodywork body) {
+            if (body == null) {
+                return shape();
+            }
+            final List<Section> parts = new ArrayList<>(shape().parts());
+            parts.addAll(body.solid());
+            double out = 0;
+            double top = WHEEL_HEIGHT;
+            double front = length / 2;
+            for (final Section s : parts) {
+                out = Math.max(out, Math.abs(s.across()) + s.halfAcross());
+                top = Math.max(top, s.up() + s.halfUp());
+                front = Math.max(front, Math.abs(s.along()) + s.halfAlong());
+            }
+            return new Shape(new Section(0, 0, (top - ride) / 2, out, front, (top + ride) / 2), parts);
+        }
+
+        /** The chassis a shape was made from ({@link #shape}), with whatever body: known by its bed. */
         public static Chassis of(final Shape shape) {
-            return CHASSES.stream().filter(c -> c.shape().equals(shape)).findFirst().orElseThrow();
+            final Section bed = shape.parts().getFirst();
+            return CHASSES.stream().filter(c -> c.bed().equals(bed)).findFirst().orElseThrow();
+        }
+
+        /**
+         * Where whoever drives it gets in from, and is let out at: on the ground, beside the
+         * driver's seat, clear of any body it wears.
+         */
+        @Override
+        public Section door() {
+            final double side = driverAcross < 0 ? -1 : 1;
+            return new Section(side * (wheelOut() + wheelWidth / 2 + 60), driverAlong, -ride, 0, 0, 0);
         }
 
         /** From the ground it stands on up as high as whoever rides it: nothing it drives under or past goes through a rider. */
@@ -561,23 +598,41 @@ public final class Course {
      * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
      * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
      * body changes is how the vehicle takes harm: {@code armour} times as much of it before it
-     * breaks, and {@code plating} taken off every blow, so the lightest rounds hardly mark it.
+     * breaks, and {@code plating} taken off every blow, so the lightest rounds hardly mark it; and
+     * how much room it takes, its {@code solid} boxes (in its chassis's frame) a rough match for its
+     * panels: what rounds strike, and what bumps into it.
      */
-    public record Bodywork(String name, double armour, double plating) {
+    public record Bodywork(String name, double armour, double plating, List<Section> solid) {
+
+        public Bodywork {
+            solid = List.copyOf(solid);
+        }
     }
 
     /** A pickup's body: a cab with a windscreen over the seat, and an open bed behind with low sides. */
-    public static final Bodywork PICKUP_BODY = new Bodywork("pickup", 1.6, 3);
+    public static final Bodywork PICKUP_BODY = new Bodywork("pickup", 1.6, 3, List.of(
+            // the cab, bonnet and all; the bed's sides and its tailgate
+            new Section(0, 150, 72, 132, 110, 100),
+            new Section(-130, -111, 10, 3, 151, 38), new Section(130, -111, 10, 3, 151, 38),
+            new Section(0, -262, 10, 132, 3, 38)));
     /** A roadster's: open, low, a bonnet before the seat and a deck behind it. */
-    public static final Bodywork ROADSTER = new Bodywork("roadster", 1.3, 1);
+    public static final Bodywork ROADSTER = new Bodywork("roadster", 1.3, 1, List.of(
+            // low, all of it, its sides as high as its deck
+            new Section(0, 0, 15, 120, 202, 43)));
     /** A truck's: a cab over its front wheels, and a flatbed behind with low sides. */
-    public static final Bodywork TRUCK_CAB = new Bodywork("truck", 1.5, 2);
+    public static final Bodywork TRUCK_CAB = new Bodywork("truck", 1.5, 2, List.of(
+            // the cab; the flatbed's sides and its tailgate
+            new Section(0, 223, 87, 156, 129, 117),
+            new Section(-154, -130, 5, 3, 224, 35), new Section(154, -130, 5, 3, 224, 35),
+            new Section(0, -354, 5, 156, 3, 35)));
     /**
      * A van's: tall and boxy, a short low nose, a big windscreen sloping up to a high roof, the sides
      * glazed behind the driver's door, and a hatch at the back; on the car's chassis, its fixed gun
      * poking out through a port in the right half of the windscreen.
      */
-    public static final Bodywork VAN = new Bodywork("van", 1.4, 2);
+    public static final Bodywork VAN = new Bodywork("van", 1.4, 2, List.of(
+            // one tall box, nose to tail
+            new Section(0, 0, 80, 118, 202, 108)));
 
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
@@ -599,7 +654,7 @@ public final class Course {
      */
     public static final Mount REAR_GUN = new Mount(Gun.HEAVY_GATLING,
             new Section(0, -PICKUP_CHASSIS.length() / 2 + 80, 190, 0, 0, 0), 230, 180, 10, 45, 100, true, false,
-            PICKUP_CHASSIS.station(), PICKUP_CHASSIS.station(), false);
+            PICKUP_CHASSIS.door(), PICKUP_CHASSIS.station(), false);
 
     /**
      * A gun on a mount ({@link Turret}): which gun ({@link Gun}), where it turns about on what

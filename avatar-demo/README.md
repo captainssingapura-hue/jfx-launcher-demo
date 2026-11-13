@@ -26,8 +26,8 @@ characters, and a separate sound bench is for working on the sounds.
   are cleared away; everything else is where it was.
 - **Land vehicles: a bare chassis.** What a car or a truck is built on (`Course.Chassis`): a flat
   bed on wheels, a steering wheel on a column, and nothing else yet. The car's is 4 m long on four
-  wheels; the truck's 7 m on six, its back four on two axles together. Jump onto the bed and stand
-  at the steering wheel: T takes it. W speeds it up, S brakes and then reverses, A and D steer,
+  wheels; the truck's 7 m on six, its back four on two axles together. Stand beside the driver's door (or at the
+  steering wheel, on a bare chassis): T gets in. W speeds it up, S brakes and then reverses, A and D steer,
   Space is the handbrake, Shift goes gently; the mouse does not turn it. Only the front wheels
   steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
   it goes. Each wheel finds the ground under it: it drives up and down ramps and over the
@@ -56,7 +56,11 @@ characters, and a separate sound bench is for working on the sounds.
   outlines at its sides, and single panels (`Bodies`). Rough for now, flat and few, but finer
   shapes are only more sheets. To the world a body is nothing but how the vehicle takes harm
   (`Course.Bodywork`): its armour makes it tougher, and its plating takes something off every
-  blow; the vehicle is still its chassis, as a whole.
+  blow; and its solid boxes, a rough match for its panels (the van one tall box, the pickup a
+  cab and its bed's sides), are what rounds strike and what bumps into it, the chassis's own
+  parts and the body's together. With the body round the seat, a vehicle is got into from the
+  ground beside the driver's door (T), and let out there; at the wheel, the driver sits still in
+  it, carried.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
