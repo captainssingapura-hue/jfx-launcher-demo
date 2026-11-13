@@ -1000,8 +1000,39 @@ public final class World {
             }
             rolls.add(roll);
         }
+        // and its body, if it wears one: sheets of metal and glass, drawn by their own renderer
+        final Course.Bodywork bodywork = pieces.get(piece).body();
+        Shape3D painted = slab;
+        if (bodywork != null) {
+            final java.util.Map<Sheets.Slot, PhongMaterial> colours = paint(bodywork);
+            final Group panels = Sheets.draw(Bodies.of(bodywork), colours, frame.up());
+            body.getChildren().add(panels);
+            // what it is seen as: its paint, darkening as it wears, and the colour of its wreckage
+            for (final Node node : panels.getChildren()) {
+                if (node instanceof Shape3D panel && panel.getMaterial() == colours.get(Sheets.Slot.PAINT)) {
+                    painted = panel;
+                }
+            }
+        }
         wheeled.put(piece, new Wheels(tilt, steers, rolls, turning, chassis.wheelRadius()));
-        return slab;
+        return painted;
+    }
+
+    /** What each slot of a body is coloured: its paint by which body it is, and the same trim, glass and lamps for all. */
+    private static java.util.Map<Sheets.Slot, PhongMaterial> paint(final Course.Bodywork body) {
+        final PhongMaterial glass = BoxRig.matte("#6f8796");
+        glass.setSpecularColor(javafx.scene.paint.Color.web("#d8e4ec"));
+        glass.setSpecularPower(40);
+        return java.util.Map.of(
+                Sheets.Slot.PAINT, BoxRig.matte(switch (body.name()) {
+                    case "pickup" -> "#9c3a2b";
+                    case "roadster" -> "#2f6db5";
+                    case "truck" -> "#c7822c";
+                    default -> "#7b828a";
+                }),
+                Sheets.Slot.TRIM, BoxRig.matte("#25282c"),
+                Sheets.Slot.GLASS, glass,
+                Sheets.Slot.LAMP, BoxRig.glow("#fff4cf"));
     }
 
     /** A land vehicle as shown: its body tipped, its front wheels steered, every wheel rolling, its steering wheel turned. */

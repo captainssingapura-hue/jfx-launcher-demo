@@ -45,6 +45,15 @@ characters, and a separate sound bench is for working on the sounds.
   A and D steering as ever, and the mouse aims the gun all round, 10° down and 45° up; the gun
   holds its aim on the world as the pickup turns under it, and the view rides behind the gun.
   Crates stand about behind the start, to turn it on.
+- **Bodies.** On the Roads demo each chassis wears a body: the car a low open roadster, blue; the
+  truck a square cab over its front wheels and a flatbed, orange; the pickup a cab with a sloping
+  windscreen and an open bed round its gun, red. A body is sheets of metal and glass, drawn by a
+  renderer of their own (`Sheets`): each sheet a flat panel of any outline, hollows and all, as
+  thick as it is, seen from either side; built from a side profile pushed out across the body,
+  outlines at its sides, and single panels (`Bodies`). Rough for now, flat and few, but finer
+  shapes are only more sheets. To the world a body is nothing but how the vehicle takes harm
+  (`Course.Bodywork`): its armour makes it tougher, and its plating takes something off every
+  blow; the vehicle is still its chassis, as a whole.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.

@@ -67,10 +67,25 @@ public final class Course {
      * from there is its {@link Prop}'s.
      */
     public record Piece(Block block, Kind kind, int tint, List<Block> solid, Shape shape, Place place,
-                        Route route, int carrier, Loose loose) {
+                        Route route, int carrier, Loose loose, Bodywork body) {
 
         public Piece {
             solid = List.copyOf(solid);
+        }
+
+        /** As given, with no body on it. */
+        public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid, final Shape shape,
+                     final Place place, final Route route, final int carrier, final Loose loose) {
+            this(block, kind, tint, solid, shape, place, route, carrier, loose, null);
+        }
+
+        /**
+         * A land vehicle: {@code chassis}, wearing {@code body} (null for none, bare), standing on its
+         * wheels at {@code place}.
+         */
+        public static Piece vehicle(final Chassis chassis, final Bodywork body, final Place place, final int tint) {
+            final Shape shape = chassis.shape();
+            return new Piece(shape.box(place), Kind.CAR, tint, shape.solid(place), shape, place, null, -1, null, body);
         }
 
         /** A piece that stays where it is, its solid blocks given. */
@@ -129,7 +144,7 @@ public final class Course {
 
         /** The same piece, moved to {@code to} (for one that rides, its carrier moved there). */
         public Piece placed(final Place to) {
-            return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier, loose);
+            return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier, loose, body);
         }
 
         /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
@@ -542,6 +557,22 @@ public final class Course {
      */
     public static final Chassis PICKUP_CHASSIS = new Chassis("pickup", 200, 520, 85, 40, 26, List.of(170.0, -170.0),
             -45, 110, new Drive(1900, 600, 750, 2300, 330, 32, 120));
+    /**
+     * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
+     * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
+     * body changes is how the vehicle takes harm: {@code armour} times as much of it before it
+     * breaks, and {@code plating} taken off every blow, so the lightest rounds hardly mark it.
+     */
+    public record Bodywork(String name, double armour, double plating) {
+    }
+
+    /** A pickup's body: a cab with a windscreen over the seat, and an open bed behind with low sides. */
+    public static final Bodywork PICKUP_BODY = new Bodywork("pickup", 1.6, 3);
+    /** A roadster's: open, low, a bonnet before the seat and a deck behind it. */
+    public static final Bodywork ROADSTER = new Bodywork("roadster", 1.3, 1);
+    /** A truck's: a cab over its front wheels, and a flatbed behind with low sides. */
+    public static final Bodywork TRUCK_CAB = new Bodywork("truck", 1.5, 2);
+
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
 
@@ -798,10 +829,10 @@ public final class Course {
         scenery(19, true);
         roads(flyover(0, FLYOVER_Z, 90));
         // and a car's chassis and a truck's, either side of the way ahead, to drive on them
-        pieces.add(Piece.moving(CAR_CHASSIS.shape(), new Place(-450, 300, CAR_CHASSIS.ride(), 0), Kind.CAR, 0, null));
-        pieces.add(Piece.moving(TRUCK_CHASSIS.shape(), new Place(550, 250, TRUCK_CHASSIS.ride(), 0), Kind.CAR, 1, null));
+        pieces.add(Piece.vehicle(CAR_CHASSIS, ROADSTER, new Place(-450, 300, CAR_CHASSIS.ride(), 0), 0));
+        pieces.add(Piece.vehicle(TRUCK_CHASSIS, TRUCK_CAB, new Place(550, 250, TRUCK_CHASSIS.ride(), 0), 1));
         // and a pickup's, its gun on the back, behind the start
-        pieces.add(Piece.moving(PICKUP_CHASSIS.shape(), new Place(0, -700, PICKUP_CHASSIS.ride(), 0), Kind.CAR, 2, null));
+        pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {

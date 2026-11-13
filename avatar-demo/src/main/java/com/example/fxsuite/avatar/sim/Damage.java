@@ -73,7 +73,8 @@ public final class Damage {
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
             case BUNKER -> BUNKER;
-            case CAR -> CAR;
+            // a land vehicle's body makes it the tougher by its armour
+            case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
             case PLATFORM -> PLATFORM;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
@@ -129,7 +130,7 @@ public final class Damage {
             if (left == null) {
                 left = health.clone();
             }
-            left[piece] = Math.max(0, left[piece] - blow.by().blow());
+            left[piece] = Math.max(0, left[piece] - harm(piece, blow));
             happened.add(Event.Struck.of(blow, share(piece, left)));
             if (left[piece] <= 0) {
                 final Course.Piece what = where.apply(piece);
@@ -139,6 +140,12 @@ public final class Damage {
         }
         return left == null ? new Taken(this, happened)
                 : new Taken(new Damage(pieces, toughness, left, standing), happened);
+    }
+
+    /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */
+    private double harm(final int piece, final Blow blow) {
+        final Course.Bodywork body = pieces.get(piece).body();
+        return body == null ? blow.by().blow() : Math.max(0, blow.by().blow() - body.plating());
     }
 
     private boolean harms(final Blow blow) {
