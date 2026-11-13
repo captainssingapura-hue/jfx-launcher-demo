@@ -31,6 +31,7 @@ final class EngineOut implements AutoCloseable {
     private volatile double throttle;
     private volatile double load;
     private volatile double volume = 0.8;
+    private volatile double boost;
     private volatile boolean running = true;
 
     private final SourceDataLine line;
@@ -79,6 +80,11 @@ final class EngineOut implements AutoCloseable {
         this.load = load;
     }
 
+    /** How much boost the engine playing makes, its turbocharger spooled up as it plays. */
+    double boost() {
+        return boost;
+    }
+
     void volume(final double volume) {
         this.volume = volume;
     }
@@ -108,6 +114,7 @@ final class EngineOut implements AutoCloseable {
                 }
                 voice.set(rpm, throttle, load);
                 voice.render(block, 0, BLOCK);
+                boost = voice.boost();
                 synchronized (kept) {
                     for (final float s : block) {
                         kept[(int) (made & (KEPT - 1))] = s;

@@ -35,10 +35,11 @@ import java.util.Map;
  * @param pulse    how long each cylinder's pulse of exhaust is, in milliseconds, at most
  * @param rasp     how much rough air comes with each pulse, against its knock
  * @param intake   the note the intake roars about, in Hz, at full throttle
+ * @param turbo    its turbocharger; null, none
  */
 public record Engine(String key, String name, String about, int strokes, double[] firing, int[] bank, double far,
                      double idle, double redline, double climb, double fall, double[] pipes, double ring, double pulse,
-                     double rasp, double intake) {
+                     double rasp, double intake, Turbo turbo) {
 
     public Engine {
         if (strokes != 2 && strokes != 4) {
@@ -61,6 +62,15 @@ public record Engine(String key, String name, String about, int strokes, double[
         firing = firing.clone();
         bank = bank.clone();
         pipes = pipes.clone();
+    }
+
+    /** One with no turbocharger. */
+    public Engine(final String key, final String name, final String about, final int strokes, final double[] firing,
+                  final int[] bank, final double far, final double idle, final double redline, final double climb,
+                  final double fall, final double[] pipes, final double ring, final double pulse, final double rasp,
+                  final double intake) {
+        this(key, name, about, strokes, firing, bank, far, idle, redline, climb, fall, pipes, ring, pulse, rasp, intake,
+                null);
     }
 
     // ---- cars
@@ -99,6 +109,18 @@ public record Engine(String key, String name, String about, int strokes, double[
             "Every quarter turn, the banks taking turns: each bank an even four, so it screams.", 4,
             new double[] {0, 90, 180, 270, 360, 450, 540, 630}, new int[] {0, 1, 0, 1, 0, 1, 0, 1}, 0.9,
             1000, 8500, 12000, 6500, new double[] {140, 380, 1000}, 4, 3.0, 1.5, 560);
+
+    /**
+     * A turbocharged inline five, as the rally cars of the eighties had: one cylinder every 144
+     * degrees, an odd number of them through one pipe, so its note warbles, half a four's and
+     * half a six's. And its turbo: late to spool, whistling as it comes on, hissing off the
+     * throttle.
+     */
+    public static final Engine I5_TURBO = new Engine("I5_TURBO", "Inline five, turbo",
+            "Every 144° through one pipe: the five's warble; and a turbo, whistling on boost, hissing off it.", 4,
+            new double[] {0, 144, 288, 432, 576}, new int[] {0, 0, 0, 0, 0}, 1,
+            850, 7000, 8000, 5000, new double[] {125, 340, 950}, 3.5, 3.4, 1.5, 480,
+            new Turbo(0.9, 0.22, 5200, 1, 0.35, 0.8));
 
     // ---- scooters and motorcycles
 
@@ -157,7 +179,7 @@ public record Engine(String key, String name, String about, int strokes, double[
             1000, 7500, 8500, 5200, new double[] {120, 330, 900}, 3.5, 4.5, 1.3, 420);
 
     /** All of them, as the bench offers them: the cars', then the scooters' and the motorcycles'. */
-    public static final List<Engine> ALL = List.of(I4, V6, V8, FLAT_V8,
+    public static final List<Engine> ALL = List.of(I4, I5_TURBO, V6, V8, FLAT_V8,
             SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN);
 
     private static final Map<String, Engine> KEYS = new LinkedHashMap<>();
@@ -171,6 +193,11 @@ public record Engine(String key, String name, String about, int strokes, double[
     /** The engine called {@code key} for short ({@code V8}, {@code THUMPER}, ...), any case; or {@code otherwise}. */
     public static Engine called(final String key, final Engine otherwise) {
         return key == null ? otherwise : KEYS.getOrDefault(key.toUpperCase(Locale.ROOT), otherwise);
+    }
+
+    /** Whether it has a turbocharger. */
+    public boolean turbocharged() {
+        return turbo != null;
     }
 
     public int cylinders() {
@@ -207,7 +234,8 @@ public record Engine(String key, String name, String about, int strokes, double[
         return other instanceof Engine e && key.equals(e.key) && name.equals(e.name) && strokes == e.strokes
                 && Arrays.equals(firing, e.firing) && Arrays.equals(bank, e.bank) && Arrays.equals(pipes, e.pipes)
                 && far == e.far && idle == e.idle && redline == e.redline && climb == e.climb && fall == e.fall
-                && ring == e.ring && pulse == e.pulse && rasp == e.rasp && intake == e.intake;
+                && ring == e.ring && pulse == e.pulse && rasp == e.rasp && intake == e.intake
+                && java.util.Objects.equals(turbo, e.turbo);
     }
 
     @Override

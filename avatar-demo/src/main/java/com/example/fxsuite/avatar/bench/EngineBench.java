@@ -226,8 +226,8 @@ public final class EngineBench extends Application {
         for (final double p : pipes) {
             notes.append(notes.isEmpty() ? "" : ", ").append(Math.round(p));
         }
-        facts.setText(String.format(Locale.ROOT, "%d cylinders · idle %.0f · red line %.0f rpm · pipes ring at %s Hz",
-                picked.cylinders(), picked.idle(), picked.redline(), notes));
+        facts.setText(String.format(Locale.ROOT, "%d cylinders%s · idle %.0f · red line %.0f rpm · pipes ring at %s Hz",
+                picked.cylinders(), picked.turbocharged() ? ", turbocharged" : "", picked.idle(), picked.redline(), notes));
         rpm.setMin(picked.idle());
         rpm.setMax(picked.redline());
     }
@@ -243,9 +243,9 @@ public final class EngineBench extends Application {
             out.set(driving.rpm(), driving.firing(), driving.load());
             dashboard.show(driving.rpm(), engine.redline(), driving.shown(), driving.kmh(), seconds);
             readout.setText(String.format(Locale.ROOT,
-                    "%5.0f rpm · firing %4.0f Hz%n%5.1f km/h · gear %s · %s%nthrottle %3.0f%% · load %3.0f%%%s%s",
+                    "%5.0f rpm · firing %4.0f Hz%n%5.1f km/h · gear %s · %s%nthrottle %3.0f%% · load %3.0f%%%s%s%s",
                     driving.rpm(), engine.firingRate(driving.rpm()), driving.kmh(), driving.shown(),
-                    driving.clutch().name().toLowerCase(Locale.ROOT), open * 100, driving.load() * 100,
+                    driving.clutch().name().toLowerCase(Locale.ROOT), open * 100, driving.load() * 100, boosting(),
                     braking ? " · BRAKE" : "", driving.cut() > 0 ? " · LIMITER" : ""));
             out.latest(samples);
             drawWave();
@@ -266,11 +266,16 @@ public final class EngineBench extends Application {
         }
         out.set(turning, firing, load.getValue());
         dashboard.show(turning, engine.redline(), "N", 0, seconds);
-        readout.setText(String.format(Locale.ROOT, "%5.0f rpm · firing %4.0f Hz%nthrottle %3.0f%% · load %3.0f%%%s",
-                turning, engine.firingRate(turning), open * 100, load.getValue() * 100, cut ? " · LIMITER" : ""));
+        readout.setText(String.format(Locale.ROOT, "%5.0f rpm · firing %4.0f Hz%nthrottle %3.0f%% · load %3.0f%%%s%s",
+                turning, engine.firingRate(turning), open * 100, load.getValue() * 100, boosting(), cut ? " · LIMITER" : ""));
         out.latest(samples);
         drawWave();
         drawSpectrum(turning);
+    }
+
+    /** The boost, for the readout, if the engine has a turbocharger. */
+    private String boosting() {
+        return engine.turbocharged() ? String.format(Locale.ROOT, "%n boost %3.0f%%", out.boost() * 100) : "";
     }
 
     private void drawWave() {

@@ -341,8 +341,12 @@ the revs while the pipes' ring stays where it is, and it sounds like the same en
 harder. On top come the intake, roaring with the throttle open; a harsher, louder note when it
 is worked hard; and pops and crackle off the throttle at speed.
 
-- Pick an engine (`Engine`). For cars: an inline four, a V6, a cross-plane V8 with its
-  lopsided burble, or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc
+- Pick an engine (`Engine`). For cars: an inline four; a turbocharged inline five, its odd
+  number of cylinders (every 144°) giving it a warble, its turbo spooling up late and under
+  load, whistling higher as it spins, and its blow-off valve hissing whenever the throttle snaps
+  shut on boost, lifting off or changing gear (`Turbo`, heard by `TurboVoice`); a V6; a
+  cross-plane V8 with its lopsided burble; or a flat-plane V8 that screams. For scooters and
+  motorcycles: a 50 cc
   two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
   four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
   a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
@@ -354,7 +358,7 @@ is worked hard; and pops and crackle off the throttle at speed.
   the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
 - Set the load, from revving free to pulling hard.
 - Or drive it: each engine is in a vehicle of its own (`Vehicle`): a hatchback, a saloon, a
-  muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
+  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
   bike, each with its weight, torque, gears, wheels, drag and grip. W or Space is the throttle,
   S the brake, E or Up changes up and Q or Down changes down, or the gearbox changes by itself:
   up near the red line flat out, up early cruising, down as it slows (`Driving`). It pulls away
@@ -365,7 +369,7 @@ is worked hard; and pops and crackle off the throttle at speed.
 - Watch the tachometer, the sound as it is made, and its frequencies: the firing note marked
   in orange, moving with the revs, and the pipes' notes in blue, staying put.
 
-It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
+It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5_TURBO`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
 `SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with. The game's engines are not yet made this way.
 
 ## Unattended runs

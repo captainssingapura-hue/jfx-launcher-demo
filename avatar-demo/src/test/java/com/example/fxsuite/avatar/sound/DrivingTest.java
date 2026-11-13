@@ -116,6 +116,7 @@ class DrivingTest {
     @Test
     void theyGetUpToSpeedAsBriskelyAsSuchVehiclesDo() {
         assertBetween(Vehicle.HATCHBACK, 7, 16);
+        assertBetween(Vehicle.RALLY, 4, 9);
         assertBetween(Vehicle.SALOON, 5, 11);
         assertBetween(Vehicle.MUSCLE, 4, 8);
         assertBetween(Vehicle.SUPERCAR, 2.5, 6);
