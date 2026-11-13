@@ -766,43 +766,77 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         final Obstacles ahead = obstacles(to, handed, props);
         final Lift[] moved = new Lift[count];
-        for (int pass = 0; pass < 2; pass++) {
-            for (int i = 0; i < count; i++) {
-                if ((onLift[i] >= 0) != (pass == 1)) {
+        for (final int i : underFirst(onLift)) {
+            Lift lift = handed.get(i);
+            if (damage.broken(lift.piece())) {
+                moved[i] = lift;
+                continue;
+            }
+            if (lift.resting(under[i]) && under[i].piece() >= 0) {
+                final Course.Piece what = damage.piece(under[i].piece());
+                final Course.Piece carrier = what.rides() ? damage.piece(what.carrier()) : what;
+                if (carrier.flies()) {
+                    lift = lift.carried(carrier.route().at(sky.time()), carrier.route().at(to));
+                } else if (onLift[i] >= 0) {
+                    // carried as the platform under it moved, it rests on it still: nothing more to do
+                    moved[i] = lift.carried(handed.get(onLift[i]).place(), moved[onLift[i]].place());
                     continue;
                 }
-                Lift lift = handed.get(i);
-                if (damage.broken(lift.piece())) {
-                    moved[i] = lift;
-                    continue;
+            }
+            // its cargo, and the platforms docked on it, go where it goes: not in its way
+            final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
+            aboard.addAll(resting.apply(lift.piece()));
+            for (int j = 0; j < count; j++) {
+                if (onLift[j] == i && handed.get(j).resting(under[j])) {
+                    aboard.add(handed.get(j).piece());
                 }
-                if (lift.resting(under[i]) && under[i].piece() >= 0) {
-                    final Course.Piece what = damage.piece(under[i].piece());
-                    final Course.Piece carrier = what.rides() ? damage.piece(what.carrier()) : what;
-                    if (carrier.flies()) {
-                        lift = lift.carried(carrier.route().at(sky.time()), carrier.route().at(to));
-                    } else if (onLift[i] >= 0) {
-                        // carried as the platform under it moved, it rests on it still: nothing more to do
-                        moved[i] = lift.carried(handed.get(onLift[i]).place(), moved[onLift[i]].place());
-                        continue;
-                    }
-                }
-                // its cargo, and the platforms docked on it, go where it goes: not in its way
-                final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
-                aboard.addAll(resting.apply(lift.piece()));
-                for (int j = 0; j < count; j++) {
-                    if (onLift[j] == i && handed.get(j).resting(under[j])) {
-                        aboard.add(handed.get(j).piece());
-                    }
-                }
-                moved[i] = lift.step(controls, seconds, ahead, aboard, also.get(i));
-                if (lift.climb() < -150 && moved[i].climb() == 0 && !moved[i].engine()) {
-                    final Place p = moved[i].place();
-                    happened.add(new Event.Settled(lift.piece(), -lift.climb(), new Vec3(p.x(), -p.height(), p.z())));
-                }
+            }
+            moved[i] = lift.step(controls, seconds, ahead, aboard, also.get(i));
+            if (lift.climb() < -150 && moved[i].climb() == 0 && !moved[i].engine()) {
+                final Place p = moved[i].place();
+                happened.add(new Event.Settled(lift.piece(), -lift.climb(), new Vec3(p.x(), -p.height(), p.z())));
             }
         }
         return List.of(moved);
+    }
+
+    /**
+     * The order the lifts move in, so that each moves after the lift it rests on ({@code onLift},
+     * -1 for none): those resting on no lift first, then those resting on them, and so on up, however
+     * deep the stack. Lifts resting on each other in a ring, as tangled lifts might, have nothing
+     * under them to go first: the first of them is taken to rest on no lift, and moves on its own.
+     */
+    static List<Integer> underFirst(final int[] onLift) {
+        final int count = onLift.length;
+        final List<Integer> order = new ArrayList<>(count);
+        final boolean[] placed = new boolean[count];
+        for (int i = 0; i < count; i++) {
+            if (onLift[i] < 0) {
+                order.add(i);
+                placed[i] = true;
+            }
+        }
+        while (order.size() < count) {
+            boolean more = false;
+            for (int i = 0; i < count; i++) {
+                if (!placed[i] && placed[onLift[i]]) {
+                    order.add(i);
+                    placed[i] = true;
+                    more = true;
+                }
+            }
+            if (!more) {
+                for (int i = 0; i < count; i++) {
+                    if (!placed[i]) {
+                        onLift[i] = -1;
+                        order.add(i);
+                        placed[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return order;
     }
 
     /** What platform {@code lift} rests on, or would settle on with its engine cut. */

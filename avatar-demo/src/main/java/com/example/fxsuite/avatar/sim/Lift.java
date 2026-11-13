@@ -195,7 +195,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     }
 
     /** How far below where it is its underside is: what it rests on is that far down. */
-    private double below() {
+    double below() {
         final Course.Section footing = craft.footing();
         return footing.halfUp() - footing.up();
     }
