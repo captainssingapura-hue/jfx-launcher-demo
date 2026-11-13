@@ -9,11 +9,11 @@ import java.util.List;
  * and which are broken. Pure, and never changed in place: each blow gives a new one.
  *
  * <ul>
- *   <li><b>What can break:</b> crates and the targets, the dummies and the drones
- *       ({@link Course.Kind#breakable}). Pillars and gates are what the world is built on, and
+ *   <li><b>What can break:</b> crates and the targets, the dummies and the drones, and
+ *       the vehicles, the airships and the platforms ({@link Course.Kind#breakable}). Pillars and gates are what the world is built on, and
  *       stand whatever is thrown at them.</li>
- *   <li><b>How tough:</b> a dummy takes {@link #DUMMY}, a drone {@link #DRONE}, and an airship,
- *       armoured as it is, {@link #AIRSHIP}: most of ten seconds of the Gatling gun. A crate's
+ *   <li><b>How tough:</b> a dummy takes {@link #DUMMY}, a drone {@link #DRONE}, a platform {@link #PLATFORM}, and an
+ *       airship, armoured as it is, {@link #AIRSHIP}: most of ten seconds of the Gatling gun. A crate's
  *       toughness goes by its size, from {@link #CRATE} for the smallest up: a small crate falls to
  *       a short burst, the biggest takes a couple of seconds of the Gatling gun.</li>
  *   <li><b>A blow</b> takes away what its weapon does ({@link Weapon#blow}): a round, or a stroke
@@ -29,10 +29,11 @@ import java.util.List;
  */
 public final class Damage {
 
-    /** How tough a dummy is, a drone, an airship, and the smallest crate. */
+    /** How tough a dummy is, a drone, a platform, an airship, and the smallest crate. */
     public static final double DUMMY = 300;
     public static final double DRONE = 120;
     public static final double AIRSHIP = 3000;
+    public static final double PLATFORM = 600;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
     public static final double CRATE_VOLUME = 30_000;
@@ -67,10 +68,11 @@ public final class Damage {
             case DUMMY -> DUMMY;
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
+            case PLATFORM -> PLATFORM;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case FRUIT, FURNITURE -> piece.loose().toughness();
-            case PILLAR, GATE, PLATFORM -> Double.POSITIVE_INFINITY;
+            case PILLAR, GATE -> Double.POSITIVE_INFINITY;
         };
     }
 

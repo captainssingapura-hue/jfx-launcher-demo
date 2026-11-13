@@ -64,7 +64,7 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
         final List<Person> people = new ArrayList<>();
         for (final Course.Cast cast : Course.CAST) {
             for (final Lift lift : lifts) {
-                if (lift.deck().equals(cast.deck())) {
+                if (cast.deck().equals(lift.craft())) {
                     final Place at = lift.place();
                     // on the deck; or, sitting, on top of their seat
                     final double up = cast.sitting() ? cast.seat().height() : 0;

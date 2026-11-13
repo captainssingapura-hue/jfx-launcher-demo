@@ -5,69 +5,70 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A platform flown from the console on it, like a magic carpet: piece {@code piece} of the
- * course, its {@code deck} (as big as it was made, {@link Course.Deck}), where it now is, how fast
- * it is going in its own terms ({@code ahead} along its heading, {@code aside} to its right,
+ * A vehicle flown from on board: piece {@code piece} of the course, what kind of craft it is
+ * ({@link Course.Craft}: a platform's deck, open; an airship, closed), where it now is, how fast it
+ * is going in its own terms ({@code ahead} along its heading, {@code aside} to its right,
  * {@code climb} up), whether the avatar has its controls, and whether its {@code engine} is
  * running. Pure state, stepped with the rest of the world ({@link Play}).
  *
  * <ul>
- *   <li><b>The controls</b> are taken standing on the deck behind the console, within
- *       {@link #REACH} of where whoever flies it stands ({@link Action#TAKE}); and let go the same
- *       way, or by no longer standing there. At them, the key that takes off or lands
- *       ({@link Action#FLY}) starts the engine or cuts it.</li>
- *   <li><b>Its engine running</b>, the keys that move the avatar fly the platform instead: W and
- *       S ahead and back, A and D sideways, the mouse turns it, Space climbs and Ctrl descends.
- *       Shift held goes carefully. It eases up to speed and back to a stop, and keeps between
- *       {@link Course#LIFT_LOW} and {@link Course#LIFT_HIGH}, inside the world. Let go, it eases to
- *       a stop and hangs where it is.</li>
- *   <li><b>It stops short</b> of whatever is in its way: its deck, and the room above it for
- *       whoever rides it ({@link Course.Deck#room}), may not go into anything solid. Where the
- *       whole move would, it tries turning only, then going across only, then climbing only; and
- *       if none will do, it stays where it is. Something that has come into it (an airship going
- *       by) does not hold it: from there, any move goes.</li>
+ *   <li><b>The controls</b> are taken at its station ({@link Course.Craft#station}), within
+ *       {@link #REACH} of it ({@link Action#TAKE}): on a platform, standing on the deck behind the
+ *       console; at an airship, under the hatch in the gondola's floor, after which the avatar is inside and out of
+ *       sight. They are let go the same way, or, on a platform, by no longer standing there. At a
+ *       platform's controls the key that takes off or lands ({@link Action#FLY}) starts the engine
+ *       or cuts it; an airship's is never cut.</li>
+ *   <li><b>Its engine running</b>, the keys that move the avatar fly it instead: W and S ahead and
+ *       back, A and D sideways (if it can go sideways), the mouse turns it (as fast as it will
+ *       turn), Space climbs and Ctrl descends. Shift held goes carefully. It eases up to speed and
+ *       back to a stop, and keeps between how low and how high it goes, inside the world; as it
+ *       handles ({@link Course.Handling}). Let go, it eases to a stop and hangs where it is.</li>
+ *   <li><b>It stops short</b> of whatever is in its way: the room it needs ({@link Course.Craft#room})
+ *       may not go into anything solid. Where the whole move would, it tries turning only, then
+ *       going across only, then climbing only; and if none will do, it stays where it is.
+ *       Something that has come into it (an airship going by) does not hold it: from there, any
+ *       move goes.</li>
  *   <li><b>Its engine cut</b>, it cannot be flown: it drops as everything does
- *       ({@link Body#GRAVITY}) until it settles on whatever is under it (the ground, a crate, a
- *       pillar, an airship, another platform, or the avatar's head) and rests there. Resting on
+ *       ({@link Body#GRAVITY}) until it settles on whatever is under it and rests there. Resting on
  *       something that moves, it is docked: it goes where that goes ({@link #carried}). Started
  *       again, it lifts off from there.</li>
  * </ul>
  */
-public record Lift(int piece, Course.Deck deck, Place place, double ahead, double aside, double climb,
+public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
                    boolean held, boolean engine) {
 
-    /** How fast it flies, at full, across the ground: units a second. */
-    public static final double SPEED = 700;
-    /** How fast it climbs or descends, at full. */
-    public static final double CLIMB = 350;
-    /** Sideways is slower than ahead, and going carefully slower still, by these. */
-    public static final double SIDEWAYS = 0.6;
+    /** How fast a platform flies, at full, across the ground; and climbs. */
+    public static final double SPEED = Course.PLATFORM_HANDLING.speed();
+    public static final double CLIMB = Course.PLATFORM_HANDLING.climb();
+    /** Going carefully is slower, by this. */
     public static final double CAREFUL = 0.35;
     /** How briskly it gets up to speed, and stops. */
     public static final double GRIP = 2.5;
-    /** How near where the pilot stands the avatar must be to reach the controls. */
+    /** How near its station the avatar must be to take the controls. */
     public static final double REACH = 110;
-    /** How thick its deck is: how far below where it is its underside is. */
+    /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
 
-    /** A platform, still, its engine running, no one at its controls. */
-    public Lift(final int piece, final Course.Deck deck, final Place place) {
-        this(piece, deck, place, 0, 0, 0, false, true);
+    /** A craft, still, its engine running, no one at its controls. */
+    public Lift(final int piece, final Course.Craft craft, final Place place) {
+        this(piece, craft, place, 0, 0, 0, false, true);
     }
 
     /** Going as given, its engine running. */
-    public Lift(final int piece, final Course.Deck deck, final Place place, final double ahead, final double aside,
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
                 final double climb, final boolean held) {
-        this(piece, deck, place, ahead, aside, climb, held, true);
+        this(piece, craft, place, ahead, aside, climb, held, true);
     }
 
-    /** The platforms among {@code damage}'s pieces: each where it was built, still, and no one at its controls. */
+    /** The crafts among {@code damage}'s pieces (the platforms, an airship to be flown), each where it was built, still. */
     public static List<Lift> of(final Damage damage) {
         final List<Lift> lifts = new ArrayList<>();
-        for (final int piece : damage.moving()) {
+        for (int piece = 0; piece < damage.size(); piece++) {
             final Course.Piece what = damage.piece(piece);
             if (what.kind() == Course.Kind.PLATFORM) {
                 lifts.add(new Lift(piece, Course.Deck.of(what.shape()), what.place()));
+            } else if (what.kind() == Course.Kind.AIRSHIP && what.moves() && !what.flies()) {
+                lifts.add(new Lift(piece, Course.SHIP, what.place()));
             }
         }
         return lifts;
@@ -77,20 +78,25 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
     public record Support(int piece, double top) {
     }
 
+    /** Its deck, if it is a platform; null if not. */
+    public Course.Deck deck() {
+        return craft instanceof Course.Deck d ? d : null;
+    }
+
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, deck, place, ahead, aside, climb, taken, engine);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, deck, place, ahead, aside, climb, held, running);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
-        return new Lift(piece, deck, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
+        return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
                 ahead, aside, climb, held, engine);
     }
 
@@ -99,34 +105,57 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         return Math.sqrt(ahead * ahead + aside * aside + climb * climb);
     }
 
-    /** Where whoever flies it stands: on the deck, just behind the console, facing the way it heads. */
-    public Vec3 pilot() {
-        return new Vec3(place.x(), -place.height(), place.z()).add(Num.heading(place.yaw()).multiply(deck.pilot()));
+    /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
+    public Vec3 at(final Course.Section spot) {
+        return new Vec3(place.x(), -(place.height() + spot.up()), place.z())
+                .add(Num.right(place.yaw()).multiply(spot.across()))
+                .add(Num.heading(place.yaw()).multiply(spot.along()));
     }
 
-    /** Whether {@code body}, among {@code world}, stands on this platform's deck within reach of its controls. */
+    /** Where whoever takes it stands: on a platform, behind its console; at an airship, at the hatch in its floor. */
+    public Vec3 pilot() {
+        return at(craft.station());
+    }
+
+    /**
+     * Whether {@code body}, among {@code world}, can reach its controls: standing on its deck
+     * within reach of the console, for a platform; standing under its hatch, for a closed craft.
+     */
     public boolean reaches(final Body body, final Obstacles world) {
         if (!body.grounded()) {
             return false;
         }
         final Vec3 at = body.position();
+        final Vec3 station = pilot();
+        if (craft.closed()) {
+            // under its hatch, the hatch within reach overhead
+            final double overhead = at.y() - station.y();
+            return Math.hypot(at.x() - station.x(), at.z() - station.z()) <= REACH * 1.5
+                    && overhead >= Body.TALL && overhead <= Body.TALL + 80;
+        }
         if (world.under(at.x(), at.z(), Body.FOOTING, body.height()) != piece) {
             return false;
         }
-        final Vec3 pilot = pilot();
-        return Math.hypot(at.x() - pilot.x(), at.z() - pilot.z()) <= REACH;
+        return Math.hypot(at.x() - station.x(), at.z() - station.z()) <= REACH;
+    }
+
+    /** How far below where it is its underside is: what it rests on is that far down. */
+    private double below() {
+        final Course.Section footing = craft.footing();
+        return footing.halfUp() - footing.up();
     }
 
     /**
-     * The highest thing under its deck where it is, among {@code world} and {@code also} (the
-     * avatar, say), but for itself and what rides on it ({@code aboard}): what it rests on, or
-     * would settle on, falling. The ground if nothing else.
+     * The highest thing under it where it is, among {@code world} and {@code also} (the avatar,
+     * say), but for itself and what rides on it ({@code aboard}): what it rests on, or would
+     * settle on, falling. The ground if nothing else.
      */
     public Support support(final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
-        final double underside = place.height() - THICK;
-        final Course.Section slab = deck.slab();
-        final Block below = new Course.Section(slab.across(), slab.along(), (underside + 0.5 - 1) / 2 - place.height(),
-                slab.halfAcross(), slab.halfAlong(), (underside + 0.5 + 1) / 2).placed(place);
+        final double underside = place.height() - below();
+        final Course.Section footing = craft.footing();
+        final Block below = new Course.Section(footing.across(), footing.along(),
+                (underside + 0.5 - 1) / 2 - place.height(), footing.halfAcross(), footing.halfAlong(),
+                (underside + 0.5 + 1) / 2).placed(place);
         Support best = new Support(-1, 0);
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
@@ -146,7 +175,7 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
 
     /** Whether it rests on {@code under}, its engine cut and its underside on it. */
     public boolean resting(final Support under) {
-        return !engine && Math.abs(place.height() - THICK - under.top()) < 0.5;
+        return !engine && Math.abs(place.height() - below() - under.top()) < 0.5;
     }
 
     /**
@@ -171,21 +200,27 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         final Support under = support(world, aboard, also);
         final double dropping = climb - Body.GRAVITY * seconds;
         final double height = place.height() + (climb + dropping) / 2 * seconds;
-        if (height - THICK <= under.top()) {
+        if (height - below() <= under.top()) {
             // settled: on it, and still
-            return new Lift(piece, deck, new Place(place.x(), place.z(), under.top() + THICK, place.yaw()), 0, 0, 0,
-                    held, false);
+            return new Lift(piece, craft, new Place(place.x(), place.z(), under.top() + below(), place.yaw()), 0, 0,
+                    0, held, false);
         }
-        return new Lift(piece, deck, new Place(place.x(), place.z(), height, place.yaw()), 0, 0, dropping, held, false);
+        return new Lift(piece, craft, new Place(place.x(), place.z(), height, place.yaw()), 0, 0, dropping, held, false);
     }
 
     private Lift fly(final Controls controls, final double seconds, final Obstacles world,
                      final Collection<Integer> aboard) {
+        final Course.Handling handles = craft.handling();
         final double pace = held ? (controls.run() ? 1 : CAREFUL) : 0;
-        final double nowAhead = ease(ahead, Num.clamp(controls.forward(), -1, 1) * SPEED * pace, seconds);
-        final double nowAside = ease(aside, Num.clamp(controls.sideways(), -1, 1) * SPEED * SIDEWAYS * pace, seconds);
-        final double nowClimb = ease(climb, Num.clamp(controls.lift(), -1, 1) * CLIMB * (held ? 1 : 0), seconds);
-        final double yaw = held ? Num.wrap(place.yaw() + controls.turn()) : place.yaw();
+        final double nowAhead = ease(ahead, Num.clamp(controls.forward(), -1, 1) * handles.speed() * pace, seconds);
+        final double nowAside = ease(aside,
+                Num.clamp(controls.sideways(), -1, 1) * handles.speed() * handles.sideways() * pace, seconds);
+        final double nowClimb = ease(climb, Num.clamp(controls.lift(), -1, 1) * handles.climb() * (held ? 1 : 0),
+                seconds);
+        // turned as asked, as fast as it will turn
+        final double turn = handles.turn() > 0
+                ? Num.clamp(controls.turn(), -handles.turn() * seconds, handles.turn() * seconds) : controls.turn();
+        final double yaw = held ? Num.wrap(place.yaw() + turn) : place.yaw();
         // the average speeds over the step, along the way it heads at the end of it
         final double a = (ahead + nowAhead) / 2 * seconds;
         final double b = (aside + nowAside) / 2 * seconds;
@@ -193,8 +228,8 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
         final Vec3 across = Num.heading(yaw).multiply(a).add(Num.right(yaw).multiply(b));
         final double x = Num.clamp(place.x() + across.x(), -Body.EDGE, Body.EDGE);
         final double z = Num.clamp(place.z() + across.z(), -Body.EDGE, Body.EDGE);
-        final double height = Num.clamp(place.height() + up, Course.LIFT_LOW, Course.LIFT_HIGH);
-        final double climbing = height == Course.LIFT_LOW || height == Course.LIFT_HIGH ? 0 : nowClimb;
+        final double height = Num.clamp(place.height() + up, handles.low(), handles.high());
+        final double climbing = height == handles.low() || height == handles.high() ? 0 : nowClimb;
         // the whole move if it is clear; else turning only, going across only, climbing only; else none
         final boolean stuck = !clear(place, world, aboard);
         final Place[] tries = {
@@ -207,19 +242,19 @@ public record Lift(int piece, Course.Deck deck, Place place, double ahead, doubl
             if (stuck || clear(tries[k], world, aboard)) {
                 final boolean goesAcross = k == 0 || k == 2;
                 final boolean goesUp = k == 0 || k == 3;
-                return new Lift(piece, deck, tries[k], goesAcross ? nowAhead : 0, goesAcross ? nowAside : 0,
+                return new Lift(piece, craft, tries[k], goesAcross ? nowAhead : 0, goesAcross ? nowAside : 0,
                         goesUp ? climbing : 0, held, true);
             }
         }
-        return new Lift(piece, deck, place, 0, 0, 0, held, true);
+        return new Lift(piece, craft, place, 0, 0, 0, held, true);
     }
 
     /**
-     * Whether at {@code at} its deck and the room over it are clear of everything solid in
-     * {@code world} but itself and what rides on it, {@code aboard}: that goes where it goes.
+     * Whether at {@code at} the room it needs is clear of everything solid in {@code world} but
+     * itself and what rides on it, {@code aboard}: that goes where it goes.
      */
     public boolean clear(final Place at, final Obstacles world, final Collection<Integer> aboard) {
-        final Block room = deck.room().placed(at);
+        final Block room = craft.room().placed(at);
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
             if (other != piece && !aboard.contains(other) && room.overlaps(world.blocks().get(i))) {

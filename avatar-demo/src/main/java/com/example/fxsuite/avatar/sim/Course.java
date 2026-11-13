@@ -27,7 +27,7 @@ import java.util.Random;
 public final class Course {
 
     public enum Kind {
-        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(false),
+        PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
         FURNITURE(true), FRUIT(true);
 
         private final boolean breakable;
@@ -233,7 +233,7 @@ public final class Course {
      * in the middle, the console its controls are on, waist high; whoever flies it stands behind
      * the console, facing the way it heads.
      */
-    public record Deck(double width, double depth) {
+    public record Deck(double width, double depth) implements Craft {
 
         /** The smallest a deck can be: room for the console, and whoever stands at it. */
         public static final double NARROWEST = 150;
@@ -278,7 +278,120 @@ public final class Course {
             final Section slab = shape.parts().getFirst();
             return new Deck(slab.halfAcross() * 2, slab.halfAlong() * 2);
         }
+
+        /** It rests on the underside of its slab. */
+        @Override
+        public Section footing() {
+            return slab();
+        }
+
+        /** Flown like a magic carpet: quick, sideways too, and its engine can be cut. */
+        @Override
+        public Handling handling() {
+            return PLATFORM_HANDLING;
+        }
+
+        /** Open: whoever flies it is seen, standing at the console. */
+        @Override
+        public boolean closed() {
+            return false;
+        }
+
+        /** Where whoever flies it stands: on the deck, just behind the console. */
+        @Override
+        public Section station() {
+            return new Section(0, pilot(), 0, 0, 0, 0);
+        }
     }
+
+    /**
+     * What can be flown from on board ({@link Lift}): its shape, the room it needs to move
+     * ({@link #room}), the part it rests on when it is not flying ({@link #footing}), how it handles,
+     * whether it is closed (whoever flies it is out of sight, inside), and where whoever takes it
+     * stands ({@link #station}, its middle in the craft's frame).
+     */
+    public sealed interface Craft permits Deck, Ship {
+
+        Shape shape();
+
+        Section room();
+
+        Section footing();
+
+        Handling handling();
+
+        boolean closed();
+
+        Section station();
+
+        /** Where whoever flies it is while at its controls: on an open craft, at its station; in a closed one, inside. */
+        default Section cabin() {
+            return station();
+        }
+    }
+
+    /**
+     * How a craft handles: how fast it goes ahead, how much of that sideways (0 for none), how fast
+     * it climbs, how fast at most it turns ({@code turn}, degrees a second; 0 for as fast as the
+     * mouse), how low and how high it goes ({@code low}, {@code high}: where it is, its own
+     * height), and whether its engine can be cut ({@code cuts}).
+     */
+    public record Handling(double speed, double sideways, double climb, double turn, double low, double high,
+                           boolean cuts) {
+    }
+
+    /** A platform: quick, sideways too, turning as fast as the mouse, and its engine can be cut. */
+    public static final Handling PLATFORM_HANDLING = new Handling(700, 0.6, 350, 0, 60, 4500, true);
+    /** An airship: stately, no sideways, turning slowly; it never comes down below its moorings. */
+    public static final Handling SHIP_HANDLING = new Handling(900, 0, 250, 22, Course.MOORED, 4500, false);
+
+    /**
+     * An airship to be flown ({@link #AIRSHIP}): closed, boarded by the hatch in its gondola's floor,
+     * from the ground under it when it is moored.
+     */
+    public record Ship() implements Craft {
+
+        @Override
+        public Shape shape() {
+            return AIRSHIP;
+        }
+
+        /** All of it: out to its fins' tips. */
+        @Override
+        public Section room() {
+            return AIRSHIP_BOX;
+        }
+
+        @Override
+        public Section footing() {
+            return AIRSHIP_BOX;
+        }
+
+        @Override
+        public Handling handling() {
+            return SHIP_HANDLING;
+        }
+
+        @Override
+        public boolean closed() {
+            return true;
+        }
+
+        /** At the hatch in the middle of the gondola's floor, to be reached from under it. */
+        @Override
+        public Section station() {
+            return new Section(0, GONDOLA.along(), GONDOLA.up() - GONDOLA.halfUp(), 0, 0, 0);
+        }
+
+        /** Where whoever flies it is, out of sight: inside the gondola, on its floor. */
+        @Override
+        public Section cabin() {
+            return new Section(0, GONDOLA.along(), GONDOLA.up() - GONDOLA.halfUp() + 1, 0, 0, 0);
+        }
+    }
+
+    /** The airship to be flown, there being only one kind. */
+    public static final Ship SHIP = new Ship();
 
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
@@ -291,6 +404,8 @@ public final class Course {
     /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
     public static final double LIFT_LOW = 60;
     public static final double LIFT_HIGH = 4500;
+    /** How high a moored airship is: its gondola and lower fin just over the avatar's head, to walk in under and board. */
+    public static final double MOORED = 600;
     /**
      * The melon stall's table, in the barge's frame, toward its back: 2.4 m long, 1 m across and
      * 70 cm high.
@@ -352,7 +467,64 @@ public final class Course {
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Gate> gates = new ArrayList<>();
 
+    /** The playground: everything at once. */
     public Course() {
+        this(Demo.PLAYGROUND);
+    }
+
+    /** The world of {@code demo}: the playground, or a simple one round a single vehicle. */
+    public Course(final Demo demo) {
+        switch (demo) {
+            case PLAYGROUND -> playground();
+            case PLATFORM -> platformDemo();
+            case AIRSHIP -> airshipDemo();
+        }
+    }
+
+    /**
+     * The flying platform's demo: open ground, a ring of pillars to fly between, a few gates high
+     * up, and the small platform standing just ahead of the start.
+     */
+    private void platformDemo() {
+        scenery(11);
+        pieces.add(Piece.moving(CARPET.shape(), new Place(0, 500, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+    }
+
+    /**
+     * The airship's demo: open ground, a ring of pillars, gates high up, and an airship moored
+     * ahead of the start, its gondola just off the ground, its nose away: to walk up to and board.
+     */
+    private void airshipDemo() {
+        scenery(13);
+        pieces.add(Piece.moving(AIRSHIP, new Place(0, 2500, MOORED, 90), Kind.AIRSHIP, 0, null));
+    }
+
+    /**
+     * What the vehicles' demos have about them: pillars of all heights in a wide ring, and gates high
+     * up, all clear of the way straight ahead of the start, where the vehicle stands.
+     */
+    private void scenery(final long seed) {
+        final Random random = new Random(seed);
+        for (int i = 0; i < 28; i++) {
+            final double angle = i * 2 * Math.PI / 28 + random.nextDouble() * 0.2;
+            final double reach = 2500 + random.nextDouble() * 5000;
+            final double size = 150 + random.nextDouble() * 200;
+            final double height = 400 + Math.pow(random.nextDouble(), 1.5) * 3000;
+            final double x = Math.sin(angle) * reach;
+            final double z = Math.cos(angle) * reach;
+            if (Math.abs(x) < 1200 && z > -800 && z < 4600) {
+                continue;  // keep the way ahead clear
+            }
+            pieces.add(new Piece(Block.standing(x, z, size, size, height, 0), Kind.PILLAR, random.nextInt(4)));
+        }
+        for (int i = 0; i < 4; i++) {
+            final double angle = i * Math.PI / 2 + 0.7;
+            gate(Math.sin(angle) * 4000, 900 + i * 400, Math.cos(angle) * 4000, random.nextDouble() * 180, i % 3);
+        }
+    }
+
+    /** Everything: the course, the range, the airships, the platforms and the stall. */
+    private void playground() {
         final Random random = new Random(7);
 
         final double c = Math.cos(Math.toRadians(START_YAW));

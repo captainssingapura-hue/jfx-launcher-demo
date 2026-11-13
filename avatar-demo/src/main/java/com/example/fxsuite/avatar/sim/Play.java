@@ -38,7 +38,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 9;
+    public static final int RULES = 10;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -69,7 +69,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** The world at the start: the avatar standing at the start, with the pack on or not, and the course unharmed. */
     public static Play start(final boolean pack) {
-        return new Play(new Avatar(Body.standing(Vec3.ZERO, Course.START_YAW), pack), Damage.of(new Course()));
+        return start(Demo.PLAYGROUND, pack);
+    }
+
+    /** The world of {@code demo} at the start: the avatar standing at the start, facing its way, with the pack on or not. */
+    public static Play start(final Demo demo, final boolean pack) {
+        return new Play(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), Damage.of(new Course(demo)));
     }
 
     /**
@@ -125,7 +130,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             return Optional.empty();
         }
         final Obstacles world = obstacles();
-        return lifts.stream().filter(lift -> lift.reaches(avatar.body(), world)).findFirst();
+        return lifts.stream().filter(lift -> !damage.broken(lift.piece()) && lift.reaches(avatar.body(), world))
+                .findFirst();
     }
 
     /** One step of {@code seconds}, with {@code controls}. */
@@ -135,6 +141,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // the controls change hands; at them, the climb and descent are the platform's
         final List<Lift> handed = engines(controls, handed(controls, was, happened), happened);
         final boolean working = handed.stream().anyMatch(Lift::held);
+        // going aboard a closed craft, the avatar is inside it, out of sight; stepping out, it is at its door
+        final Avatar self = boarded(handed);
+        final int inside = inside(handed);
         final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
         // what each loose thing rests on, as things are
         final double to = sky.time() + seconds;
@@ -168,14 +177,17 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Prop> settled = new ArrayList<>(List.of(stepped));
         slidWith(carriedProps, settled, under);
         final Moves moves = new Moves(handed, moved, props, settled);
-        final Avatar carried = carried(avatar, was, moves, to);
+        final Avatar carried = inside >= 0
+                ? self.carried(handed.get(inside).place(), moved.get(inside).place())
+                : carried(self, was, moves, to);
         final Obstacles now = obstacles(to, moved, settled);
         // the people go on as they were going, carried by what they stand on, hurt by coming down hard
         final List<Event> toPeople = new ArrayList<>();
         final List<Person> going = people(seconds, to, was, now, moves, toPeople);
         // act: the avatar does what it was asked, moves, and deals its blows, at the world and the
         // people in it; the bombs fall
-        final Avatar.Stepped acted = carried.step(own, seconds, now, targets(now, going));
+        final Avatar.Stepped acted = inside >= 0 ? Avatar.Stepped.still(carried)
+                : carried.step(own, seconds, now, targets(now, going));
         final Sky.Stepped fell = sky.step(seconds, damage, now);
         // resolve: the world takes the blows, the avatar's and then the bombs'; and so do the people
         final List<Blow> blows = new ArrayList<>();
@@ -188,8 +200,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved, settled));
         final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
         // and whoever the avatar walks into is pushed out of its way, and whatever it pushes against goes
-        final List<Person> pushed = pushed(acted.avatar().body(), hurt, toPeople);
-        final List<Prop> shoved = shoved(settled, acted.avatar().body(), own, taken.damage());
+        final List<Person> pushed = inside >= 0 ? hurt : pushed(acted.avatar().body(), hurt, toPeople);
+        final List<Prop> shoved = inside >= 0 ? settled : shoved(settled, acted.avatar().body(), own, taken.damage());
         // report: the controls changing hands, the avatar's own events, the bombs', what came of the
         // blows, and what came to the people
         happened.addAll(acted.events());
@@ -433,7 +445,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> handed = new ArrayList<>(lifts);
         for (int i = 0; i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (lift.held() && (take || !lift.reaches(avatar.body(), world))) {
+            if (lift.held() && (take || damage.broken(lift.piece())
+                    || !lift.craft().closed() && !lift.reaches(avatar.body(), world))) {
                 handed.set(i, lift.held(false));
                 happened.add(new Event.LetGo(lift.piece()));
                 take = false;
@@ -441,13 +454,55 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         for (int i = 0; take && i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (lift.reaches(avatar.body(), world)) {
+            if (!damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
                 handed.set(i, lift.held(true));
                 happened.add(new Event.TookControls(lift.piece()));
                 take = false;
             }
         }
         return handed;
+    }
+
+    /** The closed craft the avatar is inside, at its controls, if it is in one: then it is out of sight. */
+    public Optional<Lift> aboard() {
+        return atControls().filter(lift -> lift.craft().closed());
+    }
+
+    /** Which of {@code handed} is a closed craft with the avatar at its controls, inside it; -1 for none. */
+    private static int inside(final List<Lift> handed) {
+        for (int i = 0; i < handed.size(); i++) {
+            if (handed.get(i).held() && handed.get(i).craft().closed()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The avatar, as the controls changed hands ({@code handed}): taking a closed craft's, it goes
+     * inside, to its cabin, facing the way it does; letting them go, it drops out of the hatch, and
+     * falls from there if the craft is aloft. Otherwise, where it was.
+     */
+    private Avatar boarded(final List<Lift> handed) {
+        for (int i = 0; i < handed.size(); i++) {
+            final Lift was = lifts.get(i);
+            final Lift now = handed.get(i);
+            if (!now.craft().closed() || was.held() == now.held()) {
+                continue;
+            }
+            final Body body = now.held()
+                    ? Body.standing(now.at(now.craft().cabin()), now.place().yaw())
+                    : new Body(out(now), now.place().yaw(), now.place().yaw(), 0, 0, 0, 0, false, false, 0,
+                    avatar.body().time());
+            return new Avatar(body, avatar.wearingPack(), avatar.sweep(), avatar.arms());
+        }
+        return avatar;
+    }
+
+    /** Where the avatar is as it steps out of {@code craft}: dropping from its hatch, its head just under it; on the ground, if it is moored. */
+    private static Vec3 out(final Lift craft) {
+        final Vec3 hatch = craft.pilot();
+        return new Vec3(hatch.x(), Math.min(0, hatch.y() + Body.TALL + 1), hatch.z());
     }
 
     /** At a platform's controls, the key that takes off or lands ({@link Action#FLY}) starts its engine, or cuts it. */
@@ -458,7 +513,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> switched = new ArrayList<>(handed);
         for (int i = 0; i < switched.size(); i++) {
             final Lift lift = switched.get(i);
-            if (lift.held()) {
+            if (lift.held() && lift.craft().handling().cuts()) {
                 switched.set(i, lift.engine(!lift.engine()));
                 happened.add(lift.engine() ? new Event.EngineCut(lift.piece()) : new Event.EngineStarted(lift.piece()));
             }
@@ -506,6 +561,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                     continue;
                 }
                 Lift lift = handed.get(i);
+                if (damage.broken(lift.piece())) {
+                    moved[i] = lift;
+                    continue;
+                }
                 if (lift.resting(under[i]) && under[i].piece() >= 0) {
                     final Course.Piece what = damage.piece(under[i].piece());
                     final Course.Piece carrier = what.rides() ? damage.piece(what.carrier()) : what;

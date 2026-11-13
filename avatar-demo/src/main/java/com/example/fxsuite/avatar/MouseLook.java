@@ -30,6 +30,8 @@ final class MouseLook {
     private final Scene scene;
     private final Robot robot = new Robot();
     private boolean wanted;
+    /** Held free for a while, whatever is wanted: while a menu is open over the window. */
+    private boolean held;
     private boolean captured;
     private double lastX = Double.NaN;
     private double lastY;
@@ -42,7 +44,17 @@ final class MouseLook {
         this.wanted = wanted;
         scene.addEventFilter(MouseEvent.MOUSE_MOVED, this::moved);
         scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, this::moved);
-        stage.focusedProperty().addListener((seen, was, is) -> update());
+        stage.focusedProperty().addListener(focus);
+        update();
+    }
+
+    /** Following the window's focus: captured only while the window has it. */
+    private final javafx.beans.value.ChangeListener<Boolean> focus = (seen, was, is) -> update();
+
+    /** Lets the mouse go for good, and stops following the window: the game it was for is over. */
+    void close() {
+        stage.focusedProperty().removeListener(focus);
+        wanted = false;
         update();
     }
 
@@ -53,6 +65,12 @@ final class MouseLook {
     /** Frees the mouse, or takes it back. */
     void toggle() {
         wanted = !wanted;
+        update();
+    }
+
+    /** Holds the mouse free while {@code free} (a menu is open), then goes back to as it was. */
+    void holdFree(final boolean free) {
+        held = free;
         update();
     }
 
@@ -71,7 +89,7 @@ final class MouseLook {
     }
 
     private void update() {
-        final boolean should = wanted && stage.isFocused();
+        final boolean should = wanted && !held && stage.isFocused();
         if (should == captured) {
             return;
         }

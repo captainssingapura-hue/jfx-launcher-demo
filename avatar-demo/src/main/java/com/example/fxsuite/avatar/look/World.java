@@ -281,6 +281,11 @@ public final class World {
         return (PhongMaterial) bodies[piece].getMaterial();
     }
 
+    /** Shows the blob shadow, or hides it: when the avatar is out of sight, inside a vehicle. */
+    public void shadowShown(final boolean shown) {
+        shadow.setVisible(shown);
+    }
+
     /** Moves the blob shadow onto whatever is under the body, smaller the higher it is above it. */
     public void shadowUnder(final Body body, final Obstacles obstacles) {
         final double x = body.position().x();

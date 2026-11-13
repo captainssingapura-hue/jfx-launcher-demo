@@ -84,6 +84,15 @@ characters, and a separate sound bench is for working on the sounds.
   one down on the barge and it goes wherever the barge is flown. F again starts it, and it lifts
   off from there. Whatever moves (the airships, the platforms) is drawn where the simulation says it was at
   its last two steps, part way between, and marks on it go with it.
+- **Vehicles.** The platforms and an airship to be flown are vehicles (`Course.Craft`): each
+  handles as it does (`Course.Handling`), takes damage and breaks like anything else, and, at
+  its controls, the camera is the vehicle's: it follows the vehicle from as far back as it is
+  big. A platform is open: the robot rides it in plain sight. An airship is closed: walk in
+  under its gondola, take it (T) at the hatch in its floor, and the robot is inside and out of
+  sight. W and S fly it ahead and back, the mouse turns it (slowly, as an airship turns),
+  Space climbs and Ctrl descends, never below its moorings; it has no sideways and its engines
+  are never cut. T again and the robot drops out of the hatch, from wherever it is. Broken
+  while flown, a vehicle throws out whoever flies it.
 - **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
   red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
   deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
@@ -129,6 +138,14 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
+It opens on a choice of demos: the **playground**, everything at once, or one built round a
+single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
+platform**, among a few pillars and gates, and the **airship**, moored by the start (`Demo`).
+Click one or press its number. In a demo, the button at the top right, or a right click
+anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
+comes back to the choice.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `PLAYGROUND`) goes straight to one.
+
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
@@ -148,7 +165,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console; or let go of them. At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts its engine | |
+| T | Take a platform's controls, behind its console, or board an airship, under the hatch in its gondola's floor; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |
@@ -160,6 +177,8 @@ the window, so clicks stay free for actions.
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
 | Left click (held) | Fire, or swing | Fire, or swing |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
+| Tab | Back to the choice of demos | Back to the choice of demos |
+| Right click | The menu of demos: switch to another, start this one again, or all of them (also the button at the top right) | The same |
 
 As in most shooters, it goes at full speed unless Shift is held. `-Davatar.pack=true` starts
 with the jet-pack on. Clicks fire only while the mouse is captured, so a click to take the
@@ -251,6 +270,8 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
   them, and how long the demo's own work took in each, apart from JavaFX's drawing. The worst is
   what is felt as a stutter. On the HUD the line turns amber below 55 fps, or when a frame takes
   twice as long as it should.
+- **The demo** a script plays in is the playground, or `-Davatar.demo` names another. A
+  recording keeps the demo it was made in, and its replay plays there.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
   `-Davatar.settle=<ms>` picks the moment instead, counted in the world's time.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
