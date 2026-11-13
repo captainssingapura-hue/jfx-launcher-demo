@@ -1,8 +1,10 @@
 package com.example.fxsuite.avatar.bench;
 
 import com.example.fxsuite.avatar.Dashboard;
+import com.example.fxsuite.avatar.sound.Driving;
 import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.sound.Revs;
+import com.example.fxsuite.avatar.sound.Vehicle;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
@@ -11,6 +13,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
@@ -40,6 +43,12 @@ import java.util.Locale;
  *       held flat out it bounces off the limiter ({@link Revs}).</li>
  *   <li><b>Hold the revs:</b> it turns at whatever the revs slider says, at whatever throttle, to
  *       listen to one place in its range.</li>
+ *   <li><b>Drive:</b> the {@link Vehicle} the engine is in ({@link Driving}), on an open road: W
+ *       or Space the throttle (or its slider), S the brake, E or Up to change up, Q or Down to
+ *       change down; or the gearbox left to change by itself. It pulls away on a slipping clutch,
+ *       the revs then held to the road speed by the gear, dropping at each change up, blipped at
+ *       each change down; off the throttle it holds back, and pops. A scooter's CVT holds its revs
+ *       as it gathers speed. The load is what the driving says.</li>
  * </ul>
  *
  * The load says how hard it is working: none revving free in neutral, all of it pulling a car up
@@ -49,7 +58,7 @@ import java.util.Locale;
  *
  * <p>{@code -Dengine.pick=V8} (or another engine's {@link Engine#key}: {@code THUMPER}, {@code V_TWIN}, ...) picks the engine to
  * start with; {@code -Dengine.rpm=3000} holds it there; {@code -Dengine.throttle} sets the
- * throttle; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms
+ * throttle; {@code -Dengine.drive=true} drives instead; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms
  * and exits, playing nothing.
  */
 public final class EngineBench extends Application {
@@ -69,12 +78,19 @@ public final class EngineBench extends Application {
     private Engine engine = Engine.V8;
     private Revs revs = Revs.idling(engine);
     private boolean held;
+    private boolean braking;
+    private int lever;
+    private Vehicle vehicle = Vehicle.of(engine);
+    private Driving driving = Driving.stopped(vehicle);
 
     private final ComboBox<Engine> engines = new ComboBox<>();
     private final Label about = new Label();
     private final Label facts = new Label();
     private final RadioButton free = new RadioButton("Rev free (hold Space or W for full throttle)");
     private final RadioButton hold = new RadioButton("Hold the revs");
+    private final RadioButton drive = new RadioButton("Drive: W or Space the throttle, S the brake, E or Up / Q or Down the gears");
+    private final CheckBox auto = new CheckBox("The gearbox changes gear by itself");
+    private final Label ride = new Label();
     private final Slider throttle = slider(0, 1, 0);
     private final Slider load = slider(0, 1, 0);
     private final Slider rpm = slider(700, 6000, 2000);
@@ -101,8 +117,22 @@ public final class EngineBench extends Application {
         final ToggleGroup mode = new ToggleGroup();
         free.setToggleGroup(mode);
         hold.setToggleGroup(mode);
+        drive.setToggleGroup(mode);
+        drive.setWrapText(true);
         free.setSelected(true);
-        rpm.disableProperty().bind(free.selectedProperty());
+        rpm.disableProperty().bind(hold.selectedProperty().not());
+        load.disableProperty().bind(drive.selectedProperty());
+        auto.disableProperty().bind(drive.selectedProperty().not());
+        auto.setSelected(true);
+        ride.setWrapText(true);
+        mode.selectedToggleProperty().addListener((o, was, now) -> {
+            // into the driving seat, stopped, in first; out of it, the engine as it was
+            if (now == drive) {
+                driving = Driving.stopped(vehicle);
+            } else if (was == drive) {
+                revs = new Revs(driving.rpm(), 0, 0);
+            }
+        });
         volume.valueProperty().addListener((o, was, now) -> out.volume(now.doubleValue()));
         status.setText("Sound: " + out.device());
         status.setWrapText(true);
@@ -111,11 +141,14 @@ public final class EngineBench extends Application {
             hold.setSelected(true);
             rpm.setValue(Double.parseDouble(System.getProperty("engine.rpm")));
         }
+        if (Boolean.getBoolean("engine.drive")) {
+            drive.setSelected(true);
+        }
         throttle.setValue(Double.parseDouble(System.getProperty("engine.throttle", "0")));
 
         final VBox controls = new VBox(10,
                 heading("Engine"), engines, about, facts,
-                heading("Running"), free, hold,
+                heading("Running"), free, hold, drive, auto, ride,
                 row("Throttle", throttle), row("Load", load), row("Revs", rpm), row("Volume", volume),
                 readout, status);
         controls.setPadding(new Insets(14));
@@ -134,16 +167,27 @@ public final class EngineBench extends Application {
         root.setStyle("-fx-background-color: #f4f5f7;");
         final Scene scene = new Scene(new HBox(root), 1010, 760);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.W) {
-                held = true;
-                e.consume();
+            switch (e.getCode()) {
+                case SPACE, W -> held = true;
+                case S -> braking = true;
+                case E, UP -> lever = 1;
+                case Q, DOWN -> lever = -1;
+                default -> {
+                    return;
+                }
             }
+            e.consume();
         });
         scene.addEventFilter(KeyEvent.KEY_RELEASED, e -> {
-            if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.W) {
-                held = false;
-                e.consume();
+            switch (e.getCode()) {
+                case SPACE, W -> held = false;
+                case S -> braking = false;
+                case E, UP, Q, DOWN -> { }
+                default -> {
+                    return;
+                }
             }
+            e.consume();
         });
         pick(engine);
 
@@ -168,6 +212,13 @@ public final class EngineBench extends Application {
     private void pick(final Engine picked) {
         engine = picked;
         revs = Revs.idling(picked);
+        vehicle = Vehicle.of(picked);
+        driving = Driving.stopped(vehicle);
+        ride.setText(vehicle.cvt() > 0
+                ? String.format(Locale.ROOT, "Drives a %s: %.0f kg, %.0f N·m, a CVT holding %.0f rpm flat out",
+                        vehicle.name().toLowerCase(Locale.ROOT), vehicle.mass(), vehicle.torque(), vehicle.cvt())
+                : String.format(Locale.ROOT, "Drives a %s: %.0f kg, %.0f N·m, %d gears, %.2f s a change",
+                        vehicle.name().toLowerCase(Locale.ROOT), vehicle.mass(), vehicle.torque(), vehicle.count(), vehicle.shift()));
         out.engine(picked);
         about.setText(picked.about());
         final double[] pipes = picked.pipes();
@@ -186,6 +237,22 @@ public final class EngineBench extends Application {
         final double turning;
         final double firing;
         final boolean cut;
+        if (drive.isSelected()) {
+            driving = driving.step(vehicle, open, braking ? 1 : 0, lever, auto.isSelected(), seconds);
+            lever = 0;
+            out.set(driving.rpm(), driving.firing(), driving.load());
+            dashboard.show(driving.rpm(), engine.redline(), driving.shown(), driving.kmh(), seconds);
+            readout.setText(String.format(Locale.ROOT,
+                    "%5.0f rpm · firing %4.0f Hz%n%5.1f km/h · gear %s · %s%nthrottle %3.0f%% · load %3.0f%%%s%s",
+                    driving.rpm(), engine.firingRate(driving.rpm()), driving.kmh(), driving.shown(),
+                    driving.clutch().name().toLowerCase(Locale.ROOT), open * 100, driving.load() * 100,
+                    braking ? " · BRAKE" : "", driving.cut() > 0 ? " · LIMITER" : ""));
+            out.latest(samples);
+            drawWave();
+            drawSpectrum(driving.rpm());
+            return;
+        }
+        lever = 0;
         if (free.isSelected()) {
             revs = revs.step(engine, open, seconds);
             turning = revs.rpm();
