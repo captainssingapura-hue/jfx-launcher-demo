@@ -43,11 +43,18 @@ for the engines.
   Low on the right, as racing games have them, its instruments: a round tachometer, its needle
   sweeping up toward the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
-  Each has a gearbox of its own (`Gearbox`): six gears in the car and the pickup, eight, close
-  together, in the truck, the top gear a little short of the red line at top speed. It changes
-  by itself, as a quick automatic does: up near the red line pulling hard, up early cruising,
-  down as it slows, down a gear or two flooring it; the throttle cut for a moment at each
-  change, blipped going down; the clutch slipping pulling away.
+  Each is a vehicle of the engine bench's (`Vehicle.of`), and goes as it does: its real top
+  speed, as its engine, its gears and the air make it there (the car about 249 km/h, the pickup
+  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser 182), and
+  getting up to speed as it does, briskly from a standstill, less and less so as it nears its top,
+  as quick as on the bench to make most of it (`Course.Drive.accelAt`). Its gearbox (`Gearbox`) is
+  the bench vehicle's too, the same gears, final drive and wheels (`Vehicle.rpm`): at any speed,
+  in any gear, the same revs as on the bench. Six gears in the car and the pickup, eight in the
+  truck. It changes by itself, as a quick automatic does: up near the red line pulling hard, up
+  early cruising (a car at 90 km/h in sixth, under 2,000 rpm), down as it slows, down a gear or
+  two flooring it; the throttle cut for a moment at each change, blipped going down; the clutch
+  slipping pulling away. At these speeds the world, 240 m across, is crossed in seconds: a bigger
+  one, with a track to drive them on, is next.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
@@ -403,7 +410,11 @@ is worked hard; and pops and crackle off the throttle at speed.
 - Set the load, from revving free to pulling hard.
 - Or drive it: each engine is in a vehicle of its own (`Vehicle`): a hatchback, a saloon, a
   rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
-  bike, each with its weight, torque, gears, wheels, drag and grip. W or Space is the throttle,
+  bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
+  limited to; and the game's own: its car (the roadster's and the van's), its pickup and its
+  truck, and its scooter, sport bike and cruiser, which go here exactly as in the game, the same
+  revs at the same speed (the Vehicle choice, of those with the engine picked;
+  `-Dengine.vehicle=pickup`). W or Space is the throttle,
   S the brake, E or Up changes up and Q or Down changes down, or the gearbox changes by itself:
   up near the red line flat out, up early cruising, down as it slows (`Driving`). It pulls away
   on a slipping clutch; in gear the revs follow the road speed, dropping at each change up and

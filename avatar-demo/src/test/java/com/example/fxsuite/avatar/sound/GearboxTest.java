@@ -1,123 +1,151 @@
 package com.example.fxsuite.avatar.sound;
 
+import com.example.fxsuite.avatar.sim.Course;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A gearbox following a vehicle driven by something else: up through its gears as it gathers
- * speed, the throttle cut at each change; down as it slows, to idle; up early cruising, down
- * flooring it; and in top, flat out, a little short of the red line.
+ * The game's gearboxes, the engine bench's vehicles': at any speed in any gear, the same revs as
+ * the bench gives; up through every gear to the vehicle's own top speed, the throttle cut at each
+ * change; down to idle as it slows; up early cruising, down flooring it; R going back; and a
+ * scooter's CVT holding its revs as the speed builds.
  */
 class GearboxTest {
 
     private static final double STEP = 1.0 / 60;
-    private static final Engine V6 = Engine.V6;
-    private static final Gearbox SIX = new Gearbox(6, 0.22, 0.85, 0.25);
+    private static final Vehicle CAR = Vehicle.CAR;
+    private static final Gearbox SIX = new Gearbox(CAR);
 
-    @Test
-    void itsGearsGoFromAShortFirstToATopThatTakesItToTheTopSpeed() {
-        assertEquals(0.22, SIX.reach(1), 1e-12);
-        assertEquals(1 / 0.85, SIX.reach(6), 1e-12);
-        for (int gear = 2; gear <= 6; gear++) {
-            assertTrue(SIX.reach(gear) > SIX.reach(gear - 1));
+    /** How fast {@code vehicle} goes flat out, on the bench, in metres a second. */
+    private static double top(final Vehicle vehicle) {
+        Driving driving = Driving.stopped(vehicle);
+        double most = 0;
+        for (int i = 0; i < 120 * 120; i++) {
+            driving = driving.step(vehicle, 1, 0, 0, true, 1.0 / 120);
+            most = Math.max(most, driving.speed());
         }
-        assertEquals(0.85 * V6.redline(), SIX.rpm(V6, 6, 1), 1e-9, "flat out in top, short of the red line");
-        assertThrows(IllegalArgumentException.class, () -> new Gearbox(-1, 0.2, 0.85, 0.2));
-        assertThrows(IllegalArgumentException.class, () -> Gearbox.cvt(1.2, 0.85), "a CVT holds no further than the red line");
-        assertThrows(IllegalArgumentException.class, () -> new Gearbox(5, 1.5, 0.85, 0.2));
+        return most;
     }
 
     @Test
-    void gatheringSpeedItGoesUpThroughEveryGearTheThrottleCutAtEachChange() {
-        Gearbox.Geared geared = SIX.stopped(V6);
+    void atAnySpeedInAnyGearTheRevsAreTheBenchs() {
+        for (final Course.Chassis chassis : Course.CHASSES) {
+            final Vehicle vehicle = Vehicle.of(chassis);
+            final Gearbox gearbox = new Gearbox(vehicle);
+            if (gearbox.continuous()) {
+                continue;
+            }
+            // the bench driving it flat out, and the gearbox following the same speed, in the same gear
+            Driving driving = Driving.stopped(vehicle);
+            int compared = 0;
+            for (int i = 0; i < 30 * 120; i++) {
+                driving = driving.step(vehicle, 1, 0, 0, true, 1.0 / 120);
+                if (driving.clutch() == Driving.Clutch.IN) {
+                    final Gearbox.Geared same = new Gearbox.Geared(driving.gear(), driving.rpm(), 0, driving.gear(),
+                            Driving.Clutch.IN, 1, false);
+                    final Gearbox.Geared next = gearbox.step(same, driving.speed(), 0.6, false, 0);
+                    if (next.clutch() == Driving.Clutch.IN && next.gear() == driving.gear()) {
+                        assertEquals(driving.rpm(), next.rpm(), 1e-6, chassis.name() + " at " + driving.kmh() + " km/h");
+                        compared++;
+                    }
+                }
+            }
+            assertTrue(compared > 100, chassis.name() + " compared all the way up");
+        }
+    }
+
+    @Test
+    void gatheringSpeedItGoesUpThroughEveryGearToItsTopSpeedTheThrottleCutAtEachChange() {
+        final double top = top(CAR);
+        Gearbox.Geared geared = SIX.stopped();
         int highest = 1;
         int changes = 0;
-        for (int i = 0; i < 20 / STEP; i++) {
-            final double share = Math.min(1, i * STEP / 18);
-            final Gearbox.Geared next = SIX.step(V6, geared, share, 1, false, STEP);
+        for (int i = 0; i < 30 / STEP; i++) {
+            final double speed = Math.min(top, top * i * STEP / 26);
+            final Gearbox.Geared next = SIX.step(geared, speed, 1, false, STEP);
             if (next.clutch() == Driving.Clutch.SHIFTING) {
                 assertEquals(0, next.firing(), "the throttle cut, changing up");
                 if (geared.clutch() != Driving.Clutch.SHIFTING) {
                     changes++;
                 }
             }
-            if (geared.clutch() == Driving.Clutch.SHIFTING && next.clutch() != Driving.Clutch.SHIFTING) {
-                assertTrue(next.rpm() < 0.85 * V6.redline(), "the revs down in the new gear: " + next);
-            }
             geared = next;
             highest = Math.max(highest, geared.gear());
-            assertTrue(geared.rpm() <= V6.redline() * 1.02, "never past the red line: " + geared);
+            assertTrue(geared.rpm() <= CAR.engine().redline() * 1.02, "never past the red line: " + geared);
         }
-        assertEquals(6, highest);
-        assertEquals(5, changes, "each gear once");
-        assertEquals(0.85 * V6.redline(), geared.rpm(), 1, "flat out in top");
+        assertEquals(CAR.count(), highest);
+        assertEquals(CAR.count() - 1, changes, "each gear once");
+        assertEquals(CAR.rpm(CAR.count(), top), geared.rpm(), 1, "flat out in top, as on the bench");
     }
 
     @Test
     void slowingOffTheThrottleItComesDownThroughTheGearsToIdle() {
-        Gearbox.Geared geared = new Gearbox.Geared(6, SIX.rpm(V6, 6, 1), 0, 6, Driving.Clutch.IN, 0, false);
+        final double top = top(CAR);
+        Gearbox.Geared geared = new Gearbox.Geared(6, CAR.rpm(6, top), 0, 6, Driving.Clutch.IN, 0, false);
         int lowest = 6;
-        for (int i = 0; i < 16 / STEP; i++) {
-            final double share = Math.max(0, 1 - i * STEP / 14);
-            geared = SIX.step(V6, geared, share, 0, false, STEP);
+        for (int i = 0; i < 22 / STEP; i++) {
+            geared = SIX.step(geared, Math.max(0, top * (1 - i * STEP / 20)), 0, false, STEP);
             lowest = Math.min(lowest, geared.gear());
         }
         assertEquals(1, lowest, "down to first");
         assertEquals(Driving.Clutch.OUT, geared.clutch(), "stopped, the clutch out");
-        assertEquals(V6.idle(), geared.rpm(), 5, "idling");
+        assertEquals(CAR.engine().idle(), geared.rpm(), 5, "idling");
     }
 
     @Test
     void cruisingItSitsInAHighGearAndFlooringItKicksDown() {
-        Gearbox.Geared geared = SIX.stopped(V6);
-        for (int i = 0; i < 12 / STEP; i++) {
-            geared = SIX.step(V6, geared, Math.min(0.5, i * STEP / 8), i * STEP < 8 ? 1 : 0.3, false, STEP);
+        // 90 km/h, cruising, after pulling up to it
+        final double cruise = 25;
+        Gearbox.Geared geared = SIX.stopped();
+        for (int i = 0; i < 16 / STEP; i++) {
+            geared = SIX.step(geared, Math.min(cruise, i * STEP * 3), i * STEP < 9 ? 1 : 0.3, false, STEP);
         }
         final int cruising = geared.gear();
-        assertTrue(cruising >= 5, "cruising at half its top speed in a high gear: " + geared);
+        assertTrue(cruising >= 5, "cruising in a high gear: " + geared);
         for (int i = 0; i < 1 / STEP; i++) {
-            geared = SIX.step(V6, geared, 0.5, 1, false, STEP);
+            geared = SIX.step(geared, cruise, 1, false, STEP);
         }
         assertTrue(geared.gear() < cruising, "floored, down a gear: " + geared);
     }
 
     @Test
     void goingBackItIsInItsFirstAndShowsR() {
-        Gearbox.Geared geared = SIX.stopped(V6);
+        Gearbox.Geared geared = SIX.stopped();
         for (int i = 0; i < 2 / STEP; i++) {
-            geared = SIX.step(V6, geared, -0.1, 1, true, STEP);
+            geared = SIX.step(geared, -3, 1, true, STEP);
         }
         assertEquals("R", geared.shown());
         assertEquals(1, geared.gear());
-        assertEquals(SIX.rpm(V6, 1, 0.1), geared.rpm(), 1e-6, "in its first, going back");
+        assertEquals(CAR.rpm(1, 3), geared.rpm(), 1e-6, "in its first, going back");
     }
 
     @Test
     void aCvtHoldsItsRevsAsTheSpeedBuildsThenRisesWithIt() {
-        final Engine single = Engine.SCOOTER;
-        final Gearbox cvt = Gearbox.cvt(0.74, 0.85);
+        final Vehicle scooter = Vehicle.SCOOTER_125;
+        final Engine single = scooter.engine();
+        final Gearbox cvt = new Gearbox(scooter);
         assertTrue(cvt.continuous());
-        Gearbox.Geared geared = cvt.stopped(single);
+        final double top = top(scooter);
+        Gearbox.Geared geared = cvt.stopped();
         assertEquals("D", geared.shown());
         double least = Double.MAX_VALUE;
         double most = 0;
-        for (int i = 0; i < 20 / STEP; i++) {
-            final double share = Math.min(1, i * STEP / 16);
-            geared = cvt.step(single, geared, share, 1, false, STEP);
-            if (share > 0.2 && share < 0.5) {
+        for (int i = 0; i < 24 / STEP; i++) {
+            final double speed = Math.min(top, top * i * STEP / 20);
+            geared = cvt.step(geared, speed, 1, false, STEP);
+            if (speed > 0.2 * top && speed < 0.5 * top) {
                 least = Math.min(least, geared.rpm());
                 most = Math.max(most, geared.rpm());
             }
         }
-        assertEquals(0.74 * single.redline(), (least + most) / 2, 0.05 * single.redline(), "held flat out");
+        assertEquals(scooter.cvt(), (least + most) / 2, 0.05 * single.redline(), "held flat out");
         assertTrue(most - least < 0.05 * single.redline(), "steady as the speed builds: " + least + " to " + most);
-        assertEquals(0.85 * single.redline(), geared.rpm(), 0.02 * single.redline(), "out of ratio, at its top speed");
         assertEquals("D", geared.shown());
         for (int i = 0; i < 4 / STEP; i++) {
-            geared = cvt.step(single, geared, 0, 0, false, STEP);
+            geared = cvt.step(geared, 0, 0, false, STEP);
         }
         assertEquals(Driving.Clutch.OUT, geared.clutch(), "stopped, its clutch let go");
         assertEquals(single.idle(), geared.rpm(), 5);

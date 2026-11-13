@@ -62,7 +62,7 @@ import java.util.Locale;
  *
  * <p>{@code -Dengine.pick=V8} (or another engine's {@link Engine#key}: {@code THUMPER}, {@code V_TWIN}, ...) picks the engine to
  * start with; {@code -Dengine.rpm=3000} holds it there; {@code -Dengine.throttle} sets the
- * throttle; {@code -Dengine.charger=turbo} (or {@code super}, {@code none}) charges a car's engine so;
+ * throttle; {@code -Dengine.vehicle=pickup} drives that vehicle; {@code -Dengine.charger=turbo} (or {@code super}, {@code none}) charges a car's engine so;
  * {@code -Dengine.drive=true} drives instead; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms
  * and exits, playing nothing.
  */
@@ -104,6 +104,8 @@ public final class EngineBench extends Application {
     private static final String X = "X-pipe";
     private final ComboBox<String> headers = new ComboBox<>();
     private final ComboBox<String> crossing = new ComboBox<>();
+    /** What it drives, of the vehicles with its engine: the bench's own, or the game's (its pickup, its truck). */
+    private final ComboBox<Vehicle> vehicles = new ComboBox<>();
     private boolean choosing;
     private final Label about = new Label();
     private final Label facts = new Label();
@@ -186,7 +188,7 @@ public final class EngineBench extends Application {
                 heading("Engine"), engines, row("Induction", induction), row("Exhaust", headers),
                 row("Crossover", crossing), about,
                 facts,
-                heading("Running"), free, hold, drive, auto, ride,
+                heading("Running"), free, hold, drive, auto, row("Vehicle", vehicles), ride,
                 row("Throttle", throttle), row("Load", load), row("Revs", rpm), row("Volume", volume),
                 readout, status);
         controls.setPadding(new Insets(14));
@@ -229,6 +231,18 @@ public final class EngineBench extends Application {
         });
         pick(engine);
         final String charging = System.getProperty("engine.charger");
+        vehicles.valueProperty().addListener((o, was, now) -> {
+            if (!choosing && now != null) {
+                fit(charger(induction.getValue()));
+                driving = Driving.stopped(vehicle);
+            }
+        });
+        final String riding = System.getProperty("engine.vehicle");
+        if (riding != null) {
+            final String wanted = riding.toLowerCase(Locale.ROOT);
+            vehicles.getItems().stream().filter(v -> v.name().toLowerCase(Locale.ROOT).startsWith(wanted))
+                    .findFirst().ifPresent(vehicles::setValue);
+        }
         if (charging != null && !induction.isDisabled()) {
             induction.setValue(charging.startsWith("s") ? SUPER : charging.startsWith("t") ? TURBO : NONE);
         }
@@ -261,6 +275,8 @@ public final class EngineBench extends Application {
         headers.setValue(STOCK);
         crossing.setValue(DUAL);
         crossing.setDisable(!picked.twoBanks());
+        vehicles.getItems().setAll(Vehicle.ALL.stream().filter(v -> v.engine().key().equals(picked.key())).toList());
+        vehicles.setValue(Vehicle.of(picked));
         choosing = false;
         fit(fitted);
         revs = Revs.idling(engine);
@@ -277,7 +293,7 @@ public final class EngineBench extends Application {
         piping = piping.crossed(X.equals(crossed) ? Exhaust.X_PIPE : H.equals(crossed) ? Exhaust.H_PIPE : Exhaust.NONE);
         final Engine picked = base.with(fitted).piped(piping);
         engine = picked;
-        vehicle = Vehicle.of(picked).with(picked);
+        vehicle = (vehicles.getValue() != null ? vehicles.getValue() : Vehicle.of(picked)).with(picked);
         ride.setText(vehicle.cvt() > 0
                 ? String.format(Locale.ROOT, "Drives a %s: %.0f kg, %.0f N·m, a CVT holding %.0f rpm flat out",
                         vehicle.name().toLowerCase(Locale.ROOT), vehicle.mass(), vehicle.torque(), vehicle.cvt())

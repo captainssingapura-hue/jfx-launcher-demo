@@ -70,13 +70,13 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
     private static final double BITE = 6000;
     /** Left to itself, it changes up this near the red line, and down this far up the range. */
     private static final double UP = 0.94;
-    private static final double DOWN = 0.2;
+    private static final double DOWN = 0.1;
     /**
      * Cruising (the throttle under this), it changes up as soon as the next gear would keep the
      * engine this far up its range: well clear of {@link #DOWN}, so it does not change straight back.
      */
     private static final double CRUISE = 0.5;
-    private static final double CRUISE_REVS = 0.35;
+    private static final double CRUISE_REVS = 0.15;
     /** A blip of the throttle, changing down. */
     private static final double BLIP = 0.6;
 
@@ -99,7 +99,9 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
                         final boolean auto, final double seconds) {
         final Engine engine = vehicle.engine();
         double cutting = Math.max(0, cut - seconds);
-        final double open = cutting > 0 ? 0 : Math.clamp(throttle, 0, 1);
+        // the fuel cut by the limiter at the red line, or by the governor at its top speed
+        final boolean governed = vehicle.governed() > 0 && speed * 3.6 >= vehicle.governed();
+        final double open = cutting > 0 || governed ? 0 : Math.clamp(throttle, 0, 1);
         final double spin = speed / vehicle.wheel() * 60 / (2 * Math.PI);    // the wheels, turns a minute
         int now = gear;
         int into = next;
@@ -154,7 +156,7 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
                 final double want = engine.idle() + (vehicle.cvt() - engine.idle()) * open;
                 coupled = Math.clamp(want, spin * vehicle.highest(), Math.max(spin * vehicle.lowest(), spin * vehicle.highest()));
             } else {
-                coupled = spin * vehicle.ratio(now);
+                coupled = vehicle.rpm(now, speed);
             }
             if (coupled >= engage && (clutch == Clutch.IN || coupled >= rpm - CATCH)) {
                 state = Clutch.IN;
@@ -200,7 +202,7 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
         final double faster = (pull - resist - braking) / (vehicle.mass() * SPINNING);
         final double moving = Math.max(0, speed + faster * seconds);
         if (state == Clutch.IN && vehicle.cvt() <= 0) {
-            turning = moving / vehicle.wheel() * 60 / (2 * Math.PI) * vehicle.ratio(now);
+            turning = vehicle.rpm(now, moving);
         }
         // a turbocharger spooling up, or down, with what the engine does; a supercharger with it at once
         final double boosted = engine.charged()

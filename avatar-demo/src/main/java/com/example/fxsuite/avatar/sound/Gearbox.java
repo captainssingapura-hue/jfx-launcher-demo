@@ -1,30 +1,27 @@
 package com.example.fxsuite.avatar.sound;
 
 /**
- * A gearbox that follows a vehicle driven by something else, the game's own driving: given how
- * fast it goes, as a share of its top speed, and the throttle, it says which gear it is in and
- * how fast its {@link Engine} turns ({@link Geared}). It changes gear by itself, as an automatic
- * does: up near the red line pulling hard, up early cruising, down as it slows, down a gear or two
- * flooring it; a change cuts the throttle for {@link #shift} seconds (blipping it, going down).
- * Pulling away, the clutch slips; stopped, it idles; going back, it is in its first gear.
+ * The gearbox of a {@link Vehicle} driven by something else, the game's own driving: given how
+ * fast it goes and the throttle, it says which gear it is in and how fast the vehicle's engine
+ * turns ({@link Geared}). Its revs are worked out as the engine bench's are, from the same gears,
+ * final drive and wheels ({@link Vehicle#rpm}): at any speed, in any gear, the same.
  *
- * <p>Its {@code count} gears are spaced evenly in ratio, from a first that runs out of revs at
- * {@code first} of the top speed, up to a top that turns the engine at {@code top} of its red line
- * at the top speed: as cars have them, a little short of the red line flat out in top.
+ * <p>It changes gear by itself, as an automatic does: up near the red line pulling hard, up early
+ * cruising, down as it slows, down a gear or two flooring it; a change cuts the throttle for the
+ * vehicle's {@link Vehicle#shift} (blipping it, going down). Pulling away, the clutch slips;
+ * stopped, it idles; going back, it is in its first gear. A scooter's CVT holds the engine at the
+ * revs the throttle asks for as the speed builds, as on the bench ({@link Driving}).
  *
- * @param count how many gears
- * @param first the share of the top speed the first gear takes it to, at the red line
- * @param top   the share of the red line the top gear turns the engine at, at the top speed
- * @param shift how long a change takes, in seconds
+ * @param vehicle what it is the gearbox of
  */
-public record Gearbox(int count, double first, double top, double shift) {
+public record Gearbox(Vehicle vehicle) {
 
     /** Left to itself, it changes up this near the red line; down this far up the range. */
     private static final double UP = 0.92;
-    private static final double DOWN = 0.2;
+    private static final double DOWN = 0.1;
     /** Cruising (the throttle under this), up as soon as the next gear keeps it this far up the range. */
     private static final double CRUISE = 0.5;
-    private static final double CRUISE_REVS = 0.35;
+    private static final double CRUISE_REVS = 0.15;
     /** Flooring it (the throttle past this), down a gear if that one keeps under this share of the red line. */
     private static final double FLOOR = 0.9;
     private static final double KICK = 0.9;
@@ -35,98 +32,49 @@ public record Gearbox(int count, double first, double top, double shift) {
     /** The clutch bites once the engine is within this of the wheels; brought down to them this fast. */
     private static final double CATCH = 60;
     private static final double BITE = 6000;
-    /** A CVT's lowest ratio turns the engine this many times faster than its highest. */
-    private static final double SPREAD = 3;
     /** A blip of the throttle, changing down. */
     private static final double BLIP = 0.6;
 
-    public Gearbox {
-        if (count == 0 ? first <= 0 || first > 1 || top <= 0 || top > 1
-                : count < 1 || first <= 0 || first >= 1 / top || top <= 0 || top > 1 || shift < 0) {
-            throw new IllegalArgumentException("gears from a short first up to a top that reaches the top speed");
-        }
-    }
-
     /**
-     * A CVT, as a scooter has: no gears, but a ratio that changes as it goes, holding the engine at
-     * the revs the throttle asks for, {@code hold} of its red line flat out, as the speed builds,
-     * until it has no higher ratio to go to, where it turns the engine at {@code top} of its red
-     * line at the top speed. Under half again its idle, its clutch lets go.
-     */
-    public static Gearbox cvt(final double hold, final double top) {
-        return new Gearbox(0, hold, top, 0);
-    }
-
-    /** Whether it is a CVT ({@link #cvt}). */
-    public boolean continuous() {
-        return count == 0;
-    }
-
-    /**
-     * Which gear it is in, how fast the engine turns, what the clutch is doing, and the throttle
-     * the cylinders get for its sound ({@code firing}): none while changing up, a blip going down.
+     * Which gear it is in (0 for a CVT), how fast the engine turns, what the clutch is doing, and
+     * the throttle the cylinders get for its sound ({@code firing}): none while changing up, a
+     * blip going down.
      */
     public record Geared(int gear, double rpm, double shifting, int next, Driving.Clutch clutch, double firing,
                          boolean back) {
 
-        /** The gear as a dashboard shows it: R going back, else the number, the one coming if changing. */
+        /** The gear as a dashboard shows it: R going back, D a CVT, else the number, the one coming if changing. */
         public String shown() {
             return back ? "R" : gear == 0 ? "D" : Integer.toString(shifting > 0 ? next : gear);
         }
     }
 
-    /** Stopped, in first, idling. */
-    public Geared stopped(final Engine engine) {
-        return new Geared(count == 0 ? 0 : 1, engine.idle(), 0, count == 0 ? 0 : 1, Driving.Clutch.OUT, 0, false);
+    /** Whether it is a CVT, a scooter's. */
+    public boolean continuous() {
+        return vehicle.cvt() > 0;
     }
 
-    /** The share of the top speed gear {@code gear} (from 1) takes it to at the red line. */
-    public double reach(final int gear) {
-        if (count == 1) {
-            return 1 / top;
-        }
-        return first * Math.pow(1 / top / first, (gear - 1.0) / (count - 1));
+    /** How many gears it has; none, a CVT. */
+    public int count() {
+        return vehicle.count();
     }
 
-    /** How fast the engine turns in gear {@code gear}, going at {@code share} of the top speed. */
-    public double rpm(final Engine engine, final int gear, final double share) {
-        return engine.redline() * share / reach(gear);
-    }
-
-    /** A CVT's step: the engine held at the revs the throttle asks for, as far as its ratios go. */
-    private Geared continuous(final Engine engine, final Geared was, final double going, final double open,
-                              final boolean back, final double seconds) {
-        final double held = engine.idle() + (first * engine.redline() - engine.idle()) * open;
-        final double highest = top * engine.redline() * going;
-        final double lowest = highest * SPREAD;
-        final double coupled = Math.clamp(held, highest, Math.max(highest, lowest));
-        final double engage = 1.5 * engine.idle();
-        final double rpm;
-        final Driving.Clutch clutch;
-        if (coupled >= engage && !(open > 0.02 && lowest < held)) {
-            clutch = Driving.Clutch.IN;
-            rpm = was.rpm() + (coupled - was.rpm()) * Math.min(1, 8 * seconds);
-        } else if (open > 0.02) {
-            // pulling away, too slow yet for even its lowest ratio to hold the revs asked for: its
-            // clutch slipping, the engine up at them
-            clutch = Driving.Clutch.SLIPPING;
-            rpm = was.rpm() + (held - was.rpm()) * Math.min(1, 6 * seconds);
-        } else {
-            clutch = Driving.Clutch.OUT;
-            rpm = new Revs(was.rpm(), 0, 0).step(engine, 0, seconds).rpm();
-        }
-        return new Geared(0, Math.min(rpm, engine.redline() * 1.02), 0, 0, clutch, open, back);
+    /** Stopped, in first (or a CVT's drive), idling. */
+    public Geared stopped() {
+        final int first = continuous() ? 0 : 1;
+        return new Geared(first, vehicle.engine().idle(), 0, first, Driving.Clutch.OUT, 0, false);
     }
 
     /**
-     * {@code seconds} on from {@code was}: going at {@code share} of the top speed (backwards, if
+     * {@code seconds} on from {@code was}: going {@code speed} metres a second (backwards, if
      * {@code back}), the throttle open {@code throttle}.
      */
-    public Geared step(final Engine engine, final Geared was, final double share, final double throttle,
-                       final boolean back, final double seconds) {
+    public Geared step(final Geared was, final double speed, final double throttle, final boolean back,
+                       final double seconds) {
+        final Engine engine = vehicle.engine();
         final double open = Math.clamp(throttle, 0, 1);
-        final double going = Math.abs(share);
-        if (count == 0) {
+        final double going = Math.abs(speed);
+        if (continuous()) {
             return continuous(engine, was, going, open, back, seconds);
         }
         final double range = engine.redline() - engine.idle();
@@ -142,18 +90,18 @@ public record Gearbox(int count, double first, double top, double shift) {
         } else if (!back && was.clutch() == Driving.Clutch.IN) {
             final double rpm = was.rpm();
             int wanted = 0;
-            if (gear < count && (rpm >= UP * engine.redline() && open > 0.3
-                    || open < CRUISE && rpm(engine, gear + 1, going) > engine.idle() + CRUISE_REVS * range)) {
+            if (gear < count() && (rpm >= UP * engine.redline() && open > 0.3
+                    || open < CRUISE && vehicle.rpm(gear + 1, going) > engine.idle() + CRUISE_REVS * range)) {
                 wanted = 1;
             } else if (gear > 1 && (rpm < engine.idle() + DOWN * range
-                    && rpm(engine, gear - 1, going) < 0.85 * engine.redline()
-                    || open > FLOOR && rpm(engine, gear - 1, going) < KICK * engine.redline()
+                    && vehicle.rpm(gear - 1, going) < 0.85 * engine.redline()
+                    || open > FLOOR && vehicle.rpm(gear - 1, going) < KICK * engine.redline()
                     && rpm < KICKED * engine.redline())) {
                 wanted = -1;
             }
             if (wanted != 0) {
                 next = gear + wanted;
-                shifting = shift;
+                shifting = vehicle.shift();
             }
         }
         if (shifting > 0) {
@@ -162,7 +110,7 @@ public record Gearbox(int count, double first, double top, double shift) {
             final double rpm = new Revs(was.rpm(), 0, 0).step(engine, blip, seconds).rpm();
             return new Geared(gear, rpm, shifting, next, Driving.Clutch.SHIFTING, blip, back);
         }
-        final double coupled = rpm(engine, gear, going);
+        final double coupled = vehicle.rpm(gear, going);
         final double rpm;
         final Driving.Clutch clutch;
         if (coupled >= engine.idle()
@@ -183,5 +131,32 @@ public record Gearbox(int count, double first, double top, double shift) {
             rpm = new Revs(was.rpm(), 0, 0).step(engine, 0, seconds).rpm();
         }
         return new Geared(gear, rpm, 0, gear, clutch, open, back);
+    }
+
+    /**
+     * A CVT's step, as on the bench: the engine held at the revs the throttle asks for, as far as
+     * its ratios go; too slow yet for even its lowest to hold them, its clutch slips and holds them.
+     */
+    private Geared continuous(final Engine engine, final Geared was, final double going, final double open,
+                              final boolean back, final double seconds) {
+        final double spin = going / vehicle.wheel() * 60 / (2 * Math.PI);
+        final double held = engine.idle() + (vehicle.cvt() - engine.idle()) * open;
+        final double highest = spin * vehicle.highest();
+        final double lowest = spin * vehicle.lowest();
+        final double coupled = Math.clamp(held, highest, Math.max(highest, lowest));
+        final double engage = 1.5 * engine.idle();
+        final double rpm;
+        final Driving.Clutch clutch;
+        if (coupled >= engage && !(open > 0.02 && lowest < held)) {
+            clutch = Driving.Clutch.IN;
+            rpm = was.rpm() + (coupled - was.rpm()) * Math.min(1, 8 * seconds);
+        } else if (open > 0.02) {
+            clutch = Driving.Clutch.SLIPPING;
+            rpm = was.rpm() + (held - was.rpm()) * Math.min(1, 6 * seconds);
+        } else {
+            clutch = Driving.Clutch.OUT;
+            rpm = new Revs(was.rpm(), 0, 0).step(engine, 0, seconds).rpm();
+        }
+        return new Geared(0, Math.min(rpm, engine.redline() * 1.02), 0, 0, clutch, open, back);
     }
 }

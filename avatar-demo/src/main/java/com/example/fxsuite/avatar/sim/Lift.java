@@ -293,7 +293,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         } else if (pedal > 0) {
             v = ahead < 0 ? toward(ahead, 0, drive.brake() * seconds)
                     : ahead > top ? toward(ahead, top, drive.drag() * seconds)
-                    : Math.min(top, ahead + drive.accel() * pedal * seconds);
+                    : Math.min(top, ahead + drive.accelAt(ahead) * pedal * seconds);
         } else if (pedal < 0) {
             v = ahead > 0 ? toward(ahead, 0, drive.brake() * seconds)
                     : Math.max(-drive.reverse(), ahead + drive.accel() * pedal * seconds);

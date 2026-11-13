@@ -39,6 +39,7 @@ import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Cues;
 import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.sound.Gearbox;
+import com.example.fxsuite.avatar.sound.Vehicle;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
@@ -159,16 +160,8 @@ public final class Game {
     /** Behind a gun, in first person: how far back of where it turns, and how far up. */
     private static final double SIGHT_BACK = 70;
     private static final double SIGHT_UP = 34;
-    /** The gearboxes of the land vehicles ({@link #gearbox}); how hard the one driven was worked, and how fast
-     * it was going, at the last frame; and which gear it is in, and of which vehicle. */
-    private static final Gearbox CAR_GEARS = new Gearbox(6, 0.22, 0.85, 0.12);
-    private static final Gearbox PICKUP_GEARS = new Gearbox(6, 0.2, 0.85, 0.15);
-    private static final Gearbox TRUCK_GEARS = new Gearbox(8, 0.14, 0.85, 0.2);
-    /** The scooter's CVT, holding its single most of the way up its revs flat out; the sport bike's six,
-     * changed in a flash, as a quickshifter does; the cruiser's five, a little slower. */
-    private static final Gearbox SCOOTER_CVT = Gearbox.cvt(0.74, 0.85);
-    private static final Gearbox SPORT_GEARS = new Gearbox(6, 0.3, 0.85, 0.06);
-    private static final Gearbox CRUISER_GEARS = new Gearbox(5, 0.28, 0.85, 0.1);
+    /** How hard the land vehicle driven was worked, and how fast it was going, at the last frame; and
+     * which gear it is in ({@link #gearbox}), and of which vehicle. */
     private Gearbox.Geared geared;
     private int gearedPiece = -1;
     /** A land vehicle's instruments. */
@@ -975,53 +968,31 @@ public final class Game {
         // through the gears: a new vehicle taken, it starts in first, idling
         final Gearbox gearbox = gearbox(chassis);
         if (geared == null || gearedPiece != lift.piece()) {
-            geared = gearbox.stopped(engine);
+            geared = gearbox.stopped();
             gearedPiece = lift.piece();
         }
-        geared = gearbox.step(engine, geared, lift.ahead() / chassis.drive().top(), throttle, back, seconds);
+        // its speed, in metres a second: the world is in centimetres
+        geared = gearbox.step(geared, lift.ahead() / 100, throttle, back, seconds);
         final Vec3 bonnet = lift.at(new Course.Section(0, chassis.length() / 2 - 70, 20, 0, 0, 0));
         return new Cues.Motor(engine, geared.rpm(), geared.firing(), engineLoad, bonnet);
     }
 
     /**
-     * The engine in {@code chassis}: a V8 in the pickup and the truck, a V6 in the smaller ones; a
-     * 125 cc single in the scooter, a 90° L-twin in the sport bike, a 45° V-twin in the cruiser.
+     * The engine in {@code chassis}: its vehicle's, as the engine bench has it ({@link Vehicle#of}):
+     * a V8 in the pickup and the truck, a V6 in the car; a 125 cc single in the scooter, a 90°
+     * L-twin in the sport bike, a 45° V-twin in the cruiser.
      */
     private static Engine engine(final Course.Chassis chassis) {
-        if (chassis == Course.SCOOTER) {
-            return Engine.SCOOTER;
-        }
-        if (chassis == Course.SPORT_BIKE) {
-            return Engine.L_TWIN;
-        }
-        if (chassis == Course.CRUISER) {
-            return Engine.V_TWIN;
-        }
-        return chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS ? Engine.V8 : Engine.V6;
+        return Vehicle.of(chassis).engine();
     }
 
     /**
-     * The gearbox in {@code chassis}: six gears in the car and the pickup, the pickup's changing a
-     * little slower; eight in the truck, close together, low first, and slowest of all to change.
-     * Each with its top gear a little short of the red line at its top speed; and each changing
-     * quickly, as a quick automatic does: the vehicles gather speed quickly, and spend little of it
-     * changing gear. The scooter's a CVT; the sport bike's and the cruiser's, sequential
-     * boxes, changing by themselves as the cars' do.
+     * The gearbox in {@code chassis}: its vehicle's, as the engine bench has it, its gears, final
+     * drive and wheels the same, so at any speed the same gear and revs: six gears in the car and
+     * the pickup, eight in the truck; the scooter's CVT; the sport bike's six, the cruiser's five.
      */
     private static Gearbox gearbox(final Course.Chassis chassis) {
-        if (chassis == Course.SCOOTER) {
-            return SCOOTER_CVT;
-        }
-        if (chassis == Course.SPORT_BIKE) {
-            return SPORT_GEARS;
-        }
-        if (chassis == Course.CRUISER) {
-            return CRUISER_GEARS;
-        }
-        if (chassis == Course.TRUCK_CHASSIS) {
-            return TRUCK_GEARS;
-        }
-        return chassis == Course.PICKUP_CHASSIS ? PICKUP_GEARS : CAR_GEARS;
+        return new Gearbox(Vehicle.of(chassis));
     }
 
     /**
