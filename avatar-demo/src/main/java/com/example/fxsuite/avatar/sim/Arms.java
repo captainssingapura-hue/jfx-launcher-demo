@@ -139,8 +139,8 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
         return switch (held) {
             // no one holds a bomb, or a fall
             case NONE, BOMB, FALL -> out.stepped(aimed);
-            case RIFLES -> aimed.fire(trigger, seconds, body, world, out);
-            case GATLING -> aimed.crank(trigger, seconds, body, world, out);
+            case RIFLES -> aimed.fire(Gun.RIFLES, trigger, seconds, body, world);
+            case GATLING -> aimed.fire(Gun.GATLING, trigger, seconds, body, world);
             case GLAIVE -> aimed.swing(trigger, seconds, body, world, out);
         };
     }
@@ -213,75 +213,31 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
                 .add(Num.heading(body.yaw()).multiply(forward));
     }
 
-    private Stepped fire(final boolean trigger, final double seconds, final Body body, final Obstacles world,
-                         final Out out) {
-        double left = sinceLeft + seconds;
-        double right = sinceRight + seconds;
-        double wait = reload - seconds;
-        boolean nextLeft = leftNext;
-        int count = rounds;
-        while (trigger && wait <= 0) {
-            // how long ago, within this frame, the round went
-            final double ago = -wait;
-            if (nextLeft) {
-                left = ago;
-            } else {
-                right = ago;
-            }
-            count++;
-            shoot(muzzle(body, nextLeft), nextLeft, count, SPREAD, Weapon.RIFLES, body, world, pitch, out);
-            nextLeft = !nextLeft;
-            wait += RIFLE_INTERVAL;
-        }
-        // let go, and the next squeeze fires at once, once the action has cycled
-        final double next = trigger ? wait : Math.max(0, wait);
-        return out.stepped(new Arms(held, next, nextLeft, left, right, stroke, strokes, count, pitch, spin));
-    }
-
-    /** The Gatling gun: spinning up or down, and firing once up to speed with the trigger held. */
-    private Stepped crank(final boolean trigger, final double seconds, final Body body, final Obstacles world,
-                          final Out out) {
-        double since = sinceRight + seconds;
-        int count = rounds;
-        double turning = spin;
-        double wait = reload;
-        if (!trigger) {
-            turning = Math.max(0, spin - seconds / SPIN_DOWN);
-            wait = 0;
-        } else {
-            // the part of the frame spent still spinning up, then the rest firing
-            final double spinning = Math.min(seconds, (1 - spin) * SPIN_UP);
-            turning = Math.min(1, spin + seconds / SPIN_UP);
-            wait = (spin < 1 ? 0 : reload) - (seconds - spinning);
-            while (turning >= 1 && wait <= 0) {
-                since = -wait;
-                count++;
-                shoot(gatlingMuzzle(body), false, count, GATLING_SPREAD, Weapon.GATLING, body, world, pitch, out);
-                wait += GATLING_INTERVAL;
-            }
-        }
-        return out.stepped(new Arms(held, wait, leftNext, sinceLeft, since, stroke, strokes, count, pitch, turning));
-    }
-
-    /** One round: from {@code from} straight ahead of the body, tilted by the aim, a little off true, to whatever it strikes. */
-    private static void shoot(final Vec3 from, final boolean left, final int round, final double spread,
-                              final Weapon by, final Body body, final Obstacles world, final double pitch,
-                              final Out out) {
-        // off true by up to the spread each way, by the round's count
+    /**
+     * The rifles, or the Gatling gun: fired as every gun is ({@link Gun#fire}), held as the hands
+     * hold them. Each round leaves from its muzzle at the hip and flies straight ahead of the body,
+     * tilted by the aim: the gun goes with the body that holds it.
+     */
+    private Stepped fire(final Gun gun, final boolean trigger, final double seconds, final Body body,
+                         final Obstacles world) {
+        final Vec3 line = line(body, pitch);
         final Vec3 across = Num.right(body.yaw());
-        final double tan = Math.tan(Math.toRadians(spread));
-        final Vec3 direction = line(body, pitch).add(across.multiply(tan * scatter(round, 1)))
-                .add(0, tan * scatter(round, 2), 0).normalize();
-        final Hit hit = world.ray(from, direction, RANGE);
-        out.events().add(new Event.Fired(left, from, hit == null ? from.add(direction.multiply(RANGE)) : hit.at()));
-        if (hit != null) {
-            out.blows().add(new Blow(hit.at(), hit.normal(), hit.on(), by, hit.piece()));
-        }
+        final Gun.Muzzles muzzles = gun.pair()
+                ? left -> new Gun.Bore(muzzle(body, left), line, across)
+                : left -> new Gun.Bore(gatlingMuzzle(body), line, across);
+        final Gun.Fired fired = gun.fire(gun(), trigger, seconds, muzzles, world);
+        return new Stepped(with(fired.state()), fired.events(), fired.blows());
     }
 
-    /** -1 to 1, the same for the same round and salt: a spread that repeats. */
-    private static double scatter(final int round, final int salt) {
-        return Num.hash(round, salt) * 2 - 1;
+    /** How the gun in the hands is getting on, as the firing of every gun goes ({@link Gun.State}). */
+    private Gun.State gun() {
+        return new Gun.State(reload, leftNext, sinceLeft, sinceRight, rounds, spin);
+    }
+
+    /** The same, the gun in the hands now getting on as {@code gun} says. */
+    private Arms with(final Gun.State gun) {
+        return new Arms(held, gun.reload(), gun.leftNext(), gun.sinceLeft(), gun.sinceRight(), stroke, strokes,
+                gun.rounds(), pitch, gun.spin());
     }
 
     private Stepped swing(final boolean trigger, final double seconds, final Body body, final Obstacles world,
