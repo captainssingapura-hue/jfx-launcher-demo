@@ -74,6 +74,29 @@ class DrivingTest {
     }
 
     @Test
+    void afterAChangeUpTheClutchBitesAtOnceTheEngineBroughtToTheWheels() {
+        for (final Vehicle vehicle : Vehicle.ALL) {
+            if (vehicle.cvt() > 0) {
+                continue;
+            }
+            Driving driving = Driving.stopped(vehicle);
+            int slipping = 0;
+            for (int i = 0; i < 30 / STEP; i++) {
+                driving = driving.step(vehicle, 1, 0, 0, true, STEP);
+                if (driving.clutch() == Driving.Clutch.SLIPPING && driving.gear() > 1) {
+                    slipping++;
+                    final double wheels = driving.speed() / vehicle.wheel() * 60 / (2 * Math.PI);
+                    assertTrue(driving.rpm() >= wheels * vehicle.ratio(driving.gear()) - 61,
+                            vehicle + " never below the wheels: " + driving);
+                    assertTrue(slipping < 0.3 / STEP, vehicle + " biting at once: " + driving);
+                } else {
+                    slipping = 0;
+                }
+            }
+        }
+    }
+
+    @Test
     void changingUpByHandDropsTheRevsByTheGearsRatio() {
         final Vehicle vehicle = Vehicle.MUSCLE;
         Driving driving = Driving.stopped(vehicle);

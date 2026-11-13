@@ -13,8 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TurboTest {
 
     private static final int RATE = Clip.RATE;
-    private static final Engine FIVE = Engine.I5_TURBO;
-    private static final Turbo TURBO = FIVE.turbo();
+    private static final Engine FIVE = Engine.I5.with(Turbo.STANDARD);
+    private static final Turbo TURBO = Turbo.STANDARD;
 
     private static double spooled(final double rpm, final double throttle, final double load, final double seconds) {
         double boost = 0;
@@ -88,7 +88,7 @@ class TurboTest {
     @Test
     void noTurbochargerNoBoost() {
         for (final Engine engine : Engine.ALL) {
-            if (engine.turbocharged()) {
+            if (engine.charged()) {
                 continue;
             }
             final EngineVoice voice = new EngineVoice(engine, 1);

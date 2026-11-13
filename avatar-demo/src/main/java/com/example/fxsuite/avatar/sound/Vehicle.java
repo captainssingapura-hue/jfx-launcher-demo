@@ -12,7 +12,7 @@ import java.util.List;
  * @param engine   what drives it
  * @param mass     how heavy, rider or driver aboard, in kilograms
  * @param torque   the engine's most torque, in newton metres, at the best of its revs: off boost, if it
- *                 has a turbocharger, which multiplies it ({@link Turbo#pull})
+ *                 has a charger, which multiplies it ({@link Charger#pull})
  * @param gears    the gearbox's ratios, first to top; none for a {@link #cvt} one
  * @param last     the final drive: chain or axle, and any primary drive, together
  * @param wheel    the driven wheel's radius, in metres
@@ -36,7 +36,7 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
 
     public static final Vehicle HATCHBACK = new Vehicle("Hatchback", Engine.I4, 1150, 160,
             new double[] {3.45, 1.95, 1.30, 0.97, 0.78}, 4.1, 0.30, 0.65, 1.0, 0.35, 0, 0, 0);
-    public static final Vehicle RALLY = new Vehicle("Rally coupe", Engine.I5_TURBO, 1300, 240,
+    public static final Vehicle RALLY = new Vehicle("Rally coupe", Engine.I5.with(Turbo.STANDARD), 1300, 240,
             new double[] {3.6, 2.13, 1.46, 1.07, 0.84}, 3.9, 0.31, 0.70, 1.15, 0.25, 0, 0, 0);
     public static final Vehicle SALOON = new Vehicle("Saloon", Engine.V6, 1550, 330,
             new double[] {3.9, 2.3, 1.5, 1.15, 0.92, 0.75}, 3.6, 0.33, 0.70, 1.0, 0.3, 0, 0, 0);
@@ -61,10 +61,15 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
     public static final List<Vehicle> ALL = List.of(HATCHBACK, RALLY, SALOON, MUSCLE, SUPERCAR,
             SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, SPORT_BIKE, CLASSIC_BIKE);
 
-    /** The vehicle {@code engine} drives. */
+    /** The vehicle {@code engine} drives, however it is charged. */
     public static Vehicle of(final Engine engine) {
-        return ALL.stream().filter(v -> v.engine.equals(engine)).findFirst()
+        return ALL.stream().filter(v -> v.engine.key().equals(engine.key())).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("nothing drives " + engine));
+    }
+
+    /** The same vehicle, {@code fitted} with another engine: the same one charged otherwise, say. */
+    public Vehicle with(final Engine fitted) {
+        return new Vehicle(name, fitted, mass, torque, gears, last, wheel, drag, grip, shift, cvt, lowest, highest);
     }
 
     @Override

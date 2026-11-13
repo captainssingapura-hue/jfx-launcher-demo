@@ -341,18 +341,26 @@ the revs while the pipes' ring stays where it is, and it sounds like the same en
 harder. On top come the intake, roaring with the throttle open; a harsher, louder note when it
 is worked hard; and pops and crackle off the throttle at speed.
 
-- Pick an engine (`Engine`). For cars: an inline four; a turbocharged inline five, its odd
-  number of cylinders (every 144°) giving it a warble, its turbo spooling up late and under
-  load, whistling higher as it spins, and its blow-off valve hissing whenever the throttle snaps
-  shut on boost, lifting off or changing gear (`Turbo`, heard by `TurboVoice`); a V6; a
-  cross-plane V8 with its lopsided burble; or a flat-plane V8 that screams. For scooters and
-  motorcycles: a 50 cc
-  two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
+- Pick an engine (`Engine`). For cars: an inline four; an inline five, its odd number of
+  cylinders (every 144°) giving it a warble; a V6; a cross-plane V8 with its lopsided burble;
+  or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
   four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
   a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
   then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
   twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
   red line, how briskly it revs, its pipes), so another engine is another set of figures.
+- Charge a car's engine, or not (`Charger`): any of the five may be turbocharged or
+  supercharged, by the Induction choice.
+  - A turbocharger (`Turbo`, heard by `TurboVoice`) is spun by the exhaust, so its boost comes
+    late, after a lag, and only under load; it whistles higher as it spins up, softens the
+    exhaust, and its blow-off valve hisses whenever the throttle snaps shut on boost, lifting
+    off or changing gear.
+  - A supercharger (`Supercharger`, heard by `SuperchargerVoice`) is driven off the crank, so
+    its boost comes at once, some even low down; it whines at a note geared to the revs, and
+    off the throttle lets the boost go without a hiss.
+
+  Either way the readout shows the boost, and driven, the engine pulls harder the more there
+  is. The rally coupe's five comes turbocharged.
 - Rev it free: hold Space (or W) for full throttle, or set the throttle by its slider. It revs
   up as briskly as that engine does, falls back to its idle, and held flat out it bounces off
   the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
@@ -369,8 +377,10 @@ is worked hard; and pops and crackle off the throttle at speed.
 - Watch the tachometer, the sound as it is made, and its frequencies: the firing note marked
   in orange, moving with the revs, and the pipes' notes in blue, staying put.
 
-It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5_TURBO`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
-`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with. The game's engines are not yet made this way.
+It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
+`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
+`-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's engines are not yet
+made this way.
 
 ## Unattended runs
 

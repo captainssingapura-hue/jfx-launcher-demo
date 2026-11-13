@@ -35,11 +35,11 @@ import java.util.Map;
  * @param pulse    how long each cylinder's pulse of exhaust is, in milliseconds, at most
  * @param rasp     how much rough air comes with each pulse, against its knock
  * @param intake   the note the intake roars about, in Hz, at full throttle
- * @param turbo    its turbocharger; null, none
+ * @param charger  what blows its intake full of air ({@link Turbo}, {@link Supercharger}); null, nothing
  */
 public record Engine(String key, String name, String about, int strokes, double[] firing, int[] bank, double far,
                      double idle, double redline, double climb, double fall, double[] pipes, double ring, double pulse,
-                     double rasp, double intake, Turbo turbo) {
+                     double rasp, double intake, Charger charger) {
 
     public Engine {
         if (strokes != 2 && strokes != 4) {
@@ -64,7 +64,7 @@ public record Engine(String key, String name, String about, int strokes, double[
         pipes = pipes.clone();
     }
 
-    /** One with no turbocharger. */
+    /** One breathing on its own, nothing blowing its intake. */
     public Engine(final String key, final String name, final String about, final int strokes, final double[] firing,
                   final int[] bank, final double far, final double idle, final double redline, final double climb,
                   final double fall, final double[] pipes, final double ring, final double pulse, final double rasp,
@@ -111,16 +111,14 @@ public record Engine(String key, String name, String about, int strokes, double[
             1000, 8500, 12000, 6500, new double[] {140, 380, 1000}, 4, 3.0, 1.5, 560);
 
     /**
-     * A turbocharged inline five, as the rally cars of the eighties had: one cylinder every 144
-     * degrees, an odd number of them through one pipe, so its note warbles, half a four's and
-     * half a six's. And its turbo: late to spool, whistling as it comes on, hissing off the
-     * throttle.
+     * An inline five, as the rally cars of the eighties had, turbocharged: one cylinder every 144
+     * degrees, an odd number of them through one pipe, so its note warbles, between a four's and
+     * a six's.
      */
-    public static final Engine I5_TURBO = new Engine("I5_TURBO", "Inline five, turbo",
-            "Every 144° through one pipe: the five's warble; and a turbo, whistling on boost, hissing off it.", 4,
+    public static final Engine I5 = new Engine("I5", "Inline five",
+            "Every 144° through one pipe: an odd number of cylinders, and the five's warble.", 4,
             new double[] {0, 144, 288, 432, 576}, new int[] {0, 0, 0, 0, 0}, 1,
-            850, 7000, 8000, 5000, new double[] {125, 340, 950}, 3.5, 3.4, 1.5, 480,
-            new Turbo(0.9, 0.22, 5200, 1, 0.35, 0.8));
+            850, 7000, 8000, 5000, new double[] {125, 340, 950}, 3.5, 3.4, 1.5, 480);
 
     // ---- scooters and motorcycles
 
@@ -178,8 +176,11 @@ public record Engine(String key, String name, String about, int strokes, double[
             new double[] {0, 360}, new int[] {0, 1}, 0.95,
             1000, 7500, 8500, 5200, new double[] {120, 330, 900}, 3.5, 4.5, 1.3, 420);
 
+    /** The cars' engines: any of them may be turbocharged or supercharged ({@link #with}). */
+    public static final List<Engine> CARS = List.of(I4, I5, V6, V8, FLAT_V8);
+
     /** All of them, as the bench offers them: the cars', then the scooters' and the motorcycles'. */
-    public static final List<Engine> ALL = List.of(I4, I5_TURBO, V6, V8, FLAT_V8,
+    public static final List<Engine> ALL = List.of(I4, I5, V6, V8, FLAT_V8,
             SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN);
 
     private static final Map<String, Engine> KEYS = new LinkedHashMap<>();
@@ -195,9 +196,25 @@ public record Engine(String key, String name, String about, int strokes, double[
         return key == null ? otherwise : KEYS.getOrDefault(key.toUpperCase(Locale.ROOT), otherwise);
     }
 
-    /** Whether it has a turbocharger. */
+    /** Whether anything blows its intake full of air. */
+    public boolean charged() {
+        return charger != null;
+    }
+
+    /** Whether that is a turbocharger. */
     public boolean turbocharged() {
-        return turbo != null;
+        return charger instanceof Turbo;
+    }
+
+    /** Whether it is a car's, which may be charged. */
+    public boolean car() {
+        return CARS.stream().anyMatch(e -> e.key.equals(key));
+    }
+
+    /** The same engine, with {@code fitted} blowing its intake; null, nothing. */
+    public Engine with(final Charger fitted) {
+        return new Engine(key, name, about, strokes, firing, bank, far, idle, redline, climb, fall, pipes, ring, pulse,
+                rasp, intake, fitted);
     }
 
     public int cylinders() {
@@ -235,7 +252,7 @@ public record Engine(String key, String name, String about, int strokes, double[
                 && Arrays.equals(firing, e.firing) && Arrays.equals(bank, e.bank) && Arrays.equals(pipes, e.pipes)
                 && far == e.far && idle == e.idle && redline == e.redline && climb == e.climb && fall == e.fall
                 && ring == e.ring && pulse == e.pulse && rasp == e.rasp && intake == e.intake
-                && java.util.Objects.equals(turbo, e.turbo);
+                && java.util.Objects.equals(charger, e.charger);
     }
 
     @Override
@@ -245,6 +262,6 @@ public record Engine(String key, String name, String about, int strokes, double[
 
     @Override
     public String toString() {
-        return name;
+        return charger == null ? name : name + ", " + charger.kind();
     }
 }

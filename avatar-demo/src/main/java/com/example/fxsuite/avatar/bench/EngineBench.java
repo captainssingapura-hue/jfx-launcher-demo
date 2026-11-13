@@ -1,9 +1,12 @@
 package com.example.fxsuite.avatar.bench;
 
 import com.example.fxsuite.avatar.Dashboard;
+import com.example.fxsuite.avatar.sound.Charger;
 import com.example.fxsuite.avatar.sound.Driving;
 import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.sound.Revs;
+import com.example.fxsuite.avatar.sound.Supercharger;
+import com.example.fxsuite.avatar.sound.Turbo;
 import com.example.fxsuite.avatar.sound.Vehicle;
 
 import javafx.animation.AnimationTimer;
@@ -58,7 +61,8 @@ import java.util.Locale;
  *
  * <p>{@code -Dengine.pick=V8} (or another engine's {@link Engine#key}: {@code THUMPER}, {@code V_TWIN}, ...) picks the engine to
  * start with; {@code -Dengine.rpm=3000} holds it there; {@code -Dengine.throttle} sets the
- * throttle; {@code -Dengine.drive=true} drives instead; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms
+ * throttle; {@code -Dengine.charger=turbo} (or {@code super}, {@code none}) charges a car's engine so;
+ * {@code -Dengine.drive=true} drives instead; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms
  * and exits, playing nothing.
  */
 public final class EngineBench extends Application {
@@ -75,6 +79,8 @@ public final class EngineBench extends Application {
     private static final double HIGH = 8000;
 
     private EngineOut out;
+    /** The engine picked, as it comes, uncharged; and as it is, charged as chosen. */
+    private Engine base = Engine.V8;
     private Engine engine = Engine.V8;
     private Revs revs = Revs.idling(engine);
     private boolean held;
@@ -84,6 +90,12 @@ public final class EngineBench extends Application {
     private Driving driving = Driving.stopped(vehicle);
 
     private final ComboBox<Engine> engines = new ComboBox<>();
+    /** What blows the intake, for a car's engine: nothing, a turbocharger or a supercharger. */
+    private static final String NONE = "Breathing on its own";
+    private static final String TURBO = "Turbocharged";
+    private static final String SUPER = "Supercharged";
+    private final ComboBox<String> induction = new ComboBox<>();
+    private boolean choosing;
     private final Label about = new Label();
     private final Label facts = new Label();
     private final RadioButton free = new RadioButton("Rev free (hold Space or W for full throttle)");
@@ -112,6 +124,12 @@ public final class EngineBench extends Application {
         engines.getItems().setAll(Engine.ALL);
         engines.setValue(engine);
         engines.setOnAction(e -> pick(engines.getValue()));
+        induction.getItems().setAll(NONE, TURBO, SUPER);
+        induction.valueProperty().addListener((o, was, now) -> {
+            if (!choosing && now != null) {
+                fit(charger(now));
+            }
+        });
         about.setWrapText(true);
         facts.setWrapText(true);
         final ToggleGroup mode = new ToggleGroup();
@@ -147,7 +165,7 @@ public final class EngineBench extends Application {
         throttle.setValue(Double.parseDouble(System.getProperty("engine.throttle", "0")));
 
         final VBox controls = new VBox(10,
-                heading("Engine"), engines, about, facts,
+                heading("Engine"), engines, row("Induction", induction), about, facts,
                 heading("Running"), free, hold, drive, auto, ride,
                 row("Throttle", throttle), row("Load", load), row("Revs", rpm), row("Volume", volume),
                 readout, status);
@@ -190,6 +208,10 @@ public final class EngineBench extends Application {
             e.consume();
         });
         pick(engine);
+        final String charging = System.getProperty("engine.charger");
+        if (charging != null && !induction.isDisabled()) {
+            induction.setValue(charging.startsWith("s") ? SUPER : charging.startsWith("t") ? TURBO : NONE);
+        }
 
         new AnimationTimer() {
             private long last = -1;
@@ -209,25 +231,38 @@ public final class EngineBench extends Application {
         SoundBench.snapshotIfAsked(scene);
     }
 
+    /** The engine picked, charged as its vehicle comes, if a car's; the choice of charger, for a car's only. */
     private void pick(final Engine picked) {
-        engine = picked;
-        revs = Revs.idling(picked);
-        vehicle = Vehicle.of(picked);
+        base = picked;
+        final Charger fitted = Vehicle.of(picked).engine().charger();
+        induction.setDisable(!picked.car());
+        choosing = true;
+        induction.setValue(fitted instanceof Turbo ? TURBO : fitted instanceof Supercharger ? SUPER : NONE);
+        choosing = false;
+        fit(fitted);
+        revs = Revs.idling(engine);
         driving = Driving.stopped(vehicle);
+    }
+
+    /** The engine picked, charged by {@code fitted} (or nothing), in its vehicle: as it was going, if it was. */
+    private void fit(final Charger fitted) {
+        final Engine picked = base.with(fitted);
+        engine = picked;
+        vehicle = Vehicle.of(picked).with(picked);
         ride.setText(vehicle.cvt() > 0
                 ? String.format(Locale.ROOT, "Drives a %s: %.0f kg, %.0f N·m, a CVT holding %.0f rpm flat out",
                         vehicle.name().toLowerCase(Locale.ROOT), vehicle.mass(), vehicle.torque(), vehicle.cvt())
                 : String.format(Locale.ROOT, "Drives a %s: %.0f kg, %.0f N·m, %d gears, %.2f s a change",
                         vehicle.name().toLowerCase(Locale.ROOT), vehicle.mass(), vehicle.torque(), vehicle.count(), vehicle.shift()));
         out.engine(picked);
-        about.setText(picked.about());
+        about.setText(picked.about() + (picked.charged() ? " " + charged(picked.charger()) : ""));
         final double[] pipes = picked.pipes();
         final StringBuilder notes = new StringBuilder();
         for (final double p : pipes) {
             notes.append(notes.isEmpty() ? "" : ", ").append(Math.round(p));
         }
         facts.setText(String.format(Locale.ROOT, "%d cylinders%s · idle %.0f · red line %.0f rpm · pipes ring at %s Hz",
-                picked.cylinders(), picked.turbocharged() ? ", turbocharged" : "", picked.idle(), picked.redline(), notes));
+                picked.cylinders(), picked.charged() ? ", " + picked.charger().kind() : "", picked.idle(), picked.redline(), notes));
         rpm.setMin(picked.idle());
         rpm.setMax(picked.redline());
     }
@@ -273,9 +308,21 @@ public final class EngineBench extends Application {
         drawSpectrum(turning);
     }
 
-    /** The boost, for the readout, if the engine has a turbocharger. */
+    /** What blows the intake, as chosen. */
+    private static Charger charger(final String chosen) {
+        return TURBO.equals(chosen) ? Turbo.STANDARD : SUPER.equals(chosen) ? Supercharger.STANDARD : null;
+    }
+
+    /** A line on how {@code charger} sounds. */
+    private static String charged(final Charger charger) {
+        return charger instanceof Turbo
+                ? "Turbocharged: boost late and under load, a whistle rising as it spins, a hiss lifting off on boost."
+                : "Supercharged: boost at once, and a whine geared to the revs; off the throttle, no hiss.";
+    }
+
+    /** The boost, for the readout, if anything blows the engine's intake. */
     private String boosting() {
-        return engine.turbocharged() ? String.format(Locale.ROOT, "%n boost %3.0f%%", out.boost() * 100) : "";
+        return engine.charged() ? String.format(Locale.ROOT, "%n boost %3.0f%%", out.boost() * 100) : "";
     }
 
     private void drawWave() {
@@ -418,10 +465,10 @@ public final class EngineBench extends Application {
         return slider;
     }
 
-    private static HBox row(final String name, final Slider slider) {
+    private static HBox row(final String name, final javafx.scene.Node control) {
         final Label label = new Label(name);
         label.setMinWidth(70);
-        final HBox row = new HBox(8, label, slider);
+        final HBox row = new HBox(8, label, control);
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }

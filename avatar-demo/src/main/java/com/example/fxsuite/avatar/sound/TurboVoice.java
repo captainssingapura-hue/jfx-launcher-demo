@@ -7,7 +7,7 @@ package com.example.fxsuite.avatar.sound;
  * (lifting off, or changing gear), the blow-off valve lets the boost go with a hiss, and it
  * spins down.
  */
-final class TurboVoice {
+final class TurboVoice implements ChargerVoice {
 
     private static final int RATE = Clip.RATE;
     /** The throttle shut past this, on at least this much boost, the valve blows. */
@@ -33,22 +33,23 @@ final class TurboVoice {
     private double was;
     private long dumps;
 
-    TurboVoice(final Engine engine) {
+    TurboVoice(final Engine engine, final Turbo turbo) {
         this.engine = engine;
-        turbo = engine.turbo();
+        this.turbo = turbo;
     }
 
-    double boost() {
+    @Override
+    public double boost() {
         return boost;
     }
 
-    /** How many times the blow-off valve has blown. */
-    long dumps() {
+    @Override
+    public long dumps() {
         return dumps;
     }
 
-    /** Its next sample, the engine turning at {@code rpm}, the throttle at {@code throttle}, working {@code load}. */
-    double next(final double rpm, final double throttle, final double load, final Dsp.Noise noise) {
+    @Override
+    public double next(final double rpm, final double throttle, final double load, final Dsp.Noise noise) {
         boost = turbo.spool(engine, boost, rpm, throttle, load, 1.0 / RATE);
         // the throttle snapped shut on boost: the valve lets it go
         if (throttle < SHUT && was >= SHUT && boost > BLOWS) {

@@ -19,8 +19,8 @@ package com.example.fxsuite.avatar.sound;
  *   <li><b>A CVT</b>, a scooter's, has no gears: it holds the engine at the revs the throttle
  *       asks for ({@link Vehicle#cvt} flat out) while the speed builds, until it runs out of
  *       ratio and the revs rise with the speed. Below its revs, its clutch lets go.</li>
- *   <li>A turbocharged engine pulls harder the more boost it makes, and it makes it late: there
- *       is a lag before it comes on.</li>
+ *   <li>A charged engine pulls harder the more boost it makes: a turbocharger's late, after a
+ *       lag; a supercharger's at once.</li>
  *   <li>At the red line the limiter cuts the fuel, in gear as out of it.</li>
  * </ul>
  *
@@ -33,7 +33,7 @@ package com.example.fxsuite.avatar.sound;
  * @param firing   the throttle the cylinders get, for its sound: none while changing or cut
  * @param load     how hard the engine works, for its sound: 0 free, 1 pulling flat out
  * @param clutch   what the clutch is doing
- * @param boost    how much boost its turbocharger makes, 0 to 1; none without one ({@link Turbo#spool})
+ * @param boost    how much boost its charger makes, 0 to 1; none without one ({@link Charger#spool})
  */
 public record Driving(double speed, int gear, double rpm, double shifting, int next, double cut, double firing,
                       double load, Clutch clutch, double boost) {
@@ -64,6 +64,10 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
     private static final double ENGINE_BRAKE = 0.12;
     /** Pulling away flat out, the engine revs this far up its range on the slipping clutch. */
     private static final double LAUNCH = 0.3;
+    /** The clutch bites, its slipping done, once the engine is within this of the wheels in gear. */
+    private static final double CATCH = 60;
+    /** And it is brought down to them this fast, in turns a minute each second. */
+    private static final double BITE = 6000;
     /** Left to itself, it changes up this near the red line, and down this far up the range. */
     private static final double UP = 0.94;
     private static final double DOWN = 0.2;
@@ -152,17 +156,23 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
             } else {
                 coupled = spin * vehicle.ratio(now);
             }
-            if (coupled >= engage && (clutch == Clutch.IN || coupled >= rpm)) {
+            if (coupled >= engage && (clutch == Clutch.IN || coupled >= rpm - CATCH)) {
                 state = Clutch.IN;
                 turning = coupled;
                 ratio = spin > 0 ? coupled / spin : 0;
             } else if (open > 0.02) {
-                // pulling away: the engine up to its launch, pulling through the slipping clutch
+                // pulling away, the engine up to its launch, pulling through the slipping clutch (a CVT's
+                // held there); or, a new gear taken while moving, the engine brought to the wheels as it bites
                 state = Clutch.SLIPPING;
                 final double launch = vehicle.cvt() > 0
                         ? engine.idle() + (vehicle.cvt() - engine.idle()) * open
                         : engine.idle() + LAUNCH * open * (engine.redline() - engine.idle());
-                turning = rpm + (launch - rpm) * Math.min(1, 6 * seconds);
+                if (vehicle.cvt() <= 0 && coupled >= engage) {
+                    // brought down to the wheels, steadily, so it catches them as they gather speed
+                    turning = Math.max(coupled, rpm - BITE * seconds);
+                } else {
+                    turning = rpm + (launch - rpm) * Math.min(1, 6 * seconds);
+                }
                 ratio = vehicle.cvt() > 0 ? vehicle.lowest() : vehicle.ratio(now);
             } else {
                 state = Clutch.OUT;
@@ -175,7 +185,7 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
                 }
                 final double fuel = cutting > 0 ? 0 : open;
                 fired = fuel;
-                final double boosting = engine.turbocharged() ? engine.turbo().pull(boost) : 1;
+                final double boosting = engine.charged() ? engine.charger().pull(boost) : 1;
                 final double torque = fuel > 0 ? vehicle.torqueAt(turning) * fuel * boosting
                         : -ENGINE_BRAKE * vehicle.torque() * (0.3 + 0.7 * turning / engine.redline());
                 pull = (state == Clutch.SLIPPING ? Math.max(0, torque) : torque) * ratio * EFFICIENCY / vehicle.wheel();
@@ -192,9 +202,9 @@ public record Driving(double speed, int gear, double rpm, double shifting, int n
         if (state == Clutch.IN && vehicle.cvt() <= 0) {
             turning = moving / vehicle.wheel() * 60 / (2 * Math.PI) * vehicle.ratio(now);
         }
-        // the turbocharger spooling up, or down, with what the engine does
-        final double boosted = engine.turbocharged()
-                ? engine.turbo().spool(engine, boost, turning, fired, working, seconds) : 0;
+        // a turbocharger spooling up, or down, with what the engine does; a supercharger with it at once
+        final double boosted = engine.charged()
+                ? engine.charger().spool(engine, boost, turning, fired, working, seconds) : 0;
         return new Driving(moving, now, turning, changing, into, cutting, fired, working, state, boosted);
     }
 

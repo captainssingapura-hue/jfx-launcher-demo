@@ -16,7 +16,10 @@ package com.example.fxsuite.avatar.sound;
  * @param muffle  how much it softens the exhaust's ring, 0 not at all to 1 entirely
  * @param gain    how much more it pulls on full boost than off it: 0.8 nearly twice
  */
-public record Turbo(double lag, double from, double whistle, double dump, double muffle, double gain) {
+public record Turbo(double lag, double from, double whistle, double dump, double muffle, double gain) implements Charger {
+
+    /** A turbocharger, as any of the cars' engines may be given. */
+    public static final Turbo STANDARD = new Turbo(0.9, 0.22, 5200, 1, 0.35, 0.8);
 
     /** From where it starts to make boost, it makes it all this share of the red line further up. */
     private static final double BAND = 0.35;
@@ -27,6 +30,7 @@ public record Turbo(double lag, double from, double whistle, double dump, double
      * Its boost {@code seconds} on from {@code boost}, the engine turning at {@code rpm} with the
      * throttle open {@code throttle} and working {@code load}: revving free, it makes little.
      */
+    @Override
     public double spool(final Engine engine, final double boost, final double rpm, final double throttle,
                         final double load, final double seconds) {
         final double revs = Math.clamp((rpm / engine.redline() - from) / BAND, 0, 1);
@@ -35,8 +39,18 @@ public record Turbo(double lag, double from, double whistle, double dump, double
         return boost + (target - boost) * (1 - Math.exp(-seconds / time));
     }
 
-    /** How much more it pulls with {@code boost}, against none: 1 off boost. */
+    @Override
     public double pull(final double boost) {
         return 1 + gain * boost;
+    }
+
+    @Override
+    public String kind() {
+        return "turbo";
+    }
+
+    @Override
+    public ChargerVoice voice(final Engine engine) {
+        return new TurboVoice(engine, this);
     }
 }

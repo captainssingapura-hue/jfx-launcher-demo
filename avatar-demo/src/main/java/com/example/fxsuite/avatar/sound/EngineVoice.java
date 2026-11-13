@@ -15,7 +15,8 @@ package com.example.fxsuite.avatar.sound;
  *   <li><b>The intake roars</b> with the throttle open, more so the faster it turns.</li>
  *   <li><b>Worked hard</b> (throttle and load), it is driven into a soft clip: louder and harsher.</li>
  *   <li><b>A turbocharger</b>, if it has one ({@link TurboVoice}), softens the pipes' ring, and
- *       whistles and rushes as it spools up; snapping the throttle shut on boost, it hisses.</li>
+ *       whistles and rushes as it spools up; snapping the throttle shut on boost, it hisses. <b>A
+ *       supercharger</b> ({@link SuperchargerVoice}) whines with the revs.</li>
  *   <li><b>Off the throttle</b> at speed, the cylinders fire weakly or not at all, and now and
  *       then one bangs in the pipe: the overrun pops and crackle.</li>
  * </ul>
@@ -52,9 +53,9 @@ public final class EngineVoice {
     private final Dsp.Filter intake;
     private final Dsp.Filter crackle;
     private final double ringGain;
-    /** Its turbocharger, heard; null, none. */
-    private final TurboVoice turbo;
-    /** How much of the exhaust's ring gets past the turbine, above its first note. */
+    /** What blows its intake, heard; null, nothing. */
+    private final ChargerVoice charger;
+    /** How much of the exhaust's ring gets past a turbine, if one is in the way, above its first note. */
     private final double past;
 
     private double rpm;
@@ -101,8 +102,8 @@ public final class EngineVoice {
         intake = new Dsp.Filter(engine.intake(), 1.4);
         crackle = new Dsp.Filter(2600, 1.2);
         ringGain = 1 / engine.ring();
-        turbo = engine.turbocharged() ? new TurboVoice(engine) : null;
-        past = engine.turbocharged() ? 1 - engine.turbo().muffle() : 1;
+        charger = engine.charged() ? engine.charger().voice(engine) : null;
+        past = engine.charged() ? 1 - engine.charger().muffle() : 1;
     }
 
     public Engine engine() {
@@ -133,14 +134,14 @@ public final class EngineVoice {
         return pops;
     }
 
-    /** How much boost its turbocharger makes, 0 to 1; none without one. */
+    /** How much boost its turbocharger or supercharger makes, 0 to 1; none without one. */
     public double boost() {
-        return turbo == null ? 0 : turbo.boost();
+        return charger == null ? 0 : charger.boost();
     }
 
-    /** How many times its blow-off valve has blown. */
+    /** How many times its turbocharger's blow-off valve has blown. */
     public long dumps() {
-        return turbo == null ? 0 : turbo.dumps();
+        return charger == null ? 0 : charger.dumps();
     }
 
     /** The next {@code count} samples of its sound, into {@code out} from {@code from}. */
@@ -186,9 +187,9 @@ public final class EngineVoice {
             // worked hard, driven into a soft clip: louder, and harsher with it
             final double drive = 1 + 3 * throttle * load;
             sound = Math.tanh(drive * sound) / Math.sqrt(drive);
-            // the turbocharger, whistling and rushing over it all, and hissing as it blows off
-            if (turbo != null) {
-                sound += turbo.next(rpm, throttle, load, noise);
+            // a turbocharger whistling, rushing and hissing as it blows off; or a supercharger whining
+            if (charger != null) {
+                sound += charger.next(rpm, throttle, load, noise);
             }
             // no creeping off centre
             dc += (sound - dc) * dcFollow;
