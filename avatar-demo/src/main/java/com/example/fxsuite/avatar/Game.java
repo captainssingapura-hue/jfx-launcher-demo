@@ -147,6 +147,22 @@ public final class Game {
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
     private final Label status = new Label();
+    /** The keys, for whatever the avatar is doing: on foot, or at the controls of each kind of vehicle. */
+    private final Label help = new Label();
+    private static final String VIEW_KEYS = "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
+            + "M mute · P sound profile · Tab or right click: the demos";
+    private static final String ON_FOOT_HELP = "Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
+            + "Space jump or climb · Ctrl descend\n"
+            + "J jet-pack on or off · F fly or land (with the jet-pack) · " + VIEW_KEYS + "\n"
+            + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
+            + "T fly a platform (at its console) or board an airship (under its hatch)";
+    private static final String PLATFORM_HELP = "The platform: W/S ahead and back · A/D sideways · mouse turns · "
+            + "Space climb · Ctrl descend · Shift carefully · F engine on or off · T let go\n"
+            + "1 twin rifles · 2 glaive · 3 Gatling gun · click to fire or swing\n" + VIEW_KEYS;
+    private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · mouse turns (slowly) · "
+            + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
+            + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
+            + VIEW_KEYS;
     /** How the frames are going, a second at a time: green when smooth, amber when not. */
     private final Label frames = new Label();
     private final FrameTimes frameTimes = new FrameTimes();
@@ -250,13 +266,7 @@ public final class Game {
         });
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
-        final Label help = new Label("Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
-                + "Space jump or climb · Ctrl descend\n"
-                + "J jet-pack on or off · F fly or land (with the jet-pack) · "
-                + "Q/E look round · C camera behind · scroll to zoom · Esc frees the mouse · "
-                + "M mute · P sound profile\n"
-                + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
-                + "T fly a platform (at its console) or board an airship (under its hatch) · Tab or right click: the demos");
+        help.setText(ON_FOOT_HELP);
         help.setStyle("-fx-text-fill: #e6eaee; -fx-font-size: 12px;");
         frames.setStyle(FRAMES_STYLE + "#b9f6ca;");
         frames.setText("measuring frames…");
@@ -525,9 +535,21 @@ public final class Game {
     }
 
     /** The vehicle being flown, in a few words: which it is, and how much of it is left. */
-    private String vehicle(final Lift lift) {
-        return String.format(" · %s the %s, %.0f%% left", lift.craft().closed() ? "aboard" : lift.engine() ? "flying" : "at",
-                lift.craft().closed() ? "airship" : "platform", 100 * damage.left(lift.piece()));
+    private String vehicleStatus(final Play here, final Lift lift) {
+        final double left = 100 * damage.left(lift.piece());
+        if (lift.craft().closed()) {
+            final int full = lift.craft().bombs();
+            final String bay = lift.moored()
+                    ? String.format("bombs %d/%d, %s", lift.bombs(), full, lift.bombs() < full ? "loading" : "loaded")
+                    : lift.bombs() == 0 ? String.format("bombs 0/%d: moor to load more", full)
+                    : String.format("bombs %d/%d", lift.bombs(), full);
+            return String.format("Aboard the airship · %.1f m/s · %.1f m up%s · hull %.0f%% · %s", lift.speed() / 100,
+                    lift.place().height() / 100, lift.moored() ? ", moored" : "", left, bay);
+        }
+        return lift.engine()
+                ? String.format("Flying the platform · %.1f m/s · %.1f m up · %.0f%% left", lift.speed() / 100,
+                lift.place().height() / 100, left)
+                : String.format("At the platform, engine off, %s · %.0f%% left", docked(here, lift), left);
     }
 
     /** What platform {@code lift}, its engine cut, rests on, in a word or two; or that it is still coming down. */
@@ -561,12 +583,16 @@ public final class Game {
         final String sound = hearing.output() == Speakers.Kind.SILENT ? "no sound"
                 : hearing.muted() ? "sound muted" : hearing.profile().title() + " sounds";
         final String weapon = avatar.holding() == Weapon.NONE ? "" : " · " + avatar.holding().title();
+        // an airship to be flown is a vehicle, not a target: its own state is shown at its controls
+        final List<Lift> ships = lifts.stream().filter(l -> damage.piece(l.piece()).kind() == Course.Kind.AIRSHIP)
+                .toList();
         final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE)
-                + damage.count(Course.Kind.AIRSHIP);
+                + damage.count(Course.Kind.AIRSHIP) - ships.size();
         final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE)
-                + damage.broken(Course.Kind.AIRSHIP);
+                + damage.broken(Course.Kind.AIRSHIP) - (int) ships.stream().filter(l -> damage.broken(l.piece())).count();
         final int crates = damage.broken(Course.Kind.CRATE);
-        final String score = String.format(" · targets down %d of %d%s", down, targets,
+        final String score = (targets == 0 ? "" : String.format(" · targets down %d of %d", down, targets))
+                + String.format("%s",
                 crates == 0 ? "" : crates == 1 ? " · 1 crate broken" : " · " + crates + " crates broken")
                 + (damage.broken(Course.Kind.FRUIT) == 0 ? ""
                         : String.format(" · fruit smashed %d of %d", damage.broken(Course.Kind.FRUIT),
@@ -578,27 +604,23 @@ public final class Game {
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts, people, props);
-        final String controls = here.atControls().map(lift -> vehicle(lift) + (lift.craft().closed()
-                ? String.format(", %.1f m up: W/S ahead and back, the mouse turns, Space up, Ctrl down, T to step out",
-                        lift.place().height() / 100)
-                : lift.engine()
-                ? String.format(", %.1f m up: W/S/A/D and the mouse steer, Space up, Ctrl down, F engine off,"
-                        + " T to let go", lift.place().height() / 100)
-                : String.format(", engine off, %s: F to start it, T to let go", docked(here, lift))))
-                .orElse(here.withinReach().map(lift -> lift.craft().closed()
-                        ? " · T: board the airship" : " · T: take the controls").orElse(""));
+        final String reach = here.withinReach().map(lift -> lift.craft().closed()
+                ? " · T: board the airship" : " · T: take the controls").orElse("");
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
-        // aboard a closed vehicle, the avatar is out of sight: what there is to say is the vehicle's
-        final String text = here.aboard().map(ship -> String.format("Aboard the airship · %.1f m/s · %.1f m up"
-                        + " · %.0f%% of it left: W/S ahead and back, the mouse turns, Space up, Ctrl down, T to step out"
-                        + "%s · %s%s%s", ship.speed() / 100, ship.place().height() / 100, 100 * damage.left(ship.piece()),
-                        score, sound, run, free))
+        // at a vehicle's controls, what there is to say is the vehicle's, and its keys are the help
+        final Optional<Lift> flown = here.atControls();
+        final String text = flown.map(lift -> vehicleStatus(here, lift) + (lift.craft().closed() ? "" : weapon)
+                        + score + " · " + sound + run + free)
                 .orElse(String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                         body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
-                        weapon, controls, score, sound, run, free));
+                        weapon, reach, score, sound, run, free));
         if (!text.equals(shown)) {
             shown = text;
             status.setText(text);
+        }
+        final String keys = flown.map(lift -> lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
+        if (!keys.equals(help.getText())) {
+            help.setText(keys);
         }
     }
 

@@ -22,6 +22,7 @@ class VehicleTest {
     private static final Controls ENGINE = Controls.doing(Action.FLY);
     private static final Controls UP = new Controls(0, 0, 0, 1, true, false, 0);
     private static final Controls AHEAD = new Controls(1, 0, 0, 0, true, false, 0);
+    private static final Controls DROP = new Controls(0, 0, 0, 0, true, true, 0);
 
     private static Play run(Play play, final Controls controls, final double seconds, final List<Event> events) {
         for (long step = Math.round(seconds / Clock.STEP); step > 0; step--) {
@@ -134,6 +135,102 @@ class VehicleTest {
         assertFalse(play.withinReach().isPresent(), "a wreck is not to be flown");
         play = run(play, Controls.NONE, 3, events);
         assertTrue(play.avatar().body().grounded(), "fallen to the ground");
+    }
+
+    @Test
+    void aloftTheTriggerDropsItsBombsOneARackApartUntilTheBayIsEmpty() {
+        final List<Event> events = new ArrayList<>();
+        Play play = once(underTheHatch(), TAKE, events);
+        assertEquals(Course.SHIP.bombs(), play.lifts().getFirst().bombs(), "a full bay");
+        assertTrue(play.lifts().getFirst().moored());
+        // moored, the bay is shut
+        events.clear();
+        play = run(play, DROP, 1, events);
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Dropped), "nothing dropped at the moorings");
+        play = run(play, UP, 3, events);
+        assertFalse(play.lifts().getFirst().moored());
+        events.clear();
+        play = run(play, DROP, 2, events);
+        final int piece = play.lifts().getFirst().piece();
+        final long dropped = events.stream().filter(e -> e instanceof Event.Dropped d && d.from() == piece).count();
+        assertEquals(Math.ceil(2 / Lift.RACK), dropped, 1, "one a rack apart");
+        assertEquals(Course.SHIP.bombs() - dropped, play.lifts().getFirst().bombs());
+        assertFalse(play.sky().bombs().isEmpty(), "falling");
+        final double height = play.lifts().getFirst().place().height();
+        assertTrue(play.sky().bombs().stream().allMatch(b -> b.at().y() > -height),
+                "from under it");
+        // they go off on the ground below
+        events.clear();
+        play = run(play, Controls.NONE, 3, events);
+        assertTrue(events.stream().anyMatch(e -> e instanceof Event.Exploded));
+        play = run(play, DROP, 10, events);
+        assertEquals(0, play.lifts().getFirst().bombs(), "the bay emptied");
+        events.clear();
+        play = run(play, DROP, 1, events);
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Dropped), "and none left to drop");
+    }
+
+    @Test
+    void mooredAgainItLoadsItsBayBackABombEachReload() {
+        final List<Event> events = new ArrayList<>();
+        Play play = once(underTheHatch(), TAKE, events);
+        play = run(play, UP, 2, events);
+        play = run(play, DROP, 2, events);
+        final int left = play.lifts().getFirst().bombs();
+        assertTrue(left < Course.SHIP.bombs());
+        final Controls down = new Controls(0, 0, 0, -1, true, false, 0);
+        for (int k = 0; k < 1200 && !play.lifts().getFirst().moored(); k++) {
+            play = once(play, down, events);
+        }
+        assertTrue(play.lifts().getFirst().moored(), "down at its moorings");
+        assertTrue(play.lifts().getFirst().bombs() <= left + 1, "none loaded on the way down");
+        final int moored = play.lifts().getFirst().bombs();
+        play = run(play, Controls.NONE, 2.5, events);
+        assertEquals(moored + 2, play.lifts().getFirst().bombs(), 1, "a bomb back each second");
+        play = run(play, Controls.NONE, Course.SHIP.bombs() * Lift.RELOAD, events);
+        assertEquals(Course.SHIP.bombs(), play.lifts().getFirst().bombs(), "full again, and no more");
+    }
+
+    @Test
+    void itsBombsGoOffOnTheGroundBelowAndSpareItHighUp() {
+        final List<Event> events = new ArrayList<>();
+        Play play = once(underTheHatch(), TAKE, events);
+        play = run(play, UP, 2, events);
+        final Lift ship = play.lifts().getFirst();
+        play = run(play, DROP, 1, events);
+        play = run(play, Controls.NONE, 3, events);
+        assertTrue(events.stream().anyMatch(e -> e instanceof Event.Exploded x && x.on() == Surface.GROUND));
+        assertEquals(1.0, play.damage().left(ship.piece()), 1e-9, "high enough, it takes none of its own blast");
+    }
+
+    @Test
+    void aStickOfBombsOverTheYardBreaksTheCrateUnder() {
+        final Play start = Play.start(Demo.AIRSHIP, false);
+        final int crate = java.util.stream.IntStream.range(0, start.damage().size())
+                .filter(i -> start.damage().piece(i).kind() == Course.Kind.CRATE).findFirst().orElseThrow();
+        final Block box = start.damage().piece(crate).block();
+        // the airship held still over it, ten metres up, the avatar at its controls inside
+        final Lift ship = start.lifts().getFirst();
+        final Lift over = new Lift(ship.piece(), Course.SHIP, new Place(box.x(), box.z(), box.top() + 1000, 0), 0, 0,
+                0, true, true);
+        final Vec3 bay = over.at(Course.SHIP.bay());
+        final Lift centred = new Lift(ship.piece(), Course.SHIP,
+                new Place(2 * box.x() - bay.x(), 2 * box.z() - bay.z(), box.top() + 1000, 0), 0, 0, 0, true, true);
+        Play play = new Play(new Avatar(Body.standing(centred.at(Course.SHIP.cabin()), 0), false), start.damage(),
+                start.sky(), List.of(centred), start.people(), start.props());
+        final List<Event> events = new ArrayList<>();
+        play = run(play, DROP, 3, events);
+        play = run(play, Controls.NONE, 3, events);
+        assertTrue(play.damage().broken(crate), "broken");
+        assertTrue(events.stream().anyMatch(e -> e instanceof Event.Broke b && b.piece() == crate
+                && b.by() == Weapon.BOMB), "by the bombs");
+    }
+
+    @Test
+    void aPlatformHasNoBombBay() {
+        final Lift platform = Play.start(Demo.PLATFORM, false).lifts().getFirst();
+        assertEquals(0, platform.bombs());
+        assertEquals(platform, platform.loaded(1, true));
     }
 
     @Test

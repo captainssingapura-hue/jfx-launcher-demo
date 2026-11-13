@@ -328,6 +328,16 @@ public final class Course {
         default Section cabin() {
             return station();
         }
+
+        /** How many bombs its bay holds: none, unless it has one. */
+        default int bombs() {
+            return 0;
+        }
+
+        /** Where its bombs drop from. */
+        default Section bay() {
+            return station();
+        }
     }
 
     /**
@@ -387,6 +397,18 @@ public final class Course {
         @Override
         public Section cabin() {
             return new Section(0, GONDOLA.along(), GONDOLA.up() - GONDOLA.halfUp() + 1, 0, 0, 0);
+        }
+
+        /** A bay of a dozen bombs, under the gondola. */
+        @Override
+        public int bombs() {
+            return 12;
+        }
+
+        /** Just under the gondola, where the airships going round drop theirs from too. */
+        @Override
+        public Section bay() {
+            return new Section(0, GONDOLA.along(), GONDOLA.up() - GONDOLA.halfUp() - Sky.BELOW, 0, 0, 0);
         }
     }
 
@@ -492,11 +514,20 @@ public final class Course {
 
     /**
      * The airship's demo: open ground, a ring of pillars, gates high up, and an airship moored
-     * ahead of the start, its gondola just off the ground, its nose away: to walk up to and board.
+     * ahead of the start, broadside on, its gondola just over the robot's head: to walk in under and
+     * board. Beyond it, a yard of crates to bomb.
      */
     private void airshipDemo() {
         scenery(13);
         pieces.add(Piece.moving(AIRSHIP, new Place(0, 2500, MOORED, 90), Kind.AIRSHIP, 0, null));
+        final Random random = new Random(17);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                final double size = 150 + random.nextDouble() * 120;
+                pieces.add(new Piece(Block.standing(-800 + column * 800, 3500 + row * 450, size, size,
+                        100 + random.nextDouble() * 200, random.nextDouble() * 90), Kind.CRATE, random.nextInt(3)));
+            }
+        }
     }
 
     /**

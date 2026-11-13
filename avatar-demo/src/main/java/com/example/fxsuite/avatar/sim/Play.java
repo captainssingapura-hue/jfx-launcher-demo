@@ -38,7 +38,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 10;
+    public static final int RULES = 11;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -188,7 +188,23 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // people in it; the bombs fall
         final Avatar.Stepped acted = inside >= 0 ? Avatar.Stepped.still(carried)
                 : carried.step(own, seconds, now, targets(now, going));
-        final Sky.Stepped fell = sky.step(seconds, damage, now);
+        // from inside a vehicle with a bomb bay, the trigger lets its bombs go; moored, it loads them back
+        final List<Lift> loaded = new ArrayList<>(moved);
+        Sky dropping = sky;
+        for (int i = 0; i < loaded.size(); i++) {
+            final Lift lift = loaded.get(i);
+            if (damage.broken(lift.piece())) {
+                continue;
+            }
+            final Lift after = lift.loaded(seconds, i == inside && controls.trigger());
+            if (after.bombs() < lift.bombs()) {
+                final Vec3 at = after.at(after.craft().bay());
+                dropping = dropping.dropped(at, after.velocity(), after.piece());
+                happened.add(new Event.Dropped(at, after.piece()));
+            }
+            loaded.set(i, after);
+        }
+        final Sky.Stepped fell = dropping.step(seconds, damage, now);
         // resolve: the world takes the blows, the avatar's and then the bombs'; and so do the people
         final List<Blow> blows = new ArrayList<>();
         final List<Blow> atPeople = new ArrayList<>();
@@ -208,7 +224,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         happened.addAll(fell.events());
         happened.addAll(taken.events());
         happened.addAll(toPeople);
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), moved, pushed, shoved), happened);
+        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), loaded, pushed, shoved), happened);
     }
 
     /** How everything that moves under its own rules moved on this step: the platforms, and the loose things. */

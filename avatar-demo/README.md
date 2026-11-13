@@ -91,8 +91,13 @@ characters, and a separate sound bench is for working on the sounds.
   under its gondola, take it (T) at the hatch in its floor, and the robot is inside and out of
   sight. W and S fly it ahead and back, the mouse turns it (slowly, as an airship turns),
   Space climbs and Ctrl descends, never below its moorings; it has no sideways and its engines
-  are never cut. T again and the robot drops out of the hatch, from wherever it is. Broken
-  while flown, a vehicle throws out whoever flies it.
+  are never cut. A click drops a bomb from under the gondola, going as the airship goes; held,
+  a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
+  when it is down at its moorings (no bombs are dropped there). Low over its own bombs, it takes
+  their blast too. T again and the robot drops out of the hatch, from wherever it is. Broken
+  while flown, a vehicle throws out whoever flies it. At a vehicle's controls the HUD is the
+  vehicle's: how fast and high it goes, how much of it is left, its engine or its bombs, and
+  its own keys in place of the robot's.
 - **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
   red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
   deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
@@ -140,7 +145,8 @@ java -jar avatar-demo/target/avatar-demo.jar
 
 It opens on a choice of demos: the **playground**, everything at once, or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
-platform**, among a few pillars and gates, and the **airship**, moored by the start (`Demo`).
+platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
+bomb (`Demo`).
 Click one or press its number. In a demo, the button at the top right, or a right click
 anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
 comes back to the choice.
@@ -175,7 +181,7 @@ the window, so clicks stay free for actions.
 | 1 | Draw the twin rifles, or put them away | Draw the twin rifles, or put them away |
 | 2 | Draw the glaive, or put it away | Draw the glaive, or put it away |
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
-| Left click (held) | Fire, or swing | Fire, or swing |
+| Left click (held) | Fire, or swing; aboard an airship, drop a bomb (held, a stick of them) | Fire, or swing |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | Tab | Back to the choice of demos | Back to the choice of demos |
 | Right click | The menu of demos: switch to another, start this one again, or all of them (also the button at the top right) | The same |

@@ -35,7 +35,7 @@ import java.util.List;
  * </ul>
  */
 public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
-                   boolean held, boolean engine) {
+                   boolean held, boolean engine, int bombs, double ready) {
 
     /** How fast a platform flies, at full, across the ground; and climbs. */
     public static final double SPEED = Course.PLATFORM_HANDLING.speed();
@@ -48,6 +48,17 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double REACH = 110;
     /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
+
+    /** Seconds between one bomb and the next, the trigger held. */
+    public static final double RACK = 0.4;
+    /** Seconds to load each bomb back into the bay, moored. */
+    public static final double RELOAD = 1;
+
+    /** Going as given, its bomb bay (if it has one) full. */
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
+                final double climb, final boolean held, final boolean engine) {
+        this(piece, craft, place, ahead, aside, climb, held, engine, craft.bombs(), 0);
+    }
 
     /** A craft, still, its engine running, no one at its controls. */
     public Lift(final int piece, final Course.Craft craft, final Place place) {
@@ -85,24 +96,58 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, running);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
         return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
-                ahead, aside, climb, held, engine);
+                ahead, aside, climb, held, engine, bombs, ready);
     }
 
     /** How fast it is going, all told: across the ground and up or down. */
     public double speed() {
         return Math.sqrt(ahead * ahead + aside * aside + climb * climb);
+    }
+
+    /** How fast it is going, and which way, in the world's terms. */
+    public Vec3 velocity() {
+        return Num.heading(place.yaw()).multiply(ahead).add(Num.right(place.yaw()).multiply(aside)).add(0, -climb, 0);
+    }
+
+    /** Down at its moorings: its engine running, as low as it goes, and still. */
+    public boolean moored() {
+        return engine && place.height() <= craft.handling().low() + 0.5 && speed() < 1;
+    }
+
+    /**
+     * Its bomb bay, {@code seconds} on: one bomb gone if {@code drop} asks for one and there is one
+     * ready ({@link #RACK} after the last), aloft; or, moored, one more loaded back in, a bomb each
+     * {@link #RELOAD}, until it is full. Unchanged if it has no bay.
+     */
+    public Lift loaded(final double seconds, final boolean drop) {
+        if (craft.bombs() == 0) {
+            return this;
+        }
+        final double wait = Math.max(0, ready - seconds);
+        final int now;
+        final double next;
+        if (moored()) {
+            final boolean loads = bombs < craft.bombs() && wait == 0;
+            now = loads ? bombs + 1 : bombs;
+            next = loads ? RELOAD : wait;
+        } else {
+            final boolean drops = drop && bombs > 0 && wait == 0;
+            now = drops ? bombs - 1 : bombs;
+            next = drops ? RACK : wait;
+        }
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next);
     }
 
     /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
@@ -203,9 +248,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         if (height - below() <= under.top()) {
             // settled: on it, and still
             return new Lift(piece, craft, new Place(place.x(), place.z(), under.top() + below(), place.yaw()), 0, 0,
-                    0, held, false);
+                    0, held, false, bombs, ready);
         }
-        return new Lift(piece, craft, new Place(place.x(), place.z(), height, place.yaw()), 0, 0, dropping, held, false);
+        return new Lift(piece, craft, new Place(place.x(), place.z(), height, place.yaw()), 0, 0, dropping, held, false, bombs, ready);
     }
 
     private Lift fly(final Controls controls, final double seconds, final Obstacles world,
@@ -243,10 +288,10 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 final boolean goesAcross = k == 0 || k == 2;
                 final boolean goesUp = k == 0 || k == 3;
                 return new Lift(piece, craft, tries[k], goesAcross ? nowAhead : 0, goesAcross ? nowAside : 0,
-                        goesUp ? climbing : 0, held, true);
+                        goesUp ? climbing : 0, held, true, bombs, ready);
             }
         }
-        return new Lift(piece, craft, place, 0, 0, 0, held, true);
+        return new Lift(piece, craft, place, 0, 0, 0, held, true, bombs, ready);
     }
 
     /**
