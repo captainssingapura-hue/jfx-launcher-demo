@@ -215,9 +215,10 @@ single vehicle, open and simple, so the vehicle is all there is to look at: the 
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
 and a gunship, each with a heavy Gatling gun, and crates, dummies and drones out in front (`Demo`).
-Click one or press its number. In a demo, the button at the top right, or a right click
-anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
-comes back to the choice.
+Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
+switch straight to another, or start this one again; with the view (first person, the camera
+behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
+left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
@@ -253,7 +254,6 @@ the window, so clicks stay free for actions.
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | V | At a vehicle's controls: first person, or back | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
-| Right click | The menu of demos: switch to another, start this one again, or all of them (also the button at the top right) | The same |
 
 As in most shooters, it goes at full speed unless Shift is held. `-Davatar.pack=true` starts
 with the jet-pack on. Clicks fire only while the mouse is captured, so a click to take the

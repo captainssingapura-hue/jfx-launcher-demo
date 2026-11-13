@@ -48,9 +48,8 @@ import javafx.scene.PerspectiveCamera;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.SubScene;
-import javafx.geometry.Side;
-import javafx.scene.control.Button;
-import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.RadioMenuItem;
@@ -61,8 +60,8 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
-import javafx.scene.input.ContextMenuEvent;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.transform.Rotate;
@@ -124,8 +123,8 @@ public final class Game {
     private final Runnable back;
     /** Over to another demo, or this one again from the start. */
     private final java.util.function.Consumer<Demo> switchTo;
-    /** The demos, to switch to from here: from the button at the top right, or a right click anywhere. */
-    private final ContextMenu demos = new ContextMenu();
+    /** The menu bar along the top: the demos, the view, the sound. Right clicks are left for the game. */
+    private final MenuBar menuBar = new MenuBar();
     private AnimationTimer timer;
     /** What the weapons have done to the course, and so what still stands in it. */
     private Damage damage;
@@ -195,7 +194,7 @@ public final class Game {
     private final Label help = new Label();
     private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person, at the controls ·"
             + " scroll to zoom · Esc frees the mouse · "
-            + "M mute · P sound profile · Tab or right click: the demos";
+            + "M mute · P sound profile · Tab: the demos (or the menu bar)";
     private static final String ON_FOOT_HELP = "Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
             + "Space jump or climb · Ctrl descend\n"
             + "J jet-pack on or off · F fly or land (with the jet-pack) · " + VIEW_KEYS + "\n"
@@ -342,28 +341,18 @@ public final class Game {
         hud.setStyle("-fx-background-color: rgba(20, 24, 30, 0.55); -fx-background-radius: 6;");
         hud.setMouseTransparent(true);
 
-        // the switch: which demo this is, at the top right, to open the menu of them
-        final Button switcher = new Button(demo.title() + "  ▾");
-        switcher.setFocusTraversable(false);
-        switcher.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 13px; -fx-background-color: rgba(20, 24, 30, 0.7);"
-                + " -fx-background-radius: 6; -fx-padding: 6 12 6 12; -fx-cursor: hand;");
-        menu();
-        switcher.setOnAction(e -> showDemos(() -> demos.show(switcher, Side.BOTTOM, 0, 4)));
-        final StackPane root = new StackPane(view, hud, switcher, dashboard.node());
+        // the menu bar along the top, and under it the world, the HUD over it
+        menus();
+        final StackPane shown = new StackPane(view, hud, dashboard.node());
         StackPane.setAlignment(hud, Pos.TOP_LEFT);
         StackPane.setMargin(hud, new Insets(12));
-        StackPane.setAlignment(switcher, Pos.TOP_RIGHT);
-        StackPane.setMargin(switcher, new Insets(12));
+        final BorderPane root = new BorderPane(shown);
+        root.setTop(menuBar);
         // a land vehicle's instruments, low on the right, as racing games have them
         StackPane.setAlignment(dashboard.node(), Pos.BOTTOM_RIGHT);
         StackPane.setMargin(dashboard.node(), new Insets(0, 24, 20, 0));
-        // and a right click anywhere opens the same menu, where it is
-        root.addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED, e -> {
-            showDemos(() -> demos.show(root, e.getScreenX(), e.getScreenY()));
-            e.consume();
-        });
-        view.widthProperty().bind(root.widthProperty());
-        view.heightProperty().bind(root.heightProperty());
+        view.widthProperty().bind(shown.widthProperty());
+        view.heightProperty().bind(shown.heightProperty());
 
         final Scene scene = new Scene(root, 1280, 800);
         this.scene = scene;
@@ -806,10 +795,13 @@ public final class Game {
     }
 
     /**
-     * The menu of demos: each by name, this one ticked, to switch to (this one again starts it
-     * over); and the choice of all of them, as Tab.
+     * The menu bar: the demos, each by name, this one ticked, to switch to (this one again starts it
+     * over), and the choice of all of them (as Tab); the view, first person and the camera put back
+     * behind (as V and C); and the sound, muted and its profile (as M and P). The mouse is free
+     * while a menu is open, to point with, and goes back to as it was after.
      */
-    private void menu() {
+    private void menus() {
+        final Menu demos = new Menu("Demo");
         final ToggleGroup which = new ToggleGroup();
         final Demo[] all = Demo.values();
         for (int i = 0; i < all.length; i++) {
@@ -825,20 +817,34 @@ public final class Game {
         final MenuItem choice = new MenuItem("All demos…   (Tab)");
         choice.setOnAction(e -> back.run());
         demos.getItems().addAll(new SeparatorMenuItem(), again, choice);
-        // the mouse is free while it is open, to point with; and goes back to as it was after
-        demos.setOnHidden(e -> look.holdFree(false));
+        final Menu views = new Menu("View");
+        views.getItems().addAll(
+                item("First person, at the controls   (V)", KeyCode.V),
+                item("Camera behind   (C)", KeyCode.C));
+        final Menu sounds = new Menu("Sound");
+        sounds.getItems().addAll(
+                item("Mute or unmute   (M)", KeyCode.M),
+                item("Next sound profile   (P)", KeyCode.P));
+        for (final Menu menu : List.of(demos, views, sounds)) {
+            menu.setOnShowing(e -> opening());
+            menu.setOnHidden(e -> look.holdFree(false));
+        }
+        menuBar.getMenus().addAll(demos, views, sounds);
+        menuBar.setFocusTraversable(false);
     }
 
-    /** Opens the menu of demos by {@code show}, the mouse freed to use it, and no trigger held. */
-    private void showDemos(final Runnable show) {
-        if (demos.isShowing()) {
-            demos.hide();
-        }
-        // the menu has the keys while it is open: none is left held down for the avatar meanwhile
+    /** A menu item that does what key {@code key} does. */
+    private MenuItem item(final String text, final KeyCode key) {
+        final MenuItem item = new MenuItem(text);
+        item.setOnAction(e -> view(key));
+        return item;
+    }
+
+    /** A menu opening: the mouse freed to use it, and no trigger or key left held down for the avatar meanwhile. */
+    private void opening() {
         clicking = false;
         held.clear();
         look.holdFree(true);
-        show.run();
     }
 
     /** What a key does outside the world: the camera, the mouse and the sound. */
