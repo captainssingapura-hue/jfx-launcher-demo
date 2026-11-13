@@ -53,8 +53,18 @@ for the engines.
   truck. It changes by itself, as a quick automatic does: up near the red line pulling hard, up
   early cruising (a car at 90 km/h in sixth, under 2,000 rpm), down as it slows, down a gear or
   two flooring it; the throttle cut for a moment at each change, blipped going down; the clutch
-  slipping pulling away. At these speeds the world, 240 m across, is crossed in seconds: a bigger
-  one, with a track to drive them on, is next.
+  slipping pulling away. On a cross-slope, a banked turn, a land vehicle rolls as the ground
+  under its left wheels and its right does, its driver rolled with it (`Lift.roll`).
+- **The track.** A NASCAR-style oval, a demo of its own (`Course.trackDemo`), in a world now
+  900 m across: two straights of 400 m and two turns of 120 m radius, 24 m wide, about 1.55 km
+  round, like a one-mile oval. Flat all round for now: banked turns (`Course.TRACK_BANK`, the
+  banking easing in and out over the first and last fifth of each turn) wait on vehicles settling
+  well on uneven ground. A concrete wall all round its outside, a paler apron round its inside, a
+  white line across the front straight to start and finish at, pit road inside the front
+  straight, and grandstands outside it. Every land vehicle stands on pit road, heading the way
+  they race, round to the left: the roadster, the van, the pickup, the truck, the scooter, the
+  sport bike and the cruiser. Driven flat out, the roadster laps it from a standing start, at
+  240 km/h down the straights.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
@@ -251,13 +261,14 @@ It opens on a choice of demos: the **playground**, everything at once (the cours
 airships, the flyovers, the four vehicles, the bunker, the gunship and an airship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
-and a gunship, each with a heavy Gatling gun, and crates and dummies out in front (`Demo`).
+bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
+and a gunship, each with a heavy Gatling gun, and crates and dummies out in front; and the **track**, a NASCAR-style
+oval to take every land vehicle round flat out (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, or writes every sound to WAV files with `--sounds [folder]` (see

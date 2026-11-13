@@ -166,7 +166,12 @@ public final class Gait {
      * still looks where the player looks.
      */
     public static Pose seated(final Pose looking) {
-        return new Pose(-6, 0, SEAT - BoxRig.HIP,
+        return seated(looking, 0);
+    }
+
+    /** As {@link #seated(Pose)}, rolled {@code roll} degrees to the right with the vehicle, on a cross-slope. */
+    public static Pose seated(final Pose looking, final double roll) {
+        return new Pose(-6, roll, SEAT - BoxRig.HIP,
                 40, 40, 12, 12, 34, 34,
                 84, 84, 6,
                 looking.headYaw(), looking.headPitch(), 0);

@@ -22,7 +22,10 @@ public enum Demo {
     /** Ramps: a flyover across the way ahead, to run up, over and under; and a ramp to leap off. */
     FLYOVER("Roads", "A flyover to run or drive up, across and under, a ramp to leap off, and a car and a truck chassis to drive.", 0),
     /** Heavy Gatling guns on mounts: in a bunker, and on a gunship platform; and crates and dummies to fire at. */
-    GUNS("Guns", "A bunker and a gunship, each with a heavy Gatling gun, to turn on crates and dummies.", 0);
+    GUNS("Guns", "A bunker and a gunship, each with a heavy Gatling gun, to turn on crates and dummies.", 0),
+    /** A race track: a NASCAR-style oval, banked in its turns, and every land vehicle on pit road to take round it. */
+    TRACK("Track", "A NASCAR-style oval, a mile round, banked 24° in its turns; the cars, the truck and the bikes on"
+            + " pit road, to take round it flat out.", 105);
 
     private final String title;
     private final String description;

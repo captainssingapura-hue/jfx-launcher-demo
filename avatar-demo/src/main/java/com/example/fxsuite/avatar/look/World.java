@@ -55,7 +55,7 @@ import java.util.TreeMap;
 public final class World {
 
     public static final Color SKY = Color.web("#9fb8c9");
-    private static final double GROUND = 18000;
+    private static final double GROUND = Body.EDGE + 1000;
     private static final double GRID = 500;
     /** The disc lies this far above whatever it is on. */
     private static final double SHADOW_LIFT = 1.8;
@@ -130,6 +130,10 @@ public final class World {
         final String[] drone = {"#3a3f47", "#4b4f3a", "#4a3c3c"};
         final String[] hull = {"#6c757e", "#6e6c58"};
         final String[] asphalt = {"#4f555b", "#62676c"};
+        // a race track's: its asphalt, the apron and pit road paler, and its white lines
+        final String[] track = {"#3d4248", "#70757a", "#ecebe4"};
+        // its outer wall, concrete; and the grandstands
+        final String[] wall = {"#cfcbc1", "#6f7f93"};
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
             final Block block = piece.block();
@@ -156,6 +160,8 @@ public final class World {
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
                 case BUNKER -> bunker(part);
                 case CAR -> chassis(i, part);
+                case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
+                case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -453,6 +459,18 @@ public final class World {
             line.setTranslateY(mid - (block.top() + block.toe()) / 2 - 1.5);
             part.getChildren().add(line);
         }
+        return body;
+    }
+
+    /**
+     * A stretch of a race track: a banked one as a wedge, its top sloping up across the track as
+     * the block's does; a flat one as a slab. Bare: its lines are pieces of their own.
+     */
+    private static Shape3D track(final Group part, final Block block, final PhongMaterial material) {
+        final Shape3D body = block.sloped() ? wedge(block) : new Box(block.halfWidth() * 2,
+                block.top() - block.bottom(), block.halfDepth() * 2);
+        body.setMaterial(material);
+        part.getChildren().add(body);
         return body;
     }
 
@@ -1202,7 +1220,7 @@ public final class World {
         /** As {@code lift} is, {@code seconds} after the last frame: rolled on as far as it went, leaning as it leans. */
         void show(final Lift lift, final double seconds) {
             tilt.setAngle(lift.tilt());
-            leaning.setAngle(lift.lean());
+            leaning.setAngle(lift.lean() + lift.roll());
             for (final Rotate steer : steers) {
                 steer.setAngle(lift.steer());
             }

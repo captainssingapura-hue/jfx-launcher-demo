@@ -35,7 +35,14 @@ import java.util.List;
  * </ul>
  */
 public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
-                   boolean held, boolean engine, int bombs, double ready, double steer, double tilt) {
+                   boolean held, boolean engine, int bombs, double ready, double steer, double tilt, double roll) {
+
+    /** One with no roll: level from side to side, as all but a land vehicle on a cross-slope are. */
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
+                final double climb, final boolean held, final boolean engine, final int bombs, final double ready,
+                final double steer, final double tilt) {
+        this(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, 0);
+    }
 
     /** How fast a platform flies, at full, across the ground; and climbs. */
     public static final double SPEED = Course.PLATFORM_HANDLING.speed();
@@ -51,6 +58,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      * hard as gravity pulls.
      */
     public static final double MOST_LEAN = 45;
+    /** A land vehicle rolls this far at most, on a cross-slope. */
+    public static final double MOST_ROLL = 35;
     private static final double LEANING = 1.4;
     /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
@@ -104,19 +113,19 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
         return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
-                ahead, aside, climb, held, engine, bombs, ready, steer, tilt);
+                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll);
     }
 
     /** How fast it is going, all told: across the ground and up or down. */
@@ -155,7 +164,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             now = drops ? bombs - 1 : bombs;
             next = drops ? RACK : wait;
         }
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll);
     }
 
     /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
@@ -360,15 +369,28 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final double reach = underside + KERB;
         final List<Double> axles = chassis.axles();
         final double[] ground = new double[axles.size()];
+        // and each side's wheels' own: the ground under the left wheels and the right, all told, so
+        // that on a cross-slope, a banked turn, it rolls as it slopes, its middle half way between
+        double left = 0;
+        double right = 0;
         for (int k = 0; k < axles.size(); k++) {
-            for (final double side : new double[] {-1, 1}) {
+            final double[] sides = new double[2];
+            for (int s = 0; s < 2; s++) {
+                final double side = s == 0 ? -1 : 1;
                 final Vec3 wheel = new Vec3(at.x(), 0, at.z())
                         .add(Num.right(at.yaw()).multiply(side * chassis.wheelOut()))
                         .add(Num.heading(at.yaw()).multiply(axles.get(k)));
-                ground[k] = Math.max(ground[k], others.floor(wheel.x(), wheel.z(), chassis.wheelWidth() / 2,
-                        reach + lean * axles.get(k)));
+                sides[s] = others.floor(wheel.x(), wheel.z(), chassis.wheelWidth() / 2, reach + lean * axles.get(k));
             }
+            ground[k] = (sides[0] + sides[1]) / 2;
+            left += sides[0];
+            right += sides[1];
         }
+        final double rolled = chassis.wheelOut() > 0
+                ? Num.clamp(Math.toDegrees(Math.atan2((left - right) / axles.size(), 2 * chassis.wheelOut())),
+                        -MOST_ROLL, MOST_ROLL)
+                : 0;
+        final double sideways = Math.tan(Math.toRadians(rolled));
         double back = 0;
         for (int k = 1; k < ground.length; k++) {
             back += ground[k];
@@ -392,8 +414,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             for (final double across : new double[] {-half, 0, half}) {
                 final Vec3 under = new Vec3(at.x(), 0, at.z()).add(Num.right(at.yaw()).multiply(across))
                         .add(Num.heading(at.yaw()).multiply(along));
-                final double floor = others.floor(under.x(), under.z(), 1, reach + lean * along);
-                middle = Math.max(middle, floor - rise * along - clearance);
+                final double floor = others.floor(under.x(), under.z(), 1, reach + lean * along - sideways * across);
+                middle = Math.max(middle, floor - rise * along + sideways * across - clearance);
             }
         }
         final double target = middle + chassis.ride();
@@ -404,17 +426,17 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             // it on up, off a ramp's head
             final double rising = seconds > 0 ? Math.max(0, (target - place.height()) / seconds) : 0;
             return new Settled(new Lift(piece, craft, new Place(at.x(), at.z(), target, at.yaw()), v, 0, rising, held,
-                    true, bombs, ready, nowSteer, slope), false);
+                    true, bombs, ready, nowSteer, slope, rolled), false);
         }
         // off an edge, or a ramp's head: falling, as everything does, until it comes down onto the ground
         final double falling = climb - Body.GRAVITY * seconds;
         final double height = place.height() + (climb + falling) / 2 * seconds;
         if (height <= target) {
             return new Settled(new Lift(piece, craft, new Place(at.x(), at.z(), target, at.yaw()), v, 0, 0, held, true,
-                    bombs, ready, nowSteer, slope), false);
+                    bombs, ready, nowSteer, slope, rolled), false);
         }
         return new Settled(new Lift(piece, craft, new Place(at.x(), at.z(), height, at.yaw()), v, 0, falling, held,
-                true, bombs, ready, nowSteer, tilt), true);
+                true, bombs, ready, nowSteer, tilt, roll), true);
     }
 
     /**
@@ -429,6 +451,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final double middle = place.height() - chassis.ride();
         // on its wheels, the ground under it slopes as it is tipped; in the air, it is level under it
         final double rise = aloft ? 0 : Math.tan(Math.toRadians(tilt));
+        final double sideways = aloft ? 0 : Math.tan(Math.toRadians(roll));
         final double over = place.height() + Body.TALL + 30;
         final double half = chassis.half();
         final int rows = (int) Math.ceil(chassis.length() / 100) + 1;
@@ -436,8 +459,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final Vec3 right = Num.right(place.yaw());
         for (int r = 0; r < rows; r++) {
             final double along = -chassis.length() / 2 + chassis.length() * r / (rows - 1);
-            final double ground = middle + rise * along;
             for (final double across : new double[] {-half, 0, half}) {
+                // the ground under it there, as it is tipped and rolled
+                final double ground = middle + rise * along - sideways * across;
                 final double x = place.x() + ahead.x() * along + right.x() * across;
                 final double z = place.z() + ahead.z() * along + right.z() * across;
                 if (standsIn(others.blocks(), x, z, ground, over) || standsIn(also, x, z, ground, over)) {

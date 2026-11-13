@@ -323,7 +323,7 @@ public final class Game {
     /** Plays it in {@code stage}. */
     private void start(final Stage stage) {
         eye.setNearClip(10);
-        eye.setFarClip(60_000);
+        eye.setFarClip(150_000);
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
@@ -577,8 +577,10 @@ public final class Game {
         if (driven != null && craft != null) {
             // in a car, sat; on a two-wheeler, astride, leaning with it into its turns
             final Course.Chassis chassis = (Course.Chassis) driven.craft();
-            rig.show(seated(avatar, chassis, craft, driven.lean()),
-                    chassis.twoWheels() ? Gait.astride(looking, chassis, driven.lean()) : Gait.seated(looking));
+            // and on a banked turn, rolled with it
+            final double tipped = driven.lean() + driven.roll();
+            rig.show(seated(avatar, chassis, craft, tipped),
+                    chassis.twoWheels() ? Gait.astride(looking, chassis, tipped) : Gait.seated(looking, tipped));
         } else {
             rig.show(avatar, looking);
         }
@@ -940,8 +942,10 @@ public final class Game {
      */
     private static Avatar seated(final Avatar avatar, final Course.Chassis chassis, final Block block,
                                  final double lean) {
-        final double[] tipped = chassis.twoWheels() ? Gait.leaning(lean, chassis.ride()) : new double[] {0, 0};
-        final Vec3 seat = new Vec3(block.x(), -(block.bottom() + chassis.ride() - tipped[1]), block.z())
+        final double[] tipped = Gait.leaning(lean, chassis.ride());
+        // off the middle, as a car's driver is, it rises or drops as well, rolled to one side
+        final double off = chassis.driverAcross() * Math.sin(Math.toRadians(lean));
+        final Vec3 seat = new Vec3(block.x(), -(block.bottom() + chassis.ride() - tipped[1] - off), block.z())
                 .add(Num.right(block.yaw()).multiply(chassis.driverAcross() + tipped[0]))
                 .add(Num.heading(block.yaw()).multiply(chassis.driverAlong()));
         final Body body = avatar.body();

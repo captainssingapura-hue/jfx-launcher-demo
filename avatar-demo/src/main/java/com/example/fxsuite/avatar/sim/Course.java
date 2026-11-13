@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false);
 
         private final boolean breakable;
 
@@ -864,6 +864,7 @@ public final class Course {
             case AIRSHIP -> airshipDemo();
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
+            case TRACK -> trackDemo();
         }
     }
 
@@ -938,6 +939,89 @@ public final class Course {
             pieces.add(new Piece(Block.standing(across, 2000, DUMMY_WIDTH, DUMMY_DEPTH, DUMMY_HEIGHT, 0),
                     Kind.DUMMY, k % 3));
         }    }
+
+    /** The race track's oval: how far its straights run, the radius of its turns at its middle, how wide it
+     * is, how far its turns are banked, and how far east of the start its front straight runs. */
+    public static final double TRACK_STRAIGHT = 40000;
+    public static final double TRACK_RADIUS = 12000;
+    public static final double TRACK_WIDTH = 2400;
+    public static final double TRACK_BANK = 0;
+    public static final double TRACK_X = 3500;
+    /** Its surface stands this high off the ground; its turns are made of this many pieces each. */
+    private static final double SURFACE = 2;
+    private static final int SEGMENTS = 60;
+    /** How wide its apron, its pit road and its outer wall are, and how tall the wall stands over the track. */
+    private static final double APRON = 600;
+    private static final double PIT = 800;
+    private static final double WALL = 100;
+    private static final double WALL_HEIGHT = 110;
+
+    /**
+     * A race track, NASCAR-style: an oval a mile round, 24 m wide, its straights flat and, for now, its
+     * turns too ({@link #TRACK_BANK} 0: banked turns wait on vehicles settling well on uneven ground);
+     * banked, the banking would ease in and out over the first and last fifth of each turn. It has
+     * a concrete wall all round its outside, a paler apron round its inside, and a white line
+     * across the front straight to start and finish at. Inside the front straight, pit road, every
+     * land vehicle parked on it heading the way they race (round to the left); outside it, the
+     * grandstands. The avatar starts on the infield beside pit road, the vehicles before it.
+     */
+    private void trackDemo() {
+        final double middle = TRACK_X - TRACK_RADIUS;
+        final double half = TRACK_STRAIGHT / 2;
+        final double inner = TRACK_RADIUS - TRACK_WIDTH / 2;
+        final double outer = TRACK_RADIUS + TRACK_WIDTH / 2;
+        // the straights, flat: the front one east of the middle, the back one west; each with its wall and apron
+        for (final double side : new double[] {1, -1}) {
+            pieces.add(new Piece(new Block(middle + side * TRACK_RADIUS, 0, TRACK_WIDTH / 2, half, 0, 0, SURFACE),
+                    Kind.TRACK, 0));
+            pieces.add(new Piece(new Block(middle + side * (outer + WALL / 2), 0, WALL / 2, half, 0, 0,
+                    SURFACE + WALL_HEIGHT), Kind.WALL, 0));
+            pieces.add(new Piece(new Block(middle + side * (inner - APRON / 2), 0, APRON / 2, half, 0, 0, SURFACE),
+                    Kind.TRACK, 1));
+        }
+        // the turns, north and south, from the front straight round to the back: banked, the banking easing in and out
+        for (final double end : new double[] {1, -1}) {
+            for (int i = 0; i < SEGMENTS; i++) {
+                final double share = (i + 0.5) / SEGMENTS;
+                final double round = Math.toRadians(180 * share);
+                final double ease = Num.clamp(Math.min(share, 1 - share) / 0.2, 0, 1);
+                final double bank = TRACK_BANK * ease * ease * (3 - 2 * ease);
+                final double rise = TRACK_WIDTH * Math.tan(Math.toRadians(bank));
+                // out from the turn's middle, and the way out, as a heading: the slope runs up it, across the track
+                final double outX = Math.cos(round);
+                final double outZ = end * Math.sin(round);
+                final double yaw = Math.toDegrees(Math.atan2(outX, outZ));
+                final double centreZ = end * half;
+                final double step = Math.PI / SEGMENTS / 2;
+                pieces.add(new Piece(new Block(middle + outX * TRACK_RADIUS, centreZ + outZ * TRACK_RADIUS,
+                        outer * step + 30, TRACK_WIDTH / 2, yaw, 0, SURFACE + rise, SURFACE), Kind.TRACK, 0));
+                pieces.add(new Piece(new Block(middle + outX * (outer + WALL / 2), centreZ + outZ * (outer + WALL / 2),
+                        (outer + WALL) * step + 20, WALL / 2, yaw, 0, SURFACE + rise + WALL_HEIGHT), Kind.WALL, 0));
+                pieces.add(new Piece(new Block(middle + outX * (inner - APRON / 2), centreZ + outZ * (inner - APRON / 2),
+                        inner * step + 20, APRON / 2, yaw, 0, SURFACE), Kind.TRACK, 1));
+            }
+        }
+        // the line to start and finish at, across the front straight
+        pieces.add(new Piece(new Block(TRACK_X, 0, TRACK_WIDTH / 2, 60, 0, SURFACE, SURFACE + 1), Kind.TRACK, 2));
+        // pit road, inside the front straight, and the vehicles on it, heading north, the way they race
+        final double pit = TRACK_X - TRACK_WIDTH / 2 - APRON - PIT / 2;
+        pieces.add(new Piece(new Block(pit, 0, PIT / 2, half * 0.8, 0, 0, SURFACE), Kind.TRACK, 1));
+        final Object[][] parked = {
+                {CAR_CHASSIS, ROADSTER}, {CAR_CHASSIS, VAN}, {PICKUP_CHASSIS, PICKUP_BODY}, {TRUCK_CHASSIS, TRUCK_CAB},
+                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}};
+        double along = 2400;
+        for (int k = 0; k < parked.length; k++) {
+            final Chassis chassis = (Chassis) parked[k][0];
+            along -= chassis.length() / 2 + 150;
+            pieces.add(Piece.vehicle(chassis, (Bodywork) parked[k][1], new Place(pit, along, chassis.ride() + SURFACE, 0), k % 4));
+            along -= chassis.length() / 2 + 150;
+        }
+        // and the grandstands outside the front straight, beyond its wall, stepping up away from it
+        for (int tier = 0; tier < 3; tier++) {
+            pieces.add(new Piece(Block.standing(TRACK_X + outer - TRACK_RADIUS + WALL + 900 + tier * 900, 0, 900,
+                    half * 1.1, 350 + tier * 450, 0), Kind.WALL, 1));
+        }
+    }
 
     private void flyoverDemo() {
         scenery(19, true);
@@ -1277,7 +1361,11 @@ public final class Course {
         gates.add(new Gate(x, z, yaw, height, GATE_SPAN - GATE_BAR));
     }
 
+    /** How far out from the start the course's pillars, crates and gates are scattered, either way: the
+     * playground as it was, whatever size the world it stands in. */
+    private static final double SPREAD = 12000 - 400;
+
     private static double spot(final Random random) {
-        return (random.nextDouble() * 2 - 1) * (Body.EDGE - 400);
+        return (random.nextDouble() * 2 - 1) * SPREAD;
     }
 }

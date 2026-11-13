@@ -79,7 +79,7 @@ public final class Damage {
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case FRUIT, FURNITURE -> piece.loose().toughness();
-            case PILLAR, GATE, ROAD -> Double.POSITIVE_INFINITY;
+            case PILLAR, GATE, ROAD, TRACK, WALL -> Double.POSITIVE_INFINITY;
         };
     }
 

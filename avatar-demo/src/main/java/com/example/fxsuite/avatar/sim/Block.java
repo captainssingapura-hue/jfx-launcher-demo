@@ -76,6 +76,11 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
      * face, or corner, so pushing along it slides the circle round the block.
      */
     public Vec2 push(final double px, final double pz, final double radius) {
+        // far off, whichever way it is turned: no nearer than this can it reach, so it does not
+        final double reach = halfWidth + halfDepth + radius;
+        if (Math.abs(px - x) > reach || Math.abs(pz - z) > reach) {
+            return null;
+        }
         final double c = Math.cos(Math.toRadians(yaw));
         final double s = Math.sin(Math.toRadians(yaw));
         final double dx = px - x;
