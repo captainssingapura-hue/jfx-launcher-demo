@@ -45,7 +45,7 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         this(host, mount, base, 0, 0, 0, 0, Gun.State.READY, 0, false, false);
     }
 
-    /** The guns mounted among {@code damage}'s pieces: one in each bunker, and one on each gunship. */
+    /** The guns mounted among {@code damage}'s pieces: one in each bunker, one on each gunship, and one on each car. */
     public static List<Turret> of(final Damage damage) {
         final List<Turret> turrets = new ArrayList<>();
         for (int piece = 0; piece < damage.size(); piece++) {
@@ -54,6 +54,8 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
                 turrets.add(new Turret(piece, Course.BUNKER_GUN, what.place()));
             } else if (what.kind() == Course.Kind.PLATFORM && Course.Deck.of(what.shape()).equals(Course.GUNSHIP)) {
                 turrets.add(new Turret(piece, Course.GUNSHIP_GUN, what.place()));
+            } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.CAR_CHASSIS) {
+                turrets.add(new Turret(piece, Course.CAR_GUN, what.place()));
             }
         }
         return turrets;
@@ -109,6 +111,9 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
 
     /** Whether {@code body} can man it where it stands: on its feet, at its station. */
     public boolean reaches(final Body body) {
+        if (mount.fixed()) {
+            return false;  // fired by whoever drives what carries it, not manned on its own
+        }
         if (!body.grounded()) {
             return false;
         }
@@ -134,6 +139,12 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
                 heat, cooling, held);
     }
 
+    /** As {@link #carried(Place)}, what carries it tipped {@code tilt} degrees nose up: a fixed gun is tipped with it. */
+    public Turret carried(final Place to, final double tilt) {
+        final Turret carried = carried(to);
+        return !mount.fixed() ? carried : new Turret(host, mount, to, 0, tilt, 0, tilt, gun, heat, cooling, held);
+    }
+
     /** {@code wanted} round, no further than it turns either way; all round, any way. */
     private double traversed(final double wanted) {
         return mount.traverse() >= 180 ? Num.wrap(wanted) : Num.clamp(wanted, -mount.traverse(), mount.traverse());
@@ -145,14 +156,25 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
      * {@code world} (what its rounds can strike: not what carries it), unless it is too hot.
      */
     public Stepped step(final Controls controls, final double seconds, final Obstacles world) {
-        final double wantedYaw = held ? traversed(wantYaw + controls.turn()) : wantYaw;
-        final double wantedPitch = held ? Num.clamp(controls.aim(), -mount.depression(), mount.elevation()) : wantPitch;
+        return step(controls, seconds, world, held);
+    }
+
+    /**
+     * As {@link #step(Controls, double, Obstacles)}, fired and aimed by {@code controls} if
+     * {@code firer}: whoever mans it, or, for a fixed gun, whoever drives what carries it. A fixed
+     * gun is not aimed at all: it points the way it was carried to.
+     */
+    public Stepped step(final Controls controls, final double seconds, final Obstacles world, final boolean firer) {
+        final boolean aimed = firer && !mount.fixed();
+        final double wantedYaw = aimed ? traversed(wantYaw + controls.turn()) : wantYaw;
+        final double wantedPitch = aimed ? Num.clamp(controls.aim(), -mount.depression(), mount.elevation())
+                : mount.fixed() ? pitch : wantPitch;
         final double most = mount.slew() * seconds;
-        final double nowYaw = traversed(yaw + Num.clamp(Num.wrap(wantedYaw - yaw), -most, most));
-        final double nowPitch = pitch + Num.clamp(wantedPitch - pitch, -most, most);
+        final double nowYaw = mount.fixed() ? 0 : traversed(yaw + Num.clamp(Num.wrap(wantedYaw - yaw), -most, most));
+        final double nowPitch = mount.fixed() ? pitch : pitch + Num.clamp(wantedPitch - pitch, -most, most);
         final Turret swung = new Turret(host, mount, base, nowYaw, nowPitch, wantedYaw, wantedPitch, gun, heat,
                 cooling, held);
-        final boolean trigger = held && controls.trigger() && !cooling;
+        final boolean trigger = firer && controls.trigger() && !cooling;
         final Gun.Fired fired = mount.gun().fire(gun, trigger, seconds, left -> swung.bore(), world);
         final int rounds = fired.state().rounds() - gun.rounds();
         // a gun that does not overheat stays cold

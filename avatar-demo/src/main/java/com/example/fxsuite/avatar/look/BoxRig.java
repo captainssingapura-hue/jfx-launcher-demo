@@ -39,7 +39,7 @@ public final class BoxRig {
     /** How far the soles stand clear of the ground, above the blob shadow on it. */
     static final double SOLE = 3;
 
-    private static final double HIP = 80;
+    static final double HIP = 80;
     private static final double SHOULDER = 144;
     private static final double NECK = 156;
     /** From the shoulder down to the elbow. */

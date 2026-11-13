@@ -6,6 +6,7 @@ import com.example.fxsuite.avatar.look.Bombs;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.Guns;
+import com.example.fxsuite.avatar.look.Pose;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.Stall;
@@ -179,10 +180,18 @@ public final class Game {
             + "Space jump or climb · Ctrl descend\n"
             + "J jet-pack on or off · F fly or land (with the jet-pack) · " + VIEW_KEYS + "\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun (again to put away) · click to fire or swing · "
-            + "T fly a platform (at its console), board an airship (under its hatch) or man a gun (at its door)";
+            + "T fly a platform (at its console), drive a chassis (at its wheel), board an airship (under its hatch)"
+            + " or man a gun"; 
     private static final String PLATFORM_HELP = "The platform: W/S ahead and back · A/D sideways · mouse turns · "
             + "Space climb · Ctrl descend · Shift carefully · F engine on or off · T let go\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun · click to fire or swing\n" + VIEW_KEYS;
+    private static final String DRIVE_HELP = "The chassis: W accelerate · S brake, then reverse · A/D steer ·"
+            + " Space handbrake · Shift gently · T let go of the wheel\n"
+            + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + VIEW_KEYS;
+    private static final String ARMED_DRIVE_HELP = "The car: W accelerate · S brake, then reverse · A/D steer ·"
+            + " Space handbrake · Shift gently · T let go of the wheel\n"
+            + "Click fire its gun, fixed beside the seat: held, it spins up, then fires the way the car faces\n"
+            + VIEW_KEYS;
     private static final String GUNSHIP_HELP = "The gunship: W/S ahead and back · A/D turn · Space climb ·"
             + " Ctrl descend · Shift carefully · T step away from the gun\n"
             + "The mouse aims the gun, all round, 30° down and 40° up; it holds its aim as the gunship turns"
@@ -524,7 +533,14 @@ public final class Game {
         rig.effects().setVisible(!inside);
         reticle.node().setVisible(!inside);
         world.shadowShown(!inside);
-        rig.show(avatar, Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH));
+        // at the wheel of a land vehicle, sat in its seat, facing the way it heads, as it is drawn now
+        final Pose looking = Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH);
+        final Lift driven = flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null);
+        if (driven != null && craft != null) {
+            rig.show(seated(avatar, (Course.Chassis) driven.craft(), craft), Gait.seated(looking));
+        } else {
+            rig.show(avatar, looking);
+        }
         // each reads what is new to it in the journal
         // what moves of itself is shown where it was as far behind its latest step as the avatar is
         final double behind = (1 - ticked.blend()) * Clock.STEP;
@@ -535,12 +551,23 @@ public final class Game {
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
         bombs.show(sky, behind);
         stall.show(people, peopleBefore, ticked.blend(), forStall.read().events(), seconds);
-        if (gunned.isPresent()) {
-            reticle.showAt(gunSight(gunned.get(), standing), chase.position());
+        // the gun the player fires: one manned, or one fixed to what it drives
+        final Optional<Turret> firing = gunned.or(() -> fixedGun(flying.orElse(null)));
+        if (firing.isPresent()) {
+            reticle.showAt(gunSight(firing.get(), standing), chase.position());
         } else {
             reticle.show(avatar, standing, chase.position());
         }
-        guns.show(turrets, damage, seconds);
+        // each gun drawn where what carries it is drawn, between its last two steps, as that is
+        final Map<Integer, Vec3> lag = new HashMap<>();
+        for (final Turret turret : turrets) {
+            final Block was = movedNow.get(turret.host());
+            final Block drawn = shownAt.get(turret.host());
+            if (was != null && drawn != null) {
+                lag.put(turret.host(), new Vec3(drawn.x() - was.x(), -(drawn.bottom() - was.bottom()), drawn.z() - was.z()));
+            }
+        }
+        guns.show(turrets, damage, seconds, lag);
         world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
         // and so does one to be flown, while it stands
@@ -553,7 +580,7 @@ public final class Game {
         // a gun being manned is heard spinning and roaring from its muzzle, deeper than the hand-held one
         hearing.hear(avatar, forSound.read().events(), chase, droning.stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
-                gunned.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null));
+                firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null));
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -607,6 +634,16 @@ public final class Game {
     /** The vehicle being flown, in a few words: which it is, and how much of it is left. */
     private String vehicleStatus(final Play here, final Lift lift) {
         final double left = 100 * damage.left(lift.piece());
+        if (lift.craft() instanceof Course.Chassis chassis) {
+            final double speed = lift.ahead() / 100;
+            final String gun = fixedGun(lift).map(g -> " · gun " + (g.firing() ? "firing" : g.gun().spin() >= 1
+                    ? "up to speed" : g.gun().spin() > 0 ? String.format("spinning, %.0f%%", 100 * g.gun().spin()) : "still"))
+                    .orElse("");
+            return String.format("Driving the %s chassis · %.1f m/s%s · wheels %+.0f°%s%s · %.0f%% left", chassis.name(),
+                    Math.abs(speed), speed < -0.05 ? " in reverse" : "", lift.steer(),
+                    lift.climb() > 0 || Math.abs(lift.tilt()) > 1 ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
+                    gun, left);
+        }
         if (lift.craft().closed()) {
             final int full = lift.craft().bombs();
             final String bay = lift.moored()
@@ -692,7 +729,9 @@ public final class Game {
             status.setText(text);
         }
         final String keys = manned.isPresent() ? (manned.get().mount().closed() ? GUN_HELP : GUNSHIP_HELP)
-                : flown.map(lift -> lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
+                : flown.map(lift -> lift.craft() instanceof Course.Chassis
+                        ? (fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
+                        : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
         if (!keys.equals(help.getText())) {
             help.setText(keys);
         }
@@ -805,6 +844,25 @@ public final class Game {
                     ? "replay the same run: all " + replay.checks() + " checksums matched, to step " + step
                     : "replay astray by step " + astray);
         }
+    }
+
+    /**
+     * {@code avatar} as drawn in the seat of {@code chassis}, which is drawn at {@code block}: there,
+     * facing the way it heads, still. Only how it is drawn: where it is stays the world's own.
+     */
+    private static Avatar seated(final Avatar avatar, final Course.Chassis chassis, final Block block) {
+        final Vec3 seat = new Vec3(block.x(), -(block.bottom() + chassis.ride()), block.z())
+                .add(Num.right(block.yaw()).multiply(chassis.driverAcross()))
+                .add(Num.heading(block.yaw()).multiply(chassis.driverAlong()));
+        final Body body = avatar.body();
+        return new Avatar(new Body(seat, block.yaw(), block.yaw(), 0, 0, 0, 0, false, true, body.phase(), body.time()),
+                avatar.wearingPack(), avatar.sweep(), avatar.arms());
+    }
+
+    /** The gun fixed to {@code lift}, if it has one: fired by whoever drives it. */
+    private Optional<Turret> fixedGun(final Lift lift) {
+        return lift == null ? Optional.empty()
+                : turrets.stream().filter(t -> t.host() == lift.piece() && t.mount().fixed()).findFirst();
     }
 
     /** Where gun {@code gun}'s line first meets {@code world} (not what carries it), just short of it; or as far as it is marked. */

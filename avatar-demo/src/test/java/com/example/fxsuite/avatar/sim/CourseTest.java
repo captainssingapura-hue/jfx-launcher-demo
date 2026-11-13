@@ -168,9 +168,10 @@ class CourseTest {
     }
 
     @Test
-    void onlyCratesTargetsLooseThingsPlatformsAndBunkersCanBreak() {
+    void onlyCratesTargetsLooseThingsAndVehiclesCanBreak() {
         for (final Course.Kind kind : Course.Kind.values()) {
-            assertEquals(kind == Course.Kind.CRATE || kind == Course.Kind.PLATFORM || kind == Course.Kind.BUNKER || kind.target()
+            assertEquals(kind == Course.Kind.CRATE || kind == Course.Kind.PLATFORM || kind == Course.Kind.BUNKER
+                    || kind == Course.Kind.CAR || kind.target()
                     || kind.loose(), kind.breakable(), kind.name());
         }
     }

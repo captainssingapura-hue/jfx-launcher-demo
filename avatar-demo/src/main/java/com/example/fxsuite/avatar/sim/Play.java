@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 13;
+    public static final int RULES = 14;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -171,7 +171,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);
         final boolean still = inside >= 0 || gunning >= 0;
-        final Controls own = working ? atTheControls(controls) : withoutTaking(controls);
+        // driving a vehicle with a gun fixed to it, the trigger is the gun's, not the hands'
+        final Controls own = !working ? withoutTaking(controls)
+                : drivesAGun(reached) ? unarmed(atTheControls(controls)) : atTheControls(controls);
         // what each loose thing rests on, as things are
         final double to = sky.time() + seconds;
         final Lift.Support[] under = new Lift.Support[props.size()];
@@ -229,9 +231,11 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             }
             // on what moves, it goes with it
             final int on = liftOf(moved, mounted.host());
-            final Turret turret = on >= 0 ? mounted.carried(moved.get(on).place()) : mounted;
-            final Turret.Stepped fired = turret.step(turret.held() ? controls : Controls.NONE, seconds,
-                    aimedAt.without(turret.host()));
+            final Turret turret = on >= 0 ? mounted.carried(moved.get(on).place(), moved.get(on).tilt()) : mounted;
+            // fired by whoever mans it; a fixed one, by whoever drives what it is fixed to
+            final boolean firer = turret.held() || turret.mount().fixed() && on >= 0 && moved.get(on).held();
+            final Turret.Stepped fired = turret.step(firer ? controls : Controls.NONE, seconds,
+                    aimedAt.without(turret.host()), firer);
             turned.add(fired.turret());
             gunfire.addAll(fired.events());
             rounds.addAll(fired.blows());
@@ -583,9 +587,18 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     /** How fast A and D turn a gunship, whose gunner's mouse is the gun's: degrees a second. */
     public static final double GUNSHIP_TURN = 60;
 
-    /** Whether piece {@code piece} carries a gun: then it is flown by whoever mans the gun, not from its console. */
+    /**
+     * Whether piece {@code piece} carries a gun that is manned: then it is flown by whoever mans the
+     * gun, not from its console. (A fixed gun is fired by whoever drives it, from its wheel.)
+     */
+    private boolean drivesAGun(final List<Lift> handed) {
+        return handed.stream().anyMatch(l -> l.held() && turrets.stream()
+                .anyMatch(t -> t.host() == l.piece() && t.mount().fixed()));
+    }
+
+    /** Whether piece {@code piece} carries a gun to be manned. */
     private boolean armed(final int piece) {
-        return turrets.stream().anyMatch(t -> t.host() == piece);
+        return turrets.stream().anyMatch(t -> t.host() == piece && !t.mount().fixed());
     }
 
     /** Which of {@code lifts} is piece {@code piece}; -1 for none. */
@@ -603,7 +616,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> held = new ArrayList<>(lifts);
         for (final Turret turret : manned) {
             final int on = liftOf(held, turret.host());
-            if (on >= 0 && held.get(on).held() != turret.held()) {
+            if (on >= 0 && !turret.mount().fixed() && held.get(on).held() != turret.held()) {
                 held.set(on, held.get(on).held(turret.held()));
             }
         }
@@ -794,6 +807,12 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     private static Controls atTheControls(final Controls controls) {
         return new Controls(0, 0, 0, 0, controls.run(), controls.trigger(), controls.aim(),
                 controls.actions().stream().filter(a -> a instanceof Action.Draw).toList());
+    }
+
+    /** The controls, less the trigger. */
+    private static Controls unarmed(final Controls controls) {
+        return new Controls(controls.forward(), controls.sideways(), controls.turn(), controls.lift(), controls.run(), false,
+                controls.aim(), controls.actions());
     }
 
     /** The controls, less taking a platform's: that is the world's to hand over, and done already. */

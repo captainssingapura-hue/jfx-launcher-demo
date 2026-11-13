@@ -109,9 +109,11 @@ public final class Guns {
 
     /**
      * Each gun as {@code turrets} have it, {@code seconds} after the last frame, those on what
-     * {@code damage} has broken gone.
+     * {@code damage} has broken gone; moved on by {@code lag}, by what carries it, to where that is
+     * drawn now.
      */
-    public void show(final List<Turret> turrets, final Damage damage, final double seconds) {
+    public void show(final List<Turret> turrets, final Damage damage, final double seconds,
+                     final java.util.Map<Integer, Vec3> lag) {
         frames++;
         for (int i = 0; i < mounted.size() && i < turrets.size(); i++) {
             final Turret turret = turrets.get(i);
@@ -121,7 +123,7 @@ public final class Guns {
             if (!standing) {
                 continue;
             }
-            final Vec3 pivot = turret.pivot();
+            final Vec3 pivot = turret.pivot().add(lag.getOrDefault(turret.host(), Vec3.ZERO));
             gun.node.setTranslateX(pivot.x());
             gun.node.setTranslateY(pivot.y());
             gun.node.setTranslateZ(pivot.z());

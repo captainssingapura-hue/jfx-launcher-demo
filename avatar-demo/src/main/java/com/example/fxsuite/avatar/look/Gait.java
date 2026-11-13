@@ -153,6 +153,22 @@ public final class Gait {
         return frames[frames.length - 1].clone();
     }
 
+    /** How high a seat is, from what it stands on to the top of its cushion. */
+    public static final double SEAT = 40;
+
+    /**
+     * {@code looking}, sat down: at the wheel of a land vehicle, kart-fashion. The hips come down
+     * onto a seat {@link #SEAT} high, the legs straight out ahead toward the pedals, the body leaning
+     * back a little against the seat's back, and both hands forward on the steering wheel. The head
+     * still looks where the player looks.
+     */
+    public static Pose seated(final Pose looking) {
+        return new Pose(-6, 0, SEAT - BoxRig.HIP,
+                52, 52, 12, 12, 38, 38,
+                84, 84, 6,
+                looking.headYaw(), looking.headPitch(), 0);
+    }
+
     private static Pose onFoot(final Body body) {
         final double t = body.time();
         final double ground = body.groundSpeed();

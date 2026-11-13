@@ -92,6 +92,8 @@ public final class World {
     private double time;
     /** Each platform's lamp, lever and thrusters, by piece: to show its controls. */
     private final Map<Integer, Rig> rigs = new HashMap<>();
+    /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
+    private final Map<Integer, Wheels> wheeled = new HashMap<>();
     /**
      * Where each piece that moves was, step by step, the last {@link #HISTORY} of them: so a mark
      * made in a step goes where the piece was in that step ({@link #at}).
@@ -151,6 +153,7 @@ public final class World {
                 case FRUIT -> fruit(part, piece.fruit());
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
                 case BUNKER -> bunker(part);
+                case CAR -> chassis(i, part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -198,6 +201,10 @@ public final class World {
             final Rig rig = rigs.get(lift.piece());
             if (rig != null) {
                 rig.show(lift, time);
+            }
+            final Wheels wheels = wheeled.get(lift.piece());
+            if (wheels != null) {
+                wheels.show(lift, seconds);
             }
         }
         for (final Rotate rotor : rotors) {
@@ -918,6 +925,117 @@ public final class World {
         box.setTranslateZ(z);
         box.setMaterial(material);
         return box;
+    }
+
+    /**
+     * A bare chassis: its bed, the steering column with the steering wheel on top, tipped toward
+     * the driver, and a wheel either side on each axle, those on the front axle turning to steer,
+     * every one with a spoke across its hub so it is seen to roll. The whole of it tips as the
+     * ground under its wheels slopes.
+     */
+    private Shape3D chassis(final int piece, final Group part) {
+        final Course.Shape shape = pieces.get(piece).shape();
+        final Course.Chassis chassis = Course.Chassis.of(shape);
+        final Course.Section frame = shape.box();
+        final PhongMaterial bed = BoxRig.matte("#3c434b");
+        final PhongMaterial dark = BoxRig.matte("#25292e");
+        final PhongMaterial tyre = BoxRig.matte("#1b1d20");
+        final PhongMaterial hub = BoxRig.matte("#a2a9b0");
+        final PhongMaterial red = BoxRig.matte("#c0392b");
+        // tipped about where it stands: the middle of the bed's top
+        final Group body = new Group();
+        final Rotate tilt = new Rotate(0, 0, frame.up(), 0, Rotate.X_AXIS);
+        body.getTransforms().add(tilt);
+        part.getChildren().add(body);
+        final Box slab = section(body, frame, chassis.bed(), bed);
+        // red lights at the back corners, so which way it faces is plain
+        for (final double side : new double[] {-1, 1}) {
+            section(body, frame, new Course.Section(side * (chassis.width() / 2 - 12), -chassis.length() / 2 - 1,
+                    -Course.Chassis.BED / 2, 10, 2, 8), red);
+        }
+        section(body, frame, chassis.column(), dark);
+        // the driver's seat, behind the steering wheel: a cushion, and a back to lean on
+        final PhongMaterial seat = BoxRig.matte("#6b4a2f");
+        section(body, frame, new Course.Section(chassis.driverAcross(), chassis.driverAlong(), Gait.SEAT / 2, 25, 24,
+                Gait.SEAT / 2), seat);
+        section(body, frame, new Course.Section(chassis.driverAcross(), chassis.driverAlong() - 30, Gait.SEAT + 40, 25,
+                5, 40), seat);
+        // the steering wheel, on top of the column, tipped back toward the driver, turned as the wheels are
+        final Course.Section column = chassis.column();
+        final Group wheel = new Group();
+        wheel.setTranslateX(column.across());
+        wheel.setTranslateY(-(column.up() + column.halfUp() - frame.up()));
+        wheel.setTranslateZ(column.along());
+        final Rotate turning = new Rotate(0, Rotate.Y_AXIS);
+        wheel.getTransforms().addAll(new Rotate(-60, Rotate.X_AXIS), turning);
+        final Cylinder rim = new Cylinder(20, 4);
+        rim.setMaterial(dark);
+        final Box spoke = new Box(38, 5, 5);
+        spoke.setMaterial(hub);
+        spoke.setTranslateY(-3);
+        wheel.getChildren().addAll(rim, spoke);
+        body.getChildren().add(wheel);
+        // the road wheels: steered (the front axle's), and rolling
+        final List<Rotate> steers = new ArrayList<>();
+        final List<Rotate> rolls = new ArrayList<>();
+        final List<Course.Section> sections = chassis.wheels();
+        for (int k = 0; k < sections.size(); k++) {
+            final Course.Section s = sections.get(k);
+            final Group roadWheel = new Group();
+            roadWheel.setTranslateX(s.across());
+            roadWheel.setTranslateY(-(s.up() - frame.up()));
+            roadWheel.setTranslateZ(s.along());
+            final Rotate steer = new Rotate(0, Rotate.Y_AXIS);
+            final Rotate roll = new Rotate(0, Rotate.X_AXIS);
+            roadWheel.getTransforms().addAll(steer, roll);
+            final Cylinder rubber = new Cylinder(chassis.wheelRadius(), chassis.wheelWidth());
+            rubber.setMaterial(tyre);
+            rubber.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+            final Box cap = new Box(chassis.wheelWidth() + 2, chassis.wheelRadius() * 1.3, 8);
+            cap.setMaterial(hub);
+            roadWheel.getChildren().addAll(rubber, cap);
+            body.getChildren().add(roadWheel);
+            if (k < 2) {
+                steers.add(steer);
+            }
+            rolls.add(roll);
+        }
+        wheeled.put(piece, new Wheels(tilt, steers, rolls, turning, chassis.wheelRadius()));
+        return slab;
+    }
+
+    /** A land vehicle as shown: its body tipped, its front wheels steered, every wheel rolling, its steering wheel turned. */
+    private static final class Wheels {
+        /** How many times further the steering wheel turns than the road wheels it steers. */
+        private static final double RATIO = 8;
+        private final Rotate tilt;
+        private final List<Rotate> steers;
+        private final List<Rotate> rolls;
+        private final Rotate turning;
+        private final double radius;
+
+        Wheels(final Rotate tilt, final List<Rotate> steers, final List<Rotate> rolls, final Rotate turning,
+               final double radius) {
+            this.tilt = tilt;
+            this.steers = steers;
+            this.rolls = rolls;
+            this.turning = turning;
+            this.radius = radius;
+        }
+
+        /** As {@code lift} is, {@code seconds} after the last frame: rolled on as far as it went. */
+        void show(final Lift lift, final double seconds) {
+            tilt.setAngle(lift.tilt());
+            for (final Rotate steer : steers) {
+                steer.setAngle(lift.steer());
+            }
+            turning.setAngle(lift.steer() * RATIO);
+            // rolling ahead, the top of each wheel goes ahead: backward about its axle, in a y-down frame
+            final double rolled = -Math.toDegrees(lift.ahead() * seconds / radius);
+            for (final Rotate roll : rolls) {
+                roll.setAngle((roll.getAngle() + rolled) % 360);
+            }
+        }
     }
 
     /** A platform's controls as shown: the lamp, the lever, the thrusters. */

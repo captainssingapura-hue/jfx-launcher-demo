@@ -24,6 +24,21 @@ characters, and a separate sound bench is for working on the sounds.
   a street that runs out from the start under it, and another off to the right, carrying a road
   over a street running out east. The crates and pillars that were scattered where the roads run
   are cleared away; everything else is where it was.
+- **Land vehicles: a bare chassis.** What a car or a truck is built on (`Course.Chassis`): a flat
+  bed on wheels, a steering wheel on a column, and nothing else yet. The car's is 4 m long on four
+  wheels; the truck's 7 m on six, its back four on two axles together. Jump onto the bed and stand
+  at the steering wheel: T takes it. W speeds it up, S brakes and then reverses, A and D steer,
+  Space is the handbrake, Shift goes gently; the mouse does not turn it. Only the front wheels
+  steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
+  it goes. Each wheel finds the ground under it: it drives up and down ramps and over the
+  flyover, tipped as the slope is, leaps off a ramp's head, and stops dead against anything
+  standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
+  its legs out ahead and its hands on the wheel, and is carried with it.
+  The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
+  own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
+  fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
+  is held: moving with what holds it, as the hands hold theirs, rather than aimed freely on a
+  mount (`Course.Mount#fixed`).
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -173,7 +188,7 @@ java -jar avatar-demo/target/avatar-demo.jar
 It opens on a choice of demos: the **playground**, everything at once, or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **flyover**, roads and ramps for the land vehicles to come; and the **guns**: a bunker
+bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; and the **guns**: a bunker
 and a gunship, each with a heavy Gatling gun, and crates, dummies and drones out in front (`Demo`).
 Click one or press its number. In a demo, the button at the top right, or a right click
 anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
@@ -199,7 +214,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |

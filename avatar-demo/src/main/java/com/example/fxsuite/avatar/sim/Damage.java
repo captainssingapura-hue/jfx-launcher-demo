@@ -36,6 +36,8 @@ public final class Damage {
     public static final double PLATFORM = 600;
     /** How tough a bunker is: concrete, most of a minute of the hand-held Gatling gun. */
     public static final double BUNKER = 2500;
+    /** How tough a land vehicle is, bare as it is. */
+    public static final double CAR = 800;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
     public static final double CRATE_VOLUME = 30_000;
@@ -71,6 +73,7 @@ public final class Damage {
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
             case BUNKER -> BUNKER;
+            case CAR -> CAR;
             case PLATFORM -> PLATFORM;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);

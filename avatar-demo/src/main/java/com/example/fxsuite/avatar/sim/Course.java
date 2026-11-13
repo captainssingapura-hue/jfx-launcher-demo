@@ -28,7 +28,7 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true);
 
         private final boolean breakable;
 
@@ -310,7 +310,7 @@ public final class Course {
      * whether it is closed (whoever flies it is out of sight, inside), and where whoever takes it
      * stands ({@link #station}, its middle in the craft's frame).
      */
-    public sealed interface Craft permits Deck, Ship {
+    public sealed interface Craft permits Deck, Ship, Chassis {
 
         Shape shape();
 
@@ -416,6 +416,138 @@ public final class Course {
     public static final Ship SHIP = new Ship();
 
     /**
+     * How a land vehicle drives: how fast at most ahead ({@code top}) and in reverse, how briskly it
+     * gets up to speed ({@code accel}), stops under the brakes ({@code brake}) and rolls to a stop
+     * left to itself ({@code drag}), all in units a second, a second; how far its front wheels turn
+     * at most ({@code steer}, degrees, at a crawl: less the faster it goes), and how fast they turn
+     * there ({@code steerRate}, degrees a second).
+     */
+    public record Drive(double top, double reverse, double accel, double brake, double drag, double steer,
+                        double steerRate) {
+    }
+
+    /**
+     * A chassis, bare: what a car or a truck is built on. A flat bed, {@code width} across and
+     * {@code length} from back to front, {@code ride} up off the ground, its top where the vehicle
+     * is; a wheel either side of the bed on each axle, {@code wheelRadius} in radius and
+     * {@code wheelWidth} wide, the axles {@code axles} along it from its middle, the first the one
+     * that steers; and a steering wheel on a column, before whoever drives it, standing on the bed
+     * at ({@code driverAcross}, {@code driverAlong}). Open: the driver is seen. It drives as
+     * {@code drive} says ({@link Lift}).
+     */
+    public record Chassis(String name, double width, double length, double ride, double wheelRadius,
+                          double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive)
+            implements Craft {
+
+        /** How thick the bed is, and how high the steering wheel stands over it. */
+        public static final double BED = 30;
+        public static final double WHEEL_HEIGHT = 110;
+
+        public Chassis {
+            axles = List.copyOf(axles);
+        }
+
+        /** The bed, a slab, its top where the vehicle is. */
+        public Section bed() {
+            return new Section(0, 0, -BED / 2, width / 2, length / 2, BED / 2);
+        }
+
+        /** How far out from the middle each wheel is: just clear of the bed's side. */
+        public double wheelOut() {
+            return width / 2 + 2 + wheelWidth / 2;
+        }
+
+        /** Its wheels, left then right on each axle, front to back: each touching the ground when it rests. */
+        public List<Section> wheels() {
+            final List<Section> wheels = new ArrayList<>();
+            for (final double along : axles) {
+                for (final double side : new double[] {-1, 1}) {
+                    wheels.add(new Section(side * wheelOut(), along, wheelRadius - ride, wheelWidth / 2, wheelRadius,
+                            wheelRadius));
+                }
+            }
+            return wheels;
+        }
+
+        /** The steering column, from the bed up to the steering wheel, in front of the driver. */
+        public Section column() {
+            return new Section(driverAcross, driverAlong + 50, WHEEL_HEIGHT / 2, 4, 4, WHEEL_HEIGHT / 2);
+        }
+
+        /** From its front axle back to the middle of those behind: what it turns about. */
+        public double wheelbase() {
+            return axles.getFirst() - rear();
+        }
+
+        /** Where its back wheels are, between them, along it: the point it turns about. */
+        public double rear() {
+            return axles.stream().skip(1).mapToDouble(Double::doubleValue).average().orElseThrow();
+        }
+
+        /** All of it, and its parts: the bed first, then the steering column, then the wheels. */
+        public Shape shape() {
+            final List<Section> parts = new ArrayList<>(List.of(bed(), column()));
+            parts.addAll(wheels());
+            final double out = wheelOut() + wheelWidth / 2;
+            return new Shape(new Section(0, 0, (WHEEL_HEIGHT - ride) / 2, out, length / 2, (WHEEL_HEIGHT + ride) / 2),
+                    parts);
+        }
+
+        /** The chassis a shape was made from ({@link #shape}), among those there are ({@link #CHASSES}). */
+        public static Chassis of(final Shape shape) {
+            return CHASSES.stream().filter(c -> c.shape().equals(shape)).findFirst().orElseThrow();
+        }
+
+        /** From the ground it stands on up as high as whoever rides it: nothing it drives under or past goes through a rider. */
+        @Override
+        public Section room() {
+            final double top = Body.TALL + 30;
+            return new Section(0, 0, (top - ride) / 2, wheelOut() + wheelWidth / 2, length / 2, (top + ride) / 2);
+        }
+
+        /** It stands on its wheels: the bottom of them. */
+        @Override
+        public Section footing() {
+            return new Section(0, 0, 1 - ride, wheelOut() + wheelWidth / 2, length / 2, 1);
+        }
+
+        /** As fast as it drives; not flown, and its engine is not cut. */
+        @Override
+        public Handling handling() {
+            return new Handling(drive.top(), 0, 0, 0, 0, 0, false);
+        }
+
+        @Override
+        public boolean closed() {
+            return false;
+        }
+
+        /** Where the driver stands: on the bed, behind the steering wheel. */
+        @Override
+        public Section station() {
+            return new Section(driverAcross, driverAlong, 0, 0, 0, 0);
+        }
+    }
+
+    /** A car's chassis: 4 m long, 1.8 m wide, four wheels; quick, and nimble. */
+    public static final Chassis CAR_CHASSIS = new Chassis("car", 180, 400, 75, 35, 24, List.of(130.0, -130.0), -40,
+            40, new Drive(2200, 700, 900, 2600, 350, 34, 140));
+    /** A truck's: 7 m long, 2.4 m wide, six wheels, the back four on two axles together; slower, and wider in its turns. */
+    public static final Chassis TRUCK_CHASSIS = new Chassis("truck", 240, 700, 105, 50, 30,
+            List.of(240.0, -150.0, -280.0), -60, 170, new Drive(1600, 450, 550, 1900, 300, 30, 100));
+    /** Every chassis there is, to know one by its shape. */
+    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS);
+
+    /**
+     * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
+     * its barrels reaching out over the front; it fires the way the car faces, and is fired by
+     * whoever drives it.
+     */
+    public static final Mount CAR_GUN = new Mount(Gun.HEAVY_GATLING,
+            new Section(CAR_CHASSIS.driverAcross() + 62, CAR_CHASSIS.driverAlong() + 10, 70, 0, 0, 0), 230, 0, 0, 0,
+            0, false, false, CAR_CHASSIS.station(), CAR_CHASSIS.station(), false);
+
+    /**
      * A gun on a mount ({@link Turret}): which gun ({@link Gun}), where it turns about on what
      * carries it ({@code pivot}, in that's frame, as for a vehicle's parts), how far its muzzle is
      * out from there ({@code barrel}), how far it turns either way ({@code traverse}, degrees; 180
@@ -428,6 +560,14 @@ public final class Course {
     public record Mount(Gun gun, Section pivot, double barrel, double traverse, double depression, double elevation,
                         double slew, boolean stabilized, boolean closed, Section station, Section seat,
                         boolean overheats) {
+
+        /**
+         * Whether it is fixed: turning neither round nor up and down on what carries it, so it fires
+         * the way that faces, tipped as that is; fired by whoever drives it, not manned on its own.
+         */
+        public boolean fixed() {
+            return traverse == 0 && depression == 0 && elevation == 0;
+        }
     }
 
     /**
@@ -640,6 +780,9 @@ public final class Course {
     private void flyoverDemo() {
         scenery(19, true);
         roads(flyover(0, FLYOVER_Z, 90));
+        // and a car's chassis and a truck's, either side of the way ahead, to drive on them
+        pieces.add(Piece.moving(CAR_CHASSIS.shape(), new Place(-450, 300, CAR_CHASSIS.ride(), 0), Kind.CAR, 0, null));
+        pieces.add(Piece.moving(TRUCK_CHASSIS.shape(), new Place(550, 250, TRUCK_CHASSIS.ride(), 0), Kind.CAR, 1, null));
         // a ramp to leap off: one in three, up to a metre and a half, open at its head
         pieces.add(new Piece(Block.ramp(0, 3000, 0, 0, 3450, 150, 500), Kind.ROAD, 0));
     }
