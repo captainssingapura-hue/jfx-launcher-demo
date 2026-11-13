@@ -141,6 +141,32 @@ final class RecordingSpeakers implements Speakers {
         };
     }
 
+    @Override
+    public Stream stream(final Source source) {
+        catchUp();
+        final Stream stream = mix.stream(source);
+        // its changes count from when they are made, as a loop's do; it is made as the file is mixed
+        return new Stream() {
+            @Override
+            public void set(final double gain) {
+                catchUp();
+                stream.set(gain);
+            }
+
+            @Override
+            public void place(final Vec3 at) {
+                catchUp();
+                stream.place(at);
+            }
+
+            @Override
+            public void stop() {
+                catchUp();
+                stream.stop();
+            }
+        };
+    }
+
     /** Mixes on to now, fills in the file's sizes, and closes it. */
     @Override
     public void close() {

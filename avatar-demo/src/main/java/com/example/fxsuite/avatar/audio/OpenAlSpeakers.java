@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.audio;
 
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
+import com.example.fxsuite.avatar.sound.Wav;
 
 import org.lwjgl.openal.AL;
 import org.lwjgl.openal.ALC;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.lwjgl.openal.AL10.AL_BUFFER;
+import static org.lwjgl.openal.AL10.AL_BUFFERS_PROCESSED;
 import static org.lwjgl.openal.AL10.AL_FALSE;
 import static org.lwjgl.openal.AL10.AL_FORMAT_MONO16;
 import static org.lwjgl.openal.AL10.AL_GAIN;
@@ -40,6 +42,8 @@ import static org.lwjgl.openal.AL10.alListenerf;
 import static org.lwjgl.openal.AL10.alListenerfv;
 import static org.lwjgl.openal.AL10.alSource3f;
 import static org.lwjgl.openal.AL10.alSourcePlay;
+import static org.lwjgl.openal.AL10.alSourceQueueBuffers;
+import static org.lwjgl.openal.AL10.alSourceUnqueueBuffers;
 import static org.lwjgl.openal.AL10.alSourceStop;
 import static org.lwjgl.openal.AL10.alSourcef;
 import static org.lwjgl.openal.AL10.alSourcei;
@@ -67,6 +71,9 @@ final class OpenAlSpeakers implements Speakers {
     /** One-shots that can sound at once; past that, the oldest gives way. */
     private static final int VOICES = 24;
     private static final String MEMORY_BACKEND = "org.lwjgl.system.memoryBackend";
+    /** A stream keeps this many buffers of this many samples queued: about 93 ms ahead. */
+    private static final int STREAM_BLOCK = 1024;
+    private static final int STREAM_BUFFERS = 4;
 
     private final long device;
     private final long context;
@@ -74,6 +81,7 @@ final class OpenAlSpeakers implements Speakers {
     private final Map<Clip, Integer> buffers = new IdentityHashMap<>();
     private final int[] voices = new int[VOICES];
     private final List<Integer> loops = new ArrayList<>();
+    private final List<Fed> streams = new ArrayList<>();
     private int next;
 
     private OpenAlSpeakers(final long device, final long context, final String name) {
@@ -131,6 +139,10 @@ final class OpenAlSpeakers implements Speakers {
 
     @Override
     public void listen(final Vec3 at, final double yaw) {
+        // every frame: the streams topped up, before anything else
+        for (final Fed stream : List.copyOf(streams)) {
+            stream.pump();
+        }
         final double y = Math.toRadians(yaw);
         alListener3f(AL_POSITION, (float) at.x(), (float) -at.y(), (float) -at.z());
         // facing (sin, 0, cos) in ours is (sin, 0, -cos) in OpenAL's; up is up
@@ -200,7 +212,17 @@ final class OpenAlSpeakers implements Speakers {
     }
 
     @Override
+    public Stream stream(final Source source) {
+        final Fed fed = new Fed(source);
+        streams.add(fed);
+        return fed;
+    }
+
+    @Override
     public void close() {
+        for (final Fed stream : List.copyOf(streams)) {
+            stream.stop();
+        }
         for (final int source : voices) {
             alSourceStop(source);
             alDeleteSources(source);
@@ -260,5 +282,79 @@ final class OpenAlSpeakers implements Speakers {
         final int oldest = voices[next];
         next = (next + 1) % VOICES;
         return oldest;
+    }
+
+    /**
+     * What a {@link Source} makes, playing: a source with a few short buffers queued, each filled
+     * from it, and topped up every frame ({@link #listen}) as they are played, so there is always
+     * some way ahead. If the frames ever stall so long that it runs dry, it starts again.
+     */
+    private final class Fed implements Stream {
+        private final Source made;
+        private final int source = source();
+        private final int[] buffers = new int[STREAM_BUFFERS];
+        private final float[] samples = new float[STREAM_BLOCK];
+        private final short[] pcm = new short[STREAM_BLOCK];
+        private boolean stopped;
+
+        private Fed(final Source made) {
+            this.made = made;
+            alSourcef(source, AL_GAIN, 0);
+            OpenAlSpeakers.place(source, null);
+            for (int i = 0; i < STREAM_BUFFERS; i++) {
+                buffers[i] = alGenBuffers();
+                fill(buffers[i]);
+                alSourceQueueBuffers(source, buffers[i]);
+            }
+            alSourcePlay(source);
+        }
+
+        /** The buffers played since last time, filled again and queued behind the rest. */
+        private void pump() {
+            for (int done = alGetSourcei(source, AL_BUFFERS_PROCESSED); done > 0; done--) {
+                final int buffer = alSourceUnqueueBuffers(source);
+                fill(buffer);
+                alSourceQueueBuffers(source, buffer);
+            }
+            if (alGetSourcei(source, AL_SOURCE_STATE) != AL_PLAYING) {
+                alSourcePlay(source);
+            }
+        }
+
+        private void fill(final int buffer) {
+            made.fill(samples, STREAM_BLOCK);
+            for (int i = 0; i < STREAM_BLOCK; i++) {
+                pcm[i] = Wav.toShort(samples[i]);
+            }
+            alBufferData(buffer, AL_FORMAT_MONO16, pcm, Clip.RATE);
+        }
+
+        @Override
+        public void set(final double gain) {
+            if (!stopped) {
+                alSourcef(source, AL_GAIN, (float) Math.max(0, gain));
+            }
+        }
+
+        @Override
+        public void place(final Vec3 at) {
+            if (!stopped) {
+                OpenAlSpeakers.place(source, at);
+            }
+        }
+
+        @Override
+        public void stop() {
+            if (!stopped) {
+                stopped = true;
+                alSourceStop(source);
+                alSourcei(source, AL_BUFFER, 0);
+                alDeleteSources(source);
+                for (final int buffer : buffers) {
+                    alDeleteBuffers(buffer);
+                }
+                streams.remove(this);
+            }
+        }
     }
 }

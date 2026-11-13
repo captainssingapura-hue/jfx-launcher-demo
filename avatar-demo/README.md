@@ -285,9 +285,13 @@ gun's roar), as games mix them, so it punches through. The nearest airship still
 drones from where it is, faint from the ground and loud alongside it. The vehicle being driven
   is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
   of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
-  order giving it its lumpy burble. Each is built pulse by pulse from its cylinders firing,
-  idling at 900 turns a minute; it climbs in pitch through four gears as the vehicle gathers
-  speed, dropping back at each change, and is louder the harder it is worked. The jets roar as
+  order giving it its lumpy burble. In the Robot profile the engine is made as it runs, the
+  engine bench's own (`EngineVoice`, played as a stream by `EngineStream`): each cylinder firing
+  in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through four
+  gears as the vehicle gathers speed and drops back at each change, its note the revs' while its
+  pipes ring where they are; louder and harsher with the throttle open and worked hard; and
+  lifting off at speed, held back, popping. The Arcade profile loops its chip's engines, pitched
+  up with the revs, as ever. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.
@@ -387,8 +391,8 @@ is worked hard; and pops and crackle off the throttle at speed.
 
 It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
 `SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
-`-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's engines are not yet
-made this way.
+`-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's V6 and V8 are these,
+stock, made the same way as they are driven ([Sound](#sound)).
 
 ## Unattended runs
 
@@ -455,7 +459,7 @@ of steps, and lets the rest go rather than falling ever further behind.
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
-| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
+| `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
 | `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |

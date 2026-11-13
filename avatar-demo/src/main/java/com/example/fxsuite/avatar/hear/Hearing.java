@@ -39,6 +39,8 @@ public final class Hearing implements AutoCloseable {
     private static final double VOLUME = 0.8;
     /** How quickly the loops come back up after an explosion pushed them down: a time constant, in seconds. */
     private static final double DUCK_BACK = 0.45;
+    /** How loud an engine made as it runs is played. */
+    private static final double ENGINE = 1;
 
     private record Key(String profile, Sound sound, int strength, int take) {
     }
@@ -48,6 +50,9 @@ public final class Hearing implements AutoCloseable {
     private final Map<Key, Clip> clips = new HashMap<>();
     private final Map<Sound, Integer> takes = new EnumMap<>(Sound.class);
     private final Map<Sound, Speakers.Loop> loops = new EnumMap<>(Sound.class);
+    /** The engine of the vehicle being driven, made as it runs, and its stream; none, null. */
+    private EngineStream engine;
+    private Speakers.Stream engineOut;
     private Profile profile;
     private boolean muted;
     /** How far down the loops are pushed, by the latest explosion ({@link Sound#duck}); and when last heard. */
@@ -123,6 +128,36 @@ public final class Hearing implements AutoCloseable {
             loop.set(hum.level().gain() * (1 - ducked), hum.level().pitch());
             loop.place(hum.at());
         }
+        running(heard.running());
+    }
+
+    /**
+     * The engine of the vehicle being driven, made as it runs, if the profile makes it so: started
+     * when it is first driven, another started if another engine is, stopped when none is; told
+     * each frame what it is doing, and heard from under its bonnet, pushed down by a blast as the
+     * loops are.
+     */
+    private void running(final Cues.Motor motor) {
+        if (motor == null) {
+            stopEngine();
+            return;
+        }
+        if (engine == null || !engine.engine().equals(motor.engine())) {
+            stopEngine();
+            engine = new EngineStream(motor.engine());
+            engineOut = speakers.stream(engine);
+        }
+        engine.set(motor.rpm(), motor.throttle(), motor.load());
+        engineOut.set(ENGINE * (1 - ducked));
+        engineOut.place(motor.at());
+    }
+
+    private void stopEngine() {
+        if (engineOut != null) {
+            engineOut.stop();
+        }
+        engine = null;
+        engineOut = null;
     }
 
     /** How far down the loops are pushed now, 0 to 1, by the latest blast. */
@@ -142,6 +177,7 @@ public final class Hearing implements AutoCloseable {
         profile = all.get((all.indexOf(profile) + 1) % all.size());
         loops.values().forEach(Speakers.Loop::stop);
         loops.clear();
+        stopEngine();
     }
 
     public Profile profile() {
@@ -165,6 +201,7 @@ public final class Hearing implements AutoCloseable {
     public void close() {
         loops.values().forEach(Speakers.Loop::stop);
         loops.clear();
+        stopEngine();
         speakers.close();
     }
 

@@ -59,17 +59,37 @@ public final class Cues {
     }
 
     /**
-     * The engine of the vehicle being driven: a V8 or a V6, how fast it turns ({@code rev}, 0 at idle
-     * to 1 at the limit), how hard it is worked ({@code load}, 0 to 1), and where it is.
+     * The engine of the vehicle being driven: which {@link Engine}, how fast it turns ({@code rpm}),
+     * how far its throttle is open and how hard it is worked ({@code throttle}, {@code load}, 0 to 1),
+     * and where it is.
      */
-    public record Motor(boolean v8, double rev, double load, Vec3 at) {
+    public record Motor(Engine engine, double rpm, double throttle, double load, Vec3 at) {
+
+        /** Whether it is a V8, for a profile that loops its engines: the bigger of its two. */
+        public boolean v8() {
+            return engine.cylinders() == 8;
+        }
+
+        /** How far it is revved, 0 at idle to 1 at the red line. */
+        public double rev() {
+            return Math.clamp((rpm - engine.idle()) / (engine.redline() - engine.idle()), 0, 1);
+        }
     }
 
-    /** All of it: what to play once, and how every loop should be playing. */
-    public record Heard(List<Play> plays, List<Hum> hums) {
+    /**
+     * All of it: what to play once, how every loop should be playing, and the engine to make as it
+     * runs ({@code running}), if the profile makes engines so ({@link Profile#enginesAsTheyRun}) and
+     * one is driven; else null.
+     */
+    public record Heard(List<Play> plays, List<Hum> hums, Motor running) {
         public Heard {
             plays = List.copyOf(plays);
             hums = List.copyOf(hums);
+        }
+
+        /** With no engine made as it runs. */
+        public Heard(final List<Play> plays, final List<Hum> hums) {
+            this(plays, hums, null);
         }
     }
 
@@ -190,8 +210,10 @@ public final class Cues {
         final Vec3 airship = nearest(airships, feet);
         for (final Sound loop : Sound.loops()) {
             if (loop == Sound.ENGINE_V6 || loop == Sound.ENGINE_V8) {
-                // the engine being driven, of its kind, from under its bonnet; the other kind silent
-                final boolean runs = motor != null && motor.v8() == (loop == Sound.ENGINE_V8);
+                // the engine being driven, of its kind, from under its bonnet; the other kind silent;
+                // and both, if the profile makes the engine as it runs instead
+                final boolean runs = motor != null && !profile.enginesAsTheyRun()
+                        && motor.v8() == (loop == Sound.ENGINE_V8);
                 hums.add(runs ? new Hum(loop, profile.level(loop, drive), motor.at()) : new Hum(loop, Level.OFF, null));
                 continue;
             }
@@ -210,7 +232,7 @@ public final class Cues {
             hums.add(new Hum(loop, gun && gunner != null ? new Level(level.gain(), level.pitch() * gunner.pitch()) : level,
                     at));
         }
-        return new Heard(plays, hums);
+        return new Heard(plays, hums, motor != null && profile.enginesAsTheyRun() ? motor : null);
     }
 
     /** The one of {@code points} nearest {@code to}, or null if there are none. */

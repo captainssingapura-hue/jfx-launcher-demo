@@ -37,6 +37,7 @@ import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Cues;
+import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.view.Chase;
 
 import javafx.animation.AnimationTimer;
@@ -159,12 +160,12 @@ public final class Game {
     private static final double SIGHT_UP = 34;
     /** The gears a land vehicle's engine revs up through; and how hard it was worked, and how fast it was going, at the last frame. */
     private static final int GEARS = 4;
-    /** An engine at idle, turns a minute. */
-    private static final double IDLE = 900;
     /** A land vehicle's instruments. */
     private final Dashboard dashboard = new Dashboard();
     private double engineLoad;
     private double lastAhead;
+    /** The controls the last step was taken with: the throttle a driven engine is heard to have. */
+    private Controls lastControls = Controls.NONE;
     private static final double GUN_REST = -4;
     private static final double OPEN_GUN_VIEW = 560;
     private static final double OPEN_GUN_EYE = 170;
@@ -479,6 +480,7 @@ public final class Game {
                 pressed.clear();
             }
             before = avatar;
+            lastControls = controls;
             // the avatar moves, its blows wear the world down, and what happened goes to the journal
             final Play.Stepped stepped = new Play(avatar, damage, sky, lifts, people, props, turrets).step(controls, Clock.STEP);
             avatar = stepped.play().avatar();
@@ -929,18 +931,26 @@ public final class Game {
      */
     private Cues.Motor motor(final Lift lift, final double seconds) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
-        final boolean v8 = v8(chassis);
-        final double rev = gearing(lift)[1];
+        final Engine engine = engine(chassis);
         final double speeding = seconds > 0 ? (Math.abs(lift.ahead()) - Math.abs(lastAhead)) / seconds : 0;
         lastAhead = lift.ahead();
         engineLoad = Num.ease(engineLoad, Num.clamp(speeding / chassis.drive().accel(), 0, 1), 6, seconds);
+        // the throttle: W going ahead, or S once it is going back; off it, it is held back, and pops
+        final double forward = lastControls.forward();
+        final double throttle = forward > 0 ? forward : lift.ahead() < 1 && forward < 0 ? -forward : 0;
         final Vec3 bonnet = lift.at(new Course.Section(0, chassis.length() / 2 - 70, 20, 0, 0, 0));
-        return new Cues.Motor(v8, rev, engineLoad, bonnet);
+        return new Cues.Motor(engine, rpm(lift), Math.min(1, throttle), engineLoad, bonnet);
     }
 
-    /** Whether {@code chassis} has a V8: the pickup and the truck; the smaller ones a V6. */
-    private static boolean v8(final Course.Chassis chassis) {
-        return chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS;
+    /** The engine in {@code chassis}: a V8 in the pickup and the truck, a V6 in the smaller ones. */
+    private static Engine engine(final Course.Chassis chassis) {
+        return chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS ? Engine.V8 : Engine.V6;
+    }
+
+    /** How fast the engine of land vehicle {@code lift} turns: from its idle up to its red line in each gear. */
+    private static double rpm(final Lift lift) {
+        final Engine engine = engine((Course.Chassis) lift.craft());
+        return engine.idle() + gearing(lift)[1] * (engine.redline() - engine.idle());
     }
 
     /**
@@ -958,7 +968,7 @@ public final class Game {
 
     /**
      * The instruments of land vehicle {@code lift} (null for none driven): its engine's turns a
-     * minute, from 900 at idle up to its red line, a V8's lower than a V6's; its gear, R going back;
+     * minute, from its idle up to its red line, a V8's lower than a V6's; its gear, R going back;
      * and its speed in kilometres an hour.
      */
     private void instruments(final Lift lift, final double seconds) {
@@ -966,11 +976,10 @@ public final class Game {
             dashboard.hide();
             return;
         }
-        final double redline = v8((Course.Chassis) lift.craft()) ? 6000 : 6500;
+        final Engine engine = engine((Course.Chassis) lift.craft());
         final double[] gearing = gearing(lift);
-        final double rpm = IDLE + gearing[1] * (redline - IDLE);
         final String gear = lift.ahead() < -1 ? "R" : Integer.toString((int) gearing[0] + 1);
-        dashboard.show(rpm, redline, gear, Math.abs(lift.ahead()) / 100 * 3.6, seconds);
+        dashboard.show(rpm(lift), engine.redline(), gear, Math.abs(lift.ahead()) / 100 * 3.6, seconds);
     }
 
     /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */

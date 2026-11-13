@@ -123,4 +123,28 @@ class MixTest {
         assertEquals(0, Space.side(Vec3.ZERO, 0, new Vec3(0, -300, 0)), 1e-9, "overhead");
         assertEquals(1, Space.side(Vec3.ZERO, 90, new Vec3(0, 0, -100)), 1e-9, "facing +x, -z is on the right");
     }
+
+    @Test
+    void aStreamIsAskedForEachRenderPlacedAsAVoiceIsAndGoneOnceStopped() {
+        final Mix mix = new Mix();
+        final int[] asked = {0};
+        // a source as steady as the clip: every sample 1, and how much it was asked for counted
+        final Speakers.Stream stream = mix.stream((into, count) -> {
+            Arrays.fill(into, 0, count, 1);
+            asked[0] += count;
+        });
+        stream.set(1);
+        render(mix);
+        final float[] out = render(mix);
+        assertEquals(2 * BLOCK, asked[0], "as much as each render needs, no more");
+        assertEquals(Math.sqrt(0.5), out[0], 1e-6, "at the ear, centred, as a voice is");
+        assertEquals(out[0], out[1], 1e-6);
+        stream.place(new Vec3(400, 0, 0));
+        render(mix);
+        final float[] right = render(mix);
+        assertTrue(right[1] > right[0], "on the right, heard on the right");
+        stream.stop();
+        render(mix);
+        assertEquals(0, mix.playing(), "stopped, gone after fading out");
+    }
 }
