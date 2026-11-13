@@ -952,9 +952,14 @@ public final class World {
         // tipped about where it stands: the middle of the bed's top
         final Group body = new Group();
         final Rotate tilt = new Rotate(0, 0, frame.up(), 0, Rotate.X_AXIS);
-        body.getTransforms().add(tilt);
+        // a two-wheeler leans into its turns, about where its tyres touch the ground
+        final Rotate leaning = new Rotate(0, 0, chassis.ride() + frame.up(), 0, Rotate.Z_AXIS);
+        body.getTransforms().addAll(leaning, tilt);
         part.getChildren().add(body);
         final Box slab = section(body, frame, chassis.bed(), bed);
+        if (chassis.twoWheels()) {
+            return bike(piece, chassis, frame, body, slab, tilt, leaning);
+        }
         // red lights at the back corners, so which way it faces is plain
         for (final double side : new double[] {-1, 1}) {
             section(body, frame, new Course.Section(side * (chassis.width() / 2 - 12), -chassis.length() / 2 - 1,
@@ -1024,7 +1029,127 @@ public final class World {
                 }
             }
         }
-        wheeled.put(piece, new Wheels(tilt, steers, rolls, turning, chassis.wheelRadius()));
+        wheeled.put(piece, new Wheels(tilt, leaning, steers, rolls, turning, chassis.wheelRadius(), Wheels.RATIO));
+        return painted;
+    }
+
+    /**
+     * A two-wheeler, on its frame ({@code slab}): its wheels in line, the front one steered by the
+     * handlebars over it on their forks, and rolling; its seat, lamps and pipe; and what makes it
+     * the bike it is. A scooter: a floorboard for the feet, a shield in front of the legs, and a
+     * cowl round the engine under the seat, all painted. A sport bike: a nose fairing, a tank to
+     * tuck down over, the engine below, and a raised tail. A cruiser: a teardrop tank, its V-twin's
+     * two cylinders standing out of the engine, fenders over both wheels, and long chrome pipes.
+     * Tipped as the ground slopes, and leaning into its turns.
+     */
+    private Shape3D bike(final int piece, final Course.Chassis bike, final Course.Section frame, final Group body,
+                         final Box slab, final Rotate tilt, final Rotate leaning) {
+        final PhongMaterial paint = BoxRig.matte(switch (bike.name()) {
+            case "scooter" -> "#4fa3a5";
+            case "sport bike" -> "#c8302c";
+            default -> "#1e2a3a";
+        });
+        final PhongMaterial dark = BoxRig.matte("#25292e");
+        final PhongMaterial engine = BoxRig.matte("#5a6068");
+        final PhongMaterial chrome = BoxRig.matte("#c9cfd6");
+        chrome.setSpecularColor(javafx.scene.paint.Color.WHITE);
+        chrome.setSpecularPower(30);
+        final PhongMaterial seat = BoxRig.matte("#2a2522");
+        final double front = bike.axles().getFirst();
+        final double back = bike.axles().getLast();
+        final double r = bike.wheelRadius();
+        final double ride = bike.ride();
+        final double bars = bike.bars();
+        final double sat = bike.driverAlong();
+        Shape3D painted = slab;
+        // the seat, where the rider sits astride
+        section(body, frame, new Course.Section(0, sat - 4, Gait.SEAT - 7, 15, bike.name().equals("cruiser") ? 22 : 28,
+                7), seat);
+        switch (bike.name()) {
+            case "scooter" -> {
+                // under the seat, the cowl round the engine; ahead of it the floorboard, and the shield
+                painted = section(body, frame, new Course.Section(0, sat - 10, Gait.SEAT / 2 - 10, 20, 40, Gait.SEAT / 2),
+                        paint);
+                section(body, frame, new Course.Section(0, sat + 50, 2, 18, 30, 3), dark);
+                section(body, frame, new Course.Section(0, front - 12, bars / 2 + 2, 22, 4, bars / 2 + 8), paint);
+            }
+            case "sport bike" -> {
+                painted = section(body, frame, new Course.Section(0, sat + 34, Gait.SEAT, 16, 22, 11), paint);
+                section(body, frame, new Course.Section(0, front - 4, bars - 6, 20, 14, 20), paint);
+                section(body, frame, new Course.Section(0, sat - 40, Gait.SEAT + 4, 10, 22, 7), paint);
+                section(body, frame, new Course.Section(0, 4, -12, 14, 26, 18), engine);
+                section(body, frame, new Course.Section(10, back + 10, 4, 5, 22, 5), chrome);
+            }
+            default -> {
+                painted = section(body, frame, new Course.Section(0, sat + 42, Gait.SEAT - 2, 15, 24, 10), paint);
+                // the V-twin: the engine below, two cylinders standing out of it, front and back
+                section(body, frame, new Course.Section(0, 6, -16, 13, 24, 14), engine);
+                for (final double along : new double[] {-8, 22}) {
+                    section(body, frame, new Course.Section(0, along, 6, 11, 9, 14), chrome);
+                }
+                // fenders over the wheels, and the pipes down the right, out past the back wheel
+                section(body, frame, new Course.Section(0, front, r - ride + r + 4, 9, r * 0.8, 3), paint);
+                section(body, frame, new Course.Section(0, back - 4, r - ride + r + 4, 10, r * 0.9, 3), paint);
+                for (final double up : new double[] {-22, -12}) {
+                    section(body, frame, new Course.Section(18, back + 22, up, 4, 62, 4), chrome);
+                }
+            }
+        }
+        // the lamps: a headlamp over the front wheel, a tail lamp at the back
+        section(body, frame, new Course.Section(0, front + 6, bars * 0.75, 9, 3, 7), BoxRig.glow("#fff4cf"));
+        section(body, frame, new Course.Section(0, back - r - 2, Gait.SEAT - 4, 9, 2, 4), BoxRig.glow("#e0342b"));
+        // the handlebars, on the forks over the front wheel, turned as it is
+        final Course.Section column = bike.column();
+        final Group handlebars = new Group();
+        handlebars.setTranslateX(0);
+        handlebars.setTranslateY(-(bars - frame.up()));
+        handlebars.setTranslateZ(column.along());
+        final Rotate turning = new Rotate(0, Rotate.Y_AXIS);
+        handlebars.getTransforms().add(turning);
+        final Box bar = new Box(bike.width(), 4, 4);
+        bar.setMaterial(dark);
+        final Box stem = new Box(8, 10, 8);
+        stem.setMaterial(dark);
+        stem.setTranslateY(5);
+        handlebars.getChildren().addAll(bar, stem);
+        body.getChildren().add(handlebars);
+        // the forks, down from the bars to the front wheel's hub, raked back
+        final double topAlong = column.along();
+        final double drop = bars - (r - ride);
+        final double run = topAlong - front;
+        final Box fork = new Box(6, Math.hypot(drop, run), 6);
+        fork.setMaterial(chrome);
+        fork.setTranslateY(-((bars + r - ride) / 2 - frame.up()));
+        fork.setTranslateZ((topAlong + front) / 2);
+        fork.getTransforms().add(new Rotate(Math.toDegrees(Math.atan2(run, drop)), Rotate.X_AXIS));
+        body.getChildren().add(fork);
+        // the wheels, in line: the front one steered, both rolling
+        final PhongMaterial tyre = BoxRig.matte("#1b1d20");
+        final PhongMaterial hub = BoxRig.matte("#a2a9b0");
+        final List<Rotate> steers = new ArrayList<>();
+        final List<Rotate> rolls = new ArrayList<>();
+        final List<Course.Section> sections = bike.wheels();
+        for (int k = 0; k < sections.size(); k++) {
+            final Course.Section s = sections.get(k);
+            final Group roadWheel = new Group();
+            roadWheel.setTranslateY(-(s.up() - frame.up()));
+            roadWheel.setTranslateZ(s.along());
+            final Rotate steer = new Rotate(0, Rotate.Y_AXIS);
+            final Rotate roll = new Rotate(0, Rotate.X_AXIS);
+            roadWheel.getTransforms().addAll(steer, roll);
+            final Cylinder rubber = new Cylinder(r, bike.wheelWidth());
+            rubber.setMaterial(tyre);
+            rubber.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+            final Box spokes = new Box(bike.wheelWidth() + 2, r * 1.5, 6);
+            spokes.setMaterial(hub);
+            roadWheel.getChildren().addAll(rubber, spokes);
+            body.getChildren().add(roadWheel);
+            if (k == 0) {
+                steers.add(steer);
+            }
+            rolls.add(roll);
+        }
+        wheeled.put(piece, new Wheels(tilt, leaning, steers, rolls, turning, r, 1));
         return painted;
     }
 
@@ -1047,32 +1172,41 @@ public final class World {
                 Sheets.Slot.TAIL, BoxRig.glow("#e0342b"));
     }
 
-    /** A land vehicle as shown: its body tipped, its front wheels steered, every wheel rolling, its steering wheel turned. */
+    /** A land vehicle as shown: tipped, a two-wheeler leaning, its front wheels steered and every wheel rolling. */
     private static final class Wheels {
         /** How many times further the steering wheel turns than the road wheels it steers. */
         private static final double RATIO = 8;
         private final Rotate tilt;
+        private final Rotate leaning;
         private final List<Rotate> steers;
         private final List<Rotate> rolls;
         private final Rotate turning;
         private final double radius;
+        private final double ratio;
 
-        Wheels(final Rotate tilt, final List<Rotate> steers, final List<Rotate> rolls, final Rotate turning,
-               final double radius) {
+        /**
+         * {@code ratio}: how much further what it is steered by turns than its wheels: a steering
+         * wheel's {@link #RATIO}, handlebars 1.
+         */
+        Wheels(final Rotate tilt, final Rotate leaning, final List<Rotate> steers, final List<Rotate> rolls,
+               final Rotate turning, final double radius, final double ratio) {
             this.tilt = tilt;
+            this.leaning = leaning;
             this.steers = steers;
             this.rolls = rolls;
             this.turning = turning;
             this.radius = radius;
+            this.ratio = ratio;
         }
 
-        /** As {@code lift} is, {@code seconds} after the last frame: rolled on as far as it went. */
+        /** As {@code lift} is, {@code seconds} after the last frame: rolled on as far as it went, leaning as it leans. */
         void show(final Lift lift, final double seconds) {
             tilt.setAngle(lift.tilt());
+            leaning.setAngle(lift.lean());
             for (final Rotate steer : steers) {
                 steer.setAngle(lift.steer());
             }
-            turning.setAngle(lift.steer() * RATIO);
+            turning.setAngle(lift.steer() * ratio);
             // rolling ahead, the top of each wheel goes ahead: backward about its axle, in a y-down frame
             final double rolled = -Math.toDegrees(lift.ahead() * seconds / radius);
             for (final Rotate roll : rolls) {

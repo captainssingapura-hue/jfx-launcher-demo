@@ -454,34 +454,58 @@ public final class Course {
      * that steers; and a steering wheel on a column, before whoever drives it, standing on the bed
      * at ({@code driverAcross}, {@code driverAlong}). Open: the driver is seen. It drives as
      * {@code drive} says ({@link Lift}).
+     *
+     * <p>Or, {@code twoWheels}, what a scooter or a motorcycle is built on: one wheel on each of its
+     * two axles, in line, under a narrow frame; {@code width} the width of its handlebars, which
+     * stand where a steering wheel would; ridden astride, at {@code driverAcross} 0. It drives as a
+     * car does, and is shown leaning into its turns as a two-wheeler must ({@link Lift#lean}).
      */
     public record Chassis(String name, double width, double length, double ride, double wheelRadius,
-                          double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive)
+                          double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive,
+                          boolean twoWheels)
             implements Craft {
 
         /** How thick the bed is, and how high the steering wheel stands over it: within reach of a seated driver. */
         public static final double BED = 30;
         public static final double WHEEL_HEIGHT = 80;
+        /** A two-wheeler's frame, in place of a bed: this narrow; and its handlebars this high over it. */
+        public static final double FRAME = 24;
+        public static final double BARS = 45;
 
         public Chassis {
             axles = List.copyOf(axles);
+            if (twoWheels && (axles.size() != 2 || driverAcross != 0)) {
+                throw new IllegalArgumentException(name + ": two wheels in line, ridden astride");
+            }
         }
 
-        /** The bed, a slab, its top where the vehicle is. */
+        /** A car's or a truck's: a wheel either side of each axle. */
+        public Chassis(final String name, final double width, final double length, final double ride,
+                       final double wheelRadius, final double wheelWidth, final List<Double> axles,
+                       final double driverAcross, final double driverAlong, final Drive drive) {
+            this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, false);
+        }
+
+        /** The bed, a slab, its top where the vehicle is: a two-wheeler's, its narrow frame. */
         public Section bed() {
-            return new Section(0, 0, -BED / 2, width / 2, length / 2, BED / 2);
+            return new Section(0, 0, -BED / 2, twoWheels ? FRAME / 2 : width / 2, length / 2, BED / 2);
         }
 
-        /** How far out from the middle each wheel is: just clear of the bed's side. */
+        /** How far out from the middle each wheel is: just clear of the bed's side; a two-wheeler's, in the middle. */
         public double wheelOut() {
-            return width / 2 + 2 + wheelWidth / 2;
+            return twoWheels ? 0 : width / 2 + 2 + wheelWidth / 2;
+        }
+
+        /** How far out it reaches either side, all told: its wheels, or a two-wheeler's handlebars. */
+        public double half() {
+            return twoWheels ? width / 2 : wheelOut() + wheelWidth / 2;
         }
 
         /** Its wheels, left then right on each axle, front to back: each touching the ground when it rests. */
         public List<Section> wheels() {
             final List<Section> wheels = new ArrayList<>();
             for (final double along : axles) {
-                for (final double side : new double[] {-1, 1}) {
+                for (final double side : twoWheels ? new double[] {0} : new double[] {-1, 1}) {
                     wheels.add(new Section(side * wheelOut(), along, wheelRadius - ride, wheelWidth / 2, wheelRadius,
                             wheelRadius));
                 }
@@ -489,9 +513,14 @@ public final class Course {
             return wheels;
         }
 
+        /** How high the steering wheel stands over the bed; or the handlebars over a two-wheeler's frame. */
+        public double bars() {
+            return twoWheels ? BARS : WHEEL_HEIGHT;
+        }
+
         /** The steering column, from the bed up to the steering wheel, in front of the driver. */
         public Section column() {
-            return new Section(driverAcross, driverAlong + 50, WHEEL_HEIGHT / 2, 4, 4, WHEEL_HEIGHT / 2);
+            return new Section(driverAcross, driverAlong + 50, bars() / 2, 4, 4, bars() / 2);
         }
 
         /** From its front axle back to the middle of those behind: what it turns about. */
@@ -508,8 +537,8 @@ public final class Course {
         public Shape shape() {
             final List<Section> parts = new ArrayList<>(List.of(bed(), column()));
             parts.addAll(wheels());
-            final double out = wheelOut() + wheelWidth / 2;
-            return new Shape(new Section(0, 0, (WHEEL_HEIGHT - ride) / 2, out, length / 2, (WHEEL_HEIGHT + ride) / 2),
+            final double out = half();
+            return new Shape(new Section(0, 0, (bars() - ride) / 2, out, length / 2, (bars() + ride) / 2),
                     parts);
         }
 
@@ -524,7 +553,7 @@ public final class Course {
             final List<Section> parts = new ArrayList<>(shape().parts());
             parts.addAll(body.solid());
             double out = 0;
-            double top = WHEEL_HEIGHT;
+            double top = bars();
             double front = length / 2;
             for (final Section s : parts) {
                 out = Math.max(out, Math.abs(s.across()) + s.halfAcross());
@@ -547,20 +576,20 @@ public final class Course {
         @Override
         public Section door() {
             final double side = driverAcross < 0 ? -1 : 1;
-            return new Section(side * (wheelOut() + wheelWidth / 2 + 60), driverAlong, -ride, 0, 0, 0);
+            return new Section(side * (half() + 60), driverAlong, -ride, 0, 0, 0);
         }
 
         /** From the ground it stands on up as high as whoever rides it: nothing it drives under or past goes through a rider. */
         @Override
         public Section room() {
             final double top = Body.TALL + 30;
-            return new Section(0, 0, (top - ride) / 2, wheelOut() + wheelWidth / 2, length / 2, (top + ride) / 2);
+            return new Section(0, 0, (top - ride) / 2, half(), length / 2, (top + ride) / 2);
         }
 
         /** It stands on its wheels: the bottom of them. */
         @Override
         public Section footing() {
-            return new Section(0, 0, 1 - ride, wheelOut() + wheelWidth / 2, length / 2, 1);
+            return new Section(0, 0, 1 - ride, half(), length / 2, 1);
         }
 
         /** As fast as it drives; not flown, and its engine is not cut. */
@@ -594,6 +623,27 @@ public final class Course {
      */
     public static final Chassis PICKUP_CHASSIS = new Chassis("pickup", 200, 520, 85, 40, 26, List.of(170.0, -170.0),
             -45, 110, new Drive(1900, 600, 750, 2300, 330, 32, 120));
+    /**
+     * A scooter's: 1.8 m long, on two small wheels, its rider sat upright well back, feet on the
+     * floorboard between them; not quick, but nimble. The first of the two-wheelers.
+     */
+    public static final Chassis SCOOTER = new Chassis("scooter", 70, 180, 40, 22, 12, List.of(62.0, -62.0), 0, -22,
+            new Drive(1500, 300, 650, 1800, 300, 26, 130), true);
+    /**
+     * A sport bike's: 2.05 m long, on big wheels, its rider tucked forward over the tank; the
+     * quickest of everything that drives, though a little less nimble than a scooter.
+     */
+    public static final Chassis SPORT_BIKE = new Chassis("sport bike", 70, 205, 45, 31, 18, List.of(70.0, -70.0),
+            0, -25,
+            new Drive(2800, 300, 1300, 2600, 320, 22, 110), true);
+    /**
+     * A cruiser's: 2.4 m long and low, its wheels far apart, its rider sat back, feet forward, arms
+     * out to wide bars; steady, slower to turn.
+     */
+    public static final Chassis CRUISER = new Chassis("cruiser", 90, 240, 40, 32, 16, List.of(88.0, -82.0), 0, -30,
+            new Drive(2300, 300, 800, 2200, 300, 20, 90), true);
+    /** The two-wheelers. */
+    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER);
     /**
      * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
      * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
@@ -635,7 +685,8 @@ public final class Course {
             new Section(0, 0, 80, 118, 202, 108)));
 
     /** Every chassis there is, to know one by its shape. */
-    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
+    public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS, SCOOTER, SPORT_BIKE,
+            CRUISER);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -884,6 +935,11 @@ public final class Course {
         pieces.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-950, 250, CAR_CHASSIS.ride(), 0), 3));
         // and a pickup's, its gun on the back, behind the start
         pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
+        // and the two-wheelers beside it: the scooter, the sport bike and the cruiser, each with a clear
+        // way ahead between the cars
+        pieces.add(Piece.vehicle(SCOOTER, null, new Place(-700, -700, SCOOTER.ride(), 0), 0));
+        pieces.add(Piece.vehicle(SPORT_BIKE, null, new Place(320, -700, SPORT_BIKE.ride(), 0), 0));
+        pieces.add(Piece.vehicle(CRUISER, null, new Place(1000, -700, CRUISER.ride(), 0), 0));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {
@@ -961,6 +1017,9 @@ public final class Course {
         extras.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-650, -2650, CAR_CHASSIS.ride(), 0), 3));
         extras.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(650, -2000, PICKUP_CHASSIS.ride(), 0), 2));
         extras.add(Piece.vehicle(TRUCK_CHASSIS, TRUCK_CAB, new Place(700, -2700, TRUCK_CHASSIS.ride(), 0), 1));
+        extras.add(Piece.vehicle(SCOOTER, null, new Place(-650, -1500, SCOOTER.ride(), 0), 0));
+        extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
+        extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(GUNSHIP.shape(), new Place(-2600, -300, LIFT_LOW, -90), Kind.PLATFORM, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));

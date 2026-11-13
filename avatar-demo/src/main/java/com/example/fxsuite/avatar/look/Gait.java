@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.look;
 import com.example.fxsuite.avatar.sim.Arms;
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Num;
 
 /**
@@ -169,6 +170,38 @@ public final class Gait {
                 40, 40, 12, 12, 34, 34,
                 84, 84, 6,
                 looking.headYaw(), looking.headPitch(), 0);
+    }
+
+    /**
+     * {@code looking}, astride a two-wheeler, {@code bike}, leaning into a turn {@code lean} degrees
+     * to the right, as the bike does: the hips down on its seat, as in a car's, the legs either side
+     * of it, and the hands forward on the bars. How it sits is the bike's: on a scooter upright,
+     * feet forward on the floorboard; on a sport bike tucked down over the tank, knees up to the
+     * pegs; on a cruiser sat back, feet out ahead, arms out to wide bars.
+     */
+    public static Pose astride(final Pose looking, final Course.Chassis bike, final double lean) {
+        // how far forward it leans, the legs swing forward, the arms reach and spread, and the legs part
+        final double[] style = switch (bike.name()) {
+            case "sport bike" -> new double[] {26, 38, 62, 10, 14};
+            case "cruiser" -> new double[] {-6, 72, 58, 22, 18};
+            default -> new double[] {2, 64, 52, 12, 10};
+        };
+        return new Pose(style[0], lean, SEAT - BoxRig.HIP,
+                style[2], style[2], style[3], style[3], 22, 22,
+                style[1], style[1], style[4],
+                looking.headYaw(), Num.clamp(looking.headPitch() - style[0] * 0.6, -HEAD_TIP, HEAD_TIP), 0);
+    }
+
+    /**
+     * How far a rider astride a two-wheeler whose seat is {@code ride} up off the ground is moved,
+     * {@code lean} degrees over to the right, to tip with the bike about where its tyres touch the
+     * ground: across to the right, and down. The figure banks about its middle, not the ground, so
+     * it is moved as far as its middle would swing.
+     */
+    public static double[] leaning(final double lean, final double ride) {
+        final double up = ride + BoxRig.MIDDLE + SEAT - BoxRig.HIP;
+        final double tip = Math.toRadians(lean);
+        return new double[] {up * Math.sin(tip), up * (1 - Math.cos(tip))};
     }
 
     private static Pose onFoot(final Body body) {

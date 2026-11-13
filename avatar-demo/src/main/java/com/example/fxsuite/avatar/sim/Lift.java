@@ -46,6 +46,12 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double GRIP = 2.5;
     /** How near its station the avatar must be to take the controls. */
     public static final double REACH = 110;
+    /**
+     * A two-wheeler leans this far at most; three quarters of that going round this many times as
+     * hard as gravity pulls.
+     */
+    public static final double MOST_LEAN = 45;
+    private static final double LEANING = 1.4;
     /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
 
@@ -315,6 +321,21 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         return settle(chassis, place, 0, nowSteer, seconds, others).lift();
     }
 
+    /**
+     * How far it leans into its turn, if it is a two-wheeler, in degrees, to the right: as a rider
+     * leans one to balance going round, the further the harder it is going round, never past
+     * {@link #MOST_LEAN}; upright going straight, or stopped. Only how it is shown: to the world it
+     * stands as ever. Not a two-wheeler, 0.
+     */
+    public double lean() {
+        if (!(craft instanceof Course.Chassis chassis) || !chassis.twoWheels()) {
+            return 0;
+        }
+        // how hard it is going round: its speed, times how fast it turns
+        final double round = ahead * ahead / chassis.wheelbase() * Math.tan(Math.toRadians(steer));
+        return MOST_LEAN * Math.tanh(round / (LEANING * Body.GRAVITY));
+    }
+
     /** {@code value} brought toward {@code target} by no more than {@code by}. */
     private static double toward(final double value, final double target, final double by) {
         return value + Num.clamp(target - value, -by, by);
@@ -364,7 +385,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         // between its wheels, it rests on its belly, high-centred, rather than sinking into it
         final double rise = Math.tan(Math.toRadians(slope));
         final double clearance = chassis.ride() - Course.Chassis.BED;
-        final double half = chassis.wheelOut() + chassis.wheelWidth() / 2;
+        final double half = chassis.half();
         final int rows = (int) Math.ceil(chassis.length() / 100) + 1;
         for (int r = 0; r < rows; r++) {
             final double along = -chassis.length() / 2 + chassis.length() * r / (rows - 1);
@@ -409,7 +430,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         // on its wheels, the ground under it slopes as it is tipped; in the air, it is level under it
         final double rise = aloft ? 0 : Math.tan(Math.toRadians(tilt));
         final double over = place.height() + Body.TALL + 30;
-        final double half = chassis.wheelOut() + chassis.wheelWidth() / 2;
+        final double half = chassis.half();
         final int rows = (int) Math.ceil(chassis.length() / 100) + 1;
         final Vec3 ahead = Num.heading(place.yaw());
         final Vec3 right = Num.right(place.yaw());

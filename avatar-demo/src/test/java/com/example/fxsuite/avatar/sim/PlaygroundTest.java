@@ -23,9 +23,12 @@ class PlaygroundTest {
 
     @Test
     void theVehiclesTheBunkerTheGunshipAndAnAirshipToFlyAreAllThere() {
-        final Set<String> bodies = start.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis)
-                .map(l -> pieces.get(l.piece()).body().name()).collect(Collectors.toSet());
-        assertEquals(Set.of("roadster", "van", "pickup", "truck"), bodies);
+        // the cars by their bodies, the two-wheelers by their chassis
+        final Set<String> vehicles = start.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis)
+                .map(l -> pieces.get(l.piece()).body() != null ? pieces.get(l.piece()).body().name()
+                        : ((Course.Chassis) l.craft()).name())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("roadster", "van", "pickup", "truck", "scooter", "sport bike", "cruiser"), vehicles);
         assertEquals(1, pieces.stream().filter(p -> p.kind() == Course.Kind.BUNKER).count());
         assertTrue(start.lifts().stream().anyMatch(l -> Course.GUNSHIP.equals(l.deck())), "the gunship");
         assertTrue(start.lifts().stream().anyMatch(l -> l.craft() instanceof Course.Ship), "an airship to fly");

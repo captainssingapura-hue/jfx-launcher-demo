@@ -41,8 +41,13 @@ for the engines.
   standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
   its legs out ahead and its hands on the wheel, and is carried with it.
   Low on the right, as racing games have them, its instruments: a round tachometer, its needle
-  sweeping up to the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
+  sweeping up toward the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
+  Each has a gearbox of its own (`Gearbox`): six gears in the car and the pickup, eight, close
+  together, in the truck, the top gear a little short of the red line at top speed. It changes
+  by itself, as a quick automatic does: up near the red line pulling hard, up early cruising,
+  down as it slows, down a gear or two flooring it; the throttle cut for a moment at each
+  change, blipped going down; the clutch slipping pulling away.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
   fires it with a click (a weapon in the hands stays quiet meanwhile). This is the other way a gun
@@ -70,6 +75,24 @@ for the engines.
   parts and the body's together. With the body round the seat, a vehicle is got into from the
   ground beside the driver's door (T), and let out there; at the wheel, the driver sits still in
   it, carried.
+- **Two-wheelers: a scooter and motorcycles.** The same chassis, on two wheels in line under a
+  narrow frame, with handlebars over the front wheel on raked forks (`Course.Chassis`,
+  `twoWheels`): a scooter, small-wheeled, teal, its engine under a cowl beneath the seat, a
+  floorboard for the feet and a shield before the legs; a sport bike, red, its nose fairing, a
+  tank to tuck down over, a raised tail and a pipe out the back, the quickest of everything that
+  drives; and a cruiser, long and low, dark blue, a teardrop tank, its V-twin's two cylinders
+  standing out of the engine, fenders over both wheels and long chrome pipes down the right.
+  Got onto from beside them (T), ridden as a car is driven, and got off again there. The rider
+  sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
+  tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
+  wide bars. Each leans into its turns as a rider would lean it to balance going round
+  (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
+  rider leaning with it about where its tyres touch the ground; only how it is shown, to the
+  world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
+  single on a CVT, which holds it most of the way up its revs as the speed builds (D on the
+  dial); the sport bike a 90° L-twin with six gears, changed in a flash; the cruiser a 45°
+  V-twin, its uneven beat, with five. They stand behind the start on the Roads demo, and along
+  the street on the playground.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -285,9 +308,10 @@ gun's roar), as games mix them, so it punches through. The nearest airship still
 drones from where it is, faint from the ground and loud alongside it. The vehicle being driven
   is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
   of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
-  order giving it its lumpy burble. In the Robot profile the engine is made as it runs, the
+  order giving it its lumpy burble; a buzzing single in the scooter, an L-twin's hard beat in the
+  sport bike, and a V-twin's uneven one in the cruiser. In the Robot profile the engine is made as it runs, the
   engine bench's own (`EngineVoice`, played as a stream by `EngineStream`): each cylinder firing
-  in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through four
+  in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through its
   gears as the vehicle gathers speed and drops back at each change, its note the revs' while its
   pipes ring where they are; louder and harsher with the throttle open and worked hard; and
   lifting off at speed, held back, popping. The Arcade profile loops its chip's engines, pitched
