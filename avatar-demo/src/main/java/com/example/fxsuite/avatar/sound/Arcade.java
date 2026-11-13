@@ -68,8 +68,11 @@ public final class Arcade implements Profile {
             case GATLING_DRAWN -> arpeggio("gatling-drawn", new double[] {110, 146.83, 220, 220}, variant);
             case BREAK_WOOD -> breakWood(amount, variant);
             case BREAK_DRONE, BOMB -> breakDrone(variant);
+            case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
+            case ENGINE_V6 -> engine(false);
+            case ENGINE_V8 -> engine(true);
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> noiseLoop("jet-rumble", 2400, 9300, 0.45, false);
@@ -95,6 +98,10 @@ public final class Arcade implements Profile {
         }
         if (loop == Sound.AIRSHIP_ENGINES) {
             return new Level(1, 1);
+        }
+        if (loop == Sound.ENGINE_V6 || loop == Sound.ENGINE_V8) {
+            return drive.rev() < 0 ? Level.OFF
+                    : new Level(volume(0.45 + 0.35 * drive.load() + 0.2 * drive.rev()), semitones(1 + 2.4 * drive.rev()));
         }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
@@ -409,6 +416,27 @@ public final class Arcade implements Profile {
     }
 
     /**
+     * A fruit bursting, as an old game would make it: a short, high burst of the noise channel,
+     * wet, and a squelching blip sliding down under it; higher and softer for a smaller one
+     * ({@code heft}).
+     */
+    private static Clip fruit(final double heft, final int variant) {
+        final Chip noise = new Chip(new Noise(23_000L + variant));
+        final double tune = tune(variant) * (1.6 - 0.6 * heft);
+        final int frames = 12;
+        final double[] y = new double[samples((frames + 2) * FRAME)];
+        double phase = 0;
+        for (int i = 0; i < y.length; i++) {
+            final double t = time(i);
+            final double share = Math.min(1, tick(t) / (frames * FRAME));
+            phase += 330 * tune * Math.pow(2, -2 * share) / Dsp.RATE;
+            y[i] = (noise.next(6000 * tune * (1 - 0.5 * share)) * fall(t, 6) + 0.7 * square(phase, 0.5) * fall(t, frames))
+                    * onset(t);
+        }
+        return clip("fruit", heft, variant, y, 0.27 + 0.18 * heft);
+    }
+
+    /**
      * A drone blowing up, as every old game's explosion did: the noise channel at its lowest,
      * roaring and sinking, stepping down to silence over most of a second, with a low triangle
      * thud under it.
@@ -469,6 +497,28 @@ public final class Arcade implements Profile {
             y[i] = (triangle(55 * t) + 0.5 * square(27.5 * t, 0.25)) * volume(0.7 * blades);
         }
         return new Clip("airship-engines", Dsp.normalized(y, 0.5), true);
+    }
+
+    /**
+     * An engine at idle, as a chip would have it. A V6: a narrow pulse wave at its even firing note,
+     * raspy, with a triangle an octave up. A V8: a square wave at its firing note, each pulse
+     * as loud as its bank is in the lopsided order it fires in, over a triangle at half the turn
+     * rate, for the burble. Every tone a whole number of times round the two-second loop.
+     */
+    private static Clip engine(final boolean v8) {
+        final int length = samples(2);
+        final double[] y = new double[length];
+        final double[] banks = {1, 0.6, 0.6, 1, 0.6, 1, 1, 0.6};
+        for (int i = 0; i < length; i++) {
+            final double t = time(i);
+            if (v8) {
+                final int pulse = (int) Math.floor(t * 60) % 8;
+                y[i] = square(60 * t, 0.5) * volume(0.6 * banks[pulse]) + 0.9 * triangle(15 * t);
+            } else {
+                y[i] = square(45 * t, 0.15) * volume(0.7) + 0.3 * triangle(90 * t);
+            }
+        }
+        return new Clip(v8 ? "engine-v8" : "engine-v6", Dsp.normalized(y, 0.5), true);
     }
 
     // ---- the loops

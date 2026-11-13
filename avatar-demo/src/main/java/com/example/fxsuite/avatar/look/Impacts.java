@@ -2,10 +2,12 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Block;
-import com.example.fxsuite.avatar.sim.Clock;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
+import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -43,6 +45,9 @@ public final class Impacts {
     private final Group root = new Group();
     private final Pool tracers;
     private final Pool sparks;
+    /** Juice, off fruit struck: a watermelon's red, a pineapple's gold. */
+    private final Pool juice;
+    private final Pool nectar;
     private final Pool dust;
     private final Pool holes;
     private final Pool gashes;
@@ -64,6 +69,8 @@ public final class Impacts {
         final PhongMaterial hole = BoxRig.matte("#1b1c1f");
         tracers = new Pool(16, () -> new Box(1.2, 1, 1.2), light);
         sparks = new Pool(120, () -> new Box(3, 3, 3), spark);
+        juice = new Pool(90, () -> new Box(3.5, 3.5, 3.5), BoxRig.matte("#d8283a"));
+        nectar = new Pool(40, () -> new Box(3, 3, 3), BoxRig.matte("#f0c52e"));
         dust = new Pool(60, () -> new Box(8, 8, 8), earth);
         holes = new Pool(300, () -> new Box(8, 0.5, 8), hole);
         gashes = new Pool(30, () -> new Box(26, 0.6, 4.5), hole);
@@ -84,21 +91,26 @@ public final class Impacts {
         for (final Journal.Logged entry : entries) {
             final Event event = entry.event();
             if (event instanceof Event.Fired fired) {
-                // the Gatling gun's belt carries a tracer every third round, as real belts do:
-                // forty a second would be one solid beam
-                if (avatar.holding() != Weapon.GATLING || ++gatlingRounds % 3 == 0) {
+                // a Gatling gun's belt carries a tracer every third round, as real belts do: forty a
+                // second would be one solid beam; the heavy one's, every other
+                final int every = switch (fired.by()) {
+                    case GATLING -> 3;
+                    case HEAVY_GATLING -> 2;
+                    default -> 1;
+                };
+                if (every == 1 || ++gatlingRounds % every == 0) {
                     tracer(fired.from(), fired.to());
                 }
-            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB) {
-                // a bomb leaves no mark of its own on each thing it reaches: its blast is the wreckage's
-                struck(struck, avatar.body().yaw(), entry.step() * Clock.STEP);
+            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB && struck.by() != Weapon.FALL) {
+                // a bomb, or a fall, leaves no mark of its own on what it reaches: what comes of it is the wreckage's
+                struck(struck, avatar.body().yaw(), entry.step());
             } else if (event instanceof Event.Broke broke) {
                 // what was marked is gone, and its marks with it
                 holes.clear(broke.piece());
                 gashes.clear(broke.piece());
             }
         }
-        for (final Pool pool : new Pool[] {tracers, sparks, dust, holes, gashes}) {
+        for (final Pool pool : new Pool[] {tracers, sparks, juice, nectar, dust, holes, gashes}) {
             pool.age(seconds);
         }
     }
@@ -110,11 +122,26 @@ public final class Impacts {
         tracer.place(from.add(along.multiply(0.5)), Vec3.ZERO, along, false);
     }
 
-    /** What a round or the blade does where it struck, {@code seconds} after the start, the avatar facing {@code yaw}. */
-    private void struck(final Event.Struck struck, final double yaw, final double seconds) {
+    /** What a round or the blade does where it struck, in step {@code step}, the avatar facing {@code yaw}. */
+    private void struck(final Event.Struck struck, final double yaw, final long step) {
         final boolean blade = struck.by() == Weapon.GLAIVE;
         final Vec3 off = struck.at().add(struck.normal().multiply(0.4));
-        if (struck.on() == Surface.BLOCK) {
+        if (Person.is(struck.piece())) {
+            // someone hit: a puff off their clothes, and no mark left on them
+            for (int i = 0; i < 4; i++) {
+                dust.next(DUST * 0.6).place(off, struck.normal().multiply(90).add(scatter(80)), null, true);
+            }
+            return;
+        }
+        if (struck.piece() >= 0 && world.kind(struck.piece()) == Course.Kind.FRUIT) {
+            // fruit struck splashes juice, not sparks
+            final Pool splash = world.fruit(struck.piece()) == Fruit.PINEAPPLE ? nectar : juice;
+            for (int i = 0; i < (blade ? 18 : 8); i++) {
+                final Vec3 fly = struck.normal().multiply(blade ? 260 : 200).add(scatter(blade ? 420 : 260))
+                        .add(0, -120, 0);
+                splash.next(SPARK * 2 * (0.6 + 0.4 * unit())).place(off, fly, null, true);
+            }
+        } else if (struck.on() == Surface.BLOCK) {
             for (int i = 0; i < (blade ? 16 : 6); i++) {
                 final Vec3 fly = struck.normal().multiply(blade ? 450 : 320).add(scatter(blade ? 500 : 300));
                 sparks.next(SPARK * (0.6 + 0.4 * unit())).place(off, fly, null, true);
@@ -133,7 +160,7 @@ public final class Impacts {
         final Vec3 facing;
         final double turned;
         if (piece >= 0) {
-            final Block block = world.at(piece, seconds);
+            final Block block = world.at(piece, step);
             on = world.group(piece);
             at = block.toLocal(off);
             facing = block.turnToLocal(struck.normal());

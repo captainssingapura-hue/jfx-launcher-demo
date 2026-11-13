@@ -60,7 +60,21 @@ public final class Reticle {
         if (!gun) {
             return;
         }
-        final Vec3 point = Arms.sight(avatar.body(), world, avatar.arms().pitch(), avatar.holding());
+        place(Arms.sight(avatar.body(), world, avatar.arms().pitch(), avatar.holding()), eye);
+    }
+
+    /** Shown at {@code point}, where a mounted gun's line meets the world, facing a camera at {@code eye}. */
+    public void showAt(final Vec3 point, final Vec3 eye) {
+        root.setVisible(true);
+        place(point, eye);
+    }
+
+    /** Not shown. */
+    public void hide() {
+        root.setVisible(false);
+    }
+
+    private void place(final Vec3 point, final Vec3 eye) {
         final Vec3 toEye = eye.subtract(point);
         final double distance = toEye.magnitude();
         at.setX(point.x());

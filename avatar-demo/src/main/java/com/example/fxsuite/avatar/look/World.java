@@ -4,6 +4,8 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Fruit;
+import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 
@@ -15,12 +17,24 @@ import javafx.scene.Node;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
+import javafx.scene.shape.CullFace;
+import javafx.scene.shape.MeshView;
+import javafx.scene.shape.TriangleMesh;
 import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Shape3D;
+import javafx.scene.shape.Sphere;
+import javafx.scene.image.WritableImage;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.scene.transform.Translate;
 import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * The world drawn: a ground with a metre grid, and each piece of the {@link Course}, coloured by
@@ -76,6 +90,18 @@ public final class World {
     private final Bar[] bars = new Bar[BARS];
     private final PhongMaterial crack = BoxRig.matte("#1d1915");
     private double time;
+    /** Each platform's lamp, lever and thrusters, by piece: to show its controls. */
+    private final Map<Integer, Rig> rigs = new HashMap<>();
+    /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
+    private final Map<Integer, Wheels> wheeled = new HashMap<>();
+    /** Each vehicle's glass, by piece: hidden from inside, when it is looked out of. */
+    private final Map<Integer, Node> glass = new HashMap<>();
+    /**
+     * Where each piece that moves was, step by step, the last {@link #HISTORY} of them: so a mark
+     * made in a step goes where the piece was in that step ({@link #at}).
+     */
+    private final TreeMap<Long, Map<Integer, Block>> history = new TreeMap<>();
+    private static final int HISTORY = 240;
 
     public World(final Course course) {
         final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
@@ -103,6 +129,7 @@ public final class World {
         final String[] board = {"#d9c39a", "#c2a878"};
         final String[] drone = {"#3a3f47", "#4b4f3a", "#4a3c3c"};
         final String[] hull = {"#6c757e", "#6e6c58"};
+        final String[] asphalt = {"#4f555b", "#62676c"};
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
             final Block block = piece.block();
@@ -119,6 +146,16 @@ public final class World {
                 case DUMMY -> dummy(part, block, BoxRig.matte(board[piece.tint() % board.length]));
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
                 case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
+                case PLATFORM -> platform(i, part);
+                case FURNITURE -> switch (piece.furniture()) {
+                    case TABLE -> table(part, block);
+                    case STOOL -> stool(part, block);
+                    case SCOOTER -> scooter(part, block);
+                };
+                case FRUIT -> fruit(part, piece.fruit());
+                case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
+                case BUNKER -> bunker(part);
+                case CAR -> chassis(i, part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -146,19 +183,30 @@ public final class World {
     }
 
     /**
-     * Draws what the weapons have done, and moves on what moves of itself: the airships, where
-     * they are {@code skyTime} seconds after the start, the rotors and the lights.
+     * Draws what the weapons have done, and moves what moves to where it is seen: each of
+     * {@code placed}, by piece, where it is drawn this frame ({@link com.example.fxsuite.avatar.sim.Play#moving}, between its
+     * last two steps). Then the platforms' controls ({@code lifts}), the rotors and the lights.
      * {@code viewYaw} turns the bars to face the camera.
      */
-    public void show(final Damage damage, final double skyTime, final double seconds, final double viewYaw) {
+    public void show(final Damage damage, final Map<Integer, Block> placed, final List<Lift> lifts,
+                     final double seconds, final double viewYaw) {
         time += seconds;
-        for (int i = 0; i < parts.length; i++) {
-            if (pieces.get(i).moves() && !damage.broken(i)) {
-                final Block block = pieces.get(i).at(skyTime).block();
-                parts[i].setTranslateX(block.x());
-                parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
-                parts[i].setTranslateZ(block.z());
-                turns[i].setAngle(block.yaw());
+        for (final Map.Entry<Integer, Block> moved : placed.entrySet()) {
+            final int i = moved.getKey();
+            final Block block = moved.getValue();
+            parts[i].setTranslateX(block.x());
+            parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
+            parts[i].setTranslateZ(block.z());
+            turns[i].setAngle(block.yaw());
+        }
+        for (final Lift lift : lifts) {
+            final Rig rig = rigs.get(lift.piece());
+            if (rig != null) {
+                rig.show(lift, time);
+            }
+            final Wheels wheels = wheeled.get(lift.piece());
+            if (wheels != null) {
+                wheels.show(lift, seconds);
             }
         }
         for (final Rotate rotor : rotors) {
@@ -200,7 +248,7 @@ public final class World {
         for (int k = 0; k < BARS; k++) {
             if (k < showing.size()) {
                 final int i = showing.get(k);
-                bars[k].show(pieces.get(i).at(skyTime).block(), shown[i], viewYaw);
+                bars[k].show(placed.getOrDefault(i, pieces.get(i).block()), shown[i], viewYaw);
             } else {
                 bars[k].node.setVisible(false);
             }
@@ -216,14 +264,46 @@ public final class World {
         return parts[piece];
     }
 
-    /** Piece {@code piece}'s box {@code seconds} after the start: where it was, if it moves. */
-    Block at(final int piece, final double seconds) {
-        return pieces.get(piece).at(seconds).block();
+    /** What piece {@code piece} is. */
+    Course.Kind kind(final int piece) {
+        return pieces.get(piece).kind();
+    }
+
+    /** Which fruit piece {@code piece} is, if it is fruit; null if not. */
+    Fruit fruit(final int piece) {
+        return pieces.get(piece).fruit();
+    }
+
+    /** Where each piece that moves was after step {@code step}, {@code placed}: kept a while, for {@link #at}. */
+    public void moved(final long step, final Map<Integer, Block> placed) {
+        history.put(step, placed);
+        while (history.size() > HISTORY) {
+            history.pollFirstEntry();
+        }
+    }
+
+    /** Piece {@code piece}'s box after step {@code step}: where it was then, if it moves and that is still known; where it was built, otherwise. */
+    Block at(final int piece, final long step) {
+        final Map.Entry<Long, Map<Integer, Block>> then = history.floorEntry(step);
+        if (then != null && then.getValue().containsKey(piece)) {
+            return then.getValue().get(piece);
+        }
+        return pieces.get(piece).block();
     }
 
     /** What piece {@code piece} is made of, as it now looks: for its broken pieces. */
     public PhongMaterial material(final int piece) {
         return (PhongMaterial) bodies[piece].getMaterial();
+    }
+
+    /** Shows each vehicle's glass, but for piece {@code inside}'s (-1 for none): looked out of from in it. */
+    public void glassFrom(final int inside) {
+        glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
+    }
+
+    /** Shows the blob shadow, or hides it: when the avatar is out of sight, inside a vehicle. */
+    public void shadowShown(final boolean shown) {
+        shadow.setVisible(shown);
     }
 
     /** Moves the blob shadow onto whatever is under the body, smaller the higher it is above it. */
@@ -243,8 +323,8 @@ public final class World {
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
-        if (kind == Course.Kind.DRONE) {
-            return;  // a drone's box is mostly air: nothing to crack
+        if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT) {
+            return;  // a drone's box is mostly air, and fruit is round: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -327,6 +407,79 @@ public final class World {
     /** 0 to 1, the same for the same piece, crack and salt. */
     private static double unit(final int piece, final int n, final int salt) {
         return Num.hash(piece, n, salt);
+    }
+
+    /** A bunker: its concrete walls and roof, the slit along its front and the door at its back left open. */
+    private static Shape3D bunker(final Group part) {
+        final PhongMaterial concrete = BoxRig.matte("#8d8a80");
+        final PhongMaterial roof = BoxRig.matte("#77746b");
+        Shape3D front = null;
+        for (final Course.Section wall : Course.BUNKER_WALLS) {
+            final Box box = section(part, Course.BUNKER_BOX, wall, wall == Course.BUNKER_WALLS.getLast() ? roof : concrete);
+            if (front == null) {
+                front = box;
+            }
+        }
+        return front;
+    }
+
+    /**
+     * A stretch of road: a ramp as a wedge, its top sloping as the block's does, or a deck as a
+     * box; a yellow line down the middle of it and a white one along each edge, lying on its top.
+     */
+    private static Shape3D road(final Group part, final Block block, final PhongMaterial material) {
+        final Shape3D body = block.sloped() ? wedge(block) : new Box(block.halfWidth() * 2,
+                block.top() - block.bottom(), block.halfDepth() * 2);
+        body.setMaterial(material);
+        part.getChildren().add(body);
+        // the road runs along the ramp, or along the deck's longer side
+        final boolean along = block.sloped() || block.halfDepth() >= block.halfWidth();
+        final double length = along ? Math.hypot(block.halfDepth() * 2, block.top() - block.toe())
+                : block.halfWidth() * 2;
+        final double half = along ? block.halfWidth() : block.halfDepth();
+        final double mid = (block.top() + block.bottom()) / 2;
+        final double slope = Math.toDegrees(Math.atan2(block.top() - block.toe(), block.halfDepth() * 2));
+        final PhongMaterial yellow = BoxRig.matte("#f2c230");
+        final PhongMaterial white = BoxRig.matte("#e8e8e2");
+        for (final double across : new double[] {0, -(half - 25), half - 25}) {
+            final Box line = along ? new Box(across == 0 ? 14 : 10, 2, length) : new Box(length, 2, across == 0 ? 14 : 10);
+            line.setMaterial(across == 0 ? yellow : white);
+            if (along) {
+                line.setTranslateX(across);
+                line.getTransforms().add(new Rotate(slope, Rotate.X_AXIS));
+            } else {
+                line.setTranslateZ(across);
+            }
+            line.setTranslateY(mid - (block.top() + block.toe()) / 2 - 1.5);
+            part.getChildren().add(line);
+        }
+        return body;
+    }
+
+    /** A ramp's solid: its footprint at the bottom, its top sloping from its toe at the back up to its top at the front. */
+    private static Shape3D wedge(final Block block) {
+        final float w = (float) block.halfWidth();
+        final float d = (float) block.halfDepth();
+        final double mid = (block.top() + block.bottom()) / 2;
+        // heights up, as the part's own y (down), from its middle
+        final float under = (float) (mid - block.bottom());
+        final float back = (float) (mid - block.toe());
+        final float front = (float) (mid - block.top());
+        final TriangleMesh mesh = new TriangleMesh();
+        mesh.getPoints().addAll(
+                -w, under, -d, w, under, -d, w, under, d, -w, under, d,
+                -w, back, -d, w, back, -d, w, front, d, -w, front, d);
+        mesh.getTexCoords().addAll(0, 0);
+        final int[][] quads = {{0, 1, 2, 3}, {4, 7, 6, 5}, {0, 4, 5, 1}, {3, 2, 6, 7}, {0, 3, 7, 4}, {1, 5, 6, 2}};
+        for (int f = 0; f < quads.length; f++) {
+            final int[] q = quads[f];
+            // wound so that each face looks outward, and is lit from outside
+            mesh.getFaces().addAll(q[0], 0, q[2], 0, q[1], 0, q[0], 0, q[3], 0, q[2], 0);
+            mesh.getFaceSmoothingGroups().addAll(1 << f, 1 << f);
+        }
+        final MeshView view = new MeshView(mesh);
+        view.setCullFace(CullFace.NONE);
+        return view;
     }
 
     /** A block as a box filling the piece's box. */
@@ -477,11 +630,496 @@ public final class World {
         return middle;
     }
 
+    /**
+     * A platform, from its own parts, as big as its deck was made ({@link Course.Deck}): a steel
+     * deck edged in yellow and black, a glowing thruster under each corner, and at the front the
+     * console, its panel tilted to whoever stands behind it, with a lever that leans the way the
+     * platform goes and a lamp that shows green while someone has the controls.
+     */
+    private Shape3D platform(final int piece, final Group part) {
+        final Course.Shape shape = pieces.get(piece).shape();
+        final Course.Deck size = Course.Deck.of(shape);
+        final Course.Section frame = shape.box();
+        final PhongMaterial steel = BoxRig.matte("#5d656e");
+        final PhongMaterial dark = BoxRig.matte("#2b3036");
+        final PhongMaterial yellow = BoxRig.matte("#e0b400");
+        final Course.Section d = size.slab();
+        final Box deck = section(part, frame, d, steel);
+        // hazard stripes round the deck's top edge
+        final double top = d.up() + d.halfUp() + 0.6;
+        for (int side = 0; side < 4; side++) {
+            final boolean across = side < 2;
+            final double length = across ? d.halfAcross() * 2 : d.halfAlong() * 2;
+            final double edge = side % 2 == 0 ? 1 : -1;
+            // about 40 cm each, as many as fit the edge exactly
+            final int stripes = Math.max(1, (int) Math.round(length / 40));
+            final double stripe = length / stripes;
+            for (int k = 0; k < stripes; k++) {
+                final double along = -length / 2 + (k + 0.5) * stripe;
+                final Course.Section strip = across
+                        ? new Course.Section(along, edge * (d.halfAlong() - 6), top, stripe / 2, 6, 0.6)
+                        : new Course.Section(edge * (d.halfAcross() - 6), along, top, 6, stripe / 2, 0.6);
+                section(part, frame, strip, k % 2 == 0 ? yellow : dark);
+            }
+        }
+        // a thruster under each corner, glowing
+        final List<Node> thrusters = new ArrayList<>();
+        for (final double x : new double[] {-1, 1}) {
+            for (final double z : new double[] {-1, 1}) {
+                final Course.Section pod = new Course.Section(x * (d.halfAcross() - 50), z * (d.halfAlong() - 50),
+                        d.up() - d.halfUp() - 12, 34, 34, 12);
+                section(part, frame, pod, dark);
+                final Box glow = section(part, frame, new Course.Section(pod.across(), pod.along(),
+                        pod.up() - pod.halfUp() - 1, 26, 26, 1), BoxRig.glow("#7df9ff"));
+                thrusters.add(glow);
+            }
+        }
+        // the console, its panel tilted toward whoever stands behind it, with buttons, a lever and a lamp
+        final Course.Section c = size.console();
+        section(part, frame, c, dark);
+        final Group panel = new Group();
+        panel.setTranslateX(c.across());
+        panel.setTranslateY(-(c.up() + c.halfUp() - frame.up()));
+        panel.setTranslateZ(c.along());
+        panel.getTransforms().addAll(new Rotate(180, Rotate.Y_AXIS), new Rotate(-35, Rotate.X_AXIS));
+        final Box face = new Box(c.halfAcross() * 2 + 8, 4, c.halfAlong() * 2 + 16);
+        face.setMaterial(steel);
+        panel.getChildren().add(face);
+        final String[] lit = {"#ff3b30", "#ffd166", "#34c759"};
+        for (int k = 0; k < lit.length; k++) {
+            final Box button = new Box(8, 3, 8);
+            button.setMaterial(BoxRig.glow(lit[k]));
+            button.setTranslateX(-22 + k * 14);
+            button.setTranslateY(-3);
+            button.setTranslateZ(8);
+            panel.getChildren().add(button);
+        }
+        final Rotate lean = new Rotate(0, Rotate.X_AXIS);
+        final Group lever = new Group();
+        lever.setTranslateX(24);
+        lever.setTranslateY(-2);
+        lever.setTranslateZ(-4);
+        lever.getTransforms().add(lean);
+        final Box stick = new Box(3, 22, 3);
+        stick.setTranslateY(-11);
+        stick.setMaterial(dark);
+        final Box knob = new Box(7, 7, 7);
+        knob.setTranslateY(-24);
+        knob.setMaterial(BoxRig.matte("#c62828"));
+        lever.getChildren().addAll(stick, knob);
+        panel.getChildren().add(lever);
+        part.getChildren().add(panel);
+        final Box lamp = section(part, frame, new Course.Section(c.across() - 28, c.along() + 10,
+                c.up() + c.halfUp() + 8, 5, 5, 8), BoxRig.glow("#ffb300"));
+        rigs.put(piece, new Rig(lamp, lean, thrusters));
+        return deck;
+    }
+
+    /** A piece of {@code fruit}, as that fruit looks; its material its own, so it can darken as it is worn. */
+    private static Shape3D fruit(final Group part, final Fruit fruit) {
+        return switch (fruit) {
+            case WATERMELON -> watermelon(part, fruit);
+            case PINEAPPLE -> pineapple(part, fruit);
+        };
+    }
+
+    /** A watermelon, lying on its side: a round, dark green body striped lighter from end to end. */
+    private static Shape3D watermelon(final Group part, final Fruit fruit) {
+        final Sphere body = new Sphere(1, 24);
+        // the sphere's poles along its y; scaled long that way, then laid on its side, across
+        body.setScaleX(fruit.height() / 2);
+        body.setScaleY(fruit.length() / 2);
+        body.setScaleZ(fruit.width() / 2);
+        final PhongMaterial rind = new PhongMaterial(Color.WHITE);
+        rind.setDiffuseMap(STRIPES);
+        rind.setSpecularColor(Color.web("#3a4a3a"));
+        body.setMaterial(rind);
+        final Group lying = new Group(body);
+        lying.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+        part.getChildren().add(lying);
+        return body;
+    }
+
+    /** A pineapple, standing on end: a golden body scaled in a diamond pattern, and a crown of spiky leaves on top. */
+    private static Shape3D pineapple(final Group part, final Fruit fruit) {
+        final Sphere body = new Sphere(1, 16);
+        body.setScaleX(fruit.length() / 2);
+        body.setScaleY(fruit.height() / 2);
+        body.setScaleZ(fruit.width() / 2);
+        final PhongMaterial skin = new PhongMaterial(Color.WHITE);
+        skin.setDiffuseMap(DIAMONDS);
+        body.setMaterial(skin);
+        part.getChildren().add(body);
+        final PhongMaterial leaves = BoxRig.matte("#3f7d2e");
+        for (int k = 0; k < 5; k++) {
+            final Box leaf = new Box(3, 16, 7);
+            leaf.setMaterial(leaves);
+            leaf.setTranslateY(-fruit.height() / 2 - 6);
+            leaf.getTransforms().addAll(new Rotate(k * 72, Rotate.Y_AXIS), new Rotate(k == 0 ? 0 : 22, Rotate.X_AXIS));
+            part.getChildren().add(leaf);
+        }
+        return body;
+    }
+
+    /** A pineapple's skin, flat: gold, scaled in diamonds by darker lines running both ways round it. */
+    private static final WritableImage DIAMONDS = diamonds();
+
+    private static WritableImage diamonds() {
+        final int size = 64;
+        final WritableImage image = new WritableImage(size, size);
+        final Color gold = Color.web("#d39a32");
+        final Color line = Color.web("#7a5212");
+        for (int v = 0; v < size; v++) {
+            for (int u = 0; u < size; u++) {
+                // eight diamonds round, eight high
+                final boolean onLine = Math.floorMod(u + v, 8) == 0 || Math.floorMod(u - v, 8) == 0;
+                image.getPixelWriter().setColor(u, v, onLine ? line : gold);
+            }
+        }
+        return image;
+    }
+
+    /** A watermelon's skin, flat: dark green, with lighter stripes that wander a little, end to end. */
+    private static final WritableImage STRIPES = stripes();
+
+    private static WritableImage stripes() {
+        final int wide = 128;
+        final int high = 32;
+        final WritableImage image = new WritableImage(wide, high);
+        final Color dark = Color.web("#1e4a1c");
+        final Color light = Color.web("#5b9a3c");
+        for (int v = 0; v < high; v++) {
+            final double wander = 2.5 * Math.sin(v * Math.PI * 3 / high);
+            for (int u = 0; u < wide; u++) {
+                // nine stripes round it, each a third light
+                final double round = ((u + wander) / wide * 9) % 1;
+                image.getPixelWriter().setColor(u, v, round < 0.33 ? light : dark);
+            }
+        }
+        return image;
+    }
+
+    /**
+     * The fruit stall's table ({@link Furniture#TABLE}): planks on a pair of pallets, a cloth hung over the front (its -z,
+     * toward the back of the barge, where the customers come), and
+     * about it what a stall has: a striped awning on two poles, a scale on the table, a sign, and
+     * the table itself solid; what is about it comes with it.
+     */
+    private static Shape3D table(final Group part, final Block block) {
+        final PhongMaterial planks = BoxRig.matte("#c9a273");
+        final PhongMaterial pallet = BoxRig.matte("#9c7a4e");
+        final double halfWide = block.halfWidth();
+        final double halfDeep = block.halfDepth();
+        final double half = (block.top() - block.bottom()) / 2;
+        // the table's frame: its middle; the deck is half its height below (y is down)
+        final Box top = new Box(halfWide * 2, 6, halfDeep * 2);
+        top.setTranslateY(-half + 3);
+        top.setMaterial(planks);
+        part.getChildren().add(top);
+        for (final double side : new double[] {-1, 1}) {
+            final Box under = new Box(halfWide * 0.9, half * 2 - 6, halfDeep * 2 - 10);
+            under.setTranslateX(side * halfWide * 0.5);
+            under.setTranslateY(3);
+            under.setMaterial(pallet);
+            part.getChildren().add(under);
+        }
+        final Box cloth = new Box(halfWide * 2 - 4, half * 1.2, 1.5);
+        cloth.setTranslateY(-half + 6 + half * 0.6);
+        cloth.setTranslateZ(-halfDeep - 1);
+        cloth.setMaterial(BoxRig.matte("#2f5d8a"));
+        part.getChildren().add(cloth);
+        // the awning: two poles at the back, a canopy striped red and white, sloping to the front
+        final PhongMaterial pole = BoxRig.matte("#55595e");
+        for (final double side : new double[] {-1, 1}) {
+            final Box stick = new Box(5, 230, 5);
+            stick.setTranslateX(side * (halfWide + 10));
+            stick.setTranslateY(half - 115);
+            stick.setTranslateZ(halfDeep + 30);
+            stick.setMaterial(pole);
+            part.getChildren().add(stick);
+        }
+        final Group canopy = new Group();
+        canopy.setTranslateY(half - 230);
+        canopy.setTranslateZ(halfDeep + 30 - 85);
+        canopy.getTransforms().add(new Rotate(12, Rotate.X_AXIS));
+        final int strips = 8;
+        final double across = (halfWide + 30) * 2;
+        for (int k = 0; k < strips; k++) {
+            final Box strip = new Box(across / strips, 3, 190);
+            strip.setTranslateX(-across / 2 + (k + 0.5) * across / strips);
+            strip.setMaterial(BoxRig.matte(k % 2 == 0 ? "#d8323a" : "#f2efe6"));
+            canopy.getChildren().add(strip);
+        }
+        part.getChildren().add(canopy);
+        // a scale at one end of the table, and a sign at the front corner
+        final Box scaleBase = new Box(22, 8, 18);
+        scaleBase.setTranslateX(halfWide - 20);
+        scaleBase.setTranslateY(-half - 4);
+        scaleBase.setTranslateZ(-halfDeep + 16);
+        scaleBase.setMaterial(BoxRig.matte("#b9bec4"));
+        final Box scalePan = new Box(26, 2, 22);
+        scalePan.setTranslateX(halfWide - 20);
+        scalePan.setTranslateY(-half - 9);
+        scalePan.setTranslateZ(-halfDeep + 16);
+        scalePan.setMaterial(BoxRig.matte("#d6dadf"));
+        part.getChildren().addAll(scaleBase, scalePan);
+        final Box board = new Box(56, 34, 2);
+        board.setTranslateX(-halfWide + 34);
+        board.setTranslateY(-half - 44);
+        board.setTranslateZ(-halfDeep - 3);
+        board.setMaterial(BoxRig.matte("#f4ead2"));
+        final Box post = new Box(3, 30, 3);
+        post.setTranslateX(-halfWide + 34);
+        post.setTranslateY(-half - 14);
+        post.setTranslateZ(-halfDeep - 3);
+        post.setMaterial(pallet);
+        final Text sign = new Text("西瓜");
+        sign.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 22));
+        sign.setFill(Color.web("#b3261e"));
+        // a Text faces -z, the front, to whoever stands there: centred on the board
+        sign.getTransforms().add(new Translate(-halfWide + 34 - 22, -half - 36, -halfDeep - 4.2));
+        part.getChildren().addAll(board, post, sign);
+        return top;
+    }
+
+    /** A wooden stool: a round seat on a stout leg, as tall as it is ({@link Furniture#STOOL}). */
+    private static Shape3D stool(final Group part, final Block block) {
+        final double tall = block.top() - block.bottom();
+        final Cylinder seat = new Cylinder(block.halfWidth(), 6);
+        seat.setTranslateY(-tall / 2 + 3);
+        seat.setMaterial(BoxRig.matte("#8a6440"));
+        final Cylinder leg = new Cylinder(block.halfWidth() * 0.55, tall - 6);
+        leg.setTranslateY(3);
+        leg.setMaterial(BoxRig.matte("#6e4f32"));
+        part.getChildren().addAll(seat, leg);
+        return seat;
+    }
+
+    /**
+     * A little scooter ({@link Furniture#SCOOTER}), its front along its frame: body, seat, front,
+     * handlebar, wheels and a yellow plate. Solid as far as its seat; the front and the handlebar
+     * stand above that.
+     */
+    private static Shape3D scooter(final Group part, final Block block) {
+        final PhongMaterial shell = BoxRig.matte("#2c3238");
+        final PhongMaterial black = BoxRig.matte("#141414");
+        // built from its wheels' feet up (y is down); the frame's middle is half its height up
+        final Group scooter = new Group();
+        scooter.setTranslateY((block.top() - block.bottom()) / 2);
+        final Box body = scooterBox(34, 22, 100, 0, -26, 0, shell);
+        scooter.getChildren().add(body);
+        scooter.getChildren().add(scooterBox(30, 10, 48, 0, -52, -18, black));
+        scooter.getChildren().add(scooterBox(34, 70, 12, 0, -60, 46, shell));
+        scooter.getChildren().add(scooterBox(62, 4, 4, 0, -98, 44, black));
+        scooter.getChildren().add(scooterBox(16, 8, 1, 0, -40, -51, BoxRig.matte("#e8c21a")));
+        for (final double z : new double[] {-38, 40}) {
+            final Cylinder wheel = new Cylinder(17, 8);
+            wheel.setMaterial(black);
+            wheel.setTranslateY(-17);
+            wheel.setTranslateZ(z);
+            wheel.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+            scooter.getChildren().add(wheel);
+        }
+        part.getChildren().add(scooter);
+        return body;
+    }
+
+    private static Box scooterBox(final double w, final double h, final double d, final double x, final double y,
+                                  final double z, final PhongMaterial material) {
+        final Box box = new Box(w, h, d);
+        box.setTranslateX(x);
+        box.setTranslateY(y);
+        box.setTranslateZ(z);
+        box.setMaterial(material);
+        return box;
+    }
+
+    /**
+     * A bare chassis: its bed, the steering column with the steering wheel on top, tipped toward
+     * the driver, and a wheel either side on each axle, those on the front axle turning to steer,
+     * every one with a spoke across its hub so it is seen to roll. The whole of it tips as the
+     * ground under its wheels slopes.
+     */
+    private Shape3D chassis(final int piece, final Group part) {
+        final Course.Shape shape = pieces.get(piece).shape();
+        final Course.Chassis chassis = Course.Chassis.of(shape);
+        final Course.Section frame = shape.box();
+        final PhongMaterial bed = BoxRig.matte("#3c434b");
+        final PhongMaterial dark = BoxRig.matte("#25292e");
+        final PhongMaterial tyre = BoxRig.matte("#1b1d20");
+        final PhongMaterial hub = BoxRig.matte("#a2a9b0");
+        final PhongMaterial red = BoxRig.matte("#c0392b");
+        // tipped about where it stands: the middle of the bed's top
+        final Group body = new Group();
+        final Rotate tilt = new Rotate(0, 0, frame.up(), 0, Rotate.X_AXIS);
+        body.getTransforms().add(tilt);
+        part.getChildren().add(body);
+        final Box slab = section(body, frame, chassis.bed(), bed);
+        // red lights at the back corners, so which way it faces is plain
+        for (final double side : new double[] {-1, 1}) {
+            section(body, frame, new Course.Section(side * (chassis.width() / 2 - 12), -chassis.length() / 2 - 1,
+                    -Course.Chassis.BED / 2, 10, 2, 8), red);
+        }
+        section(body, frame, chassis.column(), dark);
+        // the driver's seat, behind the steering wheel: a cushion, and a back to lean on
+        final PhongMaterial seat = BoxRig.matte("#6b4a2f");
+        section(body, frame, new Course.Section(chassis.driverAcross(), chassis.driverAlong(), Gait.SEAT / 2, 25, 24,
+                Gait.SEAT / 2), seat);
+        section(body, frame, new Course.Section(chassis.driverAcross(), chassis.driverAlong() - 30, Gait.SEAT + 40, 25,
+                5, 40), seat);
+        // the steering wheel, on top of the column, tipped back toward the driver, turned as the wheels are
+        final Course.Section column = chassis.column();
+        final Group wheel = new Group();
+        wheel.setTranslateX(column.across());
+        wheel.setTranslateY(-(column.up() + column.halfUp() - frame.up()));
+        wheel.setTranslateZ(column.along());
+        final Rotate turning = new Rotate(0, Rotate.Y_AXIS);
+        wheel.getTransforms().addAll(new Rotate(-60, Rotate.X_AXIS), turning);
+        final Cylinder rim = new Cylinder(20, 4);
+        rim.setMaterial(dark);
+        final Box spoke = new Box(38, 5, 5);
+        spoke.setMaterial(hub);
+        spoke.setTranslateY(-3);
+        wheel.getChildren().addAll(rim, spoke);
+        body.getChildren().add(wheel);
+        // the road wheels: steered (the front axle's), and rolling
+        final List<Rotate> steers = new ArrayList<>();
+        final List<Rotate> rolls = new ArrayList<>();
+        final List<Course.Section> sections = chassis.wheels();
+        for (int k = 0; k < sections.size(); k++) {
+            final Course.Section s = sections.get(k);
+            final Group roadWheel = new Group();
+            roadWheel.setTranslateX(s.across());
+            roadWheel.setTranslateY(-(s.up() - frame.up()));
+            roadWheel.setTranslateZ(s.along());
+            final Rotate steer = new Rotate(0, Rotate.Y_AXIS);
+            final Rotate roll = new Rotate(0, Rotate.X_AXIS);
+            roadWheel.getTransforms().addAll(steer, roll);
+            final Cylinder rubber = new Cylinder(chassis.wheelRadius(), chassis.wheelWidth());
+            rubber.setMaterial(tyre);
+            rubber.getTransforms().add(new Rotate(90, Rotate.Z_AXIS));
+            final Box cap = new Box(chassis.wheelWidth() + 2, chassis.wheelRadius() * 1.3, 8);
+            cap.setMaterial(hub);
+            roadWheel.getChildren().addAll(rubber, cap);
+            body.getChildren().add(roadWheel);
+            if (k < 2) {
+                steers.add(steer);
+            }
+            rolls.add(roll);
+        }
+        // and its body, if it wears one: sheets of metal and glass, drawn by their own renderer
+        final Course.Bodywork bodywork = pieces.get(piece).body();
+        Shape3D painted = slab;
+        if (bodywork != null) {
+            final java.util.Map<Sheets.Slot, PhongMaterial> colours = paint(bodywork);
+            final Group panels = Sheets.draw(Bodies.of(bodywork), colours, frame.up());
+            body.getChildren().add(panels);
+            // what it is seen as: its paint, darkening as it wears, and the colour of its wreckage
+            for (final Node node : panels.getChildren()) {
+                if (node instanceof Shape3D panel && panel.getMaterial() == colours.get(Sheets.Slot.PAINT)) {
+                    painted = panel;
+                }
+                if (node instanceof Shape3D panel && panel.getMaterial() == colours.get(Sheets.Slot.GLASS)) {
+                    glass.put(piece, panel);
+                }
+            }
+        }
+        wheeled.put(piece, new Wheels(tilt, steers, rolls, turning, chassis.wheelRadius()));
+        return painted;
+    }
+
+    /** What each slot of a body is coloured: its paint by which body it is, and the same trim, glass and lamps for all. */
+    private static java.util.Map<Sheets.Slot, PhongMaterial> paint(final Course.Bodywork body) {
+        final PhongMaterial glass = BoxRig.matte("#6f8796");
+        glass.setSpecularColor(javafx.scene.paint.Color.web("#d8e4ec"));
+        glass.setSpecularPower(40);
+        return java.util.Map.of(
+                Sheets.Slot.PAINT, BoxRig.matte(switch (body.name()) {
+                    case "pickup" -> "#9c3a2b";
+                    case "roadster" -> "#2f6db5";
+                    case "truck" -> "#c7822c";
+                    case "van" -> "#e2dccb";
+                    default -> "#7b828a";
+                }),
+                Sheets.Slot.TRIM, BoxRig.matte("#25282c"),
+                Sheets.Slot.GLASS, glass,
+                Sheets.Slot.LAMP, BoxRig.glow("#fff4cf"),
+                Sheets.Slot.TAIL, BoxRig.glow("#e0342b"));
+    }
+
+    /** A land vehicle as shown: its body tipped, its front wheels steered, every wheel rolling, its steering wheel turned. */
+    private static final class Wheels {
+        /** How many times further the steering wheel turns than the road wheels it steers. */
+        private static final double RATIO = 8;
+        private final Rotate tilt;
+        private final List<Rotate> steers;
+        private final List<Rotate> rolls;
+        private final Rotate turning;
+        private final double radius;
+
+        Wheels(final Rotate tilt, final List<Rotate> steers, final List<Rotate> rolls, final Rotate turning,
+               final double radius) {
+            this.tilt = tilt;
+            this.steers = steers;
+            this.rolls = rolls;
+            this.turning = turning;
+            this.radius = radius;
+        }
+
+        /** As {@code lift} is, {@code seconds} after the last frame: rolled on as far as it went. */
+        void show(final Lift lift, final double seconds) {
+            tilt.setAngle(lift.tilt());
+            for (final Rotate steer : steers) {
+                steer.setAngle(lift.steer());
+            }
+            turning.setAngle(lift.steer() * RATIO);
+            // rolling ahead, the top of each wheel goes ahead: backward about its axle, in a y-down frame
+            final double rolled = -Math.toDegrees(lift.ahead() * seconds / radius);
+            for (final Rotate roll : rolls) {
+                roll.setAngle((roll.getAngle() + rolled) % 360);
+            }
+        }
+    }
+
+    /** A platform's controls as shown: the lamp, the lever, the thrusters. */
+    private static final class Rig {
+        private final Box lamp;
+        private final Rotate lean;
+        private final List<Node> thrusters;
+        private final PhongMaterial idle = BoxRig.glow("#ffb300");
+        private final PhongMaterial held = BoxRig.glow("#34c759");
+
+        Rig(final Box lamp, final Rotate lean, final List<Node> thrusters) {
+            this.lamp = lamp;
+            this.lean = lean;
+            this.thrusters = thrusters;
+        }
+
+        /** As {@code lift} is: green while held, the lever leaning the way it goes, the thrusters brighter the harder it goes. */
+        void show(final Lift lift, final double time) {
+            lamp.setMaterial(lift.held() ? held : idle);
+            lean.setAngle(30 * Num.clamp(lift.ahead() / Lift.SPEED + lift.climb() / Lift.CLIMB, -1, 1));
+            final double going = Math.min(1, lift.speed() / Lift.SPEED);
+            final double throb = 0.75 + 0.25 * Math.sin(time * 9) + 0.5 * Math.abs(going);
+            for (final Node thruster : thrusters) {
+                thruster.setVisible(lift.engine());
+                thruster.setScaleX(throb);
+                thruster.setScaleZ(throb);
+            }
+        }
+    }
+
     /** One of an airship's parts, as a box in its frame. */
     private static Box section(final Group part, final Course.Section section, final PhongMaterial material) {
+        return section(part, Course.AIRSHIP_BOX, section, material);
+    }
+
+    /** One of the parts of something that moves, as a box in its frame, the middle of whose box is {@code frame}'s. */
+    private static Box section(final Group part, final Course.Section frame, final Course.Section section,
+                               final PhongMaterial material) {
         final Box box = new Box(section.halfAcross() * 2, section.halfUp() * 2, section.halfAlong() * 2);
         box.setTranslateX(section.across());
-        box.setTranslateY(-(section.up() - Course.AIRSHIP_BOX.up()));
+        box.setTranslateY(-(section.up() - frame.up()));
         box.setTranslateZ(section.along());
         box.setMaterial(material);
         part.getChildren().add(box);

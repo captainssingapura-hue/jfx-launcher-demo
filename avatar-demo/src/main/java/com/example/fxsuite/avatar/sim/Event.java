@@ -49,10 +49,10 @@ public sealed interface Event {
     }
 
     /**
-     * A rifle fired a round: the one in the left hand, or the right. It flew from the muzzle
-     * {@code from} to {@code to}, where it struck something, or ran out of range.
+     * A gun fired a round, {@code by} what: of a pair, the one in the left hand, or the right. It
+     * flew from the muzzle {@code from} to {@code to}, where it struck something, or ran out of range.
      */
-    record Fired(boolean left, Vec3 from, Vec3 to) implements Event {
+    record Fired(boolean left, Vec3 from, Vec3 to, Weapon by) implements Event {
     }
 
     /**
@@ -80,10 +80,16 @@ public sealed interface Event {
 
     /**
      * Something was broken: piece {@code piece} of the {@link Course}, a {@code kind} that was
-     * the box {@code block}, its last blow struck at {@code struck} by {@code by}. It is gone from
-     * the world for good ({@link Damage}).
+     * the box {@code block}, its last blow struck at {@code struck} by {@code by}; and if it was a
+     * piece of fruit, which ({@code fruit}; null if not). It is gone from the world for good
+     * ({@link Damage}).
      */
-    record Broke(int piece, Course.Kind kind, Block block, Vec3 struck, Weapon by) implements Event {
+    record Broke(int piece, Course.Kind kind, Block block, Vec3 struck, Weapon by, Fruit fruit) implements Event {
+
+        /** Something broken that was no fruit. */
+        public Broke(final int piece, final Course.Kind kind, final Block block, final Vec3 struck, final Weapon by) {
+            this(piece, kind, block, struck, by, null);
+        }
 
         /** The middle of what broke. */
         public Vec3 middle() {
@@ -93,6 +99,38 @@ public sealed interface Event {
 
     /** The glaive's blade came through: {@link Arms#CLEAVE} or {@link Arms#SWEEP}. */
     record Swung(int stroke) implements Event {
+    }
+
+    /** The avatar took the controls of platform {@code piece}, standing at its console. */
+    record TookControls(int piece) implements Event {
+    }
+
+    /** The avatar let go of the controls of platform {@code piece}: it let go, or was no longer at them. */
+    record LetGo(int piece) implements Event {
+    }
+
+    /** Platform {@code piece}'s engine was started, at its controls. */
+    record EngineStarted(int piece) implements Event {
+    }
+
+    /** Platform {@code piece}'s engine was cut, at its controls: it drops onto what is under it. */
+    record EngineCut(int piece) implements Event {
+    }
+
+    /** Platform {@code piece}, its engine cut, came down on something {@code speed} fast, its middle at {@code at}. */
+    record Settled(int piece, double speed, Vec3 at) implements Event {
+    }
+
+    /** Person {@code person} was destroyed, there at {@code at} (their feet): their health gone, they blew apart. */
+    record Destroyed(int person, Vec3 at) implements Event {
+    }
+
+    /** Person {@code person} came down hard enough to be hurt, falling {@code speed} fast, there at {@code at}. */
+    record Fell(int person, double speed, Vec3 at) implements Event {
+    }
+
+    /** Person {@code person} was shoved, sent off {@code speed} fast, there at {@code at}. */
+    record Shoved(int person, double speed, Vec3 at) implements Event {
     }
 
     /** An airship let go of a bomb, at {@code at}: airship {@code from}, by its piece number. */

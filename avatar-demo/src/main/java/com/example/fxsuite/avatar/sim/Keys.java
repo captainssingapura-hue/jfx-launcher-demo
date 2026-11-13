@@ -11,7 +11,8 @@ import java.util.Set;
  *
  * <p>W/S go ahead and back, A/D sideways, Space climbs and Ctrl descends while flying; the
  * avatar goes at full speed unless Shift is held. Pressed, Space jumps, F takes off or lands,
- * J puts the pack on or off, and 1, 2 and 3 draw the rifles, the glaive and the Gatling gun.
+ * J puts the pack on or off, T takes the controls of a platform or lets go of them, and 1, 2 and
+ * 3 draw the rifles, the glaive and the Gatling gun.
  */
 public final class Keys {
 
@@ -24,6 +25,7 @@ public final class Keys {
             case "SPACE" -> Action.JUMP;
             case "F" -> Action.FLY;
             case "J" -> Action.PACK;
+            case "T" -> Action.TAKE;
             case "DIGIT1" -> new Action.Draw(Weapon.RIFLES);
             case "DIGIT2" -> new Action.Draw(Weapon.GLAIVE);
             case "DIGIT3" -> new Action.Draw(Weapon.GATLING);

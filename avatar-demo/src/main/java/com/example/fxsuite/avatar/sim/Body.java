@@ -246,6 +246,14 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
                     rise = 0;
                     newClimb = 0;
                 }
+            } else if (!stillFlying && onGround && rise <= 0 && height - floor <= STEP) {
+                // on its feet, going down a slope or off a low ledge: it keeps its footing, rather
+                // than hopping down step by step
+                height = floor;
+                footing = true;
+                underfoot = under.surface();
+                rise = 0;
+                newClimb = 0;
             }
             // and everything else in the way is slid along; a ledge within a step is left alone,
             // to be stepped up onto once the feet are over it
@@ -318,6 +326,42 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         final double turn = Num.wrap(to.yaw() - from.yaw());
         return new Body(from.carry(position, to), Num.wrap(yaw + turn), Num.wrap(travel + turn), speed, drift,
                 turnRate, climb, flying, onGround, phase, time);
+    }
+
+    /** The same, {@code seconds} later: still, but its clock running on. */
+    public Body aged(final double seconds) {
+        return new Body(position, yaw, travel, speed, drift, turnRate, climb, flying, onGround, phase, time + seconds);
+    }
+
+    /** The same, turned to face {@code heading}, standing still. */
+    public Body facing(final double heading) {
+        return new Body(position, heading, heading, 0, 0, 0, climb, flying, onGround, phase, time);
+    }
+
+    /**
+     * Shoved, across the ground: {@code vx} and {@code vz} added to how fast it is going, in the
+     * world's terms. Its own speeds are reckoned along the way it is going ({@code travel}), so
+     * the shove is turned into those.
+     */
+    public Body shoved(final double vx, final double vz) {
+        final Vec3 ahead = Num.heading(travel);
+        final Vec3 right = Num.right(travel);
+        final double x = ahead.x() * speed + right.x() * drift + vx;
+        final double z = ahead.z() * speed + right.z() * drift + vz;
+        return new Body(position, yaw, travel, x * ahead.x() + z * ahead.z(), x * right.x() + z * right.z(), turnRate,
+                climb, flying, onGround, phase, time);
+    }
+
+    /** How fast it is going across the ground, in the world's terms: x and z. */
+    public Vec3 going() {
+        final Vec3 ahead = Num.heading(travel);
+        final Vec3 right = Num.right(travel);
+        return new Vec3(ahead.x() * speed + right.x() * drift, 0, ahead.z() * speed + right.z() * drift);
+    }
+
+    /** Moved {@code dx} and {@code dz} across the ground, as it is: pushed clear of something. */
+    public Body shifted(final double dx, final double dz) {
+        return new Body(position.add(dx, 0, dz), yaw, travel, speed, drift, turnRate, climb, flying, onGround, phase, time);
     }
 
     /** Up off whatever it stands on, if standing; otherwise unchanged. The jump keeps to its heading now. */

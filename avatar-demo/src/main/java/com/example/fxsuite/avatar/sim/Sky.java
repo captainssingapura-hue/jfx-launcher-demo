@@ -53,6 +53,13 @@ public record Sky(double time, List<Bomb> bombs, long dropped) {
         }
     }
 
+    /** The same, with one more bomb let go: from vehicle {@code from}, at {@code at}, going at {@code velocity}. */
+    public Sky dropped(final Vec3 at, final Vec3 velocity, final int from) {
+        final List<Bomb> falling = new ArrayList<>(bombs);
+        falling.add(new Bomb(dropped, at, velocity, from));
+        return new Sky(time, falling, dropped + 1);
+    }
+
     /**
      * {@code seconds} on, among {@code world} as it now stands, the airships still flying being
      * {@code damage}'s: the bombs fall, those that meet something go off, and each airship whose
@@ -77,7 +84,7 @@ public record Sky(double time, List<Bomb> bombs, long dropped) {
             }
         }
         long count = dropped;
-        for (final int piece : damage.moving()) {
+        for (final int piece : damage.flying()) {
             // each in its turn, a third of the interval apart, by its number
             final double offset = DROP_EVERY * (piece % 3) / 3;
             if (Math.floor((to + offset) / DROP_EVERY) > Math.floor((time + offset) / DROP_EVERY)) {

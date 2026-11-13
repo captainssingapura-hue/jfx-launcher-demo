@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Surface;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -49,6 +50,21 @@ public final class Cues {
     public record Hum(Sound loop, Level level, Vec3 at) {
     }
 
+    /**
+     * A gun on a mount being manned: how fast its barrels turn, whether it is firing, where its
+     * muzzle is, and how much deeper it sounds than the hand-held one (1 the same; below, deeper).
+     * Heard in place of the hand-held Gatling gun's spin and roar.
+     */
+    public record Gunner(double spin, boolean firing, Vec3 at, double pitch) {
+    }
+
+    /**
+     * The engine of the vehicle being driven: a V8 or a V6, how fast it turns ({@code rev}, 0 at idle
+     * to 1 at the limit), how hard it is worked ({@code load}, 0 to 1), and where it is.
+     */
+    public record Motor(boolean v8, double rev, double load, Vec3 at) {
+    }
+
     /** All of it: what to play once, and how every loop should be playing. */
     public record Heard(List<Play> plays, List<Hum> hums) {
         public Heard {
@@ -68,6 +84,18 @@ public final class Cues {
      */
     public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
                            final List<Vec3> airships) {
+        return of(avatar, events, profile, airships, null);
+    }
+
+    /** As {@link #of(Avatar, List, Profile, List)}, with a gun on a mount manned ({@code gunner}), or none (null). */
+    public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
+                           final List<Vec3> airships, final Gunner gunner) {
+        return of(avatar, events, profile, airships, gunner, null);
+    }
+
+    /** As {@link #of(Avatar, List, Profile, List, Gunner)}, with the engine of a vehicle being driven ({@code motor}), or none (null). */
+    public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
+                           final List<Vec3> airships, final Gunner gunner, final Motor motor) {
         final Body body = avatar.body();
         final Vec3 feet = body.position();
         final Vec3 pack = pack(body);
@@ -106,28 +134,45 @@ public final class Cues {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
                         case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
-                        case NONE, BOMB -> {
+                        case NONE, BOMB, FALL, HEAVY_GATLING -> {
                         }
                     }
                 }
                 // the Gatling gun's rounds come too fast to be heard one by one: its roar is a loop
                 case Event.Fired f -> {
-                    if (avatar.holding() != Weapon.GATLING) {
+                    if (f.by() == Weapon.RIFLES) {
                         plays.add(new Play(Sound.RIFLE_SHOT, 1, f.from()));
                     }
                 }
                 // a bomb's blast is heard once, going off, not on each thing it reaches
                 case Event.Struck s -> {
-                    if (s.by() != Weapon.BOMB) {
+                    if (Person.is(s.piece())) {
+                        // someone hit: a dull thump, not a ring off metal or wood
+                        plays.add(new Play(Sound.BUMP, 0.5, s.at()));
+                    } else if (s.by() != Weapon.BOMB && s.by() != Weapon.FALL) {
                         plays.add(new Play(struck(s), 1, s.at()));
                     }
                 }
+                // someone shoved stumbles off; falling, they hit the ground; destroyed, they go off with a bang
+                case Event.Shoved s -> plays.add(new Play(Sound.BUMP, Num.clamp(s.speed() / Body.RUN, 0.2, 1), s.at()));
+                case Event.Fell f -> plays.add(new Play(Sound.LANDING, Num.clamp(f.speed() / HARDEST_LANDING, 0.3, 1),
+                        f.at()));
+                case Event.Destroyed d -> plays.add(new Play(Sound.BREAK_DRONE, 1, d.at().add(0, -Body.TALL / 2, 0)));
                 case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
                 case Event.Dropped _ -> {
                 }
+                // a latch, taking hold of the controls and letting go
+                case Event.TookControls _ -> plays.add(new Play(Sound.PACK_ON, 1, hands(body, 0)));
+                case Event.LetGo _ -> plays.add(new Play(Sound.PACK_OFF, 1, hands(body, 0)));
+                // a platform's engine starting and cutting out, as the jet-pack's do; and its coming down
+                case Event.EngineStarted _ -> plays.add(new Play(Sound.IGNITION, 1, hands(body, 0)));
+                case Event.EngineCut _ -> plays.add(new Play(Sound.CUT, 1, hands(body, 0)));
+                case Event.Settled s -> plays.add(new Play(Sound.LANDING_BLOCK,
+                        Num.clamp(s.speed() / HARDEST_LANDING, 0.2, 1), s.at()));
                 case Event.Broke b -> plays.add(switch (b.kind()) {
                     case DRONE -> new Play(Sound.BREAK_DRONE, 1, b.middle());
                     case AIRSHIP -> new Play(Sound.BREAK_AIRSHIP, 1, b.middle());
+                    case FRUIT -> new Play(Sound.FRUIT, b.fruit().heft(), b.middle());
                     default -> new Play(Sound.BREAK_WOOD, size(b.block()), b.middle());
                 });
                 case Event.Swung s -> plays.add(new Play(s.stroke() == Arms.CLEAVE ? Sound.GLAIVE_CLEAVE
@@ -136,13 +181,20 @@ public final class Cues {
         }
         final double thrust = avatar.thrust();
         final Arms arms = avatar.arms();
-        final double spin = arms.held() == Weapon.GATLING ? arms.spin() : 0;
+        final double spin = gunner != null ? gunner.spin() : arms.held() == Weapon.GATLING ? arms.spin() : 0;
         final double speed = Math.sqrt(body.speed() * body.speed() + body.drift() * body.drift()
                 + body.climb() * body.climb());
-        final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, arms.firing());
+        final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, gunner != null ? gunner.firing() : arms.firing(),
+                motor == null ? -1 : motor.rev(), motor == null ? 0 : motor.load());
         final List<Hum> hums = new ArrayList<>();
         final Vec3 airship = nearest(airships, feet);
         for (final Sound loop : Sound.loops()) {
+            if (loop == Sound.ENGINE_V6 || loop == Sound.ENGINE_V8) {
+                // the engine being driven, of its kind, from under its bonnet; the other kind silent
+                final boolean runs = motor != null && motor.v8() == (loop == Sound.ENGINE_V8);
+                hums.add(runs ? new Hum(loop, profile.level(loop, drive), motor.at()) : new Hum(loop, Level.OFF, null));
+                continue;
+            }
             if (loop == Sound.AIRSHIP_ENGINES) {
                 hums.add(airship == null ? new Hum(loop, Level.OFF, null)
                         : new Hum(loop, profile.level(loop, drive), airship));
@@ -150,10 +202,13 @@ public final class Cues {
             }
             final Vec3 at = switch (loop) {
                 case WIND -> null;
-                case GATLING_SPIN, GATLING_FIRE -> Arms.gatlingMuzzle(body);
+                case GATLING_SPIN, GATLING_FIRE -> gunner != null ? gunner.at() : Arms.gatlingMuzzle(body);
                 default -> pack;
             };
-            hums.add(new Hum(loop, profile.level(loop, drive), at));
+            final Level level = profile.level(loop, drive);
+            final boolean gun = loop == Sound.GATLING_SPIN || loop == Sound.GATLING_FIRE;
+            hums.add(new Hum(loop, gun && gunner != null ? new Level(level.gain(), level.pitch() * gunner.pitch()) : level,
+                    at));
         }
         return new Heard(plays, hums);
     }

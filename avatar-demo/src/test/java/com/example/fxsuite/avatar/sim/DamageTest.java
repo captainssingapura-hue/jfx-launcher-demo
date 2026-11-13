@@ -82,13 +82,17 @@ class DamageTest {
 
     @Test
     void theWeaponsHitAsHardAsTheyShould() {
-        final int drone = first(Course.Kind.DRONE);
-        // a drone falls to a dozen rifle rounds, fifteen of the Gatling gun's, or two strokes of the glaive
-        assertTrue(Damage.of(course).took(blows(drone, Weapon.RIFLES, 12)).damage().broken(drone));
-        assertFalse(Damage.of(course).took(blows(drone, Weapon.RIFLES, 11)).damage().broken(drone));
-        assertTrue(Damage.of(course).took(blows(drone, Weapon.GATLING, 15)).damage().broken(drone));
-        assertFalse(Damage.of(course).took(blows(drone, Weapon.GATLING, 14)).damage().broken(drone));
-        assertTrue(Damage.of(course).took(blows(drone, Weapon.GLAIVE, 2)).damage().broken(drone));
+        final int dummy = first(Course.Kind.DUMMY);
+        // a dummy falls to just as many of each weapon's blows as add up to its toughness, and no fewer
+        for (final Weapon weapon : List.of(Weapon.RIFLES, Weapon.GATLING, Weapon.GLAIVE)) {
+            final int enough = (int) Math.ceil(Damage.DUMMY / weapon.blow());
+            assertTrue(Damage.of(course).took(blows(dummy, weapon, enough)).damage().broken(dummy), weapon.name());
+            assertFalse(Damage.of(course).took(blows(dummy, weapon, enough - 1)).damage().broken(dummy), weapon.name());
+        }
+        // a drone, should one fly again, falls to a dozen rifle rounds, fifteen of the Gatling gun's, or two strokes of the glaive
+        assertEquals(12, Math.ceil(Damage.DRONE / Weapon.RIFLES.blow()));
+        assertEquals(15, Math.ceil(Damage.DRONE / Weapon.GATLING.blow()));
+        assertEquals(2, Math.ceil(Damage.DRONE / Weapon.GLAIVE.blow()));
     }
 
     @Test
@@ -127,14 +131,14 @@ class DamageTest {
 
     @Test
     void whatIsBrokenStaysBrokenAndBreaksOnlyOnce() {
-        final int drone = first(Course.Kind.DRONE);
-        final Damage.Taken taken = Damage.of(course).took(blows(drone, Weapon.GLAIVE, 5));
+        final int dummy = first(Course.Kind.DUMMY);
+        final Damage.Taken taken = Damage.of(course).took(blows(dummy, Weapon.GLAIVE, 5));
         assertEquals(1, taken.events().stream().filter(e -> e instanceof Event.Broke).count(),
                 "one break, however many blows land in the step");
-        final Damage.Taken again = taken.damage().took(blows(drone, Weapon.GLAIVE, 5));
+        final Damage.Taken again = taken.damage().took(blows(dummy, Weapon.GLAIVE, 5));
         assertTrue(again.events().stream().noneMatch(e -> e instanceof Event.Broke));
         assertTrue(again.events().stream().allMatch(e -> ((Event.Struck) e).left() == 0), "nothing left to take");
-        assertTrue(again.damage().broken(drone));
+        assertTrue(again.damage().broken(dummy));
     }
 
     @Test
@@ -233,7 +237,9 @@ class DamageTest {
         final int airship = first(Course.Kind.AIRSHIP);
         final Course.Piece piece = course.pieces().get(airship);
         for (final Course.Piece other : course.pieces()) {
-            if (other.kind() != Course.Kind.AIRSHIP && other.kind().breakable()) {
+            // the vehicles and the bunker, armoured in their own right, aside
+            if (other.kind() != Course.Kind.AIRSHIP && other.kind() != Course.Kind.CAR
+                    && other.kind() != Course.Kind.BUNKER && other.kind().breakable()) {
                 assertTrue(Damage.toughness(piece) > 4 * Damage.toughness(other), other.toString());
             }
         }
@@ -247,8 +253,8 @@ class DamageTest {
     @Test
     void theAirshipsHangOverEverythingElseWithinReachOfTheJets() {
         final List<Course.Piece> airships = course.pieces().stream()
-                .filter(p -> p.kind() == Course.Kind.AIRSHIP).toList();
-        assertEquals(3, airships.size());
+                .filter(p -> p.kind() == Course.Kind.AIRSHIP && p.route() != null).toList();
+        assertEquals(3, airships.size(), "three sailing, the fourth moored to be flown");
         final double highest = course.pieces().stream().filter(p -> p.kind() != Course.Kind.AIRSHIP)
                 .mapToDouble(p -> p.block().top()).max().orElseThrow();
         for (final Course.Piece airship : airships) {

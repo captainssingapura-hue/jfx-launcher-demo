@@ -132,9 +132,10 @@ class CourseTest {
     @Test
     void theTargetsStandInTheOpenEachClearOfEverythingElse() {
         final List<Course.Piece> pieces = course.pieces();
-        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target()).toList();
+        // the targets standing about the course; the fruit, on the stall, has a test of its own
+        final List<Course.Piece> targets = pieces.stream().filter(p -> p.kind().target() && !p.kind().loose()).toList();
         assertEquals(8, targets.stream().filter(p -> p.kind() == Course.Kind.DUMMY).count());
-        assertEquals(Course.DRONES, targets.stream().filter(p -> p.kind() == Course.Kind.DRONE).count());
+        assertEquals(0, targets.stream().filter(p -> p.kind() == Course.Kind.DRONE).count(), "no drones");
         for (final Course.Piece target : targets) {
             final Block t = target.block();
             // a circle round the whole footprint, with room to spare, touches nothing at its heights
@@ -150,8 +151,7 @@ class CourseTest {
     }
 
     @Test
-    void dummiesFaceTheStartAndDronesHoverOutOfAJumpsReach() {
-        final double reach = Body.JUMP * Body.JUMP / (2 * Body.GRAVITY) + Body.STEP;
+    void dummiesFaceTheStart() {
         for (final Course.Piece piece : course.pieces()) {
             final Block b = piece.block();
             if (piece.kind() == Course.Kind.DUMMY) {
@@ -160,16 +160,16 @@ class CourseTest {
                 final Vec3 facing = Num.heading(b.yaw());
                 final Vec3 toward = new Vec3(-b.x(), 0, -b.z()).normalize();
                 assertTrue(-facing.dotProduct(toward) > 0.9, piece + " faces the start");
-            } else if (piece.kind() == Course.Kind.DRONE) {
-                assertTrue(b.bottom() > reach, piece + " hovers out of a jump's reach");
             }
         }
     }
 
     @Test
-    void onlyCratesAndTargetsCanBreak() {
+    void onlyCratesTargetsLooseThingsAndVehiclesCanBreak() {
         for (final Course.Kind kind : Course.Kind.values()) {
-            assertEquals(kind == Course.Kind.CRATE || kind.target(), kind.breakable(), kind.name());
+            assertEquals(kind == Course.Kind.CRATE || kind == Course.Kind.PLATFORM || kind == Course.Kind.BUNKER
+                    || kind == Course.Kind.CAR || kind.target()
+                    || kind.loose(), kind.breakable(), kind.name());
         }
     }
 }

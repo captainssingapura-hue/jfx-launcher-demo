@@ -83,11 +83,16 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
      * the body moves with them as they now are.
      */
     public Stepped step(final Controls controls, final double seconds, final Obstacles world) {
+        return step(controls, seconds, world, world);
+    }
+
+    /** As {@link #step(Controls, double, Obstacles)}, its weapons striking at {@code targets}: the world, and whoever is in it. */
+    public Stepped step(final Controls controls, final double seconds, final Obstacles world, final Obstacles targets) {
         Stepped done = Stepped.still(this);
         for (final Action action : controls.actions()) {
             done = done.then(done.avatar().act(action));
         }
-        return done.then(done.avatar().moved(controls, seconds, world));
+        return done.then(done.avatar().moved(controls, seconds, world, targets));
     }
 
     /** One thing done once, and what came of it. Whatever cannot be done is left undone, and nothing happens. */
@@ -120,14 +125,17 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
                 final Weapon now = arms.held() == draw.weapon() ? Weapon.NONE : draw.weapon();
                 yield new Stepped(new Avatar(body, wearingPack, sweep, Arms.holding(now)), List.of(new Event.Drew(now)));
             }
+            // the controls are the world's to hand over ({@link Play}), not the avatar's own
+            case Action.Take _ -> Stepped.still(this);
         };
     }
 
-    private Stepped moved(final Controls controls, final double seconds, final Obstacles world) {
+    private Stepped moved(final Controls controls, final double seconds, final Obstacles world,
+                          final Obstacles targets) {
         final double swung = Num.ease(sweep, Wings.sweepFor(wearingPack, body), Wings.SWING, seconds);
         final Body.Moved moved = body.move(controls, seconds, world, wearingPack ? new Wings(swung) : null);
         final Body after = moved.body();
-        final Arms.Stepped armed = arms.step(controls.trigger(), seconds, body, world, controls.aim());
+        final Arms.Stepped armed = arms.step(controls.trigger(), seconds, body, targets, controls.aim());
         final List<Event> happened = new ArrayList<>(moved.events());
         happened.addAll(armed.events());
         for (final Gate gate : world.gates()) {
@@ -138,6 +146,16 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
             }
         }
         return new Stepped(new Avatar(after, wearingPack, swung, armed.arms()), happened, armed.blows());
+    }
+
+    /** The same, {@code seconds} later: still, but its clock running on, for what keeps time by it. */
+    public Avatar aged(final double seconds) {
+        return new Avatar(body.aged(seconds), wearingPack, sweep, arms);
+    }
+
+    /** The same, turned to face {@code heading}, standing still: at a gun, facing the way it points. */
+    public Avatar facing(final double heading) {
+        return new Avatar(body.facing(heading), wearingPack, sweep, arms);
     }
 
     /** Carried by what it stands on, moved from {@code from} to {@code to}: see {@link Body#carried}. */

@@ -112,8 +112,8 @@ class CuesTest {
     void shotsSoundFromEachMuzzleAndStrokesFromTheBlade() {
         final Body still = Body.standing(Vec3.ZERO, 0);
         final Vec3 far = new Vec3(0, -130, 5000);
-        final List<Cues.Play> shots = of(with(0, false, new Event.Fired(true, Arms.muzzle(still, true), far),
-                new Event.Fired(false, Arms.muzzle(still, false), far)), PROFILE).plays();
+        final List<Cues.Play> shots = of(with(0, false, new Event.Fired(true, Arms.muzzle(still, true), far, Weapon.RIFLES),
+                new Event.Fired(false, Arms.muzzle(still, false), far, Weapon.RIFLES)), PROFILE).plays();
         assertEquals(List.of(Sound.RIFLE_SHOT, Sound.RIFLE_SHOT), shots.stream().map(Cues.Play::sound).toList());
         assertTrue(shots.get(0).at().dotProduct(Num.right(0)) < 0, "the left rifle, on the left");
         assertTrue(shots.get(1).at().dotProduct(Num.right(0)) > 0, "the right, on the right");
@@ -207,6 +207,10 @@ class CuesTest {
             }
             if (hum.loop() == Sound.AIRSHIP_ENGINES) {
                 assertEquals(0, hum.level().gain(), 1e-9, "no airship about, none heard");
+                continue;
+            }
+            if (hum.loop() == Sound.ENGINE_V6 || hum.loop() == Sound.ENGINE_V8) {
+                assertEquals(0, hum.level().gain(), 1e-9, "no vehicle driven, no engine heard");
                 continue;
             }
             assertTrue(hum.level().gain() > 0, hum.loop() + " sounds while boosting");

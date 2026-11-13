@@ -22,7 +22,8 @@ import java.util.TreeMap;
  * <pre>
  * avatar-inputs 1                 the format
  * rules 1                         the rules the world was stepped by ({@link Play#RULES})
- * start pack=false                where it started ({@link Play#start})
+ * start pack=false demo=AIRSHIP   where it started ({@link Play#start}): with the pack on or not, in
+ *                                 which demo (the playground if it does not say)
  * 61 1.0 0.0 0.0 0.0 true false 0.0 JUMP DRAW:RIFLES
  *                                 from step 61: ahead, sideways, turn, lift, run, trigger, aim,
  *                                 and what was done once, in that step only
@@ -44,14 +45,16 @@ public final class Recording {
 
     private final int rules;
     private final boolean pack;
+    private final Demo demo;
     private final NavigableMap<Long, Controls> lines;
     private final Map<Long, Long> checks;
     private final long length;
 
-    private Recording(final int rules, final boolean pack, final NavigableMap<Long, Controls> lines,
+    private Recording(final int rules, final boolean pack, final Demo demo, final NavigableMap<Long, Controls> lines,
                       final Map<Long, Long> checks, final long length) {
         this.rules = rules;
         this.pack = pack;
+        this.demo = demo;
         this.lines = lines;
         this.checks = checks;
         this.length = length;
@@ -63,6 +66,7 @@ public final class Recording {
         Integer format = null;
         int rules = -1;
         Boolean pack = null;
+        Demo demo = Demo.PLAYGROUND;
         final NavigableMap<Long, Controls> lines = new TreeMap<>();
         final Map<Long, Long> checks = new TreeMap<>();
         long end = 0;
@@ -88,7 +92,12 @@ public final class Recording {
                 }
                 switch (words[0]) {
                     case "rules" -> rules = Integer.parseInt(words[1]);
-                    case "start" -> pack = Boolean.parseBoolean(words[1].substring("pack=".length()));
+                    case "start" -> {
+                        pack = Boolean.parseBoolean(words[1].substring("pack=".length()));
+                        if (words.length > 2) {
+                            demo = Demo.valueOf(words[2].substring("demo=".length()));
+                        }
+                    }
                     case "check" -> checks.put(Long.parseLong(words[1]), Long.parseUnsignedLong(words[2], 16));
                     case "end" -> end = Long.parseLong(words[1]);
                     default -> {
@@ -108,7 +117,7 @@ public final class Recording {
             throw new IllegalArgumentException("a recording starts with its format, its rules and its start");
         }
         final long checked = checks.keySet().stream().mapToLong(Long::longValue).max().orElse(0);
-        return new Recording(rules, pack, lines, checks, Math.max(end, Math.max(last, checked)));
+        return new Recording(rules, pack, demo, lines, checks, Math.max(end, Math.max(last, checked)));
     }
 
     /** The rules it was stepped by; another than {@link Play#RULES} may not replay the same. */
@@ -121,9 +130,14 @@ public final class Recording {
         return pack;
     }
 
+    /** Which demo it was made in. */
+    public Demo demo() {
+        return demo;
+    }
+
     /** The world it started from. */
     public Play start() {
-        return Play.start(pack);
+        return Play.start(demo, pack);
     }
 
     /** The last step it covers. */
@@ -190,12 +204,17 @@ public final class Recording {
         private Controls held;
         private long last;
 
-        /** Starts a recording, in {@code out}, of a run from {@link Play#start} with the pack on or not. */
+        /** Starts a recording, in {@code out}, of a run from {@link Play#start} in the playground with the pack on or not. */
         public Recorder(final Writer out, final boolean pack) {
+            this(out, pack, Demo.PLAYGROUND);
+        }
+
+        /** Starts a recording, in {@code out}, of a run from {@link Play#start} in {@code demo} with the pack on or not. */
+        public Recorder(final Writer out, final boolean pack, final Demo demo) {
             this.out = out;
             write(MAGIC + " " + FORMAT);
             write("rules " + Play.RULES);
-            write("start pack=" + pack);
+            write("start pack=" + pack + " demo=" + demo.name());
         }
 
         /** Keeps step {@code step}'s inputs, and the world after it, {@code after}, when it is time for a check. */
@@ -280,6 +299,7 @@ public final class Recording {
             case Action.Jump j -> "JUMP";
             case Action.Fly f -> "FLY";
             case Action.Pack p -> "PACK";
+            case Action.Take t -> "TAKE";
             case Action.Draw d -> "DRAW:" + d.weapon().name();
         };
     }
@@ -289,6 +309,7 @@ public final class Recording {
             case "JUMP" -> Action.JUMP;
             case "FLY" -> Action.FLY;
             case "PACK" -> Action.PACK;
+            case "TAKE" -> Action.TAKE;
             default -> {
                 if (!name.startsWith("DRAW:")) {
                     throw new IllegalArgumentException("no such action: " + name);

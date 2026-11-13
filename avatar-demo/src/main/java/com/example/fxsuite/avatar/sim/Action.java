@@ -23,7 +23,12 @@ public sealed interface Action {
     record Draw(Weapon weapon) implements Action {
     }
 
+    /** Take the controls of a platform, standing at its console; or let go of them. */
+    record Take() implements Action {
+    }
+
     Action JUMP = new Jump();
     Action FLY = new Fly();
     Action PACK = new Pack();
+    Action TAKE = new Take();
 }

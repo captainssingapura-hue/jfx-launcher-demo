@@ -61,7 +61,7 @@ public final class Gait {
         final Pose pose = of(avatar.body(), lookYaw, lookUp);
         final Arms arms = avatar.arms();
         return switch (arms.held()) {
-            case NONE, BOMB -> pose;
+            case NONE, BOMB, FALL, HEAVY_GATLING -> pose;
             case RIFLES -> {
                 // the body leans forward by a negative turn, the arms by positive ones: so to
                 // hold a forearm level, the upper arm and elbow together turn as far as the lean.
@@ -151,6 +151,24 @@ public final class Gait {
             }
         }
         return frames[frames.length - 1].clone();
+    }
+
+    /** How high a seat is, from what it stands on to the top of its cushion. */
+    public static final double SEAT = 40;
+    /** How much lower its head is sat than stood: its hips come down from where they stand onto the seat. */
+    public static final double SEATED_LOWER = BoxRig.HIP - SEAT;
+
+    /**
+     * {@code looking}, sat down: at the wheel of a land vehicle, kart-fashion. The hips come down
+     * onto a seat {@link #SEAT} high, the legs straight out ahead toward the pedals, the body leaning
+     * back a little against the seat's back, and both hands forward on the steering wheel. The head
+     * still looks where the player looks.
+     */
+    public static Pose seated(final Pose looking) {
+        return new Pose(-6, 0, SEAT - BoxRig.HIP,
+                40, 40, 12, 12, 34, 34,
+                84, 84, 6,
+                looking.headYaw(), looking.headPitch(), 0);
     }
 
     private static Pose onFoot(final Body body) {

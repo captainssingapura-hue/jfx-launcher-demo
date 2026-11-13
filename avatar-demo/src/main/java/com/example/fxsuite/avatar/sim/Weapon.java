@@ -19,10 +19,18 @@ public enum Weapon {
      */
     GATLING("Gatling gun", 8),
     /**
+     * A heavy Gatling gun, on a mount: six long barrels, twice the robot's size, slower to spin up,
+     * slower to fire, and far heavier rounds, each five times the hand-held one's. Too heavy to
+     * hold: it is manned where it is mounted ({@link Turret}).
+     */
+    HEAVY_GATLING("Heavy Gatling gun", 40),
+    /**
      * An airship's bomb, going off: every piece that can break within {@link Sky#BLAST} of it
      * takes this. A drone or a small crate goes at once; a dummy takes two.
      */
-    BOMB("Bomb", 150);
+    BOMB("Bomb", 150),
+    /** Coming down harder than a loose thing can take ({@link Loose#landing}): enough to break anything. */
+    FALL("A fall", 100_000);
 
     private final String title;
     private final double blow;

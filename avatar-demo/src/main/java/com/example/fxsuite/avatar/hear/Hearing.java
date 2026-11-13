@@ -83,6 +83,18 @@ public final class Hearing implements AutoCloseable {
      * of the {@code airships} still in the sky droning where it hangs.
      */
     public void hear(final Avatar avatar, final List<Event> events, final Chase chase, final List<Vec3> airships) {
+        hear(avatar, events, chase, airships, null);
+    }
+
+    /** As {@link #hear(Avatar, List, Chase, List)}, with a gun on a mount manned ({@code gunner}), or none (null). */
+    public void hear(final Avatar avatar, final List<Event> events, final Chase chase, final List<Vec3> airships,
+                     final Cues.Gunner gunner) {
+        hear(avatar, events, chase, airships, gunner, null);
+    }
+
+    /** As {@link #hear(Avatar, List, Chase, List, Cues.Gunner)}, with the engine of a vehicle being driven ({@code motor}), or none (null). */
+    public void hear(final Avatar avatar, final List<Event> events, final Chase chase, final List<Vec3> airships,
+                     final Cues.Gunner gunner, final Cues.Motor motor) {
         final double time = avatar.body().time();
         final double seconds = Double.isNaN(lastTime) ? 0 : Math.max(0, time - lastTime);
         lastTime = time;
@@ -90,7 +102,7 @@ public final class Hearing implements AutoCloseable {
         ducked *= Math.exp(-seconds / DUCK_BACK);
 
         speakers.listen(chase.pivot(), chase.yaw());
-        final Cues.Heard heard = Cues.of(avatar, events, profile, airships);
+        final Cues.Heard heard = Cues.of(avatar, events, profile, airships, gunner, motor);
         for (final Cues.Play play : heard.plays()) {
             final Sound sound = play.sound();
             final Clip clip = clip(sound, play.amount(), nextTake(sound));

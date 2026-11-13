@@ -9,11 +9,11 @@ import java.util.List;
  * and which are broken. Pure, and never changed in place: each blow gives a new one.
  *
  * <ul>
- *   <li><b>What can break:</b> crates and the targets, the dummies and the drones
- *       ({@link Course.Kind#breakable}). Pillars and gates are what the world is built on, and
+ *   <li><b>What can break:</b> crates and the targets, the dummies and the drones, and
+ *       the vehicles, the airships and the platforms ({@link Course.Kind#breakable}). Pillars and gates are what the world is built on, and
  *       stand whatever is thrown at them.</li>
- *   <li><b>How tough:</b> a dummy takes {@link #DUMMY}, a drone {@link #DRONE}, and an airship,
- *       armoured as it is, {@link #AIRSHIP}: most of ten seconds of the Gatling gun. A crate's
+ *   <li><b>How tough:</b> a dummy takes {@link #DUMMY}, a drone {@link #DRONE}, a platform {@link #PLATFORM}, and an
+ *       airship, armoured as it is, {@link #AIRSHIP}: most of ten seconds of the Gatling gun. A crate's
  *       toughness goes by its size, from {@link #CRATE} for the smallest up: a small crate falls to
  *       a short burst, the biggest takes a couple of seconds of the Gatling gun.</li>
  *   <li><b>A blow</b> takes away what its weapon does ({@link Weapon#blow}): a round, or a stroke
@@ -29,10 +29,15 @@ import java.util.List;
  */
 public final class Damage {
 
-    /** How tough a dummy is, a drone, an airship, and the smallest crate. */
+    /** How tough a dummy is, a drone, a platform, an airship, and the smallest crate. */
     public static final double DUMMY = 300;
     public static final double DRONE = 120;
     public static final double AIRSHIP = 3000;
+    public static final double PLATFORM = 600;
+    /** How tough a bunker is: concrete, most of a minute of the hand-held Gatling gun. */
+    public static final double BUNKER = 2500;
+    /** How tough a land vehicle is, bare as it is. */
+    public static final double CAR = 800;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
     public static final double CRATE_VOLUME = 30_000;
@@ -67,9 +72,14 @@ public final class Damage {
             case DUMMY -> DUMMY;
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
+            case BUNKER -> BUNKER;
+            // a land vehicle's body makes it the tougher by its armour
+            case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
+            case PLATFORM -> PLATFORM;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
-            case PILLAR, GATE -> Double.POSITIVE_INFINITY;
+            case FRUIT, FURNITURE -> piece.loose().toughness();
+            case PILLAR, GATE, ROAD -> Double.POSITIVE_INFINITY;
         };
     }
 
@@ -94,6 +104,14 @@ public final class Damage {
 
     /** As {@link #took(List)}, {@code seconds} after the start: what moves of itself breaks where it then is. */
     public Taken took(final List<Blow> blows, final double seconds) {
+        return took(blows, piece -> pieces.get(piece).at(seconds));
+    }
+
+    /**
+     * As {@link #took(List)}, with {@code where} telling where each piece now is: what moves breaks
+     * where it then is, and that is where its pieces fly from.
+     */
+    public Taken took(final List<Blow> blows, final java.util.function.IntFunction<Course.Piece> where) {
         double[] left = null;
         Obstacles standing = obstacles;
         final List<Event> happened = new ArrayList<>();
@@ -112,16 +130,22 @@ public final class Damage {
             if (left == null) {
                 left = health.clone();
             }
-            left[piece] = Math.max(0, left[piece] - blow.by().blow());
+            left[piece] = Math.max(0, left[piece] - harm(piece, blow));
             happened.add(Event.Struck.of(blow, share(piece, left)));
             if (left[piece] <= 0) {
-                final Course.Piece what = pieces.get(piece).at(seconds);
+                final Course.Piece what = where.apply(piece);
                 standing = standing.without(piece);
-                happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by()));
+                happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by(), what.fruit()));
             }
         }
         return left == null ? new Taken(this, happened)
                 : new Taken(new Damage(pieces, toughness, left, standing), happened);
+    }
+
+    /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */
+    private double harm(final int piece, final Blow blow) {
+        final Course.Bodywork body = pieces.get(piece).body();
+        return body == null ? blow.by().blow() : Math.max(0, blow.by().blow() - body.plating());
     }
 
     private boolean harms(final Blow blow) {
@@ -167,7 +191,7 @@ public final class Damage {
         return pieces.get(piece);
     }
 
-    /** The pieces that move of themselves and are still standing, by number: the airships left. */
+    /** The pieces that can move and are still standing, by number: the airships left, and the platforms. */
     public List<Integer> moving() {
         final List<Integer> moving = new ArrayList<>();
         for (int i = 0; i < health.length; i++) {
@@ -176,6 +200,16 @@ public final class Damage {
             }
         }
         return moving;
+    }
+
+    /** The pieces that fly of themselves and are still in the sky, by number: the airships left. */
+    public List<Integer> flying() {
+        return moving().stream().filter(i -> pieces.get(i).flies()).toList();
+    }
+
+    /** The pieces riding on piece {@code carrier} and still standing, by number: the stall on the barge. */
+    public List<Integer> riding(final int carrier) {
+        return moving().stream().filter(i -> pieces.get(i).carrier() == carrier).toList();
     }
 
     /** How many pieces there are, broken or not. */
