@@ -153,6 +153,11 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
         return new Avatar(body.aged(seconds), wearingPack, sweep, arms);
     }
 
+    /** The same, turned to face {@code heading}, standing still: at a gun, facing the way it points. */
+    public Avatar facing(final double heading) {
+        return new Avatar(body.facing(heading), wearingPack, sweep, arms);
+    }
+
     /** Carried by what it stands on, moved from {@code from} to {@code to}: see {@link Body#carried}. */
     public Avatar carried(final Place from, final Place to) {
         return new Avatar(body.carried(from, to), wearingPack, sweep, arms);

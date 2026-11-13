@@ -333,6 +333,11 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         return new Body(position, yaw, travel, speed, drift, turnRate, climb, flying, onGround, phase, time + seconds);
     }
 
+    /** The same, turned to face {@code heading}, standing still. */
+    public Body facing(final double heading) {
+        return new Body(position, heading, heading, 0, 0, 0, climb, flying, onGround, phase, time);
+    }
+
     /**
      * Shoved, across the ground: {@code vx} and {@code vz} added to how fast it is going, in the
      * world's terms. Its own speeds are reckoned along the way it is going ({@code travel}), so

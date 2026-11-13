@@ -80,8 +80,11 @@ class TurretTest {
     }
 
     @Test
-    void heldDownTooLongItGetsTooHotAndMustCool() {
-        Turret gun = manned();
+    void aGunThatOverheatsHeldDownTooLongGetsTooHotAndMustCool() {
+        final Course.Mount b = Course.BUNKER_GUN;
+        final Course.Mount hot = new Course.Mount(b.gun(), b.pivot(), b.barrel(), b.traverse(), b.depression(),
+                b.elevation(), b.slew(), b.stabilized(), b.closed(), b.station(), b.seat(), true);
+        Turret gun = new Turret(-1, hot, new Place(0, 0, 0, 0)).held(true);
         long rounds = 0;
         for (int i = 0; i < 120 * 8 && !gun.cooling(); i++) {
             final Turret.Stepped fired = gun.step(FIRE, Clock.STEP, Obstacles.NONE);
@@ -100,6 +103,20 @@ class TurretTest {
         }
         assertFalse(gun.cooling(), "cooled enough to fire again");
         assertTrue(gun.heat() <= Turret.RECOVERED + 1e-9);
+    }
+
+    @Test
+    void theBunkersGunDoesNotOverheatForNow() {
+        Turret gun = manned();
+        long rounds = 0;
+        for (int i = 0; i < 120 * 12; i++) {
+            final Turret.Stepped fired = gun.step(FIRE, Clock.STEP, Obstacles.NONE);
+            gun = fired.turret();
+            rounds += fired.events().size();
+        }
+        assertFalse(gun.cooling());
+        assertEquals(0, gun.heat(), 1e-12);
+        assertEquals((12 - Gun.HEAVY_GATLING.spinUp()) / Gun.HEAVY_GATLING.interval(), rounds, 2, "firing all the while");
     }
 
     @Test

@@ -422,10 +422,12 @@ public final class Course {
      * for all round), down ({@code depression}) and up ({@code elevation}), how fast it turns at
      * most ({@code slew}, degrees a second), whether it holds its aim on the world as what carries it
      * turns ({@code stabilized}), whether whoever mans it is inside, out of sight ({@code closed}),
-     * where they stand to man it ({@code station}), and where they are while they do ({@code seat}).
+     * where they stand to man it ({@code station}), where they are while they do ({@code seat}), and
+     * whether, held down too long, it gets too hot to fire until it has cooled ({@code overheats}).
      */
     public record Mount(Gun gun, Section pivot, double barrel, double traverse, double depression, double elevation,
-                        double slew, boolean stabilized, boolean closed, Section station, Section seat) {
+                        double slew, boolean stabilized, boolean closed, Section station, Section seat,
+                        boolean overheats) {
     }
 
     /**
@@ -449,7 +451,21 @@ public final class Course {
      * whoever mans it is inside, out of sight.
      */
     public static final Mount BUNKER_GUN = new Mount(Gun.HEAVY_GATLING, new Section(0, 170, 150, 0, 0, 0), 240,
-            55, 8, 25, 70, false, true, new Section(0, -330, 0, 0, 0, 0), new Section(0, 60, 1, 0, 0, 0));
+            55, 8, 25, 70, false, true, new Section(0, -330, 0, 0, 0, 0), new Section(0, 60, 1, 0, 0, 0), false);
+
+    /**
+     * A gunship: a platform a little bigger than the carpet, a heavy Gatling gun on its console.
+     * Whoever mans the gun flies it too ({@link #GUNSHIP_GUN}).
+     */
+    public static final Deck GUNSHIP = new Deck(360, 300);
+    /**
+     * The gunship's gun: on a post through its console, firing over its front, all round, 30° down
+     * and 40° up, turning 90° a second at most; and holding its aim on the world as the gunship
+     * turns under it. Manned from behind the console, where the gunner stands in plain sight.
+     */
+    public static final Mount GUNSHIP_GUN = new Mount(Gun.HEAVY_GATLING,
+            new Section(0, GUNSHIP.console().along(), 135, 0, 0, 0), 240, 180, 30, 40, 90, true, false,
+            GUNSHIP.station(), GUNSHIP.station(), false);
 
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
@@ -585,12 +601,15 @@ public final class Course {
      */
     /**
      * The guns' demo: a bunker just ahead of the start, its door toward it and its gun facing away,
+     * and a gunship off to the right, a platform with a gun on its console;
      * over open ground with something to shoot at: rows of crates and of dummies out in front, and
      * drones hovering further out. Pillars about, as in the vehicles' demos.
      */
     private void gunsDemo() {
         scenery(23);
         pieces.add(Piece.moving(BUNKER, new Place(0, 700, 0, 0), Kind.BUNKER, 0, null));
+        // and the gunship, off to the right of the start, at its lowest, heading the way the bunker faces
+        pieces.add(Piece.moving(GUNSHIP.shape(), new Place(900, 250, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
         final Random random = new Random(29);
         for (int i = 0; i < 14; i++) {
             final double heading = -45 + 90.0 * i / 13;

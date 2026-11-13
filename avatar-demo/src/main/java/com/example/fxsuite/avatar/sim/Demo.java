@@ -20,8 +20,8 @@ public enum Demo {
     AIRSHIP("Airship", "An airship moored by the start, to board, fly, and bomb a yard of crates with.", 0),
     /** Ramps: a flyover across the way ahead, to run up, over and under; and a ramp to leap off. */
     FLYOVER("Flyover", "A road over a flyover, to run up, across and under; and a ramp to leap off.", 0),
-    /** A bunker with a heavy Gatling gun, to man and fire at crates, dummies and drones. */
-    GUNS("Bunker", "A bunker with a heavy Gatling gun, to man and turn on crates, dummies and drones.", 0);
+    /** Heavy Gatling guns on mounts: in a bunker, and on a gunship platform; and crates, dummies and drones to fire at. */
+    GUNS("Guns", "A bunker and a gunship, each with a heavy Gatling gun, to turn on crates, dummies and drones.", 0);
 
     private final String title;
     private final String description;

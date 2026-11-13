@@ -139,7 +139,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             return Optional.empty();
         }
         final Obstacles world = obstacles();
-        return lifts.stream().filter(lift -> !damage.broken(lift.piece()) && lift.reaches(avatar.body(), world))
+        return lifts.stream().filter(lift -> !armed(lift.piece()) && !damage.broken(lift.piece())
+                        && lift.reaches(avatar.body(), world))
                 .findFirst();
     }
 
@@ -151,17 +152,22 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // manning a gun, the controls are the gun's: no vehicle's are taken
         final boolean gunner = turrets.stream().anyMatch(Turret::held);
         final Controls forLifts = gunner ? withoutTaking(controls) : controls;
-        final List<Lift> handed = engines(forLifts, handed(forLifts, was, happened), happened);
-        final boolean working = handed.stream().anyMatch(Lift::held);
+        final List<Lift> reached = engines(forLifts, handed(forLifts, was, happened), happened);
+        final boolean working = reached.stream().anyMatch(Lift::held);
         // going aboard a closed craft, the avatar is inside it, out of sight; stepping out, it is at its door
-        final Avatar boarded = boarded(handed);
-        final int inside = inside(handed);
+        final Avatar boarded = boarded(reached);
+        final int inside = inside(reached);
         // and a gun is manned or let go, with what is left of the controls once a vehicle's have changed hands
         boolean changed = false;
-        for (int i = 0; i < handed.size(); i++) {
-            changed |= handed.get(i).held() != lifts.get(i).held();
+        for (int i = 0; i < reached.size(); i++) {
+            changed |= reached.get(i).held() != lifts.get(i).held();
         }
         final List<Turret> manned = manned(controls, changed, happened);
+        // a vehicle with a gun on it is flown by whoever mans the gun: its keys fly it, A and D
+        // turning it, and the mouse is the gun's
+        final List<Lift> handed = gunshipsHeld(reached, manned);
+        final int gunship = gunning(manned) < 0 ? -1 : liftOf(handed, manned.get(gunning(manned)).host());
+        final Controls steering = gunship >= 0 ? gunshipControls(controls, seconds) : controls;
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);
         final boolean still = inside >= 0 || gunning >= 0;
@@ -174,7 +180,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         // the world moves on, carrying whoever stands on what moves, and the platforms docked on it
         // and the loose things resting on it
-        final List<Lift> moved = moved(controls, seconds, to, was, handed, happened,
+        final List<Lift> moved = moved(steering, seconds, to, was, handed, happened,
                 piece -> restingOn(piece, under));
         final List<Prop> carriedProps = carriedProps(to, handed, moved, under);
         // each loose thing a step on: those still first, then those sliding, the foremost of them
@@ -200,6 +206,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Moves moves = new Moves(handed, moved, props, settled);
         final Avatar carried = inside >= 0
                 ? self.carried(handed.get(inside).place(), moved.get(inside).place())
+                : gunship >= 0 ? self.carried(handed.get(gunship).place(), moved.get(gunship).place())
                 : gunning >= 0 ? self : carried(self, was, moves, to);
         final Obstacles now = obstacles(to, moved, settled);
         // the people go on as they were going, carried by what they stand on, hurt by coming down hard
@@ -215,11 +222,14 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Turret> turned = new ArrayList<>();
         final List<Event> gunfire = new ArrayList<>();
         final List<Blow> rounds = new ArrayList<>(acted.blows());
-        for (final Turret turret : manned) {
-            if (damage.broken(turret.host())) {
-                turned.add(turret);
+        for (final Turret mounted : manned) {
+            if (damage.broken(mounted.host())) {
+                turned.add(mounted);
                 continue;
             }
+            // on what moves, it goes with it
+            final int on = liftOf(moved, mounted.host());
+            final Turret turret = on >= 0 ? mounted.carried(moved.get(on).place()) : mounted;
             final Turret.Stepped fired = turret.step(turret.held() ? controls : Controls.NONE, seconds,
                     aimedAt.without(turret.host()));
             turned.add(fired.turret());
@@ -263,7 +273,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         happened.addAll(fell.events());
         happened.addAll(taken.events());
         happened.addAll(toPeople);
-        return new Stepped(new Play(acted.avatar(), taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
+                // standing at an open gun, the gunner faces the way it points
+        final Avatar shown = gunning >= 0 && !turned.get(gunning).mount().closed()
+                ? acted.avatar().facing(turned.get(gunning).heading()) : acted.avatar();
+        return new Stepped(new Play(shown, taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
                 happened);
     }
 
@@ -501,6 +514,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> handed = new ArrayList<>(lifts);
         for (int i = 0; i < handed.size(); i++) {
             final Lift lift = handed.get(i);
+            if (armed(lift.piece())) {
+                continue;  // flown by whoever mans its gun
+            }
             if (lift.held() && (take || damage.broken(lift.piece())
                     || !lift.craft().closed() && !lift.reaches(avatar.body(), world))) {
                 handed.set(i, lift.held(false));
@@ -510,7 +526,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         for (int i = 0; take && i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (!damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
+            if (!armed(lift.piece()) && !damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
                 handed.set(i, lift.held(true));
                 happened.add(new Event.TookControls(lift.piece()));
                 take = false;
@@ -564,6 +580,45 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return manned;
     }
 
+    /** How fast A and D turn a gunship, whose gunner's mouse is the gun's: degrees a second. */
+    public static final double GUNSHIP_TURN = 60;
+
+    /** Whether piece {@code piece} carries a gun: then it is flown by whoever mans the gun, not from its console. */
+    private boolean armed(final int piece) {
+        return turrets.stream().anyMatch(t -> t.host() == piece);
+    }
+
+    /** Which of {@code lifts} is piece {@code piece}; -1 for none. */
+    private static int liftOf(final List<Lift> lifts, final int piece) {
+        for (int i = 0; i < lifts.size(); i++) {
+            if (lifts.get(i).piece() == piece) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** {@code lifts}, those with a gun on them held while their gun is manned ({@code manned}), and let go when it is not. */
+    private static List<Lift> gunshipsHeld(final List<Lift> lifts, final List<Turret> manned) {
+        final List<Lift> held = new ArrayList<>(lifts);
+        for (final Turret turret : manned) {
+            final int on = liftOf(held, turret.host());
+            if (on >= 0 && held.get(on).held() != turret.held()) {
+                held.set(on, held.get(on).held(turret.held()));
+            }
+        }
+        return held;
+    }
+
+    /**
+     * The controls, as a gunship takes them from its gunner: ahead and back, up and down as they
+     * are; A and D, rather than sliding it sideways, turn it, the mouse's turn being the gun's.
+     */
+    private static Controls gunshipControls(final Controls controls, final double seconds) {
+        return new Controls(controls.forward(), 0, controls.sideways() * GUNSHIP_TURN * seconds, controls.lift(),
+                controls.run(), false, 0, List.of());
+    }
+
     /** Which of {@code manned} the avatar mans; -1 for none. */
     private static int gunning(final List<Turret> manned) {
         for (int i = 0; i < manned.size(); i++) {
@@ -576,14 +631,15 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /**
      * {@code avatar}, as a gun was manned or let go ({@code manned}): manning it, at its seat,
-     * facing the way it points; letting it go, back at its station, settling onto what is there.
+     * facing the way it points; letting a closed one go, back out at its station, settling onto
+     * what is there (at an open one, it is standing there already).
      */
     private Avatar gunner(final Avatar avatar, final List<Turret> manned) {
         for (int i = 0; i < manned.size(); i++) {
             final Turret was = turrets.get(i);
             final Turret now = manned.get(i);
-            if (was.held() == now.held()) {
-                continue;
+            if (was.held() == now.held() || !now.held() && !now.mount().closed()) {
+                continue;  // at an open gun, whoever let it go is standing there still
             }
             final Body body = now.held()
                     ? Body.standing(now.at(now.mount().seat()), now.heading())

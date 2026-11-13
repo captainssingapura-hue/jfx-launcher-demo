@@ -45,13 +45,15 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         this(host, mount, base, 0, 0, 0, 0, Gun.State.READY, 0, false, false);
     }
 
-    /** The guns mounted among {@code damage}'s pieces: one in each bunker. */
+    /** The guns mounted among {@code damage}'s pieces: one in each bunker, and one on each gunship. */
     public static List<Turret> of(final Damage damage) {
         final List<Turret> turrets = new ArrayList<>();
         for (int piece = 0; piece < damage.size(); piece++) {
             final Course.Piece what = damage.piece(piece);
             if (what.kind() == Course.Kind.BUNKER) {
                 turrets.add(new Turret(piece, Course.BUNKER_GUN, what.place()));
+            } else if (what.kind() == Course.Kind.PLATFORM && Course.Deck.of(what.shape()).equals(Course.GUNSHIP)) {
+                turrets.add(new Turret(piece, Course.GUNSHIP_GUN, what.place()));
             }
         }
         return turrets;
@@ -121,6 +123,17 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         return new Turret(host, mount, base, yaw, pitch, wantYaw, wantPitch, gun, heat, cooling, manned);
     }
 
+    /**
+     * The same, what carries it having moved to {@code to}: it goes with it. Stabilized, it keeps
+     * pointing the way it did in the world, as far as it turns, as what carries it turns under it;
+     * not, it turns with it.
+     */
+    public Turret carried(final Place to) {
+        final double turn = mount.stabilized() ? Num.wrap(to.yaw() - base.yaw()) : 0;
+        return new Turret(host, mount, to, traversed(yaw - turn), pitch, traversed(wantYaw - turn), wantPitch, gun,
+                heat, cooling, held);
+    }
+
     /** {@code wanted} round, no further than it turns either way; all round, any way. */
     private double traversed(final double wanted) {
         return mount.traverse() >= 180 ? Num.wrap(wanted) : Num.clamp(wanted, -mount.traverse(), mount.traverse());
@@ -142,7 +155,8 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         final boolean trigger = held && controls.trigger() && !cooling;
         final Gun.Fired fired = mount.gun().fire(gun, trigger, seconds, left -> swung.bore(), world);
         final int rounds = fired.state().rounds() - gun.rounds();
-        double hot = Math.max(0, heat + rounds * HEAT - COOL * seconds);
+        // a gun that does not overheat stays cold
+        double hot = mount.overheats() ? Math.max(0, heat + rounds * HEAT - COOL * seconds) : 0;
         boolean cool = cooling;
         if (hot >= 1) {
             hot = 1;

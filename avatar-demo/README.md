@@ -30,10 +30,17 @@ characters, and a separate sound bench is for working on the sounds.
   The gun is aimed freely, not by turning the robot (`Turret`): the mouse swings it round, 55°
   either way, and up and down, 8° down to 25° up, no faster than 70° a second, as a heavy
   thing turns. Click fires, as every gun fires (`Gun`): held, its six long barrels spin up over
-  1.2 s, then it fires 30 rounds a second, each five times the hand-held Gatling gun's. Held down
-  too long, about five seconds, it gets too hot and stops until it has cooled. Its rounds go
-  out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
+  1.2 s, then it fires 30 rounds a second, each five times the hand-held Gatling gun's, for as
+  long as it is held (a mount can be made to overheat, but neither gun does for now). Its rounds
+  go out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
   again steps out of the door.
+- **A gunship.** A platform with a heavy Gatling gun on its console. Jump onto its deck and stand
+  behind the gun: T mans it, and flies the gunship too, as a gunner on a pickup would. W and S
+  fly it ahead and back, A and D turn it, Space and Ctrl climb and descend; the mouse aims the
+  gun, all round, 30° down and 40° up, and the gun holds its aim on the world as the gunship
+  turns under it (stabilized). The robot stands behind the gun in plain sight, carried with the
+  gunship and facing the way the gun points, and the view is from over its shoulder. T again
+  steps away from the gun, and the gunship eases to a stop and hangs there.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -166,8 +173,8 @@ java -jar avatar-demo/target/avatar-demo.jar
 It opens on a choice of demos: the **playground**, everything at once, or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **flyover**, roads and ramps for the land vehicles to come; and the **bunker**, with
-a heavy Gatling gun to man, and crates, dummies and drones out in front (`Demo`).
+bomb; the **flyover**, roads and ramps for the land vehicles to come; and the **guns**: a bunker
+and a gunship, each with a heavy Gatling gun, and crates, dummies and drones out in front (`Demo`).
 Click one or press its number. In a demo, the button at the top right, or a right click
 anywhere, opens a menu of them: switch straight to another, or start this one again. Tab
 comes back to the choice.

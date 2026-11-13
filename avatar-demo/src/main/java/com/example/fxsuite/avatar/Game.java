@@ -139,11 +139,17 @@ public final class Game {
     /** The guns on their mounts, and how they are drawn. */
     private List<Turret> turrets;
     private final Guns guns;
-    /** How far back the camera is from a gun being manned, and how far over it. */
+    /**
+     * How far back the camera is from a gun being manned, how far over it, and how far it looks down
+     * at rest: inside a bunker, close behind it and next to level, to look out under its roof; at an
+     * open gun, further back and over the gunner's head, looking down a little.
+     */
     private static final double GUN_VIEW = 260;
     private static final double GUN_EYE = 30;
-    /** How far the camera looks down at rest, manning a gun: next to level, so as to stay under a bunker's roof. */
     private static final double GUN_REST = -4;
+    private static final double OPEN_GUN_VIEW = 560;
+    private static final double OPEN_GUN_EYE = 170;
+    private static final double OPEN_GUN_REST = -12;
     /** What the camera follows, while manning a gun: this and up, by what carries the gun; apart from any vehicle. */
     private static final int GUNNING = 1_000_000;
     /** How much deeper the heavy Gatling gun sounds than the hand-held one. */
@@ -177,9 +183,13 @@ public final class Game {
     private static final String PLATFORM_HELP = "The platform: W/S ahead and back · A/D sideways · mouse turns · "
             + "Space climb · Ctrl descend · Shift carefully · F engine on or off · T let go\n"
             + "1 twin rifles · 2 glaive · 3 Gatling gun · click to fire or swing\n" + VIEW_KEYS;
+    private static final String GUNSHIP_HELP = "The gunship: W/S ahead and back · A/D turn · Space climb ·"
+            + " Ctrl descend · Shift carefully · T step away from the gun\n"
+            + "The mouse aims the gun, all round, 30° down and 40° up; it holds its aim as the gunship turns"
+            + " · click fire: held, it spins up, then fires\n" + VIEW_KEYS;
     private static final String GUN_HELP = "The heavy Gatling gun: the mouse aims it, 55° either way, 8° down and 25° up;"
             + " it swings round at its own pace · T step out\n"
-            + "Click fire: held, it spins up, then fires · held too long, it gets too hot and must cool\n" + VIEW_KEYS;
+            + "Click fire: held, it spins up, then fires\n" + VIEW_KEYS;
     private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · mouse turns (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
@@ -486,9 +496,10 @@ public final class Game {
             if (piloting < 0) {
                 zoomWas = chase.distance();
             }
-            zoomTo = flying.map(Game::viewFrom).orElse(gunned.isPresent() ? GUN_VIEW : zoomWas);
+            zoomTo = flying.map(Game::viewFrom).orElse(gunned.map(gun -> gun.mount().closed() ? GUN_VIEW : OPEN_GUN_VIEW)
+                    .orElse(zoomWas));
             // the view tipped to where the aim is level, as it rests for what is now looked along
-            chase = chase.turned(0, (gunned.isPresent() ? GUN_REST : Chase.DEFAULT_PITCH) - chase.pitch());
+            chase = chase.turned(0, restPitch() - chase.pitch());
             piloting = nowPiloting;
         }
         if (!Double.isNaN(zoomTo)) {
@@ -500,7 +511,8 @@ public final class Game {
         }
         final Block craft = flying.isPresent() ? shownAt.get(piloting) : null;
         chase = gunned.isPresent()
-                ? chase.follow(gunned.get().pivot().add(0, -GUN_EYE, 0), gunned.get().heading(), 1, seconds,
+                ? chase.follow(gunned.get().pivot().add(0, gunned.get().mount().closed() ? -GUN_EYE : -OPEN_GUN_EYE, 0),
+                gunned.get().heading(), 1, seconds,
                 circling != 0)
                 : craft != null
                 ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2, craft.z()), craft.yaw(), 1,
@@ -573,13 +585,23 @@ public final class Game {
         return seen;
     }
 
-    /** The gun being manned, in a few words: its barrels, its heat, and how much is left of what it is in. */
+    /**
+     * The gun being manned, in a few words: its barrels, its heat if it overheats, and how much is
+     * left of what it is on; on a gunship, how fast and high that is going too.
+     */
     private String gunStatus(final Turret gun) {
         final double spin = gun.gun().spin();
         final String barrels = gun.firing() ? "firing" : spin >= 1 ? "up to speed"
                 : spin > 0 ? String.format("spinning, %.0f%%", 100 * spin) : "still";
-        return String.format("Manning the heavy Gatling gun · %s · heat %.0f%%%s · bunker %.0f%% left", barrels,
-                100 * gun.heat(), gun.cooling() ? ", too hot: cooling" : "", 100 * damage.left(gun.host()));
+        final String heat = !gun.mount().overheats() ? ""
+                : String.format(" · heat %.0f%%%s", 100 * gun.heat(), gun.cooling() ? ", too hot: cooling" : "");
+        final double left = 100 * damage.left(gun.host());
+        final Lift ship = lifts.stream().filter(l -> l.piece() == gun.host()).findFirst().orElse(null);
+        if (ship != null) {
+            return String.format("Flying the gunship · %.1f m/s · %.1f m up · gun %s%s · %.0f%% left",
+                    ship.speed() / 100, ship.place().height() / 100, barrels, heat, left);
+        }
+        return String.format("Manning the heavy Gatling gun · %s%s · bunker %.0f%% left", barrels, heat, left);
     }
 
     /** The vehicle being flown, in a few words: which it is, and how much of it is left. */
@@ -669,7 +691,7 @@ public final class Game {
             shown = text;
             status.setText(text);
         }
-        final String keys = manned.isPresent() ? GUN_HELP
+        final String keys = manned.isPresent() ? (manned.get().mount().closed() ? GUN_HELP : GUNSHIP_HELP)
                 : flown.map(lift -> lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElse(ON_FOOT_HELP);
         if (!keys.equals(help.getText())) {
             help.setText(keys);
@@ -797,7 +819,8 @@ public final class Game {
      * to level. The aim is how far the view is tilted up from this.
      */
     private double restPitch() {
-        return turrets.stream().anyMatch(Turret::held) ? GUN_REST : Chase.DEFAULT_PITCH;
+        return turrets.stream().filter(Turret::held).findFirst()
+                .map(gun -> gun.mount().closed() ? GUN_REST : OPEN_GUN_REST).orElse(Chase.DEFAULT_PITCH);
     }
 
     /** How far back the camera is from vehicle {@code lift}: enough to see all of it, and some way round it. */
