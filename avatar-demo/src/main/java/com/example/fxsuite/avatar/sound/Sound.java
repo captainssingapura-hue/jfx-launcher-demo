@@ -43,7 +43,9 @@ public enum Sound {
     WIND("Wind", null, true),
     GATLING_SPIN("Gatling gun spinning", null, true),
     GATLING_FIRE("Gatling gun firing", null, true),
-    AIRSHIP_ENGINES("Airship engines", null, true);
+    AIRSHIP_ENGINES("Airship engines", null, true),
+    ENGINE_V6("A V6 engine", null, true),
+    ENGINE_V8("A V8 engine", null, true);
 
     /** How far most sounds are heard at full loudness: 3 m, as the outputs fade them. */
     public static final double NEAR = 300;

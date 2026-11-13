@@ -209,6 +209,10 @@ class CuesTest {
                 assertEquals(0, hum.level().gain(), 1e-9, "no airship about, none heard");
                 continue;
             }
+            if (hum.loop() == Sound.ENGINE_V6 || hum.loop() == Sound.ENGINE_V8) {
+                assertEquals(0, hum.level().gain(), 1e-9, "no vehicle driven, no engine heard");
+                continue;
+            }
             assertTrue(hum.level().gain() > 0, hum.loop() + " sounds while boosting");
             if (hum.loop() == Sound.WIND) {
                 assertNull(hum.at(), "the wind is round the listener");

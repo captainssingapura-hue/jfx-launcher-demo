@@ -38,9 +38,16 @@ public interface Profile {
     /**
      * What the loops follow: how hard the jets fire ({@code thrust}, 0 to 1), how fast the avatar
      * moves ({@code speed}), how fast the Gatling gun's barrels spin ({@code spin}, 0 to 1), and
-     * whether it is firing.
+     * whether it is firing; and the engine of the vehicle it drives, if any: how fast it turns
+     * ({@code rev}, 0 at idle to 1 at the limit; below 0 for none running) and how hard it is
+     * worked ({@code load}, 0 to 1, the throttle).
      */
-    record Drive(double thrust, double speed, double spin, boolean firing) {
+    record Drive(double thrust, double speed, double spin, boolean firing, double rev, double load) {
+
+        /** With no engine running. */
+        public Drive(final double thrust, final double speed, final double spin, final boolean firing) {
+            this(thrust, speed, spin, firing, -1, 0);
+        }
     }
 
     /** How a loop plays, for what drives it. */

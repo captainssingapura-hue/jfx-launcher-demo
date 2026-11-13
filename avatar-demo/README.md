@@ -271,7 +271,12 @@ groaning. Explosions are loud all through, as a blast overloads a microphone, an
 footstep is heard in full only within 3 m, a drone blowing up within 15 m, a bomb within 30 m, an airship coming
 down within 60 m. For a moment each one pushes the rest down (the jets, the wind, the Gatling
 gun's roar), as games mix them, so it punches through. The nearest airship still in the sky
-drones from where it is, faint from the ground and loud alongside it. The jets roar as
+drones from where it is, faint from the ground and loud alongside it. The vehicle being driven
+  is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
+  of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
+  order giving it its lumpy burble. Each is built pulse by pulse from its cylinders firing,
+  idling at 900 turns a minute; it climbs in pitch through four gears as the vehicle gathers
+  speed, dropping back at each change, and is louder the harder it is worked. The jets roar as
 hard as they fire, and the wind rises with speed. The listener stands at the avatar but faces
 the way the camera does. So the avatar always sounds near, however far the camera pulls
 back, and left and right match the screen.

@@ -58,6 +58,13 @@ public final class Cues {
     public record Gunner(double spin, boolean firing, Vec3 at, double pitch) {
     }
 
+    /**
+     * The engine of the vehicle being driven: a V8 or a V6, how fast it turns ({@code rev}, 0 at idle
+     * to 1 at the limit), how hard it is worked ({@code load}, 0 to 1), and where it is.
+     */
+    public record Motor(boolean v8, double rev, double load, Vec3 at) {
+    }
+
     /** All of it: what to play once, and how every loop should be playing. */
     public record Heard(List<Play> plays, List<Hum> hums) {
         public Heard {
@@ -83,6 +90,12 @@ public final class Cues {
     /** As {@link #of(Avatar, List, Profile, List)}, with a gun on a mount manned ({@code gunner}), or none (null). */
     public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
                            final List<Vec3> airships, final Gunner gunner) {
+        return of(avatar, events, profile, airships, gunner, null);
+    }
+
+    /** As {@link #of(Avatar, List, Profile, List, Gunner)}, with the engine of a vehicle being driven ({@code motor}), or none (null). */
+    public static Heard of(final Avatar avatar, final List<Event> events, final Profile profile,
+                           final List<Vec3> airships, final Gunner gunner, final Motor motor) {
         final Body body = avatar.body();
         final Vec3 feet = body.position();
         final Vec3 pack = pack(body);
@@ -171,10 +184,17 @@ public final class Cues {
         final double spin = gunner != null ? gunner.spin() : arms.held() == Weapon.GATLING ? arms.spin() : 0;
         final double speed = Math.sqrt(body.speed() * body.speed() + body.drift() * body.drift()
                 + body.climb() * body.climb());
-        final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, gunner != null ? gunner.firing() : arms.firing());
+        final Profile.Drive drive = new Profile.Drive(thrust, speed, spin, gunner != null ? gunner.firing() : arms.firing(),
+                motor == null ? -1 : motor.rev(), motor == null ? 0 : motor.load());
         final List<Hum> hums = new ArrayList<>();
         final Vec3 airship = nearest(airships, feet);
         for (final Sound loop : Sound.loops()) {
+            if (loop == Sound.ENGINE_V6 || loop == Sound.ENGINE_V8) {
+                // the engine being driven, of its kind, from under its bonnet; the other kind silent
+                final boolean runs = motor != null && motor.v8() == (loop == Sound.ENGINE_V8);
+                hums.add(runs ? new Hum(loop, profile.level(loop, drive), motor.at()) : new Hum(loop, Level.OFF, null));
+                continue;
+            }
             if (loop == Sound.AIRSHIP_ENGINES) {
                 hums.add(airship == null ? new Hum(loop, Level.OFF, null)
                         : new Hum(loop, profile.level(loop, drive), airship));

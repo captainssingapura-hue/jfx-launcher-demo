@@ -124,6 +124,27 @@ class ProfileTest {
 
     @ParameterizedTest
     @MethodSource("profiles")
+    void theEnginesAreSilentWithNoneRunningAndRiseAsTheyRev(final Profile profile) {
+        for (final Sound engine : List.of(Sound.ENGINE_V6, Sound.ENGINE_V8)) {
+            assertEquals(Level.OFF, profile.level(engine, new Profile.Drive(0, 0, 0, false)), profile.id() + " none running");
+            final Level idle = profile.level(engine, new Profile.Drive(0, 0, 0, false, 0, 0));
+            final Level flatOut = profile.level(engine, new Profile.Drive(0, 0, 0, false, 1, 1));
+            assertTrue(idle.gain() > 0, profile.id() + " " + engine + " idling, heard");
+            assertTrue(flatOut.pitch() > 2 * idle.pitch(), profile.id() + " " + engine + " revving, higher");
+            assertTrue(flatOut.gain() > idle.gain() && flatOut.gain() <= 1, profile.id() + " " + engine + " worked, louder");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("profiles")
+    void aV8SoundsDeeperThanAV6(final Profile profile) {
+        final Clip v6 = profile.render(Sound.ENGINE_V6, 0, 0);
+        final Clip v8 = profile.render(Sound.ENGINE_V8, 0, 0);
+        assertTrue(brightness(v8) < brightness(v6), profile.id() + ": V8 " + brightness(v8) + ", V6 " + brightness(v6));
+    }
+
+    @ParameterizedTest
+    @MethodSource("profiles")
     void theGatlingGunsMotorFollowsItsSpinAndItsRoarItsFiring(final Profile profile) {
         final Profile.Drive still = new Profile.Drive(0, 0, 0, false);
         assertEquals(Level.OFF, profile.level(Sound.GATLING_SPIN, still), "still, silent");

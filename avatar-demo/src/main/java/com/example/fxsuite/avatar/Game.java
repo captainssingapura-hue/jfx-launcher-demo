@@ -158,6 +158,10 @@ public final class Game {
     /** Behind a gun, in first person: how far back of where it turns, and how far up. */
     private static final double SIGHT_BACK = 70;
     private static final double SIGHT_UP = 34;
+    /** The gears a land vehicle's engine revs up through; and how hard it was worked, and how fast it was going, at the last frame. */
+    private static final int GEARS = 4;
+    private double engineLoad;
+    private double lastAhead;
     private static final double GUN_REST = -4;
     private static final double OPEN_GUN_VIEW = 560;
     private static final double OPEN_GUN_EYE = 170;
@@ -608,7 +612,8 @@ public final class Game {
         // a gun being manned is heard spinning and roaring from its muzzle, deeper than the hand-held one
         hearing.hear(avatar, forSound.read().events(), chase, droning.stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
-                firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null));
+                firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(), GUN_PITCH)).orElse(null),
+                flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
@@ -900,6 +905,25 @@ public final class Game {
         final Body body = avatar.body();
         return new Avatar(new Body(seat, block.yaw(), block.yaw(), 0, 0, 0, 0, false, true, body.phase(), body.time()),
                 avatar.wearingPack(), avatar.sweep(), avatar.arms());
+    }
+
+    /**
+     * The engine of land vehicle {@code lift}, as it is heard {@code seconds} after the last frame:
+     * a V8 in the pickup and the truck, a V6 in the smaller ones; revving up through four gears as
+     * it gathers speed, dropping back at each change; worked as hard as it is speeding up.
+     */
+    private Cues.Motor motor(final Lift lift, final double seconds) {
+        final Course.Chassis chassis = (Course.Chassis) lift.craft();
+        final boolean v8 = chassis == Course.PICKUP_CHASSIS || chassis == Course.TRUCK_CHASSIS;
+        final double share = Math.min(1, Math.abs(lift.ahead()) / chassis.drive().top());
+        final double geared = share * GEARS;
+        final int gear = (int) Math.min(GEARS - 1, Math.floor(geared));
+        final double rev = gear == 0 ? geared : 0.3 + 0.7 * (geared - gear);
+        final double speeding = seconds > 0 ? (Math.abs(lift.ahead()) - Math.abs(lastAhead)) / seconds : 0;
+        lastAhead = lift.ahead();
+        engineLoad = Num.ease(engineLoad, Num.clamp(speeding / chassis.drive().accel(), 0, 1), 6, seconds);
+        final Vec3 bonnet = lift.at(new Course.Section(0, chassis.length() / 2 - 70, 20, 0, 0, 0));
+        return new Cues.Motor(v8, rev, engineLoad, bonnet);
     }
 
     /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */

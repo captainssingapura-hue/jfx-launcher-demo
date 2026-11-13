@@ -73,6 +73,8 @@ public final class Robot implements Profile {
             case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
+            case ENGINE_V6 -> engine(false);
+            case ENGINE_V8 -> engine(true);
             case GATLING_SPIN -> gatlingSpin();
             case GATLING_FIRE -> gatlingFire();
             case JET_RUMBLE -> jetRumble();
@@ -101,6 +103,11 @@ public final class Robot implements Profile {
         if (loop == Sound.AIRSHIP_ENGINES) {
             // always turning: how near it is does the rest
             return new Level(1, 1);
+        }
+        if (loop == Sound.ENGINE_V6 || loop == Sound.ENGINE_V8) {
+            // none running, silent; else up in pitch as it revs, louder the harder it is worked
+            return drive.rev() < 0 ? Level.OFF
+                    : new Level(0.45 + 0.35 * drive.load() + 0.2 * drive.rev(), 1 + 2.4 * drive.rev());
         }
         if (loop == Sound.WIND) {
             final double pace = Profile.pace(speed);
@@ -788,6 +795,59 @@ public final class Robot implements Profile {
             y[i] = 0.5 * throb * blades + 4 * low[i];
         }
         return new Clip("airship-engines", Dsp.normalized(y, 0.7), true);
+    }
+
+    /**
+     * An engine at idle, 900 turns a minute, as its exhaust is heard: a pulse each time a cylinder
+     * fires, a sharp knock ringing in the pipe and a puff of rough air, each cylinder a little
+     * unlike the next. Pitched up as it revs ({@link #level}).
+     *
+     * <ul>
+     *   <li><b>A V6</b> fires every third of a turn, evenly, its two banks taking turns: a smooth,
+     *       even, raspy note, higher, in a narrower pipe.</li>
+     *   <li><b>A V8</b>, cross-plane, fires every quarter of a turn, but each bank's cylinders
+     *       unevenly, so that the louder bank's pulses come in a lopsided pattern twice a turn
+     *       round: the lumpy burble, deeper, in a wider pipe.</li>
+     * </ul>
+     *
+     * Two seconds hold a whole number of the engine's cycles (two turns each), so the loop joins.
+     */
+    public static Clip engine(final boolean v8) {
+        final double cycle = 1 / 7.5;
+        final int length = samples(2);
+        final double[] raw = new double[length + samples(0.25)];
+        // when each cylinder fires in a cycle, and from which bank: a V8's firing order 1-8-4-3-6-5-7-2,
+        // its banks left, right, right, left, right, left, left, right; a V6's banks taking turns
+        final int cylinders = v8 ? 8 : 6;
+        final boolean[] left = v8 ? new boolean[] {true, false, false, true, false, true, true, false}
+                : new boolean[] {true, false, true, false, true, false};
+        final double pipe = v8 ? 92 : 165;
+        final double decay = v8 ? 0.014 : 0.008;
+        final int ring = samples(0.07);
+        final int pulses = (int) Math.round(raw.length / (double) samples(cycle) * cylinders) + cylinders;
+        final int loop = (int) Math.round(2 / cycle) * cylinders;
+        for (int k = 0; k < pulses; k++) {
+            // the same cylinder, the same pulse, every time round the loop
+            final int cylinder = k % cylinders;
+            final Noise noise = new Noise(4100L * (v8 ? 2 : 1) + k % loop);
+            final double bank = left[cylinder] ? 1 : (v8 ? 0.55 : 0.85);
+            final double each = bank * (1 + 0.1 * new Noise(cylinder + (v8 ? 50 : 60)).next());
+            final int start = (int) Math.round(k * cycle / cylinders * Dsp.RATE);
+            final Filter air = new Filter(v8 ? 420 : 900, 0.8);
+            for (int i = 0; i < ring && start + i < raw.length; i++) {
+                final double t = i / (double) Dsp.RATE;
+                final double envelope = Math.min(1, t / 0.0008) * Math.exp(-t / decay);
+                final double knock = Math.sin(TAU * pipe * t) + 0.4 * Math.sin(TAU * 2.1 * pipe * t);
+                final double puff = air.push(noise.next()).band;
+                raw[start + i] += each * envelope * (knock + (v8 ? 1.4 : 2.2) * puff);
+            }
+        }
+        // under it all, the engine's body: its firing note, low
+        final double firing = 7.5 * cylinders;
+        for (int i = 0; i < raw.length; i++) {
+            raw[i] += 0.25 * Math.sin(TAU * firing * time(i)) + (v8 ? 0.2 * Math.sin(TAU * 7.5 * 2 * time(i)) : 0);
+        }
+        return new Clip(v8 ? "engine-v8" : "engine-v6", Dsp.normalized(Dsp.seamless(raw, length), 0.8), true);
     }
 
     /**
