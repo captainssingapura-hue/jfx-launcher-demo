@@ -33,7 +33,7 @@ class SheetsTest {
 
     @Test
     void eachBodyIsDrawnAndAPlainChassisHasNone() {
-        for (final Course.Bodywork body : List.of(Course.PICKUP_BODY, Course.ROADSTER, Course.TRUCK_CAB)) {
+        for (final Course.Bodywork body : List.of(Course.PICKUP_BODY, Course.ROADSTER, Course.TRUCK_CAB, Course.VAN)) {
             final List<Sheets.Sheet> sheets = Bodies.of(body);
             assertFalse(sheets.isEmpty(), body.name());
             assertTrue(sheets.stream().anyMatch(s -> s.slot() == Sheets.Slot.GLASS), body.name() + " has glass");

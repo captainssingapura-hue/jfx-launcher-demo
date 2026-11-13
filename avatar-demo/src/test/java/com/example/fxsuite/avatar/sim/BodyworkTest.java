@@ -37,6 +37,7 @@ class BodyworkTest {
         vehicle(damage, Course.ROADSTER);
         vehicle(damage, Course.TRUCK_CAB);
         vehicle(damage, Course.PICKUP_BODY);
+        vehicle(damage, Course.VAN);
     }
 
     @Test
@@ -58,6 +59,14 @@ class BodyworkTest {
         final double each = Weapon.GATLING.blow() - Course.PICKUP_BODY.plating();
         assertEquals(1 - 10 * each / toughness, struck.left(pickup), 1e-9, "each round less its plating");
         assertTrue(each < Weapon.GATLING.blow());
+    }
+
+    @Test
+    void theVanIsOnTheCarsChassisItsFixedGunAndAll() {
+        final Play start = Play.start(Demo.FLYOVER, false);
+        final int van = vehicle(start.damage(), Course.VAN);
+        assertEquals(Course.CAR_CHASSIS, Course.Chassis.of(start.damage().piece(van).shape()));
+        assertTrue(start.turrets().stream().anyMatch(t -> t.host() == van && t.mount() == Course.CAR_GUN));
     }
 
     @Test

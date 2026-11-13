@@ -27,8 +27,8 @@ import java.util.Map;
  */
 public final class Sheets {
 
-    /** What a sheet is made of, and so how it is coloured: painted metal, dark trim, glass, and lamps. */
-    public enum Slot { PAINT, TRIM, GLASS, LAMP }
+    /** What a sheet is made of, and so how it is coloured: painted metal, dark trim, glass, and lamps, white at the front and red at the back. */
+    public enum Slot { PAINT, TRIM, GLASS, LAMP, TAIL }
 
     /**
      * A flat panel: {@code corners} in order round its outline, each (across, up, along); as thick

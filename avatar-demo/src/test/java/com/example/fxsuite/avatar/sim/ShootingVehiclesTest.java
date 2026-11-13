@@ -72,7 +72,7 @@ class ShootingVehiclesTest {
     void theRobotBreaksAllThreeEachTakingAsMuchAsItsBodyMakesIt() {
         Play play = Play.start(Demo.FLYOVER, false);
         final List<Integer> taken = new ArrayList<>();
-        for (final Course.Bodywork body : List.of(Course.ROADSTER, Course.TRUCK_CAB, Course.PICKUP_BODY)) {
+        for (final Course.Bodywork body : List.of(Course.ROADSTER, Course.TRUCK_CAB, Course.PICKUP_BODY, Course.VAN)) {
             final int piece = vehicle(play, body);
             final Shot shot = shoot(play, piece);
             play = shot.play();
@@ -81,8 +81,8 @@ class ShootingVehiclesTest {
             // gone from the world: rounds fly on through where it stood
             assertFalse(play.obstacles().pieces().contains(piece), body.name() + " gone");
         }
-        assertTrue(taken.get(0) < taken.get(1) && taken.get(1) < taken.get(2),
-                "the roadster fewest, the pickup most: " + taken);
+        assertTrue(taken.get(0) < taken.get(3) && taken.get(3) < taken.get(1) && taken.get(1) < taken.get(2),
+                "the roadster fewest, then the van, the truck, and the pickup most: " + taken);
         // and every one of them more than a bare chassis takes
         final int bare = (int) Math.ceil(Damage.CAR / Weapon.GATLING.blow());
         assertTrue(taken.stream().allMatch(n -> n > bare), "more than a bare chassis's " + bare);

@@ -1028,11 +1028,13 @@ public final class World {
                     case "pickup" -> "#9c3a2b";
                     case "roadster" -> "#2f6db5";
                     case "truck" -> "#c7822c";
+                    case "van" -> "#e2dccb";
                     default -> "#7b828a";
                 }),
                 Sheets.Slot.TRIM, BoxRig.matte("#25282c"),
                 Sheets.Slot.GLASS, glass,
-                Sheets.Slot.LAMP, BoxRig.glow("#fff4cf"));
+                Sheets.Slot.LAMP, BoxRig.glow("#fff4cf"),
+                Sheets.Slot.TAIL, BoxRig.glow("#e0342b"));
     }
 
     /** A land vehicle as shown: its body tipped, its front wheels steered, every wheel rolling, its steering wheel turned. */

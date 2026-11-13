@@ -147,6 +147,8 @@ public final class Game {
      */
     private static final double GUN_VIEW = 260;
     private static final double GUN_EYE = 30;
+    /** How much higher the camera looks from over a vehicle wearing a body. */
+    private static final double BODY_OVER = 140;
     private static final double GUN_REST = -4;
     private static final double OPEN_GUN_VIEW = 560;
     private static final double OPEN_GUN_EYE = 170;
@@ -188,7 +190,7 @@ public final class Game {
     private static final String DRIVE_HELP = "The chassis: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + VIEW_KEYS;
-    private static final String ARMED_DRIVE_HELP = "The car: W accelerate · S brake, then reverse · A/D steer ·"
+    private static final String ARMED_DRIVE_HELP = "At the wheel: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Click fire its gun, fixed beside the seat: held, it spins up, then fires the way the car faces\n"
             + VIEW_KEYS;
@@ -528,7 +530,8 @@ public final class Game {
                 gunned.get().heading(), 1, seconds,
                 circling != 0)
                 : craft != null
-                ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2, craft.z()), craft.yaw(), 1,
+                ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2 - overBody(flying.get()), craft.z()),
+                craft.yaw(), 1,
                 seconds, circling != 0)
                 : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
 
@@ -648,7 +651,10 @@ public final class Game {
             final String gun = fixedGun(lift).map(g -> " · gun " + (g.firing() ? "firing" : g.gun().spin() >= 1
                     ? "up to speed" : g.gun().spin() > 0 ? String.format("spinning, %.0f%%", 100 * g.gun().spin()) : "still"))
                     .orElse("");
-            return String.format("Driving the %s chassis · %.1f m/s%s · wheels %+.0f°%s%s · %.0f%% left", chassis.name(),
+            // by its body, if it wears one: a van, a roadster; else its chassis, bare
+            final Course.Bodywork body = damage.piece(lift.piece()).body();
+            return String.format("Driving the %s · %.1f m/s%s · wheels %+.0f°%s%s · %.0f%% left",
+                    body != null ? body.name() : chassis.name() + " chassis",
                     Math.abs(speed), speed < -0.05 ? " in reverse" : "", lift.steer(),
                     lift.climb() > 0 || Math.abs(lift.tilt()) > 1 ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
                     gun, left);
@@ -868,6 +874,11 @@ public final class Game {
         final Body body = avatar.body();
         return new Avatar(new Body(seat, block.yaw(), block.yaw(), 0, 0, 0, 0, false, true, body.phase(), body.time()),
                 avatar.wearingPack(), avatar.sweep(), avatar.arms());
+    }
+
+    /** How much higher the camera looks from over a vehicle wearing a body, to see over its roof: a van's is tall. */
+    private double overBody(final Lift lift) {
+        return lift.craft() instanceof Course.Chassis && damage.piece(lift.piece()).body() != null ? BODY_OVER : 0;
     }
 
     /** The gun fixed to {@code lift}, if it has one: fired by whoever drives it. */

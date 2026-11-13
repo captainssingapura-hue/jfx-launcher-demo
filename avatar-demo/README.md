@@ -47,7 +47,10 @@ characters, and a separate sound bench is for working on the sounds.
   Crates stand about behind the start, to turn it on.
 - **Bodies.** On the Roads demo each chassis wears a body: the car a low open roadster, blue; the
   truck a square cab over its front wheels and a flatbed, orange; the pickup a cab with a sloping
-  windscreen and an open bed round its gun, red. A body is sheets of metal and glass, drawn by a
+  windscreen and an open bed round its gun, red; and a van on the car's chassis, cream, tall and
+  boxy, its windscreen glazed before the driver and open on the right as a port for the car's
+  fixed gun, its sides glazed behind the driver's door, and a hatch at the back. Every body has
+  bumpers, headlamps and tail lamps, and the view rides over its roof. A body is sheets of metal and glass, drawn by a
   renderer of their own (`Sheets`): each sheet a flat panel of any outline, hollows and all, as
   thick as it is, seen from either side; built from a side profile pushed out across the body,
   outlines at its sides, and single panels (`Bodies`). Rough for now, flat and few, but finer

@@ -572,6 +572,12 @@ public final class Course {
     public static final Bodywork ROADSTER = new Bodywork("roadster", 1.3, 1);
     /** A truck's: a cab over its front wheels, and a flatbed behind with low sides. */
     public static final Bodywork TRUCK_CAB = new Bodywork("truck", 1.5, 2);
+    /**
+     * A van's: tall and boxy, a short low nose, a big windscreen sloping up to a high roof, the sides
+     * glazed behind the driver's door, and a hatch at the back; on the car's chassis, its fixed gun
+     * poking out through a port in the right half of the windscreen.
+     */
+    public static final Bodywork VAN = new Bodywork("van", 1.4, 2);
 
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS);
@@ -831,6 +837,8 @@ public final class Course {
         // and a car's chassis and a truck's, either side of the way ahead, to drive on them
         pieces.add(Piece.vehicle(CAR_CHASSIS, ROADSTER, new Place(-450, 300, CAR_CHASSIS.ride(), 0), 0));
         pieces.add(Piece.vehicle(TRUCK_CHASSIS, TRUCK_CAB, new Place(550, 250, TRUCK_CHASSIS.ride(), 0), 1));
+        // and a van on the car's chassis, its gun and all, beyond the roadster
+        pieces.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-950, 250, CAR_CHASSIS.ride(), 0), 3));
         // and a pickup's, its gun on the back, behind the start
         pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
         // and crates to shoot, out on the open ground either side of the road

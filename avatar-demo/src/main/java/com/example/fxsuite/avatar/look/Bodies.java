@@ -43,6 +43,7 @@ public final class Bodies {
             case "pickup" -> pickup();
             case "roadster" -> roadster();
             case "truck" -> truck();
+            case "van" -> van();
             default -> List.of();
         };
     }
@@ -101,6 +102,44 @@ public final class Bodies {
     }
 
     /**
+     * A van's: tall and boxy on the car's chassis. A short low nose, under the barrels of the gun
+     * fixed beside the seat; a big windscreen sloping back to a high roof, glazed before the driver
+     * and open on the right, a port for the gun to fire through; the driver's door window open, the
+     * sides glazed behind it between their pillars; and at the back a hatch, glazed above.
+     */
+    private static List<Sheet> van() {
+        final double w = 118;
+        final List<Sheet> sheets = new ArrayList<>();
+        // the front, the low bonnet; the roof; the hatch, glazed above and painted below
+        profile(sheets, w, new double[][] {{202, -26}, {202, 40}, {150, 46}}, Slot.PAINT, Slot.PAINT);
+        profile(sheets, w, new double[][] {{96, 186}, {-186, 188}, {-202, 108}, {-202, -26}}, Slot.PAINT,
+                Slot.GLASS, Slot.PAINT);
+        // the windscreen: glass before the driver, open on the right for the gun, a pillar between
+        panel(sheets, PANE, Slot.GLASS, new double[] {-w, 46, 150}, new double[] {-4, 46, 150},
+                new double[] {-4, 186, 96}, new double[] {-w, 186, 96});
+        panel(sheets, SHEET, Slot.PAINT, new double[] {-4, 46, 150}, new double[] {6, 46, 150},
+                new double[] {6, 186, 96}, new double[] {-4, 186, 96});
+        // and over the port, the windscreen's frame along the roof
+        panel(sheets, SHEET, Slot.PAINT, new double[] {6, 170, 102}, new double[] {w, 170, 102},
+                new double[] {w, 186, 96}, new double[] {6, 186, 96});
+        for (final double side : new double[] {-w, w}) {
+            // below the windows, all along
+            side(sheets, side, new double[][] {{-202, -26}, {202, -26}, {202, 40}, {150, 46}, {131, 96},
+                    {-202, 96}}, Slot.PAINT);
+            // the pillars: by the windscreen, behind the driver's door, and at the back
+            side(sheets, side, new double[][] {{131, 96}, {119, 96}, {84, 186}, {96, 186}}, Slot.PAINT);
+            side(sheets, side, new double[][] {{56, 96}, {40, 96}, {40, 186}, {56, 186}}, Slot.PAINT);
+            side(sheets, side, new double[][] {{-180, 96}, {-202, 96}, {-202, 108}, {-186, 188}, {-180, 188}},
+                    Slot.PAINT);
+            // the glass behind the driver's door, and the rail over it
+            side(sheets, side, new double[][] {{40, 96}, {-180, 96}, {-180, 172}, {40, 172}}, Slot.GLASS);
+            side(sheets, side, new double[][] {{96, 172}, {-180, 172}, {-180, 188}, {96, 188}}, Slot.PAINT);
+        }
+        ends(sheets, w, 202, -202);
+        return sheets;
+    }
+
+    /**
      * A truck's: a square cab over its front wheels, its windscreen upright in front, the side
      * windows open; behind it, a flatbed with low sides and a tailgate.
      */
@@ -121,7 +160,7 @@ public final class Bodies {
         return sheets;
     }
 
-    /** Bumpers across the front at {@code front} and the back at {@code back}, and headlamps on the front. */
+    /** Bumpers across the front at {@code front} and the back at {@code back}; headlamps on the front, tail lamps on the back. */
     private static void ends(final List<Sheet> sheets, final double w, final double front, final double back) {
         for (final double along : new double[] {front + 6, back - 6}) {
             panel(sheets, BUMPER, Slot.TRIM, new double[] {-w, -32, along}, new double[] {w, -32, along},
@@ -132,6 +171,9 @@ public final class Bodies {
             panel(sheets, PANE, Slot.LAMP, new double[] {across - 16, 18, front + 2},
                     new double[] {across + 16, 18, front + 2}, new double[] {across + 16, 34, front + 2},
                     new double[] {across - 16, 34, front + 2});
+            panel(sheets, PANE, Slot.TAIL, new double[] {across - 12, 14, back - 2},
+                    new double[] {across + 12, 14, back - 2}, new double[] {across + 12, 32, back - 2},
+                    new double[] {across - 12, 32, back - 2});
         }
     }
 
