@@ -36,10 +36,11 @@ import java.util.Map;
  * @param rasp     how much rough air comes with each pulse, against its knock
  * @param intake   the note the intake roars about, in Hz, at full throttle
  * @param charger  what blows its intake full of air ({@link Turbo}, {@link Supercharger}); null, nothing
+ * @param exhaust  its firing order, and each cylinder's runner down to its bank's pipe
  */
 public record Engine(String key, String name, String about, int strokes, double[] firing, int[] bank, double far,
                      double idle, double redline, double climb, double fall, double[] pipes, double ring, double pulse,
-                     double rasp, double intake, Charger charger) {
+                     double rasp, double intake, Charger charger, Exhaust exhaust) {
 
     public Engine {
         if (strokes != 2 && strokes != 4) {
@@ -59,6 +60,9 @@ public record Engine(String key, String name, String about, int strokes, double[
         if (idle <= 0 || redline <= idle) {
             throw new IllegalArgumentException(name + ": revs up from its idle");
         }
+        if (exhaust == null || exhaust.order().length != firing.length) {
+            throw new IllegalArgumentException(name + ": a runner for each cylinder");
+        }
         firing = firing.clone();
         bank = bank.clone();
         pipes = pipes.clone();
@@ -70,7 +74,7 @@ public record Engine(String key, String name, String about, int strokes, double[
                   final double fall, final double[] pipes, final double ring, final double pulse, final double rasp,
                   final double intake) {
         this(key, name, about, strokes, firing, bank, far, idle, redline, climb, fall, pipes, ring, pulse, rasp, intake,
-                null);
+                null, Exhaust.even(firing.length));
     }
 
     // ---- cars
@@ -79,7 +83,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine I4 = new Engine("I4", "Inline four",
             "Fires every half turn through one pipe: a busy, buzzy note that climbs eagerly.", 4,
             new double[] {0, 180, 360, 540}, new int[] {0, 0, 0, 0}, 1,
-            850, 7000, 9000, 5200, new double[] {190, 520, 1350}, 3.5, 3.2, 1.6, 520);
+            850, 7000, 9000, 5200, new double[] {190, 520, 1350}, 3.5, 3.2, 1.6, 520)
+            .piped(new Exhaust(new int[] {1, 3, 4, 2}, new double[] {0.46, 0.32, 0.32, 0.46}, Exhaust.NONE));
 
     /**
      * A 60-degree V6: evenly, every third of a turn, its two banks taking turns. Smooth and even,
@@ -88,7 +93,9 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine V6 = new Engine("V6", "V6",
             "Fires every third of a turn, the banks taking turns: smooth and even, with a rasp.", 4,
             new double[] {0, 120, 240, 360, 480, 600}, new int[] {0, 1, 0, 1, 0, 1}, 0.85,
-            800, 6500, 7800, 4800, new double[] {150, 410, 1100}, 3.5, 3.6, 1.4, 430);
+            800, 6500, 7800, 4800, new double[] {150, 410, 1100}, 3.5, 3.6, 1.4, 430)
+            .piped(new Exhaust(new int[] {1, 2, 3, 4, 5, 6},
+                    new double[] {0.36, 0.36, 0.42, 0.42, 0.50, 0.50}, Exhaust.NONE));
 
     /**
      * A cross-plane V8, as American ones are: every quarter turn, but its banks not taking
@@ -99,7 +106,9 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine V8 = new Engine("V8", "V8, cross-plane",
             "Fires every quarter turn, but each bank unevenly (L R R L R L L R): the lopsided burble.", 4,
             new double[] {0, 90, 180, 270, 360, 450, 540, 630}, new int[] {0, 1, 1, 0, 1, 0, 0, 1}, 0.45,
-            700, 6000, 6400, 4200, new double[] {95, 260, 720}, 3, 4.2, 1.1, 330);
+            700, 6000, 6400, 4200, new double[] {95, 260, 720}, 3, 4.2, 1.1, 330)
+            .piped(new Exhaust(new int[] {1, 8, 4, 3, 6, 5, 7, 2},
+                    new double[] {0.30, 0.30, 0.38, 0.38, 0.46, 0.46, 0.54, 0.54}, Exhaust.NONE));
 
     /**
      * A flat-plane V8, as racing ones are: every quarter turn, the banks taking turns, so each
@@ -108,7 +117,9 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine FLAT_V8 = new Engine("FLAT_V8", "V8, flat-plane",
             "Every quarter turn, the banks taking turns: each bank an even four, so it screams.", 4,
             new double[] {0, 90, 180, 270, 360, 450, 540, 630}, new int[] {0, 1, 0, 1, 0, 1, 0, 1}, 0.9,
-            1000, 8500, 12000, 6500, new double[] {140, 380, 1000}, 4, 3.0, 1.5, 560);
+            1000, 8500, 12000, 6500, new double[] {140, 380, 1000}, 4, 3.0, 1.5, 560)
+            .piped(new Exhaust(new int[] {1, 5, 3, 7, 4, 8, 2, 6},
+                    new double[] {0.42, 0.44, 0.43, 0.45, 0.42, 0.44, 0.43, 0.45}, Exhaust.NONE));
 
     /**
      * An inline five, as the rally cars of the eighties had, turbocharged: one cylinder every 144
@@ -118,7 +129,9 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine I5 = new Engine("I5", "Inline five",
             "Every 144° through one pipe: an odd number of cylinders, and the five's warble.", 4,
             new double[] {0, 144, 288, 432, 576}, new int[] {0, 0, 0, 0, 0}, 1,
-            850, 7000, 8000, 5000, new double[] {125, 340, 950}, 3.5, 3.4, 1.5, 480);
+            850, 7000, 8000, 5000, new double[] {125, 340, 950}, 3.5, 3.4, 1.5, 480)
+            .piped(new Exhaust(new int[] {1, 2, 4, 5, 3},
+                    new double[] {0.58, 0.42, 0.30, 0.40, 0.55}, Exhaust.NONE));
 
     // ---- scooters and motorcycles
 
@@ -129,7 +142,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine SCOOTER_2T = new Engine("SCOOTER_2T", "Scooter, 50 cc two-stroke",
             "One cylinder firing every turn into an expansion chamber: the high, raspy buzz.", 2,
             new double[] {0}, new int[] {0}, 1,
-            1800, 9500, 15000, 9500, new double[] {310, 880, 2400}, 4.5, 1.8, 2.6, 900);
+            1800, 9500, 15000, 9500, new double[] {310, 880, 2400}, 4.5, 1.8, 2.6, 900)
+            .piped(new Exhaust(new int[] {1}, new double[] {0.35}, Exhaust.NONE));
 
     /**
      * A four-stroke scooter, 125 cc: one small cylinder, every other turn, in a short pipe. A
@@ -138,7 +152,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine SCOOTER = new Engine("SCOOTER", "Scooter, 125 cc single",
             "One small cylinder, every other turn, in a short pipe: a busy little buzz.", 4,
             new double[] {0}, new int[] {0}, 1,
-            1700, 9500, 11500, 7500, new double[] {240, 620, 1600}, 3, 2.5, 1.8, 700);
+            1700, 9500, 11500, 7500, new double[] {240, 620, 1600}, 3, 2.5, 1.8, 700)
+            .piped(new Exhaust(new int[] {1}, new double[] {0.30}, Exhaust.NONE));
 
     /**
      * A big single, a thumper, as dual-sport bikes have: one big cylinder, every other turn, so
@@ -147,7 +162,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine THUMPER = new Engine("THUMPER", "Big single (thumper)",
             "One big cylinder every other turn: at idle, each thump heard on its own.", 4,
             new double[] {0}, new int[] {0}, 1,
-            1100, 7000, 7500, 5000, new double[] {110, 300, 820}, 3, 5, 1.2, 380);
+            1100, 7000, 7500, 5000, new double[] {110, 300, 820}, 3, 5, 1.2, 380)
+            .piped(new Exhaust(new int[] {1}, new double[] {0.55}, Exhaust.NONE));
 
     /**
      * A 45-degree V-twin, as cruisers have: both on one crank pin, so they fire 315 degrees
@@ -156,7 +172,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine V_TWIN = new Engine("V_TWIN", "V-twin 45° (cruiser)",
             "Two cylinders on one pin, firing 315° then 405° apart: the uneven cruiser beat.", 4,
             new double[] {0, 315}, new int[] {0, 1}, 0.85,
-            900, 5500, 5200, 3800, new double[] {85, 240, 650}, 3, 5.5, 1.0, 300);
+            900, 5500, 5200, 3800, new double[] {85, 240, 650}, 3, 5.5, 1.0, 300)
+            .piped(new Exhaust(new int[] {1, 2}, new double[] {0.62, 0.45}, Exhaust.NONE));
 
     /**
      * A 90-degree V-twin, an L-twin, as sports bikes have: 270 degrees apart, then 450. Uneven
@@ -165,7 +182,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine L_TWIN = new Engine("L_TWIN", "L-twin 90° (sport)",
             "Two cylinders at 90°, firing 270° then 450° apart: a hard, uneven beat that revs high.", 4,
             new double[] {0, 270}, new int[] {0, 1}, 0.9,
-            1200, 10500, 11000, 6500, new double[] {130, 360, 950}, 3.5, 4, 1.4, 480);
+            1200, 10500, 11000, 6500, new double[] {130, 360, 950}, 3.5, 4, 1.4, 480)
+            .piped(new Exhaust(new int[] {1, 2}, new double[] {0.52, 0.42}, Exhaust.NONE));
 
     /**
      * A parallel twin with its crank pins together, as classic British ones are: both pistons
@@ -174,7 +192,8 @@ public record Engine(String key, String name, String about, int strokes, double[
     public static final Engine PARALLEL_TWIN = new Engine("PARALLEL_TWIN", "Parallel twin 360° (classic)",
             "Two cylinders firing a turn apart, evenly: a steady beat, a single's at twice the rate.", 4,
             new double[] {0, 360}, new int[] {0, 1}, 0.95,
-            1000, 7500, 8500, 5200, new double[] {120, 330, 900}, 3.5, 4.5, 1.3, 420);
+            1000, 7500, 8500, 5200, new double[] {120, 330, 900}, 3.5, 4.5, 1.3, 420)
+            .piped(new Exhaust(new int[] {1, 2}, new double[] {0.50, 0.50}, Exhaust.NONE));
 
     /** The cars' engines: any of them may be turbocharged or supercharged ({@link #with}). */
     public static final List<Engine> CARS = List.of(I4, I5, V6, V8, FLAT_V8);
@@ -214,7 +233,18 @@ public record Engine(String key, String name, String about, int strokes, double[
     /** The same engine, with {@code fitted} blowing its intake; null, nothing. */
     public Engine with(final Charger fitted) {
         return new Engine(key, name, about, strokes, firing, bank, far, idle, redline, climb, fall, pipes, ring, pulse,
-                rasp, intake, fitted);
+                rasp, intake, fitted, exhaust);
+    }
+
+    /** The same engine, with {@code piping} for its exhaust. */
+    public Engine piped(final Exhaust piping) {
+        return new Engine(key, name, about, strokes, firing, bank, far, idle, redline, climb, fall, pipes, ring, pulse,
+                rasp, intake, charger, piping);
+    }
+
+    /** Whether it has two banks, so two pipes for a crossover to mix. */
+    public boolean twoBanks() {
+        return Arrays.stream(bank).anyMatch(b -> b == 1);
     }
 
     public int cylinders() {
@@ -252,7 +282,7 @@ public record Engine(String key, String name, String about, int strokes, double[
                 && Arrays.equals(firing, e.firing) && Arrays.equals(bank, e.bank) && Arrays.equals(pipes, e.pipes)
                 && far == e.far && idle == e.idle && redline == e.redline && climb == e.climb && fall == e.fall
                 && ring == e.ring && pulse == e.pulse && rasp == e.rasp && intake == e.intake
-                && java.util.Objects.equals(charger, e.charger);
+                && java.util.Objects.equals(charger, e.charger) && exhaust.equals(e.exhaust);
     }
 
     @Override

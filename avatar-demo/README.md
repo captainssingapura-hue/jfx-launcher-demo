@@ -349,6 +349,14 @@ is worked hard; and pops and crackle off the throttle at speed.
   then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
   twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
   red line, how briskly it revs, its pipes), so another engine is another set of figures.
+- Pipe it (`Exhaust`). Each engine fires in its real firing order (1-8-4-3-6-5-7-2 for the
+  cross-plane V8, 1-5-3-7-4-8-2-6 for the flat-plane, 1-2-4-5-3 for the five, ...), each
+  cylinder on the bank that order puts it on, and each cylinder's pulse goes down a runner of
+  its own: as late as the runner is long, ringing at its note, into its bank's collector. Runners
+  of unlike lengths bring evenly fired pulses to the collector unevenly, so the order is heard:
+  the five's stock manifold makes its warble. Choose the stock manifold or equal-length headers;
+  and, on an engine with two banks, true dual pipes, an H-pipe, or an X-pipe, which evens out a
+  cross-plane V8's burble.
 - Charge a car's engine, or not (`Charger`): any of the five may be turbocharged or
   supercharged, by the Induction choice.
   - A turbocharger (`Turbo`, heard by `TurboVoice`) is spun by the exhaust, so its boost comes

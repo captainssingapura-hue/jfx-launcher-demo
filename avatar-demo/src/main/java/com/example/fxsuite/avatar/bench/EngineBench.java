@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.Dashboard;
 import com.example.fxsuite.avatar.sound.Charger;
 import com.example.fxsuite.avatar.sound.Driving;
 import com.example.fxsuite.avatar.sound.Engine;
+import com.example.fxsuite.avatar.sound.Exhaust;
 import com.example.fxsuite.avatar.sound.Revs;
 import com.example.fxsuite.avatar.sound.Supercharger;
 import com.example.fxsuite.avatar.sound.Turbo;
@@ -95,6 +96,14 @@ public final class EngineBench extends Application {
     private static final String TURBO = "Turbocharged";
     private static final String SUPER = "Supercharged";
     private final ComboBox<String> induction = new ComboBox<>();
+    /** Its exhaust: the stock manifold or equal-length headers; and, with two banks, a crossover or none. */
+    private static final String STOCK = "Stock manifold";
+    private static final String EQUAL = "Equal-length headers";
+    private static final String DUAL = "True dual, no crossover";
+    private static final String H = "H-pipe";
+    private static final String X = "X-pipe";
+    private final ComboBox<String> headers = new ComboBox<>();
+    private final ComboBox<String> crossing = new ComboBox<>();
     private boolean choosing;
     private final Label about = new Label();
     private final Label facts = new Label();
@@ -130,6 +139,15 @@ public final class EngineBench extends Application {
                 fit(charger(now));
             }
         });
+        headers.getItems().setAll(STOCK, EQUAL);
+        crossing.getItems().setAll(DUAL, H, X);
+        for (final ComboBox<String> piping : java.util.List.of(headers, crossing)) {
+            piping.valueProperty().addListener((o, was, now) -> {
+                if (!choosing && now != null) {
+                    fit(charger(induction.getValue()));
+                }
+            });
+        }
         about.setWrapText(true);
         facts.setWrapText(true);
         final ToggleGroup mode = new ToggleGroup();
@@ -165,7 +183,9 @@ public final class EngineBench extends Application {
         throttle.setValue(Double.parseDouble(System.getProperty("engine.throttle", "0")));
 
         final VBox controls = new VBox(10,
-                heading("Engine"), engines, row("Induction", induction), about, facts,
+                heading("Engine"), engines, row("Induction", induction), row("Exhaust", headers),
+                row("Crossover", crossing), about,
+                facts,
                 heading("Running"), free, hold, drive, auto, ride,
                 row("Throttle", throttle), row("Load", load), row("Revs", rpm), row("Volume", volume),
                 readout, status);
@@ -238,6 +258,9 @@ public final class EngineBench extends Application {
         induction.setDisable(!picked.car());
         choosing = true;
         induction.setValue(fitted instanceof Turbo ? TURBO : fitted instanceof Supercharger ? SUPER : NONE);
+        headers.setValue(STOCK);
+        crossing.setValue(DUAL);
+        crossing.setDisable(!picked.twoBanks());
         choosing = false;
         fit(fitted);
         revs = Revs.idling(engine);
@@ -246,7 +269,13 @@ public final class EngineBench extends Application {
 
     /** The engine picked, charged by {@code fitted} (or nothing), in its vehicle: as it was going, if it was. */
     private void fit(final Charger fitted) {
-        final Engine picked = base.with(fitted);
+        Exhaust piping = base.exhaust();
+        if (EQUAL.equals(headers.getValue())) {
+            piping = piping.equalLength();
+        }
+        final String crossed = crossing.getValue();
+        piping = piping.crossed(X.equals(crossed) ? Exhaust.X_PIPE : H.equals(crossed) ? Exhaust.H_PIPE : Exhaust.NONE);
+        final Engine picked = base.with(fitted).piped(piping);
         engine = picked;
         vehicle = Vehicle.of(picked).with(picked);
         ride.setText(vehicle.cvt() > 0
@@ -261,8 +290,9 @@ public final class EngineBench extends Application {
         for (final double p : pipes) {
             notes.append(notes.isEmpty() ? "" : ", ").append(Math.round(p));
         }
-        facts.setText(String.format(Locale.ROOT, "%d cylinders%s · idle %.0f · red line %.0f rpm · pipes ring at %s Hz",
-                picked.cylinders(), picked.charged() ? ", " + picked.charger().kind() : "", picked.idle(), picked.redline(), notes));
+        facts.setText(String.format(Locale.ROOT, "%d cylinders%s, firing %s · idle %.0f · red line %.0f rpm · pipes ring at %s Hz",
+                picked.cylinders(), picked.charged() ? ", " + picked.charger().kind() : "", picked.exhaust().written(),
+                picked.idle(), picked.redline(), notes));
         rpm.setMin(picked.idle());
         rpm.setMax(picked.redline());
     }

@@ -9,7 +9,10 @@ package com.example.fxsuite.avatar.sound;
  *   <li><b>The crank turns</b> at the revs, and as it comes round to each cylinder's place in the
  *       cycle, that cylinder fires: a pulse of exhaust, a knock and a puff of rough air, a little
  *       unlike the last, louder the more throttle there is. So the firing note is the revs'.</li>
- *   <li><b>Each pulse rings in its bank's pipe</b>: a few resonances at the {@link Engine#pipes}
+ *   <li><b>Each pulse goes down its cylinder's runner</b> ({@link Exhaust}), as late as the runner
+ *       is long, ringing at the runner's note, into its bank's collector: unlike runners bring evenly
+ *       fired pulses to it unevenly, so the firing order is heard. A crossover may mix the banks.</li>
+ *   <li><b>Then it rings in its bank's pipe</b>: a few resonances at the {@link Engine#pipes}
  *       notes, which do not move with the revs; the second bank's tuned a little apart, and as
  *       loud as {@link Engine#far} has it. Under them, the pulses themselves, for body.</li>
  *   <li><b>The intake roars</b> with the throttle open, more so the faster it turns.</li>
@@ -39,6 +42,9 @@ public final class EngineVoice {
     /** Off the throttle, past this share of the redline, now and then a bang in the pipe. */
     private static final double OVERRUN = 0.4;
     private static final double POP_CHANCE = 0.06;
+    /** How much each runner rings at its note, against the pulse coming straight through; and how sharply. */
+    private static final double RUNNER = 0.6;
+    private static final double RUNNER_RING = 2.5;
     /** The whole sound is scaled by this, to sit where the other sounds do. */
     private static final double GAIN = 0.55;
 
@@ -57,6 +63,15 @@ public final class EngineVoice {
     private final ChargerVoice charger;
     /** How much of the exhaust's ring gets past a turbine, if one is in the way, above its first note. */
     private final double past;
+    /** Each cylinder's runner, in the order they fire: the pulses on their way down it, how late they come
+     * out, in samples, and its ring; the place in them being written; and how much the banks are mixed. */
+    private final float[][] runner;
+    private final double[] lag;
+    private final Dsp.Filter[] ringing;
+    private final int reach;
+    private int written;
+    private final double[] excite;
+    private final double crossover;
 
     private double rpm;
     private double throttle;
@@ -71,7 +86,7 @@ public final class EngineVoice {
     private final int[] age = new int[PULSES];
     private final int[] width = new int[PULSES];
     private final double[] strength = new double[PULSES];
-    private final int[] pulseBank = new int[PULSES];
+    private final int[] pulseSlot = new int[PULSES];
     private final boolean[] bang = new boolean[PULSES];
     private int active;
 
@@ -84,12 +99,29 @@ public final class EngineVoice {
         firing = engine.firing();
         bank = engine.bank();
         noise = new Dsp.Noise(seed);
-        // each cylinder a little unlike the next, the same every time round
+        // each cylinder a little unlike the next, the same every time round, wherever it comes in the order
+        final Exhaust exhaust = engine.exhaust();
+        final int[] order = exhaust.order();
         final Dsp.Noise each = new Dsp.Noise(seed * 31 + 7);
-        character = new double[firing.length];
+        final double[] byNumber = new double[firing.length];
         for (int c = 0; c < firing.length; c++) {
-            character[c] = 1 + 0.12 * each.next();
+            byNumber[c] = 1 + 0.12 * each.next();
         }
+        character = new double[firing.length];
+        lag = new double[firing.length];
+        ringing = new Dsp.Filter[firing.length];
+        double longest = 0;
+        for (int s = 0; s < firing.length; s++) {
+            character[s] = byNumber[order[s] - 1];
+            lag[s] = exhaust.delay(s) * RATE;
+            ringing[s] = new Dsp.Filter(exhaust.note(s), RUNNER_RING);
+            longest = Math.max(longest, lag[s]);
+        }
+        final int size = Integer.highestOneBit((int) Math.ceil(longest) + 2) << 1;
+        reach = size - 1;
+        runner = new float[firing.length][size];
+        excite = new double[firing.length];
+        crossover = engine.twoBanks() ? exhaust.crossover() : 0;
         final double[] notes = engine.pipes();
         pipes = new Dsp.Filter[2][notes.length];
         body = new Dsp.Filter[2];
@@ -154,22 +186,43 @@ public final class EngineVoice {
             throttle += (wantThrottle - throttle) * throttleFollow;
             load += (wantLoad - load) * throttleFollow;
             turn();
-            // the pulses ringing out, into each bank's pipe
-            into[0] = 0;
-            into[1] = 0;
+            // the pulses, each out of its cylinder's port
+            for (int s = 0; s < excite.length; s++) {
+                excite[s] = 0;
+            }
             double crack = 0;
             for (int p = 0; p < active; p++) {
                 final double t = age[p] / (double) RATE;
                 final double w = width[p] / (double) RATE;
                 final double knock = age[p] < width[p] ? Math.sin(Math.PI * age[p] / width[p]) : 0;
                 final double puff = noise.next() * Math.exp(-t / (0.7 * w));
-                into[pulseBank[p]] += strength[p] * (knock + engine.rasp() * 0.5 * puff);
+                excite[pulseSlot[p]] += strength[p] * (knock + engine.rasp() * 0.5 * puff);
                 if (bang[p]) {
                     crack += strength[p] * noise.next() * Math.exp(-t / 0.004);
                 }
                 age[p]++;
             }
             retire();
+            // each down its runner, as late as the runner is long, ringing at its note, into its
+            // bank's collector
+            into[0] = 0;
+            into[1] = 0;
+            for (int s = 0; s < excite.length; s++) {
+                final float[] line = runner[s];
+                line[written] = (float) excite[s];
+                final double back = written - lag[s];
+                final int whole = (int) Math.floor(back);
+                final double part = back - whole;
+                final double late = line[whole & reach] * (1 - part) + line[(whole + 1) & reach] * part;
+                into[bank[s]] += late + RUNNER * ringing[s].push(late).band / RUNNER_RING;
+            }
+            written = (written + 1) & reach;
+            // and the crossover, if any, mixing the banks' pipes
+            if (crossover > 0) {
+                final double left = into[0];
+                into[0] += crossover * (into[1] - left);
+                into[1] += crossover * (left - into[1]);
+            }
             double sound = 0;
             for (int b = 0; b < 2; b++) {
                 double rung = 0;
@@ -241,7 +294,7 @@ public final class EngineVoice {
         age[active] = 0;
         width[active] = Math.max(8, (int) Math.round(w * RATE));
         strength[active] = loud;
-        pulseBank[active] = bank[cylinder];
+        pulseSlot[active] = cylinder;
         bang[active] = banged;
         active++;
     }
@@ -250,12 +303,12 @@ public final class EngineVoice {
     private void retire() {
         int kept = 0;
         for (int p = 0; p < active; p++) {
-            final boolean ringing = age[p] < width[p] * 4 || (bang[p] && age[p] < RATE / 40);
-            if (ringing) {
+            final boolean alive = age[p] < width[p] * 4 || (bang[p] && age[p] < RATE / 40);
+            if (alive) {
                 age[kept] = age[p];
                 width[kept] = width[p];
                 strength[kept] = strength[p];
-                pulseBank[kept] = pulseBank[p];
+                pulseSlot[kept] = pulseSlot[p];
                 bang[kept] = bang[p];
                 kept++;
             }
