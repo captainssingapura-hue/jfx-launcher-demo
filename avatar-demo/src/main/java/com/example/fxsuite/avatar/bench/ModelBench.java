@@ -9,6 +9,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Frame;
 import com.example.fxsuite.avatar.sim.Frames;
+import com.example.fxsuite.avatar.sim.Outfit;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Sidecar;
@@ -76,7 +77,9 @@ import java.util.Locale;
  * ...) picks what is on show to start with, {@code -Dmodel.side=left} mounts the sidecar on the
  * left, {@code -Dmodel.shape=frame} shapes the motorcycle's frame; {@code -Dmodel.yaw=40} and
  * {@code -Dmodel.pitch=20} where it is seen from (-140, from ahead on its right),
- * {@code -Dmodel.distance=600} how far off; {@code -Dmodel.asgame=true} has the game draw even the frames
+ * {@code -Dmodel.distance=600} how far off; {@code -Dride.speed=60} (km/h), {@code -Dride.steer=2}
+ * (degrees, right when positive) and {@code -Dride.passenger=80} (kg) where the test ride starts;
+ * {@code -Dmodel.asgame=true} has the game draw even the frames
  * being shaped, as it has them; {@code -Dbench.snapshot=out.png} saves the window after
  * {@code -Dbench.settle} ms and exits.
  */
@@ -154,6 +157,24 @@ public final class ModelBench extends Application {
     private final VBox editing = new VBox(8);
     private Stage stage;
 
+    // the test ride: the outfit going round at a speed, steered, a passenger aboard or not
+    private final VBox riding = new VBox(8);
+    private final Slider speed = EngineBench.slider(0, Course.BOXER.drive().top() * 0.036, 40);
+    /** -1 to 1: steered as its cube, so finely near the middle, where at speed it matters. */
+    private final Slider steer = EngineBench.slider(-1, 1, 0);
+    private final Slider passenger = EngineBench.slider(0, 120, 0);
+    private final Label ride = new Label();
+    private final TextArea table = new TextArea();
+    /** The bike frame and the sidecar, tipped with the outfit as the world tips the motorcycle. */
+    private final Group outfitTipped = new Group();
+    private final Rotate tip = new Rotate();
+    /** How far it is tipped now, in degrees; how long it has been past its limit; whether it has gone over. */
+    private double tilted;
+    private double over;
+    private boolean fallen;
+    private Outfit outfit = Outfit.BOXER;
+    private List<Outfit.Row> rows = Outfit.BOXER.table();
+
     @Override
     public void start(final Stage stage) {
         this.stage = stage;
@@ -164,7 +185,9 @@ public final class ModelBench extends Application {
         yaw.setAngle(Double.parseDouble(System.getProperty("model.yaw", "-140")));
         pitch.setAngle(-Double.parseDouble(System.getProperty("model.pitch", "18")));
         back.setZ(-Double.parseDouble(System.getProperty("model.distance", "650")));
-        final Group scene3d = new Group(shown, bikeFrame, sidecarModel.node(), eye);
+        outfitTipped.getChildren().addAll(bikeFrame, sidecarModel.node());
+        outfitTipped.getTransforms().add(tip);
+        final Group scene3d = new Group(shown, outfitTipped, eye);
         final SubScene view = new SubScene(scene3d, 760, 640, true, SceneAntialiasing.BALANCED);
         view.setFill(Color.web("#b9d3e6"));
         view.setCamera(eye);
@@ -248,10 +271,38 @@ public final class ModelBench extends Application {
                 EngineBench.label("A rod:"), rods, EngineBench.row("Tube (cm)", rodTube), new HBox(8, split, remove),
                 new HBox(8, join, joinTo), figures, new HBox(8, show, save, open, reset), text);
 
+        for (final Slider slider : List.of(speed, steer, passenger)) {
+            slider.valueProperty().addListener((o, was, now) -> rideOn());
+        }
+        // where the test ride starts: -Dride.speed (km/h), -Dride.steer (degrees, right when positive), -Dride.passenger (kg)
+        speed.setValue(Double.parseDouble(System.getProperty("ride.speed", "40")));
+        final double steered = Double.parseDouble(System.getProperty("ride.steer", "0")) / Course.BOXER.drive().steer();
+        steer.setValue(Math.cbrt(Math.clamp(steered, -1, 1)));
+        passenger.setValue(Double.parseDouble(System.getProperty("ride.passenger", "0")));
+        final Button straight = new Button("Straight");
+        straight.setOnAction(e -> steer.setValue(0));
+        final Button upright = new Button("Right it");
+        upright.setOnAction(e -> {
+            fallen = false;
+            over = 0;
+            steer.setValue(0);
+        });
+        ride.setFont(Font.font("Monospaced", 12));
+        ride.setWrapText(true);
+        table.setPrefRowCount(9);
+        table.setEditable(false);
+        table.setFont(Font.font("Monospaced", 11));
+        riding.getChildren().addAll(EngineBench.heading("Test ride"),
+                EngineBench.label("Going round: past its limit toward the sidecar, the chair lifts and it tips."),
+                EngineBench.row("Speed", speed), EngineBench.row("Steer", steer), new HBox(8, straight, upright),
+                EngineBench.row("Passenger", passenger), ride,
+                EngineBench.label("The sharpest it may be steered, by speed (worked out once, looked up as it goes):"),
+                table);
+
         final VBox controls = new VBox(10, EngineBench.heading("On show"), models, showVehicle,
                 new HBox(12, showRods, showNodes), showWheel,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
-                        + " come nearer."), editing);
+                        + " come nearer."), riding, editing);
         controls.setPadding(new Insets(14));
         controls.setPrefWidth(370);
         final ScrollPane scroll = new ScrollPane(controls);
@@ -274,6 +325,7 @@ public final class ModelBench extends Application {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
                 world.show(play.damage(), play.moving(), play.lifts(), seconds, yaw.getAngle());
+                tipping(seconds);
             }
         }.start();
 
@@ -295,6 +347,10 @@ public final class ModelBench extends Application {
         play = new Play(new Avatar(Body.standing(new Vec3(0, 0, -100_000), 0), false), damage);
         shown.getChildren().setAll(world.node());
         editing.setDisable(!picked.sidecar() && Frames.of(picked.chassis()) == null);
+        riding.setDisable(!picked.sidecar());
+        fallen = false;
+        over = 0;
+        tilted = 0;
         if (!picked.sidecar() && Frames.of(picked.chassis()) != null) {
             shaping.setValue(BIKE);
         }
@@ -441,6 +497,86 @@ public final class ModelBench extends Application {
     }
 
     /** The sidecar's wheel set where the sliders say, and as big. */
+    /** How fast it goes, in cm/s, and how it is steered, in degrees, as the sliders say. */
+    private double speedNow() {
+        return speed.getValue() / 0.036;
+    }
+
+    private double steerNow() {
+        return Course.BOXER.drive().steer() * Math.pow(steer.getValue(), 3);
+    }
+
+    /** The test ride, as the sliders now have it: its outfit, its table worked out afresh, read out. */
+    private void rideOn() {
+        outfit = new Outfit(Course.BOXER, sidecar, passenger.getValue());
+        rows = outfit.table();
+        final StringBuilder lines = new StringBuilder(" km/h  toward  away   (sharpest steer, degrees)\n");
+        for (final Outfit.Row row : rows) {
+            lines.append(String.format("%5.0f  %6.2f  %5.2f%n", row.speed() * 0.036, row.toward(), row.away()));
+        }
+        table.setText(lines.toString());
+        final double v = speedNow();
+        final double angle = steerNow();
+        final double radius = Math.abs(angle) < 1e-6 ? Double.POSITIVE_INFINITY
+                : Course.BOXER.wheelbase() / Math.tan(Math.toRadians(Math.abs(angle)));
+        final double pull = Double.isInfinite(radius) ? 0 : v * v / radius;
+        final Outfit.Mass centre = outfit.centre();
+        final Outfit.Grip grip = outfit.grip(rows, v, angle);
+        ride.setText(String.format("%.0f kg, its weight %.0f cm toward the sidecar, %.0f cm up%n"
+                        + "limit toward the sidecar %.2f g, away %.2f g%n"
+                        + "steer %+.2f° (%s), turning %s, pulled %.2f g%n%s, %.0f%% of its limit",
+                outfit.mass(), Math.abs(centre.across()), centre.up(),
+                outfit.limit(-sidecar.side().sign()) / Outfit.GRAVITY, outfit.limit(sidecar.side().sign()) / Outfit.GRAVITY,
+                angle, Math.abs(angle) < 1e-6 ? "straight" : outfit.towardSidecar(angle) ? "toward the sidecar" : "away",
+                Double.isInfinite(radius) ? "straight on" : String.format("%.0f m round", radius / 100),
+                pull / Outfit.GRAVITY, fallen ? "OVER, on its side" : switch (grip) {
+                    case STEADY -> "steady";
+                    case LIFTING -> outfit.towardSidecar(angle) ? "LIFTING: the chair in the air"
+                            : "LIFTING: the motorcycle's back wheel up";
+                    case TIPPING -> "TIPPING";
+                }, 100 * outfit.share(rows, v, angle)));
+    }
+
+    /**
+     * {@code seconds} on in the test ride: past its limit for a moment, it goes over, and stays
+     * over until righted; nearing it, a wheel lifts, the more the nearer; drawn tipped so, about the
+     * edge it tips over: the motorcycle's own wheels, turning toward the sidecar; the line from its
+     * front wheel to the sidecar's, turning away.
+     */
+    private void tipping(final double seconds) {
+        if (!model.sidecar()) {
+            return;
+        }
+        final double v = speedNow();
+        final double angle = steerNow();
+        final double share = outfit.share(rows, v, angle);
+        over = share > 1 ? over + seconds : 0;
+        if (over > 0.25 && !fallen) {
+            fallen = true;
+            rideOn();
+        }
+        final double wanted = fallen ? 92 : share > Outfit.LIFTS ? 9 * Math.min(1, (share - Outfit.LIFTS) / (1 - Outfit.LIFTS)) : 0;
+        tilted += (wanted - tilted) * (1 - Math.exp(-seconds * (fallen ? 4 : 10)));
+        // which edge it goes over, and which way, so that what lifts goes up
+        final double[][] w = outfit.wheels();
+        final boolean toward = Math.abs(angle) < 1e-6 || outfit.towardSidecar(angle);
+        final double[] from = toward ? w[1] : w[0];
+        final double[] to = toward ? w[0] : w[2];
+        final javafx.geometry.Point3D axis = new javafx.geometry.Point3D(to[0] - from[0], 0, to[1] - from[1]);
+        // what lifts: the sidecar's wheel, or the motorcycle's back wheel
+        final double[] lifted = toward ? w[2] : w[1];
+        final javafx.geometry.Point3D arm = new javafx.geometry.Point3D(lifted[0] - from[0], 0, lifted[1] - from[1]);
+        // turned about the axis, a point moves as the axis crossed with it: up is -y
+        final double sign = axis.crossProduct(arm).getY() < 0 ? 1 : -1;
+        final double degrees = sign * tilted;
+        world.tipped(0, degrees, from[0], from[1], axis);
+        tip.setAxis(axis);
+        tip.setPivotX(from[0]);
+        tip.setPivotY(0);
+        tip.setPivotZ(from[1]);
+        tip.setAngle(degrees);
+    }
+
     private void setWheel() {
         if (choosing) {
             return;
@@ -476,6 +612,8 @@ public final class ModelBench extends Application {
         }
         shaped.problems().forEach(p -> out.append("\n! ").append(p));
         figures.setText(out.toString());
+        // the sidecar reshaped, set up otherwise, on the other side: it rides otherwise
+        rideOn();
     }
 
     private FileChooser chooser() {

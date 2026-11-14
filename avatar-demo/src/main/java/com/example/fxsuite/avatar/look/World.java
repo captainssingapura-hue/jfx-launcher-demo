@@ -80,6 +80,9 @@ public final class World {
     private final Group[] parts;
     /** Each piece's turn about the vertical, for what moves. */
     private final Rotate[] turns;
+    /** How high the middle of each piece that moves was drawn, by piece; and each one tipped, how. */
+    private final Map<Integer, Double> middles = new HashMap<>();
+    private final Map<Integer, Rotate> tips = new HashMap<>();
     private final Shape3D[] bodies;
     private final Color[] colours;
     private final double[] shown;
@@ -202,6 +205,27 @@ public final class World {
     }
 
     /**
+     * Piece {@code piece}, a vehicle, drawn tipped {@code degrees} over about a line on the ground
+     * through {@code across}, {@code along} (in its own frame) running as {@code axis} does: rolling
+     * up onto two wheels and over, as the vehicle bench shows a sidecar outfit tipping. 0 sets it
+     * upright. Drawn so from the next {@link #show} on.
+     */
+    public void tipped(final int piece, final double degrees, final double across, final double along,
+                       final javafx.geometry.Point3D axis) {
+        final Rotate tip = tips.computeIfAbsent(piece, p -> {
+            final Rotate made = new Rotate();
+            parts[p].getTransforms().add(made);
+            return made;
+        });
+        tip.setAxis(axis);
+        tip.setPivotX(across);
+        // the ground, in its own terms: as far below its middle as its middle is drawn up
+        tip.setPivotY(middles.getOrDefault(piece, 0.0));
+        tip.setPivotZ(along);
+        tip.setAngle(degrees);
+    }
+
+    /**
      * Draws what the weapons have done, and moves what moves to where it is seen: each of
      * {@code placed}, by piece, where it is drawn this frame ({@link com.example.fxsuite.avatar.sim.Play#moving}, between its
      * last two steps). Then the platforms' controls ({@code lifts}), the rotors and the lights.
@@ -217,6 +241,7 @@ public final class World {
             parts[i].setTranslateY(-(block.top() + block.bottom()) / 2);
             parts[i].setTranslateZ(block.z());
             turns[i].setAngle(block.yaw());
+            middles.put(i, (block.top() + block.bottom()) / 2);
         }
         for (final Lift lift : lifts) {
             final Rig rig = rigs.get(lift.piece());

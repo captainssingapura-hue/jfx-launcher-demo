@@ -568,6 +568,22 @@ java -jar avatar-demo/target/avatar-demo.jar --models
   follow. Pick a rod and size its tube, split it in two at a new node, or take it away; or join the
   node picked to another with a new rod. Its figures are read out as it changes, and anything
   wrong with it.
+- Test-ride the boxer with its sidecar (`Outfit`): how hard it can be turned before it tips. Its
+  weight is a few masses (the motorcycle and its rider, the sidecar's tubes where its frame has
+  its mass, the sidecar's body and wheel, a passenger if any), together out toward the sidecar
+  and some way up. It stands on a triangle, its three wheels; going round, the turn pulls its
+  weight outward, and it tips when that pull, against gravity, carries its weight's line past an
+  edge: as far as its weight is from that edge, over how high it is, times gravity. Turning toward
+  the sidecar, it goes over the motorcycle's own wheels, and soon: solo, at about 0.22 g, the chair
+  lifting first ("flying the chair"); turning away, over the line from the motorcycle's front wheel
+  to the sidecar's, at more than a g, all but never. A table worked out once from that gives, for
+  every 10 km/h, the sharpest it may be steered either way (under two degrees toward the sidecar at
+  40 km/h); as it goes, the steer is held against the table: steady; past 85% of it, a wheel
+  lifting (the chair, or the motorcycle's back wheel); past it for a moment, over on its side,
+  until it is righted. A passenger in the sidecar, as weight out over it, lets it be turned toward
+  the sidecar nearly twice as hard. Speed, steer (finer near the middle, where at speed it
+  matters) and passenger sliders; the outfit shown lifting and going over, about the edge it goes
+  over; the table and the figures read out.
 - Keep it: save what is being shaped as text, a line a node and a line a rod, rods by their nodes'
   names, to read and edit by hand, and open it again (`Frame.text`, `Frame.read`; a sidecar's
   adds its side and its wheel).
@@ -575,7 +591,9 @@ java -jar avatar-demo/target/avatar-demo.jar --models
 `-Dmodel.pick=van` (or the start of any vehicle's name, or `sidecar`) picks what is on show to start
 with, `-Dmodel.side=left` mounts the sidecar on the left, `-Dmodel.shape=frame` shapes the
 motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from;
-`-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them.
+`-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them;
+`-Dride.speed=60` (km/h), `-Dride.steer=2` (degrees, right when positive) and `-Dride.passenger=80`
+(kg) where the test ride starts.
 
 ## Unattended runs
 
