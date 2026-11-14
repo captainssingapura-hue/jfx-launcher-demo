@@ -27,6 +27,11 @@ class TurretTest {
         return play;
     }
 
+    /** The bunker's gun, among the rest (those on the pillars about). */
+    private static Turret bunker(final Play play) {
+        return play.turrets().stream().filter(t -> t.mount() == Course.BUNKER_GUN).findFirst().orElseThrow();
+    }
+
     /** A turret on its own, manned, on open ground facing +z. */
     private static Turret manned() {
         return new Turret(-1, Course.BUNKER_GUN, new Place(0, 0, 0, 0)).held(true);
@@ -35,7 +40,7 @@ class TurretTest {
     /** The bunker demo, the avatar standing at the bunker's door. */
     private static Play atTheDoor() {
         final Play start = Play.start(Demo.GUNS, false);
-        final Turret gun = start.turrets().getFirst();
+        final Turret gun = bunker(start);
         return new Play(new Avatar(Body.standing(gun.at(gun.mount().station()), 0), false), start.damage(),
                 start.sky(), start.lifts(), start.people(), start.props(), start.turrets());
     }
@@ -126,7 +131,7 @@ class TurretTest {
         assertTrue(play.gunWithinReach().isPresent());
         assertFalse(Play.start(Demo.GUNS, false).gunWithinReach().isPresent(), "not from the start");
         play = run(play, TAKE, Clock.STEP, events);
-        final Turret gun = play.turrets().getFirst();
+        final Turret gun = bunker(play);
         assertTrue(gun.held());
         assertTrue(events.contains(new Event.TookControls(gun.host())));
         assertTrue(play.hidden(), "inside, out of sight");
@@ -145,14 +150,14 @@ class TurretTest {
         assertFalse(play.hidden());
         play = run(play, Controls.NONE, 0.5, events);
         assertTrue(play.avatar().body().grounded());
-        assertTrue(play.turrets().getFirst().reaches(play.avatar().body()), "at the door again");
+        assertTrue(bunker(play).reaches(play.avatar().body()), "at the door again");
     }
 
     @Test
     void theBunkerBrokenItsGunnerIsThrownOut() {
         final List<Event> events = new ArrayList<>();
         Play play = run(atTheDoor(), TAKE, Clock.STEP, events);
-        final int bunker = play.turrets().getFirst().host();
+        final int bunker = bunker(play).host();
         final List<Blow> blows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             blows.add(new Blow(Vec3.ZERO, new Vec3(0, 0, -1), Surface.BLOCK, Weapon.GLAIVE, bunker));
@@ -168,10 +173,14 @@ class TurretTest {
     }
 
     @Test
-    void aWorldWithoutGunsSumsAsItAlwaysHas() {
+    void theGunsAreSummedWithTheWorld() {
         final Play play = Play.start(Demo.PLATFORM, false);
-        assertTrue(play.turrets().isEmpty());
-        assertEquals(play.checksum(), new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), play.people(),
-                play.props(), List.of()).checksum());
+        assertFalse(play.turrets().isEmpty(), "a gun on each pillar about");
+        final Play none = new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), play.people(), play.props(),
+                List.of());
+        assertFalse(play.checksum() == none.checksum(), "the guns are part of what is summed");
+        final Play manned = new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), play.people(),
+                play.props(), play.turrets().stream().map(t -> t.held(true)).toList());
+        assertFalse(play.checksum() == manned.checksum(), "and how they stand");
     }
 }

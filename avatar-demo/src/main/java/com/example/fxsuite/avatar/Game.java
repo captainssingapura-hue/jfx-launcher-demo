@@ -229,10 +229,13 @@ public final class Game {
             + " Space handbrake · Shift gently · T let go\n"
             + "The mouse aims the gun at the back, all round, 10° down and 45° up; it holds its aim as the pickup"
             + " turns · click fire · G give up the gun\n" + VIEW_KEYS;
-    private static final String GUNSHIP_HELP = "The gunship: W/S ahead and back · A/D turn · Space climb ·"
+    /** A platform with a gun on it, the gun under control: none is built yet, but any may be. */
+    private static final String ARMED_PLATFORM_HELP = "The platform: W/S ahead and back · A/D turn · Space climb ·"
             + " Ctrl descend · Shift carefully · T let go\n"
-            + "The mouse aims the gun, all round, 30° down and 40° up; it holds its aim as the gunship turns"
-            + " · click fire: held, it spins up, then fires · G give up the gun\n" + VIEW_KEYS;
+            + "The mouse aims its gun; click fire: held, it spins up, then fires · G give up the gun\n" + VIEW_KEYS;
+    private static final String MOUNTED_GUN_HELP = "The mounted Gatling gun: A/D turn it, and you with it, all round"
+            + " · W/S raise and lower it, 30° down to 75° up, its hydraulics easing it · T get up\n"
+            + "Space or click fire: held, it spins up, then fires\n" + VIEW_KEYS;
     private static final String ARMED_AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · Space climb ·"
             + " Ctrl descend · Shift slower · T step out (through the hatch) · G give up the gun\n"
             + "The mouse aims the rapid giant gun under the gondola, all round, 80° down and 10° up; it holds its aim as the"
@@ -582,6 +585,10 @@ public final class Game {
                 craft.yaw(), 1,
                 seconds, circling != 0)
                 : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
+        // a gun aimed by the keys: the view tilts with it, so its sight stays in view
+        if (alone.filter(gun -> gun.mount().keyed()).isPresent()) {
+            chase = chase.turned(0, restPitch() + alone.get().pitch() - chase.pitch());
+        }
 
         // in first person at a vehicle's controls, the view is from where its driver's eyes are: the
         // seat, the console, the front of the gondola, or behind a gun; in a land vehicle the mouse,
@@ -608,6 +615,9 @@ public final class Game {
             final double tipped = driven.lean() + driven.roll();
             rig.show(seated(avatar, chassis, craft, tipped),
                     chassis.twoWheels() ? Gait.astride(looking, chassis, tipped) : Gait.seated(looking, tipped));
+        } else if (alone.filter(gun -> gun.mount().rides()).isPresent()) {
+            // at a mounted gun, sat behind it, turned with it
+            rig.show(avatar, Gait.seated(looking));
         } else {
             rig.show(avatar, looking);
         }
@@ -711,8 +721,12 @@ public final class Game {
                     left, bay(ship));
         }
         if (ship != null) {
-            return String.format("Flying the gunship · %.1f m/s · %.1f m up · gun %s%s · %.0f%% left",
+            return String.format("Flying the platform · %.1f m/s · %.1f m up · gun %s%s · %.0f%% left",
                     ship.speed() / 100, ship.place().height() / 100, barrels, heat, left);
+        }
+        if (gun.mount().rides()) {
+            return String.format("At the mounted Gatling gun · turned %+.0f° · raised %+.0f° · %s%s", gun.yaw(),
+                    gun.pitch(), barrels, heat);
         }
         return String.format("Manning the heavy Gatling gun · %s%s · bunker %.0f%% left", barrels, heat, left);
     }
@@ -836,9 +850,10 @@ public final class Game {
         final Optional<Turret> vehicleGun = flown.flatMap(lift -> turrets.stream()
                 .filter(t -> t.host() == lift.piece() && !t.mount().fixed()).findFirst());
         final boolean gunControl = vehicleGun.filter(Turret::held).isPresent();
-        final String keys = flown.isEmpty() ? (manned.isPresent() ? GUN_HELP : ON_FOOT_HELP)
+        final String keys = flown.isEmpty() ? manned.map(gun -> gun.mount().rides() ? MOUNTED_GUN_HELP : GUN_HELP)
+                .orElse(ON_FOOT_HELP)
                 : gunControl ? flown.map(lift -> lift.craft() instanceof Course.Chassis ? PICKUP_HELP
-                        : lift.craft().closed() ? ARMED_AIRSHIP_HELP : GUNSHIP_HELP).orElseThrow()
+                        : lift.craft().closed() ? ARMED_AIRSHIP_HELP : ARMED_PLATFORM_HELP).orElseThrow()
                 : flown.map(lift -> lift.craft() instanceof Course.Chassis chassis
                         ? (chassis.twoWheels() ? RIDE_HELP : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElseThrow()
@@ -869,7 +884,8 @@ public final class Game {
         }
         controls.addAll(List.of(VehiclePanel.Control.FIRST_PERSON, VehiclePanel.Control.BEHIND,
                 VehiclePanel.Control.LEAVE));
-        final String title = flown.map(this::vehicleName).orElse("The heavy Gatling gun");
+        final String title = flown.map(this::vehicleName).orElse(manned.filter(gun -> gun.mount().rides()).isPresent()
+                ? "The mounted Gatling gun" : "The heavy Gatling gun");
         panel.show(title, controls, gunControl, firstPerson, !look.captured());
     }
 
@@ -882,7 +898,7 @@ public final class Game {
         }
         final boolean armed = turrets.stream().anyMatch(t -> t.host() == lift.piece() && !t.mount().fixed());
         return lift.craft().closed() ? (armed ? "The airship and its giant gun" : "The airship")
-                : armed ? "The gunship" : "The platform";
+                : armed ? "The platform and its gun" : "The platform";
     }
 
     /** A control panel button pressed: just as its key would do. */

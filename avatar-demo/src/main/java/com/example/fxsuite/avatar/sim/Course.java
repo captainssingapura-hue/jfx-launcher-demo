@@ -748,12 +748,26 @@ public final class Course {
      * for all round), down ({@code depression}) and up ({@code elevation}), how fast it turns at
      * most ({@code slew}, degrees a second), whether it holds its aim on the world as what carries it
      * turns ({@code stabilized}), whether whoever mans it is inside, out of sight ({@code closed}),
-     * where they stand to man it ({@code station}), where they are while they do ({@code seat}), and
-     * whether, held down too long, it gets too hot to fire until it has cooled ({@code overheats}).
+     * where they stand to man it ({@code station}), where they are while they do ({@code seat}),
+     * whether, held down too long, it gets too hot to fire until it has cooled ({@code overheats});
+     * whether the seat turns with the gun, carrying whoever mans it round with it as it aims
+     * ({@code rides}); and how it is raised and lowered: as fast as it turns, as a motor drives it
+     * ({@code ease} 0), or by hand with hydraulics to help, easing smoothly to where it is asked to
+     * point, most of the way there in {@code ease} seconds; and whether it is aimed by the keys
+     * alone ({@code keyed}): A and D turning it round at its slew, W and S raising and lowering
+     * it at {@link Turret#RAISE}, rather than by the mouse.
      */
     public record Mount(Gun gun, Section pivot, double barrel, double traverse, double depression, double elevation,
                         double slew, boolean stabilized, boolean closed, Section station, Section seat,
-                        boolean overheats) {
+                        boolean overheats, boolean rides, double ease, boolean keyed) {
+
+        /** One whose seat stays put, raised and lowered as fast as it turns, aimed by the mouse. */
+        public Mount(final Gun gun, final Section pivot, final double barrel, final double traverse,
+                     final double depression, final double elevation, final double slew, final boolean stabilized,
+                     final boolean closed, final Section station, final Section seat, final boolean overheats) {
+            this(gun, pivot, barrel, traverse, depression, elevation, slew, stabilized, closed, station, seat,
+                    overheats, false, 0, false);
+        }
 
         /**
          * Whether it is fixed: turning neither round nor up and down on what carries it, so it fires
@@ -788,18 +802,16 @@ public final class Course {
             55, 8, 25, 70, false, true, new Section(0, -330, 0, 0, 0, 0), new Section(0, 60, 1, 0, 0, 0), false);
 
     /**
-     * A gunship: a platform a little bigger than the carpet, a heavy Gatling gun on its console.
-     * Whoever mans the gun flies it too ({@link #GUNSHIP_GUN}).
+     * A mounted gun: a heavy Gatling gun on a pedestal, a seat behind it, bolted to the top of
+     * anything solid (the top of each pillar, to begin with). Whoever mans it sits behind it, and
+     * the seat turns with it as it aims, carrying them round. Aimed by the keys alone: A and D, an
+     * electric motor turns it all round, without stops, 60° a second; W and S, it is raised and
+     * lowered by hand, 30° down and 75° up, hydraulics helping, so it eases smoothly to where it is
+     * asked to point. Manned from behind it.
      */
-    public static final Deck GUNSHIP = new Deck(360, 300);
-    /**
-     * The gunship's gun: on a post through its console, firing over its front, all round, 30° down
-     * and 40° up, turning 90° a second at most; and holding its aim on the world as the gunship
-     * turns under it. Manned from behind the console, where the gunner stands in plain sight.
-     */
-    public static final Mount GUNSHIP_GUN = new Mount(Gun.HEAVY_GATLING,
-            new Section(0, GUNSHIP.console().along(), 135, 0, 0, 0), 240, 180, 30, 40, 90, true, false,
-            GUNSHIP.station(), GUNSHIP.station(), false);
+    public static final Mount MOUNTED_GUN = new Mount(Gun.HEAVY_GATLING, new Section(0, 30, 110, 0, 0, 0), 240,
+            180, 30, 75, 60, false, false, new Section(0, -55, 0, 0, 0, 0), new Section(0, -45, 0, 0, 0, 0), false,
+            true, 0.22, true);
 
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
@@ -932,15 +944,12 @@ public final class Course {
      */
     /**
      * The guns' demo: a bunker just ahead of the start, its door toward it and its gun facing away,
-     * and a gunship off to the right, a platform with a gun on its console;
-     * over open ground with something to shoot at: rows of crates and of dummies out in front.
-     * Pillars about, as in the vehicles' demos.
+     * and over open ground with something to shoot at: rows of crates and of dummies out in front.
+     * Pillars about, as in the vehicles' demos, a mounted gun on top of each ({@link #MOUNTED_GUN}).
      */
     private void gunsDemo() {
         scenery(23);
         pieces.add(Piece.moving(BUNKER, new Place(0, 700, 0, 0), Kind.BUNKER, 0, null));
-        // and the gunship, off to the right of the start, at its lowest, heading the way the bunker faces
-        pieces.add(Piece.moving(GUNSHIP.shape(), new Place(900, 250, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
         final Random random = new Random(29);
         for (int i = 0; i < 14; i++) {
             final double heading = -45 + 90.0 * i / 13;
@@ -1126,7 +1135,7 @@ public final class Course {
     /**
      * What the playground has of the rest: parked beside the street that runs out behind the start,
      * a roadster and a van on the left of it, a pickup and a truck on the right, all facing the
-     * start; off to the west, a bunker looking out over the field, and a gunship beside it; and off
+     * start; off to the west, a bunker looking out over the field; and off
      * to the east, an airship moored broadside on, to walk in under and fly.
      */
     private static List<Piece> playgroundExtras() {
@@ -1139,7 +1148,6 @@ public final class Course {
         extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
         extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
-        extras.add(Piece.moving(GUNSHIP.shape(), new Place(-2600, -300, LIFT_LOW, -90), Kind.PLATFORM, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
         return extras;
     }
@@ -1224,7 +1232,7 @@ public final class Course {
 
         // the roads have the ground they run over to themselves: what was scattered there is cleared
         final List<Block> roads = playgroundRoads();
-        // and so do the vehicles parked about it, the bunker and the gunship, and the airship moored to fly
+        // and so do the vehicles parked about it, the bunker, and the airship moored to fly
         final List<Piece> extras = playgroundExtras();
         final List<Block> clear = new ArrayList<>(roads);
         extras.forEach(p -> clear.add(p.block()));

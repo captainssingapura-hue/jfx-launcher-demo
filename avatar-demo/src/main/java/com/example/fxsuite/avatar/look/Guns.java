@@ -100,6 +100,9 @@ public final class Guns {
             gun.flash.setVisible(false);
             tipped.getChildren().addAll(receiver, ammunition, grips, barrels, gun.flash);
             turned.getChildren().addAll(cradle, tipped);
+            if (turret.mount().rides()) {
+                turned.getChildren().add(seat(turret, size, metal, olive));
+            }
             gun.node.getChildren().addAll(stand, turned);
             mounted.add(gun);
             root.getChildren().add(gun.node);
@@ -137,6 +140,22 @@ public final class Guns {
             // the flash flickers, a frame on and a frame off, while it fires
             gun.flash.setVisible(turret.firing() && frames % 2 == 0);
         }
+    }
+
+    /**
+     * The seat behind a gun whose seat turns with it: a cushion as high as a seat is
+     * ({@link Gait#SEAT}) over where whoever mans it sits, a back to it, and an arm out to it from
+     * the pedestal; in the turned gun's own terms, made {@code size} times bigger, so undone here.
+     */
+    private static Group seat(final Turret turret, final double size, final PhongMaterial metal,
+                              final PhongMaterial cushion) {
+        final double back = (turret.mount().seat().along() - turret.mount().pivot().along()) / size;
+        final double down = (turret.mount().pivot().up() - turret.mount().seat().up() - Gait.SEAT) / size;
+        final Box sat = box(46 / size, 8 / size, 42 / size, 0, down + 4 / size, back, cushion);
+        final Box rest = box(46 / size, 46 / size, 6 / size, 0, down - 19 / size, back - 24 / size, cushion);
+        final double reach = -back;
+        final Box arm = box(8 / size, 8 / size, reach, 0, down + 12 / size, back / 2, metal);
+        return new Group(sat, rest, arm);
     }
 
     /** A pedestal, from the floor {@code drop} below where the gun turns up to it. */

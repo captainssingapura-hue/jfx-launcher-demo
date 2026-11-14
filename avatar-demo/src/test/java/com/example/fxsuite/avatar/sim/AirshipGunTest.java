@@ -63,7 +63,7 @@ class AirshipGunTest {
         assertTrue(gun.mount().stabilized(), "holding its aim as the airship turns");
         assertTrue(Course.AIRSHIP_GUN.pivot().up() < Course.GONDOLA.up() - Course.GONDOLA.halfUp(),
                 "hung under the gondola");
-        assertTrue(Course.AIRSHIP_GUN.barrel() > Course.GUNSHIP_GUN.barrel(), "bigger than the heavy one");
+        assertTrue(Course.AIRSHIP_GUN.barrel() > Course.MOUNTED_GUN.barrel(), "bigger than the heavy one");
         assertTrue(Weapon.RAPID_GATLING.blow() > Weapon.HEAVY_GATLING.blow(), "and its rounds heavier");
         assertTrue(Gun.RAPID_GATLING.interval() < Gun.GIANT_GATLING.interval() / 3, "and more than three times as fast as the giant");
         // those going round on their routes carry none

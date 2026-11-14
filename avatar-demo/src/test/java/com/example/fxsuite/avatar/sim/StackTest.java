@@ -42,36 +42,32 @@ class StackTest {
     }
 
     @Test
-    void aStackThreeDeepStaysStacked() {
+    void aStackStaysStacked() {
         Play play = Play.start(false);
         final int barge = index(play, Course.BARGE);
-        final int gunship = index(play, Course.GUNSHIP);
         final int carpet = index(play, Course.CARPET);
         final Place b = play.lifts().get(barge).place();
-        // the gunship down on a clear part of the barge, away from the stall, the carpet down on the gunship
+        // the carpet down on a clear part of the barge, away from the stall
         Play stacked = null;
         for (final double[] off : new double[][] {{320, 0}, {-320, 0}, {0, 250}, {0, -250}}) {
-            final double x = b.x() + off[0];
-            final double z = b.z() + off[1];
-            final Play tried = setDown(play, gunship, x, z);
-            if (liftUnder(tried, gunship) == barge) {
-                stacked = setDown(tried, carpet, x, z);
+            final Play tried = setDown(play, carpet, b.x() + off[0], b.z() + off[1]);
+            if (liftUnder(tried, carpet) == barge) {
+                stacked = tried;
                 break;
             }
         }
         assertTrue(stacked != null, "somewhere clear on the barge");
         play = stacked;
-        assertEquals(gunship, liftUnder(play, carpet), "the carpet on the gunship");
-        assertEquals(barge, liftUnder(play, gunship), "the gunship on the barge");
+        assertEquals(barge, liftUnder(play, carpet), "the carpet on the barge");
         final List<Place> was = play.lifts().stream().map(Lift::place).toList();
         for (int step = 0; step < 120; step++) {
             play = play.step(Controls.NONE, Clock.STEP).play();
         }
-        // the barge sits where it is, and so does everything stacked on it
-        for (final int i : List.of(barge, gunship, carpet)) {
+        // the barge sits where it is, and so does what is stacked on it
+        for (final int i : List.of(barge, carpet)) {
             assertEquals(was.get(i).height(), play.lifts().get(i).place().height(), 1, "lift " + i);
         }
-        assertEquals(gunship, liftUnder(play, carpet), "still");
+        assertEquals(barge, liftUnder(play, carpet), "still");
         assertTrue(play.lifts().get(carpet).resting(play.under(play.lifts().get(carpet))));
     }
 

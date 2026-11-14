@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 26;
+    public static final int RULES = 28;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -300,7 +300,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         happened.addAll(taken.events());
         happened.addAll(toPeople);
                 // standing at an open gun, the gunner faces the way it points
-        final Avatar shown = gunning >= 0 && !turned.get(gunning).mount().closed()
+        // and sat at one whose seat turns with it, carried round with it as it aims
+        final Avatar shown = gunning >= 0 && turned.get(gunning).mount().rides()
+                ? seatedAt(acted.avatar(), turned.get(gunning))
+                : gunning >= 0 && !turned.get(gunning).mount().closed()
                 ? acted.avatar().facing(turned.get(gunning).heading()) : acted.avatar();
         return new Stepped(new Play(shown, taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
                 happened);
@@ -748,6 +751,13 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return -1;
     }
 
+    /** {@code avatar}, sat at {@code gun}'s seat as the gun has turned it, facing the way it points. */
+    private static Avatar seatedAt(final Avatar avatar, final Turret gun) {
+        final Body body = avatar.body();
+        return new Avatar(new Body(gun.seated(), gun.heading(), gun.heading(), 0, 0, 0, 0, false, true, body.phase(),
+                body.time()), avatar.wearingPack(), avatar.sweep(), avatar.arms());
+    }
+
     /** Whether the avatar is out of sight: inside a closed craft, or manning a gun from inside. */
     public boolean hidden() {
         return aboard().isPresent() || manning().filter(t -> t.mount().closed()).isPresent();
@@ -828,7 +838,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     /**
      * {@code avatar}, as a gun was manned or let go ({@code manned}): manning it, at its seat,
      * facing the way it points; letting a closed one go, back out at its station, settling onto
-     * what is there (at an open one, it is standing there already).
+     * what is there (at an open one, it is standing there already); getting up from a seat that
+     * turns with the gun, standing where the seat has turned to, facing the way the gun points.
      */
     private Avatar gunner(final Avatar avatar, final List<Turret> manned) {
         for (int i = 0; i < manned.size(); i++) {
@@ -838,8 +849,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                     || !now.held() && !now.mount().closed() && now.mount().station().equals(now.mount().seat())) {
                 continue;  // at an open gun, manned where it stands, whoever let it go is standing there still
             }
-            final Body body = now.held()
-                    ? Body.standing(now.at(now.mount().seat()), now.heading())
+            final Body body = now.held() ? Body.standing(now.seated(), now.heading())
+                    : now.mount().rides() ? new Body(now.seated(), now.heading(), now.heading(), 0, 0, 0, 0, false,
+                    true, 0, avatar.body().time())
                     : new Body(now.at(now.mount().station()), Num.wrap(now.base().yaw() + 180),
                     Num.wrap(now.base().yaw() + 180), 0, 0, 0, 0, false, false, 0, avatar.body().time());
             return new Avatar(body, avatar.wearingPack(), avatar.sweep(), avatar.arms());

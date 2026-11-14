@@ -37,6 +37,8 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
     public static final double COOL = 0.15;
     /** Hot through, they must cool to this before it fires again. */
     public static final double RECOVERED = 0.4;
+    /** How fast W and S raise and lower a gun aimed by the keys, in degrees a second. */
+    public static final double RAISE = 40;
     /** How near its station whoever mans it must be. */
     public static final double REACH = 130;
 
@@ -45,15 +47,18 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         this(host, mount, base, 0, 0, 0, 0, Gun.State.READY, 0, false, false);
     }
 
-    /** The guns mounted among {@code damage}'s pieces: one in each bunker, one on each gunship, and one on each car and pickup. */
+    /**
+     * The guns mounted among {@code damage}'s pieces: one in each bunker, one on top of each pillar,
+     * one on each car and pickup, and one under the airship to be flown.
+     */
     public static List<Turret> of(final Damage damage) {
         final List<Turret> turrets = new ArrayList<>();
         for (int piece = 0; piece < damage.size(); piece++) {
             final Course.Piece what = damage.piece(piece);
             if (what.kind() == Course.Kind.BUNKER) {
                 turrets.add(new Turret(piece, Course.BUNKER_GUN, what.place()));
-            } else if (what.kind() == Course.Kind.PLATFORM && Course.Deck.of(what.shape()).equals(Course.GUNSHIP)) {
-                turrets.add(new Turret(piece, Course.GUNSHIP_GUN, what.place()));
+            } else if (what.kind() == Course.Kind.PILLAR) {
+                turrets.add(new Turret(piece, Course.MOUNTED_GUN, onTop(what.block())));
             } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.CAR_CHASSIS) {
                 turrets.add(new Turret(piece, Course.CAR_GUN, what.place()));
             } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.PICKUP_CHASSIS) {
@@ -64,6 +69,16 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
             }
         }
         return turrets;
+    }
+
+    /**
+     * Where a gun is bolted to the top of solid {@code block}: in the middle of its top, facing out
+     * from the middle of the world, so that whoever comes to man it from there finds its seat.
+     */
+    static Place onTop(final Block block) {
+        final double out = block.x() == 0 && block.z() == 0 ? 0
+                : Math.toDegrees(Math.atan2(block.x(), block.z()));
+        return new Place(block.x(), block.z(), block.top(), out);
     }
 
     /** A turret a step on, what happened (its rounds, each {@link Event.Fired}), and the blows its rounds dealt. */
@@ -80,6 +95,23 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         return new Vec3(base.x(), -(base.height() + spot.up()), base.z())
                 .add(Num.right(base.yaw()).multiply(spot.across()))
                 .add(Num.heading(base.yaw()).multiply(spot.along()));
+    }
+
+    /**
+     * Where whoever mans it is, in the world: at its seat; and, where the seat turns with the gun
+     * ({@link Course.Mount#rides}), there as the gun has turned it, round where the gun turns.
+     */
+    public Vec3 seated() {
+        final Course.Section seat = mount.seat();
+        if (!mount.rides()) {
+            return at(seat);
+        }
+        final Course.Section hinge = mount.pivot();
+        final Vec3 under = new Vec3(base.x(), -(base.height() + seat.up()), base.z())
+                .add(Num.right(base.yaw()).multiply(hinge.across()))
+                .add(Num.heading(base.yaw()).multiply(hinge.along()));
+        return under.add(Num.right(heading()).multiply(seat.across() - hinge.across()))
+                .add(Num.heading(heading()).multiply(seat.along() - hinge.along()));
     }
 
     /** Where it turns about, in the world. */
@@ -124,7 +156,7 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
         }
         // at its station, or at the seat it is manned from, if that is elsewhere
         final Vec3 feet = body.position();
-        for (final Vec3 spot : List.of(at(mount.station()), at(mount.seat()))) {
+        for (final Vec3 spot : List.of(at(mount.station()), seated())) {
             if (Math.hypot(feet.x() - spot.x(), feet.z() - spot.z()) <= REACH && Math.abs(feet.y() - spot.y()) <= Body.STEP * 3) {
                 return true;
             }
@@ -175,15 +207,28 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
      */
     public Stepped step(final Controls controls, final double seconds, final Obstacles world, final boolean firer) {
         final boolean aimed = firer && !mount.fixed();
-        final double wantedYaw = aimed ? traversed(wantYaw + controls.turn()) : wantYaw;
-        final double wantedPitch = aimed ? Num.clamp(controls.aim(), -mount.depression(), mount.elevation())
+        final boolean keys = aimed && mount.keyed();
+        // aimed by the keys: A and D run its motor, turning it on from where it is, stopping when let
+        // go; W and S raise and lower where it is asked to point. Else the mouse says where.
+        final double wantedYaw = keys ? traversed(yaw + controls.sideways() * mount.slew() * seconds)
+                : aimed ? traversed(wantYaw + controls.turn()) : wantYaw;
+        final double wantedPitch = keys
+                ? Num.clamp(wantPitch + controls.forward() * RAISE * seconds, -mount.depression(), mount.elevation())
+                : aimed ? Num.clamp(controls.aim(), -mount.depression(), mount.elevation())
                 : mount.fixed() ? pitch : wantPitch;
         final double most = mount.slew() * seconds;
-        final double nowYaw = mount.fixed() ? 0 : traversed(yaw + Num.clamp(Num.wrap(wantedYaw - yaw), -most, most));
-        final double nowPitch = mount.fixed() ? pitch : pitch + Num.clamp(wantedPitch - pitch, -most, most);
+        // one that turns all round goes the shorter way; one with stops, only ever the way between them
+        final double toTurn = mount.traverse() >= 180 ? Num.wrap(wantedYaw - yaw) : wantedYaw - yaw;
+        final double nowYaw = mount.fixed() ? 0 : traversed(yaw + Num.clamp(toTurn, -most, most));
+        // raised and lowered by a motor, as fast as it turns; or by hand with hydraulics to help,
+        // easing smoothly to where it is asked to point
+        final double nowPitch = mount.fixed() ? pitch
+                : mount.ease() > 0 ? pitch + (wantedPitch - pitch) * (1 - Math.exp(-seconds / mount.ease()))
+                : pitch + Num.clamp(wantedPitch - pitch, -most, most);
         final Turret swung = new Turret(host, mount, base, nowYaw, nowPitch, wantedYaw, wantedPitch, gun, heat,
                 cooling, held);
-        final boolean trigger = firer && controls.trigger() && !cooling;
+        // aimed by the keys, Space fires it as well as the trigger, so the keys alone work it
+        final boolean trigger = firer && (controls.trigger() || keys && controls.lift() > 0) && !cooling;
         final Gun.Fired fired = mount.gun().fire(gun, trigger, seconds, left -> swung.bore(), world);
         final int rounds = fired.state().rounds() - gun.rounds();
         // a gun that does not overheat stays cold

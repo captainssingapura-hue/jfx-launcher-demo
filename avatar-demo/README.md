@@ -27,7 +27,7 @@ for the engines, and one for the Gatling guns.
   are cleared away; everything else is where it was.
   And everything since is in it too: down the street behind the start, the four vehicles parked
   two each side of it, the roadster and the van on its west side, the pickup and the truck on
-  its east; out west, the bunker with its heavy Gatling gun and the gunship standing ready by it;
+  its east; out west, the bunker with its heavy Gatling gun;
   and off to the east, behind the start, an airship moored low to be boarded and flown, bombs and all, beside
   the three that sail their routes overhead.
 - **Land vehicles: a bare chassis.** What a car or a truck is built on (`Course.Chassis`): a flat
@@ -135,13 +135,15 @@ for the engines, and one for the Gatling guns.
   long as it is held (a mount can be made to overheat, but neither gun does for now). Its rounds
   go out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
   again steps out of the door.
-- **A gunship.** A platform with a heavy Gatling gun on its console. Jump onto its deck and stand
-  at its console: T takes it, and its gun with it, as on the pickup. W and S fly it ahead and
-  back, A and D turn it, Space and Ctrl climb and descend; the mouse aims the gun, all round, 30°
-  down and 40° up, and the gun holds its aim on the world as the gunship turns under it
-  (stabilized). The view is the gunship's, behind it. G gives the gun up, and it flies as any
-  platform does (A and D sideways, the mouse turning it); G again takes it back. T again lets
-  go, and the gunship eases to a stop and hangs there.
+- **Mounted guns.** A heavy Gatling gun on a pedestal, a seat behind it, bolted to the top of
+  anything solid (`Course.MOUNTED_GUN`): to begin with, one on top of every pillar, facing out from
+  the middle of the world. Fly up and land behind one: T sits down at it. It is worked by the keys
+  alone (`Course.Mount#keyed`): A and D run an electric motor that turns it all round, without
+  stops, at a steady 60° a second, the seat turning with the gun and carrying the gunner round
+  with it; W and S raise and lower it, 30° down to 75° up, its hydraulics easing it smoothly to
+  where the keys have asked (`Course.Mount#ease`). Space, or a click, fires it. The view is from
+  behind and over it, tilting with it. T again gets up, standing on the pillar where the seat had
+  turned to.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -284,11 +286,11 @@ java -jar avatar-demo/target/avatar-demo.jar
 ```
 
 It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
-airships, the flyovers, the four vehicles, the bunker, the gunship and an airship to fly), or one built round a
+airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and an airship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-and a gunship, each with a heavy Gatling gun, and crates and dummies out in front; and the **track**, a NASCAR-style
+with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; and the **track**, a NASCAR-style
 oval to take every land vehicle round flat out (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
@@ -315,7 +317,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |
@@ -327,7 +329,7 @@ the window, so clicks stay free for actions.
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
 | Left click (held) | Fire, or swing; at a vehicle's controls, fire its gun (aboard the airship with its gun given up, drop a bomb) | Fire, or swing |
 | Right click (held) | Aboard the airship, drop a bomb (held, a stick of them) | |
-| G | At the controls of the pickup, the gunship or the airship: give up control of its gun, or take it back | |
+| G | At the controls of the pickup or the airship: give up control of its gun, or take it back | |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | V | At a vehicle's controls: first person, or back | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
@@ -514,8 +516,8 @@ It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`, `RAPID`) pi
 start with, `-Dgun.size=20` and `-Dgun.rate=3000` size and rate it, `-Dgun.style=realistic` the
 mix, `-Dgun.height=80` its height. In the game, the Robot
 profile makes the Gatling gun in hand or manned the same way, each with its own figures, fixed
-(the hand-held one, the heavy one on the pickup, the gunship and the bunker, the rapid giant on
-the airship), mixed as the Sound menu says
+(the hand-held one, the heavy one on the pickup, in the bunker and on the pillars, the rapid
+giant on the airship), mixed as the Sound menu says
 (`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
 chip's gun as ever.
 
