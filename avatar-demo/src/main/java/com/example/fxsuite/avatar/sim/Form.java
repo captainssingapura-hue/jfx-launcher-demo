@@ -19,7 +19,8 @@ import java.util.Set;
  *
  * <ul>
  *   <li><b>Vertices</b> are named, each name its own: the name is what anything else holds it by.</li>
- *   <li><b>Edges</b> join two vertices. A form need not be one piece: a window's outline stands
+ *   <li><b>Edges</b> join two vertices: straight, or curving as a {@link Curve} says (an arc, a bow, a
+ *       corner's sweep), its points worked out along it ({@link #points}). A form need not be one piece: a window's outline stands
  *       apart from the walls round it, until a face (to come) holds it as a hole.</li>
  *   <li><b>From these</b> come how big it is ({@link #bounds}), its edges' length all told, how
  *       many pieces it is in, and what is wrong with it ({@link #problems}): vertices so near they
@@ -46,8 +47,51 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         }
     }
 
-    /** A line from vertex {@code from} to vertex {@code to}. */
-    public record Edge(int from, int to) {
+    /** A line from vertex {@code from} to vertex {@code to}: straight, or as {@code curve} curves it ({@link Curve}). */
+    public record Edge(int from, int to, Curve curve) {
+
+        /** Straight. */
+        public Edge(final int from, final int to) {
+            this(from, to, null);
+        }
+
+        public boolean curved() {
+            return curve != null;
+        }
+    }
+
+    /** A curved edge is drawn, and measured, in this many straight pieces at least. */
+    public static final int PIECES = 12;
+
+    /** Where vertex {@code v} is. */
+    public Vec3 at(final int v) {
+        final Vertex p = vertices.get(v);
+        return new Vec3(p.across(), p.along(), p.up());
+    }
+
+    /**
+     * {@code edge}'s points, end to end: its two ends, if it runs straight; if it curves, so many along
+     * its curve that none of its straight pieces is longer than {@code longest} (and {@link #PIECES} at least).
+     */
+    public java.util.List<Vec3> points(final Edge edge, final double longest) {
+        final Vec3 a = at(edge.from());
+        final Vec3 b = at(edge.to());
+        if (!edge.curved()) {
+            return java.util.List.of(a, b);
+        }
+        double length = 0;
+        Vec3 last = a;
+        for (int k = 1; k <= 64; k++) {
+            final Vec3 p = edge.curve().at(a, b, k / 64.0);
+            length += p.distance(last);
+            last = p;
+        }
+        final int pieces = Math.max(PIECES, (int) Math.ceil(length / longest));
+        final java.util.List<Vec3> points = new ArrayList<>(pieces + 1);
+        for (int k = 0; k <= pieces; k++) {
+            points.add(k == 0 ? a : k == pieces ? b : edge.curve().at(a, b, (double) k / pieces));
+        }
+        return points;
     }
 
     /** The box it all fits in. */
@@ -89,8 +133,17 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         return -1;
     }
 
+    /** How long {@code edge} is: straight, end to end; curved, along its curve. */
     public double length(final Edge edge) {
-        return vertices.get(edge.from()).distance(vertices.get(edge.to()));
+        if (!edge.curved()) {
+            return vertices.get(edge.from()).distance(vertices.get(edge.to()));
+        }
+        final java.util.List<Vec3> points = points(edge, 5);
+        double length = 0;
+        for (int k = 1; k < points.size(); k++) {
+            length += points.get(k).distance(points.get(k - 1));
+        }
+        return length;
     }
 
     /** Its edges' length, all told. */
@@ -115,6 +168,18 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
             front = Math.max(front, v.along());
             low = Math.min(low, v.up());
             high = Math.max(high, v.up());
+        }
+        for (final Edge edge : edges) {
+            if (edge.curved()) {
+                for (final Vec3 p : points(edge, 50)) {
+                    left = Math.min(left, p.x());
+                    right = Math.max(right, p.x());
+                    back = Math.min(back, p.y());
+                    front = Math.max(front, p.y());
+                    low = Math.min(low, p.z());
+                    high = Math.max(high, p.z());
+                }
+            }
         }
         return new Bounds(left, right, back, front, low, high);
     }
@@ -208,9 +273,44 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         }
         for (final Edge e : edges) {
             text.append("edge ").append(Frame.quoted(vertices.get(e.from()).name())).append(' ')
-                    .append(Frame.quoted(vertices.get(e.to()).name())).append('\n');
+                    .append(Frame.quoted(vertices.get(e.to()).name()));
+            if (e.curved()) {
+                final Curve c = e.curve();
+                text.append(' ').append(c.kind().name().toLowerCase(java.util.Locale.ROOT)).append(numbers(c.control()))
+                        .append(' ').append(Frame.number(c.fullness()));
+                if (c.kind() == Curve.Kind.CORNER) {
+                    text.append(numbers(c.from())).append(numbers(c.to())).append(' ').append(c.t0()).append(' ')
+                            .append(c.t1());
+                }
+            }
+            text.append('\n');
         }
         return text.toString();
+    }
+
+    private static String numbers(final Vec3 p) {
+        return " " + Frame.number(p.x()) + " " + Frame.number(p.y()) + " " + Frame.number(p.z());
+    }
+
+    private static Vec3 vec(final List<String> words, final int at) {
+        return new Vec3(Double.parseDouble(words.get(at)), Double.parseDouble(words.get(at + 1)),
+                Double.parseDouble(words.get(at + 2)));
+    }
+
+    /** A curve from {@code words}, from {@code at} on (its kind, its figures); null if there are none. */
+    private static Curve curve(final List<String> words, final int at) {
+        if (words.size() <= at) {
+            return null;
+        }
+        final Curve.Kind kind = Curve.Kind.valueOf(words.get(at).toUpperCase(java.util.Locale.ROOT));
+        final Vec3 control = vec(words, at + 1);
+        final double fullness = Double.parseDouble(words.get(at + 4));
+        return switch (kind) {
+            case ARC -> Curve.arc(control);
+            case POWER -> Curve.bow(control, fullness);
+            case CORNER -> Curve.corner(control, fullness, vec(words, at + 5), vec(words, at + 8),
+                    Double.parseDouble(words.get(at + 11)), Double.parseDouble(words.get(at + 12)));
+        };
     }
 
     /** A form from its {@link #text}; lines it does not know (and blank ones, and # comments) are passed over. */
@@ -226,7 +326,7 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
                 case "form" -> name = words.get(1);
                 case "vertex" -> form.vertex(words.get(1), Double.parseDouble(words.get(2)),
                         Double.parseDouble(words.get(3)), Double.parseDouble(words.get(4)));
-                case "edge" -> form.edge(words.get(1), words.get(2));
+                case "edge" -> form.edge(form.at(words.get(1)), form.at(words.get(2)), curve(words, 3));
                 default -> {
                     // for whatever uses it
                 }
@@ -271,6 +371,18 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         public Builder edge(final int from, final int to) {
             edges.add(new Edge(from, to));
             return this;
+        }
+
+        /** An edge curving as {@code curve} says; straight, if it is null. */
+        public Builder edge(final int from, final int to, final Curve curve) {
+            edges.add(new Edge(from, to, curve));
+            return this;
+        }
+
+        /** Where vertex {@code v} is, as it is put together. */
+        public Vec3 position(final int v) {
+            final Vertex p = vertices.get(v);
+            return new Vec3(p.across(), p.along(), p.up());
         }
 
         public Builder edge(final String from, final String to) {

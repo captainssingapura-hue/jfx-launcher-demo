@@ -10,7 +10,8 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * A {@link Form}, drawn as its skeleton: each edge a thin square rod from vertex to vertex, all of
+ * A {@link Form}, drawn as its skeleton: each edge a thin square rod from vertex to vertex (a curved
+ * one in short pieces along its curve), all of
  * them that lean alike in one mesh (upright, level or sloped, each in a colour of its own, so a
  * building's columns, floors and roofs read apart at a glance); and, if asked, a small cube at each
  * vertex. A building of thousands of edges is so drawn as a handful of meshes, not thousands of
@@ -47,8 +48,20 @@ public final class FormModel {
             meshes.put(lean, new MeshBuilder());
         }
         for (final Form.Edge edge : form.edges()) {
-            meshes.get(lean(form, edge)).rod(point(form.vertices().get(edge.from())),
-                    point(form.vertices().get(edge.to())), thickness);
+            if (!edge.curved()) {
+                meshes.get(lean(form, edge)).rod(point(form.vertices().get(edge.from())),
+                        point(form.vertices().get(edge.to())), thickness);
+                continue;
+            }
+            // a curved edge, in short straight pieces along its curve, each as it leans
+            final java.util.List<com.example.fxsuite.avatar.sim.Vec3> along = form.points(edge, 60);
+            for (int k = 1; k < along.size(); k++) {
+                final com.example.fxsuite.avatar.sim.Vec3 a = along.get(k - 1);
+                final com.example.fxsuite.avatar.sim.Vec3 b = along.get(k);
+                final double rise = Math.abs(b.z() - a.z()) / Math.max(1e-9, a.distance(b));
+                final Lean lean = rise > 1 - SQUARE ? Lean.UPRIGHT : rise < SQUARE ? Lean.LEVEL : Lean.SLOPED;
+                meshes.get(lean).rod(new Point3D(a.x(), -a.z(), a.y()), new Point3D(b.x(), -b.z(), b.y()), thickness);
+            }
         }
         final Group drawn = new Group();
         for (final Lean lean : Lean.values()) {

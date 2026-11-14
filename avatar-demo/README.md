@@ -651,10 +651,7 @@ through, and one loaded until a pillar gives and it falls.
   - **Skyscraper**: a two-storey podium 48 m square; on it a tower 32 m square, 36 floors of 4 m,
     mullions every 4 m, set back to 24 m square for its top eight floors; a core 12 m square up its
     middle; a screen round its roof plant; and a spire on the core to 200 m.
-  - **Town church**: a nave 24 m by 10 m in six bays, a pointed window in each bay each side, under a
-    pitched roof; a rounded apse at its back under a half cone; at its front a tower 5 m square, a
-    pointed doorway in its foot, a pointed opening in each face of its belfry, and a spire, its cross
-    at 39 m.
+  - **Town church**: composed of parts (below).
 - Shown as its skeleton: every edge a thin rod, all of them in a few meshes (`FormModel`), so even
   the skyscraper's 2,800 edges draw at once: upright ones blue (columns, piers, mullions), level
   ones dark (floors, eaves, sills), sloped ones orange (roofs, arches, spires); its vertices too,
@@ -730,6 +727,22 @@ through, and one loaded until a pillar gives and it falls.
   along its own lines), a rectangle with one end round, a rectangle with a round bow out of its
   front. Where a curve stands clear of the grid, a ring of columns follows it, no more than 6 m apart,
   each tied in to the nearest column of the grid by a beam.
+- **Curved edges** (`Curve`): an edge of a form can curve between its vertices instead of running
+  straight: a circular arc (a pointed arch's halves, a half circle), a bow as full as asked (a
+  spire's flare), or part of a plan's shaped corner, so a curved plan's skeleton is smooth, not in
+  facade-wide pieces (`Plan.Layout.graph(true)`, `Tower.skeleton(true)`). Measured, bounded, kept as
+  text and drawn along its curve.
+- **Buildings composed of parts** (`Assembly`): each part made as it is easiest to make it (a plan
+  stacked, or a 3D graph drawn), placed (moved, turned about the upright), and put together into
+  one skeleton: parts' vertices falling on one another made one, a straight edge split where
+  another part's vertex falls on it; each part says where it means to join another, and a joint
+  meeting nothing is said. The **town church** (`Church`) is so composed: from plans, its nave (24 m
+  by 10 m, six bays, 9 m high), its apse (a half circle, its walls' curve a curved edge) and its
+  tower in four stages to 22 m; drawn in 3D, the nave's roof (a rafter each side at every bay, its
+  gables the end ones, the front one running through the tower's back corners), the apse's roof (ribs
+  up to an apex on the back gable), the spire (its edges flared, bowed in near its foot), the cross,
+  and the pointed arches of its windows, its belfry's openings and its doorway, each two circular
+  arcs. Its plan tab shows its stacked parts' plans.
 - **Towers stacked from plans** (`Tower`, `Towers`): a tower is sections, bottom to top, each one
   plan stacked so many floors so high (a podium, a shaft, a set-back top). Its skeleton is generated
   from them: at every floor level its plan's graph (columns, beams, the slab's edge), its columns up

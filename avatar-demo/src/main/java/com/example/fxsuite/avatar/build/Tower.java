@@ -77,6 +77,11 @@ public record Tower(String name, List<Section> sections) {
      * vertex named for its level, its section and its place in its plan.
      */
     public Form skeleton() {
+        return skeleton(false);
+    }
+
+    /** As {@link #skeleton()}; its plans' curves as curved edges, if {@code curved}, not in straight pieces. */
+    public Form skeleton(final boolean curved) {
         final Form.Builder form = new Form.Builder(name);
         final Map<String, Integer> at = new HashMap<>();
         final Set<Long> joined = new HashSet<>();
@@ -84,7 +89,7 @@ public record Tower(String name, List<Section> sections) {
         double base = 0;
         for (final Section section : sections) {
             final Plan.Layout layout = section.plan().layout();
-            final Form plan = layout.graph();
+            final Form plan = layout.graph(curved);
             final Set<String> columns = layout.allColumns().keySet();
             int[] below = null;
             for (int k = 0; k <= section.floors(); k++) {
@@ -99,12 +104,13 @@ public record Tower(String name, List<Section> sections) {
                             + p.name(), p.across(), p.along(), up));
                 }
                 for (final Form.Edge edge : plan.edges()) {
-                    join(form, joined, here[edge.from()], here[edge.to()]);
+                    join(form, joined, here[edge.from()], here[edge.to()],
+                            edge.curved() ? edge.curve().moved(new com.example.fxsuite.avatar.sim.Vec3(0, 0, up)) : null);
                 }
                 if (below != null) {
                     for (int v = 0; v < here.length; v++) {
                         if (columns.contains(plan.vertices().get(v).name())) {
-                            join(form, joined, below[v], here[v]);
+                            join(form, joined, below[v], here[v], null);
                         }
                     }
                 }
@@ -116,9 +122,10 @@ public record Tower(String name, List<Section> sections) {
         return form.build();
     }
 
-    private static void join(final Form.Builder form, final Set<Long> joined, final int a, final int b) {
+    private static void join(final Form.Builder form, final Set<Long> joined, final int a, final int b,
+                             final com.example.fxsuite.avatar.sim.Curve curve) {
         if (a != b && joined.add(((long) Math.min(a, b) << 32) | Math.max(a, b))) {
-            form.edge(a, b);
+            form.edge(a, b, curve);
         }
     }
 

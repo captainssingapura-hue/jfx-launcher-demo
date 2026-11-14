@@ -8,7 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The three typical buildings, as skeletons: each sound (nothing wrong with it), each standing on
+ * The typical buildings drawn whole, as skeletons (the town church is composed: {@code build.ChurchTest}):
+ * each sound (nothing wrong with it), each standing on
  * the ground about its middle, each as big as it should be; the frame of each one piece, but for
  * the outlines of its openings, standing apart until faces hold them.
  */
@@ -16,7 +17,6 @@ class BuildingsTest {
 
     private static final Form FLATS = Buildings.apartments();
     private static final Form TOWER = Buildings.skyscraper();
-    private static final Form CHURCH = Buildings.church();
 
     @Test
     void eachIsSoundAndStandsOnTheGroundAboutItsMiddle() {
@@ -58,25 +58,5 @@ class BuildingsTest {
                 && v.name().endsWith(", x0 z0")).count());
         assertEquals(-1600, TOWER.vertices().get(TOWER.vertex("tower, floor 27, x0 z0")).across(), 1e-9);
         assertEquals(-1200, TOWER.vertices().get(TOWER.vertex("tower, floor 28, x0 z0")).across(), 1e-9);
-    }
-
-    @Test
-    void theChurchIsANaveAnApseAndATowerItsCrossTheHighestPoint() {
-        final Form.Bounds box = CHURCH.bounds();
-        assertEquals(1000, box.width(), 1e-9, "the nave's width");
-        assertEquals(3900, box.height(), 1e-9);
-        final Form.Vertex cross = CHURCH.vertices().get(CHURCH.vertex("cross, head"));
-        assertEquals(box.high(), cross.up(), 1e-9, "the cross on top of all");
-        assertTrue(box.depth() > 2.5 * box.width(), "long: nave, apse and tower");
-        // the apse beyond the nave's back, the tower beyond its front
-        assertEquals(-1700, box.back(), 1e-9);
-        assertEquals(1700, box.front(), 1e-9);
-        // a pointed window in each of six bays each side, and an opening in each face of the belfry
-        assertEquals(12, named(CHURCH, "point") - 1 - 4, "all the points, less the door's and the belfry's");
-        assertEquals(1 + 12 + 4, CHURCH.pieces(), "the church, its twelve windows and four belfry openings");
-        // the pointed arches are equilateral: as high over their springing as 0.866 of their width
-        final Form.Vertex point = CHURCH.vertices().get(CHURCH.vertex("window, left, bay 0, point"));
-        final Form.Vertex spring = CHURCH.vertices().get(CHURCH.vertex("window, left, bay 0, spring left"));
-        assertEquals(120 * Math.sqrt(3) / 2, point.up() - spring.up(), 1e-9);
     }
 }

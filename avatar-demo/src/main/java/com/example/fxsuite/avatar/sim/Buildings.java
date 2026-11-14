@@ -14,26 +14,6 @@ public final class Buildings {
     private Buildings() {
     }
 
-    /** A point on a wall: {@code u} along the wall, {@code up} from the ground, as across, along and up. */
-    @FunctionalInterface
-    private interface Wall {
-        double[] at(double u, double up);
-    }
-
-    /** A wall square to across (a front or a back), at {@code along}: u is across. */
-    private static Wall facing(final double along) {
-        return (u, up) -> new double[] {u, along, up};
-    }
-
-    /** A wall square to along (a side), at {@code across}: u is along. */
-    private static Wall side(final double across) {
-        return (u, up) -> new double[] {across, u, up};
-    }
-
-    private static int vertex(final Form.Builder form, final String name, final double[] at) {
-        return form.vertex(name, at[0], at[1], at[2]);
-    }
-
     /**
      * A level of a rectangular grid, at {@code up}: a vertex at every crossing of {@code xs}
      * (across, left to right) and {@code zs} (along, back to front), named {@code name, x k z j};
@@ -99,41 +79,6 @@ public final class Buildings {
             }
         }
         return on;
-    }
-
-    /**
-     * A pointed arch on {@code wall}, {@code width} wide about {@code middle}: its jambs up from
-     * {@code sill} to {@code spring}, then two arcs, each struck from the other's springing, meeting
-     * at a point (an equilateral arch). Closed along its sill, as a window is; or, a doorway, open
-     * there, its feet the vertices {@code feet} already on the ground.
-     */
-    private static void arch(final Form.Builder form, final String name, final Wall wall, final double middle,
-                             final double width, final double sill, final double spring, final int[] feet) {
-        final double half = width / 2;
-        final List<Integer> points = new ArrayList<>();
-        points.add(feet != null ? feet[0] : vertex(form, name + ", foot left", wall.at(middle - half, sill)));
-        points.add(vertex(form, name + ", spring left", wall.at(middle - half, spring)));
-        final int steps = 3;
-        // the left arc, round its centre at the right springing, from the left springing to the point
-        for (int k = 1; k < steps; k++) {
-            final double a = Math.toRadians(180 - 60.0 * k / steps);
-            points.add(vertex(form, name + ", arc left " + k,
-                    wall.at(middle + half + width * Math.cos(a), spring + width * Math.sin(a))));
-        }
-        points.add(vertex(form, name + ", point", wall.at(middle, spring + width * Math.sin(Math.toRadians(60)))));
-        for (int k = 1; k < steps; k++) {
-            final double a = Math.toRadians(60 - 60.0 * k / steps);
-            points.add(vertex(form, name + ", arc right " + k,
-                    wall.at(middle - half + width * Math.cos(a), spring + width * Math.sin(a))));
-        }
-        points.add(vertex(form, name + ", spring right", wall.at(middle + half, spring)));
-        points.add(feet != null ? feet[1] : vertex(form, name + ", foot right", wall.at(middle + half, sill)));
-        final int[] line = points.stream().mapToInt(Integer::intValue).toArray();
-        if (feet != null) {
-            form.line(line);
-        } else {
-            form.loop(line);
-        }
     }
 
     /** 0, step, 2 step, ... from {@code from} to {@code to}, both included. */
@@ -274,151 +219,8 @@ public final class Buildings {
         return form.build();
     }
 
-    /**
-     * A town church: a nave 24 m long and 10 m wide, its walls 9 m high in six bays, a tall
-     * pointed window in each bay on each side, under a pitched roof to a ridge at 15 m, its rafters
-     * at every bay; a rounded apse at its east end (its back), lower, its roof a half cone against
-     * the nave's gable; and at its west end (its front) the tower, 5 m square, the pointed doorway
-     * in its foot, a pointed opening in each face of its belfry, and on it a pyramid spire, a cross
-     * on its tip at 39 m.
-     */
-    public static Form church() {
-        final Form.Builder form = new Form.Builder("town church");
-        final double half = 500;
-        final double front = 1200;
-        final double back = -1200;
-        final double eaves = 900;
-        final double ridge = 1500;
-        final double[] bays = steps(back, front, 400);
-        final double tower = 250;
-        final double apse = 750;
-        // the nave's walls: round its foot and its eaves, through each bay, and where the tower stands against it
-        final int[] ground = new int[2 * bays.length + 2];
-        final int[] top = new int[ground.length];
-        final double[][] round = new double[ground.length][];
-        int n = 0;
-        round[n++] = new double[] {-half, front};
-        round[n++] = new double[] {-tower, front};
-        round[n++] = new double[] {tower, front};
-        for (int k = bays.length - 1; k >= 0; k--) {
-            round[n++] = new double[] {half, bays[k]};
-        }
-        for (int k = 0; k < bays.length - 1; k++) {
-            round[n++] = new double[] {-half, bays[k]};
-        }
-        for (int k = 0; k < round.length; k++) {
-            final String at = "nave " + k;
-            ground[k] = form.vertex(at + ", foot", round[k][0], round[k][1], 0);
-            top[k] = form.vertex(at + ", eaves", round[k][0], round[k][1], eaves);
-        }
-        form.loop(ground);
-        form.loop(top);
-        // its walls' piers; those at its back corners in two, where the apse's eaves meet them
-        final int backRight = 2 + bays.length;
-        final int backLeft = backRight + 1;
-        final int apseRight = form.vertex("apse, eaves right", half, back, apse);
-        final int apseLeft = form.vertex("apse, eaves left", -half, back, apse);
-        for (int k = 0; k < round.length; k++) {
-            if (k == backRight) {
-                form.line(ground[k], apseRight, top[k]);
-            } else if (k == backLeft) {
-                form.line(ground[k], apseLeft, top[k]);
-            } else if (k != 1 && k != 2) {
-                form.edge(ground[k], top[k]);
-            }
-        }
-        // the roof: its ridge, and a rafter up to it from each side at every bay; the front gable's
-        // through where the tower's back corners rise past it
-        final int[] ridgeAt = new int[bays.length];
-        for (int k = 0; k < bays.length; k++) {
-            ridgeAt[k] = form.vertex("ridge " + k, 0, bays[k], ridge);
-        }
-        form.line(ridgeAt);
-        final double crossing = eaves + (ridge - eaves) * (half - tower) / half;
-        final int gableLeft = form.vertex("front gable, left, at the tower", -tower, front, crossing);
-        final int gableRight = form.vertex("front gable, right, at the tower", tower, front, crossing);
-        form.line(top[0], gableLeft, ridgeAt[bays.length - 1]);
-        form.line(top[3], gableRight, ridgeAt[bays.length - 1]);
-        for (int k = 0; k < bays.length - 1; k++) {
-            // right side: round[] runs from the front down the right; left side: from the back up the left
-            form.edge(top[3 + (bays.length - 1 - k)], ridgeAt[k]);
-            form.edge(top[3 + bays.length + k], ridgeAt[k]);
-        }
-        // a window in each bay, each side
-        for (int k = 0; k + 1 < bays.length; k++) {
-            final double middle = (bays[k] + bays[k + 1]) / 2;
-            arch(form, "window, right, bay " + k, side(half), middle, 120, 300, 640, null);
-            arch(form, "window, left, bay " + k, side(-half), middle, 120, 300, 640, null);
-        }
-        // the apse: a half ring round the back, its foot and its eaves, its roof a half cone up to the gable
-        final int[] apseFoot = new int[7];
-        final int[] apseTop = new int[7];
-        apseFoot[0] = ground[backRight];
-        apseTop[0] = apseRight;
-        apseFoot[6] = ground[backLeft];
-        apseTop[6] = apseLeft;
-        for (int k = 1; k < 6; k++) {
-            final double a = Math.toRadians(180.0 * k / 6);
-            final double x = half * Math.cos(a);
-            final double z = back - half * Math.sin(a);
-            apseFoot[k] = form.vertex("apse " + k + ", foot", x, z, 0);
-            apseTop[k] = form.vertex("apse " + k + ", eaves", x, z, apse);
-            form.edge(apseFoot[k], apseTop[k]);
-        }
-        form.line(apseFoot);
-        form.line(apseTop);
-        final int apex = form.vertex("apse, roof's apex", 0, back, 1250);
-        for (final int v : apseTop) {
-            form.edge(v, apex);
-        }
-        // the tower, against the nave's front: its back corners on the nave's front wall
-        final double far = front + 2 * tower;
-        final int doorLeft = form.vertex("tower, door, foot left", -90, far, 0);
-        final int doorRight = form.vertex("tower, door, foot right", 90, far, 0);
-        final int frontLeft = form.vertex("tower, front left, foot", -tower, far, 0);
-        final int frontRight = form.vertex("tower, front right, foot", tower, far, 0);
-        form.line(ground[1], frontLeft, doorLeft);
-        form.line(doorRight, frontRight, ground[2]);
-        arch(form, "tower, door", facing(far), 0, 180, 0, 230, new int[] {doorLeft, doorRight});
-        final double[] levels = {eaves, crossing, 1700, 2200};
-        int[] lower = {ground[1], frontLeft, frontRight, ground[2]};
-        for (int l = 0; l < levels.length; l++) {
-            final int[] ring = new int[4];
-            ring[0] = l == 0 ? top[1] : l == 1 ? gableLeft : form.vertex("tower " + l + ", back left", -tower, front, levels[l]);
-            ring[1] = form.vertex("tower " + l + ", front left", -tower, far, levels[l]);
-            ring[2] = form.vertex("tower " + l + ", front right", tower, far, levels[l]);
-            ring[3] = l == 0 ? top[2] : l == 1 ? gableRight : form.vertex("tower " + l + ", back right", tower, front, levels[l]);
-            if (l == 0) {
-                form.line(ring);  // its back, the nave's eaves between them, is there already
-            } else {
-                form.loop(ring);
-            }
-            for (int c = 0; c < 4; c++) {
-                form.edge(lower[c], ring[c]);
-            }
-            lower = ring;
-        }
-        // the belfry's openings, one in each face
-        final double middle = front + tower;
-        arch(form, "belfry, front", facing(far), 0, 160, 1760, 1990, null);
-        arch(form, "belfry, back", facing(front), 0, 160, 1760, 1990, null);
-        arch(form, "belfry, right", side(tower), middle, 160, 1760, 1990, null);
-        arch(form, "belfry, left", side(-tower), middle, 160, 1760, 1990, null);
-        // the spire, and the cross on its tip
-        final int tip = form.vertex("spire, tip", 0, middle, 3700);
-        for (final int corner : lower) {
-            form.edge(corner, tip);
-        }
-        final int crossing2 = form.vertex("cross, middle", 0, middle, 3830);
-        final int head = form.vertex("cross, head", 0, middle, 3900);
-        form.line(tip, crossing2, head);
-        form.line(form.vertex("cross, arm left", -45, middle, 3830), crossing2,
-                form.vertex("cross, arm right", 45, middle, 3830));
-        return form.build();
-    }
-
-    /** The three, by name. */
+    /** The two drawn whole here, by name (the town church is composed of parts: {@code build.Church}). */
     public static List<Form> all() {
-        return List.of(apartments(), skyscraper(), church());
+        return List.of(apartments(), skyscraper());
     }
 }

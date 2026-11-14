@@ -89,6 +89,8 @@ public record Plan(String name, List<Part> parts) {
         private final List<List<Pt>> shaped = new ArrayList<>();
         /** Each shaped loop's points, whether each lies on a curve (a corner shaped). */
         private final List<List<Boolean>> curved = new ArrayList<>();
+        /** Each shaped loop's points, the curve each comes in on and goes out on (null where it is straight). */
+        private final List<List<Bend[]>> bends = new ArrayList<>();
         private final Map<String, Pt> columns = new LinkedHashMap<>();
         /** The columns along its curves, by name: where its grid stands back from its outline. */
         private final Map<String, Pt> perimeter = new LinkedHashMap<>();
@@ -388,12 +390,13 @@ public record Plan(String name, List<Part> parts) {
                 }
                 final List<Pt> out = new ArrayList<>();
                 final List<Boolean> onCurve = new ArrayList<>();
+                final List<Bend[]> bent = new ArrayList<>();
                 for (int k = 0; k < n; k++) {
                     final Pt prev = loop.get((k + n - 1) % n);
                     final Pt at = loop.get(k);
                     final Pt next = loop.get((k + 1) % n);
                     if (corners[k].square()) {
-                        add(out, onCurve, at, false);
+                        add(out, onCurve, bent, at, false, null, null);
                         continue;
                     }
                     final double inLength = at.distance(prev);
@@ -403,29 +406,49 @@ public record Plan(String name, List<Part> parts) {
                     final double ox = (next.x() - at.x()) / outLength;
                     final double oy = (next.y() - at.y()) / outLength;
                     final int pieces = corners[k].pieces(back[k], on[k]);
+                    final Pt start = new Pt(at.x() - ix * back[k], at.y() - iy * back[k]);
+                    final Pt end = new Pt(at.x() + ox * on[k], at.y() + oy * on[k]);
                     for (int p = 0; p <= pieces; p++) {
-                        final double[] f = corners[k].at((double) p / pieces);
-                        add(out, onCurve, new Pt(at.x() - ix * back[k] * f[0] + ox * on[k] * f[1],
-                                at.y() - iy * back[k] * f[0] + oy * on[k] * f[1]), true);
+                        final double t = (double) p / pieces;
+                        final double[] f = corners[k].at(t);
+                        add(out, onCurve, bent, new Pt(at.x() - ix * back[k] * f[0] + ox * on[k] * f[1],
+                                at.y() - iy * back[k] * f[0] + oy * on[k] * f[1]), true,
+                                p > 0 ? new Bend(start, end, at, corners[k].squareness(), t) : null,
+                                p < pieces ? new Bend(start, end, at, corners[k].squareness(), t) : null);
                     }
                 }
                 shaped.add(out);
                 curved.add(onCurve);
+                bends.add(bent);
             }
         }
 
-        /** {@code p} onto the outline, unless it is the point just before it (or the first, ending it). */
-        private static void add(final List<Pt> out, final List<Boolean> onCurve, final Pt p, final boolean curve) {
-            if (!out.isEmpty() && out.getLast().distance(p) < TOLERANCE) {
-                onCurve.set(onCurve.size() - 1, onCurve.getLast() || curve);
+        /**
+         * {@code p} onto the outline, the curve it comes in on ({@code in}) and goes out on ({@code out})
+         * with it; unless it is the point just before it (or the first, ending it): then those are added
+         * to that one's.
+         */
+        private static void add(final List<Pt> points, final List<Boolean> onCurve, final List<Bend[]> bent, final Pt p,
+                                final boolean curve, final Bend in, final Bend out) {
+            final int at = !points.isEmpty() && points.getLast().distance(p) < TOLERANCE ? points.size() - 1
+                    : points.size() > 1 && points.getFirst().distance(p) < TOLERANCE ? 0 : -1;
+            if (at >= 0) {
+                onCurve.set(at, onCurve.get(at) || curve);
+                final Bend[] both = bent.get(at);
+                bent.set(at, new Bend[] {both[0] != null ? both[0] : in, both[1] != null ? both[1] : out});
                 return;
             }
-            if (out.size() > 1 && out.getFirst().distance(p) < TOLERANCE) {
-                onCurve.set(0, onCurve.getFirst() || curve);
-                return;
-            }
-            out.add(p);
+            points.add(p);
             onCurve.add(curve);
+            bent.add(new Bend[] {in, out});
+        }
+
+        /** Where a point of the outline is on a shaped corner's curve: from where to where, into which corner, how far along. */
+        record Bend(Pt from, Pt to, Pt corner, double squareness, double t) {
+
+            boolean same(final Bend other) {
+                return other != null && from.equals(other.from) && to.equals(other.to) && corner.equals(other.corner);
+            }
         }
 
         /** Its columns: where each grid added to it has its lines cross, within its outline as shaped (or on it). */
@@ -615,9 +638,19 @@ public record Plan(String name, List<Part> parts) {
         /**
          * As a graph, level ({@link Form}: across x, along y, up 0): its columns; a beam between each
          * two next to each other along a line, where it runs within it; its columns along its curves,
-         * each tied to its grid; and its outline, shaped, each point of it a column where one stands there.
+         * each tied to its grid; and its outline, shaped, each point of it a column where one stands there:
+         * in straight pieces, as a facade on it is.
          */
         public Form graph() {
+            return graph(false);
+        }
+
+        /**
+         * As {@link #graph()}; but if {@code curved}, its outline's curves as curved edges (a corner's
+         * {@code Curve}), from each column on a curve, or each end of one, to the next: no point on a
+         * curve but those.
+         */
+        public Form graph(final boolean curved) {
             final Form.Builder form = new Form.Builder(plan.name());
             final Map<String, Integer> at = new HashMap<>();
             columns.forEach((name, p) -> at.put(key(p), form.vertex(name, p.x(), p.y(), 0)));
@@ -629,16 +662,41 @@ public record Plan(String name, List<Part> parts) {
                 form.edge(at.get(key(tie[0])), at.get(key(tie[1])));
             }
             for (int l = 0; l < shaped.size(); l++) {
-                // its points, and the columns standing on it between them, in turn
+                // its points (but, if curved, those along a curve between its ends and its columns), the
+                // columns standing on it between them, in turn; and how each runs on to the next
                 final List<Pt> loop = new ArrayList<>();
+                final List<com.example.fxsuite.avatar.sim.Curve> runs = new ArrayList<>();
                 final List<Pt> corners = shaped.get(l);
+                final List<Bend[]> bent = bends.get(l);
+                final List<Integer> kept = new ArrayList<>();
                 for (int k = 0; k < corners.size(); k++) {
-                    final Pt a = corners.get(k);
-                    final Pt b = corners.get((k + 1) % corners.size());
+                    final Bend[] b = bent.get(k);
+                    final Pt p = corners.get(k);
+                    if (!curved || b[0] == null || b[1] == null || !b[0].same(b[1])
+                            || allColumns().values().stream().anyMatch(c -> c.distance(p) < TOLERANCE)) {
+                        kept.add(k);
+                    }
+                }
+                for (int m = 0; m < kept.size(); m++) {
+                    final int i = kept.get(m);
+                    final int j = kept.get((m + 1) % kept.size());
+                    final Pt a = corners.get(i);
+                    final Pt b = corners.get(j);
+                    final Bend out = bent.get(i)[1];
+                    final Bend in = bent.get(j)[0];
                     loop.add(a);
+                    if (curved && out != null && out.same(in)) {
+                        runs.add(com.example.fxsuite.avatar.sim.Curve.corner(flat(out.corner()), out.squareness(),
+                                flat(out.from()), flat(out.to()), out.t(), in.t()));
+                        continue;
+                    }
+                    runs.add(null);
                     columns.values().stream()
                             .filter(c -> c.distance(a) > TOLERANCE && c.distance(b) > TOLERANCE && toSegment(c, a, b) < TOLERANCE)
-                            .sorted((c, d) -> Double.compare(c.distance(a), d.distance(a))).forEach(loop::add);
+                            .sorted((c, d) -> Double.compare(c.distance(a), d.distance(a))).forEach(c -> {
+                                loop.add(c);
+                                runs.add(null);
+                            });
                 }
                 final int[] points = new int[loop.size()];
                 for (int k = 0; k < loop.size(); k++) {
@@ -649,19 +707,24 @@ public record Plan(String name, List<Part> parts) {
                     }
                     points[k] = at.get(key);
                 }
-                // its edges, but for those a beam already runs along
+                // its edges, straight or curved, but for straight ones a beam already runs along
                 final Form built = form.build();
                 for (int k = 0; k < points.length; k++) {
                     final int a = points[k];
                     final int b = points[(k + 1) % points.length];
-                    final boolean beam = built.edges().stream().anyMatch(e -> e.from() == a && e.to() == b
+                    final com.example.fxsuite.avatar.sim.Curve run = runs.get(k);
+                    final boolean beam = run == null && built.edges().stream().anyMatch(e -> e.from() == a && e.to() == b
                             || e.from() == b && e.to() == a);
                     if (!beam) {
-                        form.edge(a, b);
+                        form.edge(a, b, run);
                     }
                 }
             }
             return form.build();
+        }
+
+        private static com.example.fxsuite.avatar.sim.Vec3 flat(final Pt p) {
+            return new com.example.fxsuite.avatar.sim.Vec3(p.x(), p.y(), 0);
         }
 
         private static String key(final Pt p) {
