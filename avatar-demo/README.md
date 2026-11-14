@@ -743,6 +743,15 @@ through, and one loaded until a pillar gives and it falls.
   up to an apex on the back gable), the spire (its edges flared, bowed in near its foot), the cross,
   and the pointed arches of its windows, its belfry's openings and its doorway, each two circular
   arcs. Its plan tab shows its stacked parts' plans.
+- The **temple hall** (`Temple`), a Chinese temple's main hall as the Qing laid one out, composed the
+  same way: from plans, its platform (1.2 m, reaching 2.4 m beyond its columns) and its hall, five
+  bays across, widest in the middle (4.4, 5.6, 6.4, 5.6, 4.4 m), three deep, its columns 4.5 m; drawn
+  in 3D, a bracket set on every column round its edge and in the middle of every bay between, arms
+  stepping out and in three tiers, turned to the diagonal at the corners, their tips carrying the
+  eave purlin; on that a hip roof, its eaves swept (each side one bow between its corners, turned up
+  and out, cut where its rafters start: a bow can be cut into parts along its length), its rafters
+  and hips bowed down, steeper toward the ridge, ornaments curled up on the ridge's ends; and steps
+  down before the middle bay. Its plan tab shows its platform's and hall's plans.
 - **Towers stacked from plans** (`Tower`, `Towers`): a tower is sections, bottom to top, each one
   plan stacked so many floors so high (a podium, a shaft, a set-back top). Its skeleton is generated
   from them: at every floor level its plan's graph (columns, beams, the slab's edge), its columns up

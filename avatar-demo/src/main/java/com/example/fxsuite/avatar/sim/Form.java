@@ -278,7 +278,7 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
                 final Curve c = e.curve();
                 text.append(' ').append(c.kind().name().toLowerCase(java.util.Locale.ROOT)).append(numbers(c.control()))
                         .append(' ').append(Frame.number(c.fullness()));
-                if (c.kind() == Curve.Kind.CORNER) {
+                if (c.from() != null) {
                     text.append(numbers(c.from())).append(numbers(c.to())).append(' ').append(c.t0()).append(' ')
                             .append(c.t1());
                 }
@@ -307,7 +307,10 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         final double fullness = Double.parseDouble(words.get(at + 4));
         return switch (kind) {
             case ARC -> Curve.arc(control);
-            case POWER -> Curve.bow(control, fullness);
+            case POWER -> words.size() > at + 5
+                    ? Curve.bow(control, fullness, vec(words, at + 5), vec(words, at + 8),
+                            Double.parseDouble(words.get(at + 11)), Double.parseDouble(words.get(at + 12)))
+                    : Curve.bow(control, fullness);
             case CORNER -> Curve.corner(control, fullness, vec(words, at + 5), vec(words, at + 8),
                     Double.parseDouble(words.get(at + 11)), Double.parseDouble(words.get(at + 12)));
         };

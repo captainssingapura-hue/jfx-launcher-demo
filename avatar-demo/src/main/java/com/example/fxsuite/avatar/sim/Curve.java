@@ -10,7 +10,9 @@ package com.example.fxsuite.avatar.sim;
  *       pointed arch's two halves, a half circle.</li>
  *   <li>{@link Kind#POWER}: bowed, its middle {@code control} off the straight line, the bow as full
  *       as {@code fullness} says: 2 a parabola, more keeping it near the line until near its ends,
- *       so the bend comes there (a spire's flare at its foot, an eave turned up at its corners).</li>
+ *       so the bend comes there (a spire's flare at its foot, an eave turned up at its corners); or
+ *       part of one, from {@code t0} to {@code t1} of the way along the whole of it, from {@code from} to
+ *       {@code to}.</li>
  *   <li>{@link Kind#CORNER}: part of a quarter superellipse into the corner {@code control}, from
  *       {@code from} to {@code to}, its squareness {@code fullness}, the part from {@code t0} to
  *       {@code t1} of the way along it (a floor plan's shaped corner, {@code build.Corner}, between
@@ -47,6 +49,21 @@ public record Curve(Kind kind, Vec3 control, double fullness, Vec3 from, Vec3 to
         return new Curve(Kind.POWER, bow, fullness, null, null, 0, 1);
     }
 
+    /**
+     * Part of a bow from {@code from} to {@code to}, its middle {@code bow} off the straight line, as full
+     * as {@code fullness}: the part from {@code t0} to {@code t1} of the way along it, so a long bowed
+     * line (an eave between its upturned corners) can be cut at points along it into edges.
+     */
+    public static Curve bow(final Vec3 bow, final double fullness, final Vec3 from, final Vec3 to, final double t0,
+                            final double t1) {
+        return new Curve(Kind.POWER, bow, fullness, from, to, t0, t1);
+    }
+
+    /** Where the bow from {@code from} to {@code to}, its middle {@code bow} off the line, is {@code t} of the way along. */
+    public static Vec3 bowAt(final Vec3 bow, final double fullness, final Vec3 from, final Vec3 to, final double t) {
+        return from.add(to.subtract(from).multiply(t)).add(bow.multiply(1 - Math.pow(Math.abs(2 * t - 1), fullness)));
+    }
+
     /** Part of a quarter superellipse into {@code corner}, from {@code from} to {@code to}, between {@code t0} and {@code t1} of it. */
     public static Curve corner(final Vec3 corner, final double squareness, final Vec3 from, final Vec3 to,
                                final double t0, final double t1) {
@@ -59,7 +76,7 @@ public record Curve(Kind kind, Vec3 control, double fullness, Vec3 from, Vec3 to
      */
     public Vec3 at(final Vec3 a, final Vec3 b, final double s) {
         return switch (kind) {
-            case POWER -> a.add(b.subtract(a).multiply(s)).add(control.multiply(1 - Math.pow(Math.abs(2 * s - 1), fullness)));
+            case POWER -> from == null ? bowAt(control, fullness, a, b, s) : bowAt(control, fullness, from, to, t0 + s * (t1 - t0));
             case CORNER -> {
                 final double t = t0 + s * (t1 - t0);
                 final double angle = t * Math.PI / 2;
@@ -96,7 +113,11 @@ public record Curve(Kind kind, Vec3 control, double fullness, Vec3 from, Vec3 to
 
     /** The same, all its points moved by {@code by} (its directions as they are). */
     public Curve moved(final Vec3 by) {
-        return kind == Kind.CORNER ? new Curve(kind, control.add(by), fullness, from.add(by), to.add(by), t0, t1) : this;
+        if (kind == Kind.CORNER) {
+            return new Curve(kind, control.add(by), fullness, from.add(by), to.add(by), t0, t1);
+        }
+        // a part of a bow: its whole's ends moved (its bow a direction, as it is)
+        return from == null ? this : new Curve(kind, control, fullness, from.add(by), to.add(by), t0, t1);
     }
 
     /** The same, turned {@code degrees} about the upright through the origin, anticlockwise seen from above. */

@@ -98,8 +98,17 @@ public final class BuildingBench extends Application {
     /** The building composed, for those that are: dressed as its options say. */
     private static final Map<String, Building> COMPOSED = new java.util.HashMap<>(
             Map.of("brutalist apartments", Apartments.building()));
-    /** The church's name: composed of parts, its stacked parts' plans in its plan tab. */
-    private static final String CHURCH = "town church";
+    /** The buildings composed of parts, by name: their stacked parts' plans, in their plan tabs; how they were put together. */
+    private static final Map<String, Map<String, com.example.fxsuite.avatar.build.Plan>> PARTS_PLANS = Map.of(
+            "town church", com.example.fxsuite.avatar.build.Church.plans(),
+            "temple hall", com.example.fxsuite.avatar.build.Temple.plans());
+    private static final Map<String, com.example.fxsuite.avatar.build.Assembly.Result> ASSEMBLED =
+            new java.util.LinkedHashMap<>();
+
+    static {
+        ASSEMBLED.put("town church", com.example.fxsuite.avatar.build.Church.assembled());
+        ASSEMBLED.put("temple hall", com.example.fxsuite.avatar.build.Temple.assembled());
+    }
 
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
     private static final Map<String, com.example.fxsuite.avatar.build.Tower> TOWERS = new java.util.LinkedHashMap<>();
@@ -142,7 +151,7 @@ public final class BuildingBench extends Application {
 
         // the buildings drawn by hand; then the towers stacked from their plans; then one stacked from the plan tab's plan
         final List<Form> all = new java.util.ArrayList<>(Buildings.all());
-        all.add(com.example.fxsuite.avatar.build.Church.skeleton());
+        ASSEMBLED.values().forEach(r -> all.add(r.form()));
         TOWERS.values().forEach(t -> all.add(t.skeleton()));
         final Building fromPlan = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
         COMPOSED.put(PlanPanel.TOWER, fromPlan);
@@ -243,7 +252,7 @@ public final class BuildingBench extends Application {
         // its floor plan, flat: the tower's; empty, for the rest, until theirs are worked out
         planTab.setContent(PlanPanel.TOWER.equals(building.name()) ? towerPlan
                 : TOWERS.containsKey(building.name()) ? new TowerPlans(TOWERS.get(building.name()))
-                : CHURCH.equals(building.name()) ? new PartsPlans(com.example.fxsuite.avatar.build.Church.plans()) : new Pane());
+                : PARTS_PLANS.containsKey(building.name()) ? new PartsPlans(PARTS_PLANS.get(building.name())) : new Pane());
         choices();
         showDressed.setDisable(composed == null);
         showSkeleton.setDisable(composed == null);
@@ -426,8 +435,8 @@ public final class BuildingBench extends Application {
         }
         final com.example.fxsuite.avatar.build.Tower tower = PlanPanel.TOWER.equals(building.name()) ? towerPlan.tower()
                 : TOWERS.get(building.name());
-        if (CHURCH.equals(building.name())) {
-            final List<String> joints = com.example.fxsuite.avatar.build.Church.assembled().problems();
+        if (ASSEMBLED.containsKey(building.name())) {
+            final List<String> joints = ASSEMBLED.get(building.name()).problems();
             figures.setText(out + (joints.isEmpty() ? "\nits parts all meet where they mean to"
                     : joints.stream().map(p -> "\n! " + p).reduce("", String::concat)));
             return;
