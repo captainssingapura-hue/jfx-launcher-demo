@@ -25,7 +25,10 @@ public enum Demo {
     GUNS("Guns", "A bunker and a gunship, each with a heavy Gatling gun, to turn on crates and dummies.", 0),
     /** A race track: a NASCAR-style oval, banked in its turns, and every land vehicle on pit road to take round it. */
     TRACK("Track", "A NASCAR-style oval, a mile round, banked 24° in its turns; the cars, the truck and the bikes on"
-            + " pit road, to take round it flat out.", 105);
+            + " pit road, to take round it flat out.", 105),
+    /** The buildings, put up along streets; and the boxer motorcycle to ride between them. */
+    TOWN("Town", "The buildings: the brutalist apartments, the towers, the church and the temple hall, along streets;"
+            + " and the boxer motorcycle to ride between them.", 0);
 
     private final String title;
     private final String description;

@@ -329,13 +329,14 @@ airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and 
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; and the **track**, a NASCAR-style
-oval to take every land vehicle round flat out (`Demo`).
+with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
+oval to take every land vehicle round flat out; and the **town**, every building put up along streets, nothing else
+but the boxer motorcycle to ride between them (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
@@ -752,6 +753,15 @@ through, and one loaded until a pillar gives and it falls.
   and out, cut where its rafters start: a bow can be cut into parts along its length), its rafters
   and hips bowed down, steeper toward the ridge, ornaments curled up on the ridge's ends; and steps
   down before the middle bay. Its plan tab shows its platform's and hall's plans.
+- **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
+  three 120 m apart ahead of the start, each facing back down the street to it: the church, the
+  temple hall, the brutalist apartments, and the six towers, each dressed its own way. Each is one
+  piece in the world (`Course.Kind.BUILDING`): its solid blocks a box round each of its parts as its
+  solids name them (the nave, the tower, the spire; a tower's podium and shaft; the roof, the
+  columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
+  ten bunkers. Nothing else stands there but the boxer motorcycle by the start. The simulation knows
+  nothing of how a building is designed: the game tells it what stands in the town
+  (`Course.town`).
 - **Faces of any shape** (`Sheet`): a flat face with holes (a wall and its arched windows, a doorway
   cut into its foot), cut into triangles by clipping ears, each hole first slit to the outline; or a
   curved one filled in from the curves round its edge (a Coons patch: four, a roof's slope between

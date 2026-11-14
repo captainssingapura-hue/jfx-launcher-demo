@@ -36,6 +36,8 @@ public final class Damage {
     public static final double PLATFORM = 600;
     /** How tough a bunker is: concrete, most of a minute of the hand-held Gatling gun. */
     public static final double BUNKER = 2500;
+    /** A building, broken as a whole: ten bunkers' worth. */
+    public static final double BUILDING = 25_000;
     /** How tough a land vehicle is, bare as it is. */
     public static final double CAR = 800;
     public static final double CRATE = 80;
@@ -73,6 +75,7 @@ public final class Damage {
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
             case BUNKER -> BUNKER;
+            case BUILDING -> BUILDING;
             // a land vehicle's body makes it the tougher by its armour
             case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
             case PLATFORM -> PLATFORM;

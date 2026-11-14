@@ -28,7 +28,9 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
+        /** A building: one piece, its solid blocks its parts' boxes, broken as a whole. */
+        BUILDING(true);
 
         private final boolean breakable;
 
@@ -1022,7 +1024,22 @@ public final class Course {
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
             case TRACK -> trackDemo();
+            case TOWN -> pieces.addAll(town.get());
         }
+    }
+
+    /**
+     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), and a
+     * motorcycle to ride between them. The buildings are put together outside the simulation, as it
+     * knows nothing of how a building is designed: whoever does says what stands there
+     * ({@link #town}); until then, the motorcycle alone.
+     */
+    private static java.util.function.Supplier<List<Piece>> town = () -> List.of(
+            Piece.vehicle(BOXER, null, new Place(300, 600, BOXER.ride(), 0), 0));
+
+    /** Says what stands in the town: its buildings, and the motorcycle. */
+    public static void town(final java.util.function.Supplier<List<Piece>> what) {
+        town = what;
     }
 
     /**

@@ -114,6 +114,11 @@ import java.util.Set;
  */
 public final class Game {
 
+    // the town's buildings are designed outside the simulation: it is told what stands there
+    static {
+        com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
+    }
+
     private static final double FIELD_OF_VIEW = 48;
     private static final double BOOST_VIEW = 14;
     /** How fast Q and E circle the camera round the avatar, degrees per second. */
