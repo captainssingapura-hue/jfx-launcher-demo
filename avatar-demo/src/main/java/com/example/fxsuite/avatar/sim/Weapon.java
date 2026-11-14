@@ -30,6 +30,11 @@ public enum Weapon {
      */
     GIANT_GATLING("Giant Gatling gun", 100),
     /**
+     * A rapid giant Gatling gun: the giant one's shells, from seven barrels spun by a great
+     * hydraulic drive, more than three times as fast. What the airship to be flown carries.
+     */
+    RAPID_GATLING("Rapid giant Gatling gun", 100),
+    /**
      * An airship's bomb, going off: every piece that can break within {@link Sky#BLAST} of it
      * takes this. A drone or a small crate goes at once; a dummy takes two.
      */

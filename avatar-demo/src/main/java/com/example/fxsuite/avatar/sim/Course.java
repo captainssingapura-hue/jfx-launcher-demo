@@ -731,13 +731,13 @@ public final class Course {
             PICKUP_CHASSIS.door(), PICKUP_CHASSIS.station(), false);
 
     /**
-     * The airship's gun: a giant Gatling gun in a turret slung under the back of its gondola, aft of
+     * The airship's gun: a rapid giant Gatling gun in a turret slung under the back of its gondola, aft of
      * the bomb bay so the bombs fall clear of it; all round, 80° down and 10° up, turning 70° a
      * second at most, and holding its aim on the world as the airship turns. Whoever goes aboard at
      * the hatch takes it and the airship as one, as the pickup's driver does: the keys fly it, A and D
      * turning it, the mouse aims the gun, a click fires it, and the other button lets the bombs go.
      */
-    public static final Mount AIRSHIP_GUN = new Mount(Gun.GIANT_GATLING,
+    public static final Mount AIRSHIP_GUN = new Mount(Gun.RAPID_GATLING,
             new Section(0, GONDOLA.along() - GONDOLA.halfAlong() + 70, GONDOLA.up() - GONDOLA.halfUp() - 45, 0, 0, 0),
             360, 180, 80, 10, 70, true, true, SHIP.station(), SHIP.cabin(), false);
 

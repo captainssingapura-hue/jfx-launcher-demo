@@ -235,7 +235,7 @@ public final class Game {
             + " · click fire: held, it spins up, then fires · G give up the gun\n" + VIEW_KEYS;
     private static final String ARMED_AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · Space climb ·"
             + " Ctrl descend · Shift slower · T step out (through the hatch) · G give up the gun\n"
-            + "The mouse aims the giant gun under the gondola, all round, 80° down and 10° up; it holds its aim as the"
+            + "The mouse aims the rapid giant gun under the gondola, all round, 80° down and 10° up; it holds its aim as the"
             + " airship turns · click fire: held, it spins up, then fires · right-click drop a bomb, hold for a stick"
             + "\n" + VIEW_KEYS;
     /** At the controls of a vehicle whose gun is not under control: how to take it back. */
@@ -651,7 +651,8 @@ public final class Game {
         hearing.hear(avatar, forSound.read().events(), chase, droning.stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
                 firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(),
-                        gun.mount().gun() == Gun.GIANT_GATLING ? GIANT_PITCH : GUN_PITCH, gun.mount().gun().by()))
+                        gun.mount().gun().by() == Weapon.GIANT_GATLING || gun.mount().gun().by() == Weapon.RAPID_GATLING
+                                ? GIANT_PITCH : GUN_PITCH, gun.mount().gun().by()))
                         .orElse(null),
                 flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
         // and its instruments, while one is driven
@@ -705,7 +706,7 @@ public final class Game {
                     Math.abs(speed), speed < -0.05 ? " in reverse" : "", ship.steer(), barrels, heat, left);
         }
         if (ship != null && ship.craft().closed()) {
-            return String.format("Flying the airship · %.1f m/s · %.1f m up%s · giant gun %s%s · hull %.0f%% · %s",
+            return String.format("Flying the airship · %.1f m/s · %.1f m up%s · rapid giant gun %s%s · hull %.0f%% · %s",
                     ship.speed() / 100, ship.place().height() / 100, ship.moored() ? ", moored" : "", barrels, heat,
                     left, bay(ship));
         }

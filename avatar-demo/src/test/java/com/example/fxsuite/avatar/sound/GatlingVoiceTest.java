@@ -1,8 +1,11 @@
 package com.example.fxsuite.avatar.sound;
 
+import com.example.fxsuite.avatar.sim.Gun;
 import com.example.fxsuite.avatar.sim.Weapon;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -207,6 +210,15 @@ class GatlingVoiceTest {
         assertEquals(Gatling.HAND, Gatling.of(Weapon.GATLING));
         assertEquals(Gatling.HEAVY, Gatling.of(Weapon.HEAVY_GATLING));
         assertEquals(Gatling.GIANT, Gatling.of(Weapon.GIANT_GATLING));
+        assertEquals(Gatling.RAPID, Gatling.of(Weapon.RAPID_GATLING), "the airship's");
+        // in the game, each sounds with its own figures, fixed: those of the gun it is
+        for (final Gun gun : List.of(Gun.GATLING, Gun.HEAVY_GATLING, Gun.GIANT_GATLING, Gun.RAPID_GATLING)) {
+            final Gatling heard = Gatling.of(gun.by());
+            assertEquals(60 / gun.interval(), heard.rate(), 1e-9, gun.by().title());
+            assertEquals(gun.spinUp(), heard.spinUp(), 1e-12);
+            assertEquals(gun.spinDown(), heard.spinDown(), 1e-12);
+        }
+        assertEquals(7, Gatling.RAPID.barrels());
         assertEquals(Gatling.GIANT, Gatling.called("giant", Gatling.HAND));
         assertEquals(GunStyle.REALISTIC, GunStyle.named("real"));
         assertEquals(GunStyle.CINEMATIC, GunStyle.named(null));

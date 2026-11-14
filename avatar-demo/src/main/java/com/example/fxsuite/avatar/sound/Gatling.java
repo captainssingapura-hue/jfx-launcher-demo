@@ -59,13 +59,13 @@ public record Gatling(String key, String name, String about, double rate, double
                     + " the hydraulic drive hissing and moaning.",
             6, 30, 55, 17, true);
     /**
-     * A giant that fires very fast: seven barrels of cannon shells, 3900 a minute, spun up in half a
-     * second by a great hydraulic drive, as the biggest aircraft cannon are.
+     * A giant that fires very fast, under the airship: seven barrels of cannon shells, 3900 a minute,
+     * spun up in half a second by a great hydraulic drive, as the biggest aircraft cannon are.
      */
-    public static final Gatling RAPID = new Gatling("RAPID", "Rapid giant Gatling gun",
+    public static final Gatling RAPID = of(Gun.RAPID_GATLING, "RAPID", "Rapid giant Gatling gun",
             "Cannon shells, sixty-five a second: too fast to count, the shots fused into one tearing,"
                     + " ripping note, the hydraulic drive screaming under it.",
-            3900, 0.55, 1.6, 7, 30, 95, 19, true);
+            7, 30, 95, 19, true);
 
     public static final List<Gatling> ALL = List.of(HAND, HEAVY, GIANT, RAPID);
 
@@ -82,6 +82,7 @@ public record Gatling(String key, String name, String about, double rate, double
         return switch (weapon) {
             case HEAVY_GATLING -> HEAVY;
             case GIANT_GATLING -> GIANT;
+            case RAPID_GATLING -> RAPID;
             default -> HAND;
         };
     }

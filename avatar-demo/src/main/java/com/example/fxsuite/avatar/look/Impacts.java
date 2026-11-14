@@ -95,7 +95,7 @@ public final class Impacts {
                 // second would be one solid beam; the heavy one's, every other
                 final int every = switch (fired.by()) {
                     case GATLING -> 3;
-                    case HEAVY_GATLING, GIANT_GATLING -> 2;
+                    case HEAVY_GATLING, GIANT_GATLING, RAPID_GATLING -> 2;
                     default -> 1;
                 };
                 if (every == 1 || ++gatlingRounds % every == 0) {

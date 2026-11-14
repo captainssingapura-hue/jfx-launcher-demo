@@ -218,8 +218,9 @@ for the engines, and one for the Gatling guns.
   its controls, the camera is the vehicle's: it follows the vehicle from as far back as it is
   big. A platform is open: the robot rides it in plain sight. An airship is closed: walk in
   under its gondola, take it (T) at the hatch in its floor, and the robot is inside and out of
-  sight, at its controls and those of the giant Gatling gun in a ball turret hung under the gondola's back end (half
-  as big again as the heavy one, its rounds two and a half times as heavy, 1,200 a minute). W and
+  sight, at its controls and those of the rapid giant Gatling gun in a ball turret hung under the
+  gondola's back end: 30 mm shells, two and a half times as heavy as the heavy gun's, from seven
+  barrels, 3,900 a minute, spun up in little more than half a second. W and
   S fly it ahead and back, A and D turn it (slowly, as an airship turns), Space climbs and Ctrl
   descends, never below its moorings; it has no sideways and its engines are never cut. The
   mouse aims the gun, all round, 80° down and 10° up, and the gun holds its aim on the world as
@@ -490,8 +491,8 @@ clicks over dry. The empty cases ring as they land, as long after as they take t
 ground sends the blast back, as late as it is far below: about 0.6 s from the airship a hundred
 metres up.
 
-- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, the giant one under the
-  airship, or a rapid giant: seven barrels of cannon shells, 3,900 a minute, spun up in half a
+- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, the giant one, or the
+  rapid giant under the airship: seven barrels of cannon shells, 3,900 a minute, spun up in half a
   second, so fast the shots fuse into one tearing note. Each is a set of figures (its rate and
   spin-up, its barrels, its rounds' calibre, its motor and gearing), so another gun is another
   set of figures.
@@ -512,7 +513,9 @@ metres up.
 It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`, `RAPID`) picks the gun to
 start with, `-Dgun.size=20` and `-Dgun.rate=3000` size and rate it, `-Dgun.style=realistic` the
 mix, `-Dgun.height=80` its height. In the game, the Robot
-profile makes the Gatling gun in hand or manned the same way, mixed as the Sound menu says
+profile makes the Gatling gun in hand or manned the same way, each with its own figures, fixed
+(the hand-held one, the heavy one on the pickup, the gunship and the bunker, the rapid giant on
+the airship), mixed as the Sound menu says
 (`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
 chip's gun as ever.
 

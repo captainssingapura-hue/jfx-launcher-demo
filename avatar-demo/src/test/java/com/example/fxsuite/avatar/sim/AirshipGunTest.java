@@ -58,13 +58,14 @@ class AirshipGunTest {
         final Play start = Play.start(Demo.AIRSHIP, false);
         final Turret gun = gun(start);
         assertEquals(ship(start).piece(), gun.host());
-        assertEquals(Gun.GIANT_GATLING, gun.mount().gun());
+        assertEquals(Gun.RAPID_GATLING, gun.mount().gun());
         assertTrue(gun.mount().closed(), "manned from inside");
         assertTrue(gun.mount().stabilized(), "holding its aim as the airship turns");
         assertTrue(Course.AIRSHIP_GUN.pivot().up() < Course.GONDOLA.up() - Course.GONDOLA.halfUp(),
                 "hung under the gondola");
         assertTrue(Course.AIRSHIP_GUN.barrel() > Course.GUNSHIP_GUN.barrel(), "bigger than the heavy one");
-        assertTrue(Weapon.GIANT_GATLING.blow() > Weapon.HEAVY_GATLING.blow(), "and its rounds heavier");
+        assertTrue(Weapon.RAPID_GATLING.blow() > Weapon.HEAVY_GATLING.blow(), "and its rounds heavier");
+        assertTrue(Gun.RAPID_GATLING.interval() < Gun.GIANT_GATLING.interval() / 3, "and more than three times as fast as the giant");
         // those going round on their routes carry none
         final Play playground = Play.start(Demo.PLAYGROUND, false);
         assertEquals(1, playground.turrets().stream().filter(t -> t.mount() == Course.AIRSHIP_GUN).count());
@@ -117,13 +118,13 @@ class AirshipGunTest {
         Play play = aloft(3, events);
         events.clear();
         play = run(play, FIRE, 3, events);
-        final long rounds = events.stream().filter(e -> e instanceof Event.Fired f && f.by() == Weapon.GIANT_GATLING)
+        final long rounds = events.stream().filter(e -> e instanceof Event.Fired f && f.by() == Weapon.RAPID_GATLING)
                 .count();
         // spun up first, then a round each interval
-        assertEquals((3 - Gun.GIANT_GATLING.spinUp()) / Gun.GIANT_GATLING.interval(), rounds, 2);
+        assertEquals((3 - Gun.RAPID_GATLING.spinUp()) / Gun.RAPID_GATLING.interval(), rounds, 2);
         assertTrue(events.stream().noneMatch(e -> e instanceof Event.Dropped), "the trigger is the gun's");
         // the gun spun down, the other button drops a stick of bombs, and fires nothing
-        play = run(play, Controls.NONE, Gun.GIANT_GATLING.spinDown() + 0.5, events);
+        play = run(play, Controls.NONE, Gun.RAPID_GATLING.spinDown() + 0.5, events);
         events.clear();
         final int bombs = ship(play).bombs();
         play = run(play, BOMB, 1, events);

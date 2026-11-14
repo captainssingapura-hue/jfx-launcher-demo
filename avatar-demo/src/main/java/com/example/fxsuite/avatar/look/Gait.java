@@ -62,7 +62,7 @@ public final class Gait {
         final Pose pose = of(avatar.body(), lookYaw, lookUp);
         final Arms arms = avatar.arms();
         return switch (arms.held()) {
-            case NONE, BOMB, FALL, CRASH, HEAVY_GATLING, GIANT_GATLING -> pose;
+            case NONE, BOMB, FALL, CRASH, HEAVY_GATLING, GIANT_GATLING, RAPID_GATLING -> pose;
             case RIFLES -> {
                 // the body leans forward by a negative turn, the arms by positive ones: so to
                 // hold a forearm level, the upper arm and elbow together turn as far as the lean.

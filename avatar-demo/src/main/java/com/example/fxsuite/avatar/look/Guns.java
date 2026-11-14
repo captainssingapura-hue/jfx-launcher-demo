@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Gun;
 import com.example.fxsuite.avatar.sim.Turret;
 import com.example.fxsuite.avatar.sim.Vec3;
 
@@ -74,8 +75,10 @@ public final class Guns {
             final Box grips = box(46, 8, 8, 0, 22, -62, steel);
             final Group barrels = new Group();
             barrels.getTransforms().add(gun.spin);
-            for (int i = 0; i < 6; i++) {
-                final double angle = Math.toRadians(60 * i);
+            // seven barrels for the rapid giant, six for the rest
+            final int tubes = turret.mount().gun() == Gun.RAPID_GATLING ? 7 : 6;
+            for (int i = 0; i < tubes; i++) {
+                final double angle = 2 * Math.PI * i / tubes;
                 final Cylinder tube = new Cylinder(BORE, barrel - 30);
                 tube.setMaterial(metal);
                 tube.getTransforms().addAll(new Rotate(90, Rotate.X_AXIS));
