@@ -905,11 +905,14 @@ public final class Course {
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
     public static final Deck BARGE = new Deck(1000, 600);
+    /** A middling one, a meeting room in the air: room for a team stood round, their board, and whoever flies it. */
+    public static final Deck MEETING = new Deck(640, 520);
     /** Where a platform stands at the start, in open air: heading from the start, and how far; and its deck. */
     private record Berth(double heading, double out, Deck deck) {
     }
 
-    private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE));
+    private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE),
+            new Berth(-100, 2000, MEETING));
     /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
     public static final double LIFT_LOW = 60;
     public static final double LIFT_HIGH = 4500;
@@ -936,13 +939,37 @@ public final class Course {
     }
 
     /**
-     * The people at the fruit stall on the barge: the stallholder on a stool behind the table,
-     * facing the start; a customer before it; and another sat on a scooter parked to one side.
+     * The scrum board on the meeting platform, in its frame: at the back, facing ahead, across the
+     * deck's middle.
      */
-    public static final List<Cast> CAST = List.of(
-            new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, Furniture.STOOL),
-            new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, null),
-            new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, Furniture.SCOOTER));
+    public static final double BOARD_ALONG = -MEETING.depth() / 2 + 40;
+    /** The stand-up on the meeting platform: stood in a ring this big, round this far along the deck. */
+    private static final double RING = 120;
+    private static final double RING_ALONG = -35;
+    /** Where round the ring the developers stand, from ahead; the scrum master at its back, before the board. */
+    private static final double[] DEVELOPERS = {-112, -56, 0, 56, 112};
+    /** Everyone put in the world at the start ({@link #cast}). */
+    public static final List<Cast> CAST = cast();
+
+    /**
+     * The people at the fruit stall on the barge: the stallholder on a stool behind the table,
+     * facing the start; a customer before it; and another sat on a scooter parked to one side. And
+     * on the meeting platform, a stand-up: five developers in a ring, each facing its middle, and
+     * the scrum master at its back, before the board.
+     */
+    private static List<Cast> cast() {
+        final List<Cast> all = new ArrayList<>(List.of(
+                new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, Furniture.STOOL),
+                new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, null),
+                new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, Furniture.SCOOTER),
+                new Cast(Person.Role.SCRUM_MASTER, MEETING, 0, RING_ALONG - RING, 0, null)));
+        for (final double round : DEVELOPERS) {
+            final Vec3 spot = Num.heading(round).multiply(RING);
+            all.add(new Cast(Person.Role.DEVELOPER, MEETING, spot.x(), RING_ALONG + spot.z(), Num.wrap(round + 180), null));
+        }
+        return List.copyOf(all);
+    }
+
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
@@ -1000,11 +1027,15 @@ public final class Course {
 
     /**
      * The flying platform's demo: open ground, a ring of pillars to fly between, a few gates high
-     * up, and the small platform standing just ahead of the start.
+     * up, the small platform standing just ahead of the start, and the meeting platform, its stand-up
+     * under way, off to the left.
      */
     private void platformDemo() {
         scenery(11);
         pieces.add(Piece.moving(CARPET.shape(), new Place(0, 500, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        // and off to the left, the meeting platform, its stand-up under way
+        pieces.add(Piece.moving(MEETING.shape(), new Place(-750, 700, LIFT_LOW, 0), Kind.PLATFORM, 1, null));
+        meeting(pieces.size() - 1);
     }
 
     /**
@@ -1376,6 +1407,9 @@ public final class Course {
             if (pieces.get(i).kind() == Kind.PLATFORM && Deck.of(pieces.get(i).shape()).equals(BARGE)) {
                 stall(i);
             }
+            if (pieces.get(i).kind() == Kind.PLATFORM && Deck.of(pieces.get(i).shape()).equals(MEETING)) {
+                meeting(i);
+            }
         }
 
         // and the roads, last, so that nothing else is numbered differently for them
@@ -1418,6 +1452,11 @@ public final class Course {
                         new Place(seat.x(), seat.z(), seat.height(), Num.wrap(deck.yaw() + cast.facing())), 0));
             }
         }
+    }
+
+    /** The stand-up's scrum board, on platform {@code meeting}, at its back, facing ahead: loose, going where it goes. */
+    private void meeting(final int meeting) {
+        pieces.add(Piece.loose(Furniture.BOARD, Kind.FURNITURE, on(pieces.get(meeting).place(), 0, BOARD_ALONG, 0), 0));
     }
 
     /** A place {@code across}, {@code along} and {@code up} in the frame of {@code at}, heading as it heads. */

@@ -603,12 +603,11 @@ public final class Game {
         final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt) : null;
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
         final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
-        // inside a closed vehicle the avatar is out of sight: no figure, no shadow, no sights; looking
+        // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
         rig.node().setVisible(!inside && cockpit == null);
         rig.effects().setVisible(!inside && cockpit == null);
         reticle.node().setVisible(!inside);
-        world.shadowShown(!inside);
         // at the wheel of a land vehicle, sat in its seat, facing the way it heads, as it is drawn now
         final Pose looking = Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH);
         final Lift driven = flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null);
@@ -652,7 +651,6 @@ public final class Game {
             }
         }
         guns.show(turrets, damage, seconds, lag);
-        world.shadowUnder(body, standing);
         // the airships still in the sky drone from the middle of their hulls
         // and so does one to be flown, while it stands
         final List<Course.Piece> droning = new ArrayList<>(now.airships());

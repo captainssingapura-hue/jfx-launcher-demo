@@ -9,7 +9,6 @@ import com.example.fxsuite.avatar.sim.Frames;
 import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
-import com.example.fxsuite.avatar.sim.Obstacles;
 
 import javafx.geometry.Point3D;
 import javafx.scene.AmbientLight;
@@ -49,18 +48,12 @@ import java.util.TreeMap;
  * and cracks, a little more as it nears breaking, with a bar over it for a few seconds after
  * each blow showing how much it has left. What is broken is gone; {@link Wreckage} throws its
  * pieces about.
- *
- * <p>JavaFX 3D has no shadows, so the avatar gets a blob: a dark disc on whatever is under it,
- * the ground or a block's top, that shrinks as it climbs. It is enough to tell how high
- * something is, and where it will land.
  */
 public final class World {
 
     public static final Color SKY = Color.web("#9fb8c9");
     private static final double GROUND = Body.EDGE + 1000;
     private static final double GRID = 500;
-    /** The disc lies this far above whatever it is on. */
-    private static final double SHADOW_LIFT = 1.8;
     /** Worn right down, a piece is this much of the way to scorched. */
     private static final double CHAR = 0.55;
     private static final Color SCORCHED = Color.web("#2a2118");
@@ -74,7 +67,6 @@ public final class World {
     private static final double ROTORS = 2200;
 
     private final Group root = new Group();
-    private final Cylinder shadow = new Cylinder(46, 1, 24);
     private final List<Course.Piece> pieces;
     /** Each piece: all of it, the part that darkens, its material as built, and how much it had left when last drawn. */
     private final Group[] parts;
@@ -171,6 +163,7 @@ public final class World {
                     case TABLE -> table(part, block);
                     case STOOL -> stool(part, block);
                     case SCOOTER -> scooter(part, block);
+                    case BOARD -> board(part, block);
                 };
                 case FRUIT -> fruit(part, piece.fruit());
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
@@ -190,9 +183,6 @@ public final class World {
             bars[i] = new Bar();
             root.getChildren().add(bars[i].node);
         }
-
-        shadow.setMaterial(BoxRig.matte("#45533e"));
-        root.getChildren().add(shadow);
 
         final AmbientLight ambient = new AmbientLight(Color.web("#8b939c"));
         final DirectionalLight sun = new DirectionalLight(Color.web("#a8a49a"));
@@ -343,24 +333,6 @@ public final class World {
     /** Shows each vehicle's glass, but for piece {@code inside}'s (-1 for none): looked out of from in it. */
     public void glassFrom(final int inside) {
         glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
-    }
-
-    /** Shows the blob shadow, or hides it: when the avatar is out of sight, inside a vehicle. */
-    public void shadowShown(final boolean shown) {
-        shadow.setVisible(shown);
-    }
-
-    /** Moves the blob shadow onto whatever is under the body, smaller the higher it is above it. */
-    public void shadowUnder(final Body body, final Obstacles obstacles) {
-        final double x = body.position().x();
-        final double z = body.position().z();
-        final double floor = obstacles.floor(x, z, Body.FOOTING, body.height() + 1e-6);
-        shadow.setTranslateX(x);
-        shadow.setTranslateY(-floor - SHADOW_LIFT);
-        shadow.setTranslateZ(z);
-        final double scale = Math.max(0.25, 1 / (1 + (body.height() - floor) / 500));
-        shadow.setScaleX(scale);
-        shadow.setScaleZ(scale);
     }
 
     /** Darkened as far as it is worn (each piece has a material of its own), and cracked at each step down. */
@@ -936,6 +908,70 @@ public final class World {
         sign.getTransforms().add(new Translate(-halfWide + 34 - 22, -half - 36, -halfDeep - 4.2));
         part.getChildren().addAll(board, post, sign);
         return top;
+    }
+
+    /**
+     * The stand-up's scrum board ({@link Furniture#BOARD}): a whiteboard on two legs, its feet
+     * along its frame; on its front (its +z, ahead) three columns, to do, doing and done, each
+     * headed in its colour, and the team's cards stuck up in them.
+     */
+    private static Shape3D board(final Group part, final Block block) {
+        final double tall = block.top() - block.bottom();
+        final double wide = block.halfWidth() * 2;
+        final PhongMaterial metal = BoxRig.matte("#9aa1a8");
+        final Box panel = new Box(wide, 110, 3);
+        panel.setTranslateY(-tall / 2 + 70);
+        panel.setMaterial(BoxRig.matte("#f5f6f2"));
+        part.getChildren().add(panel);
+        for (final double side : new double[] {-1, 1}) {
+            final Box leg = new Box(5, tall, 5);
+            leg.setTranslateX(side * (wide / 2 - 6));
+            leg.setTranslateZ(-4);
+            leg.setMaterial(metal);
+            final Box foot = new Box(6, 4, block.halfDepth() * 2);
+            foot.setTranslateX(side * (wide / 2 - 6));
+            foot.setTranslateY(tall / 2 - 2);
+            foot.setMaterial(metal);
+            part.getChildren().addAll(leg, foot);
+        }
+        final Box tray = new Box(wide - 20, 3, 8);
+        tray.setTranslateY(-tall / 2 + 125);
+        tray.setTranslateZ(4);
+        tray.setMaterial(metal);
+        part.getChildren().add(tray);
+        // its columns: lines between them, a header over each, and the cards in them
+        final double face = 1.5 + 0.4;
+        final double column = wide / 3;
+        final String[] headers = {"#8d949b", "#3d7cc9", "#3c9a5f"};
+        final String[] cards = {"#ffe066", "#ff9ec7", "#9be29b", "#8fd3f4"};
+        final int[] counts = {4, 2, 5};
+        for (int c = 0; c < 3; c++) {
+            final double middle = -wide / 2 + (c + 0.5) * column;
+            final Box header = new Box(column - 16, 8, 0.6);
+            header.setTranslateX(middle);
+            header.setTranslateY(-tall / 2 + 25);
+            header.setTranslateZ(face);
+            header.setMaterial(BoxRig.matte(headers[c]));
+            part.getChildren().add(header);
+            if (c > 0) {
+                final Box line = new Box(1.5, 100, 0.6);
+                line.setTranslateX(-wide / 2 + c * column);
+                line.setTranslateY(-tall / 2 + 70);
+                line.setTranslateZ(face);
+                line.setMaterial(BoxRig.matte("#2b2f33"));
+                part.getChildren().add(line);
+            }
+            for (int k = 0; k < counts[c]; k++) {
+                final Box card = new Box(17, 15, 0.8);
+                card.setTranslateX(middle + (k % 2 == 0 ? -13 : 13));
+                card.setTranslateY(-tall / 2 + 42 + (k / 2) * 21);
+                card.setTranslateZ(face + 0.2);
+                card.setRotate(Num.hash(c, k) * 10 - 5);
+                card.setMaterial(BoxRig.matte(cards[(c * 3 + k) % cards.length]));
+                part.getChildren().add(card);
+            }
+        }
+        return panel;
     }
 
     /** A wooden stool: a round seat on a stout leg, as tall as it is ({@link Furniture#STOOL}). */

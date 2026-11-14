@@ -56,7 +56,7 @@ class VehicleTest {
             assertEquals(demo.startYaw(), play.avatar().body().yaw(), 1e-9);
         }
         final List<Lift> platform = Play.start(Demo.PLATFORM, false).lifts();
-        assertEquals(1, platform.size());
+        assertEquals(List.of(Course.CARPET, Course.MEETING), platform.stream().map(Lift::deck).toList(), "and the stand-up's");
         assertFalse(platform.getFirst().craft().closed(), "a platform is open");
         final List<Lift> airship = Play.start(Demo.AIRSHIP, false).lifts();
         assertEquals(1, airship.size());

@@ -36,7 +36,7 @@ public final class BoxRig {
 
     /** The height of the joint the whole body tips about. */
     static final double MIDDLE = 105;
-    /** How far the soles stand clear of the ground, above the blob shadow on it. */
+    /** How far the soles stand clear of the ground. */
     static final double SOLE = 3;
 
     static final double HIP = 80;
@@ -114,7 +114,7 @@ public final class BoxRig {
         at.setY(where.position().y());
         at.setZ(where.position().z());
         turn.setAngle(where.yaw());
-        // the soles hover a hair above the ground and its blob shadow: a sole lying in the same
+        // the soles hover a hair above the ground: a sole lying in the same
         // plane as the ground flickers, as the renderer cannot tell which is in front
         raise.setY(-(pose.lift() + SOLE));
         // forward lean tips the top toward +z, a negative turn about x; right bank drops +x, positive about z

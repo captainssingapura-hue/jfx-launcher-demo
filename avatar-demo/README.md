@@ -228,10 +228,10 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   goes off at the first thing it meets, in a fireball, embers and, on the ground, clods of earth
   thrown up. Every crate or target within 3.5 m of it takes 150: a drone or a small crate goes at
   once, a dummy takes two. The robot takes no harm from them yet.
-- **Platforms, flown like magic carpets.** Two steel platforms float just off the ground, edged
+- **Platforms, flown like magic carpets.** Three steel platforms float just off the ground, edged
   in yellow and black, a thruster glowing under each corner and a console at the front: a
-  small one, 3 m by 2.4 m, off to the right of the start, and a broad barge, 10 m by 6 m, off to
-  the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
+  small one, 3 m by 2.4 m, off to the right of the start, a broad barge, 10 m by 6 m, off to
+  the left, and a meeting platform, 6.4 m by 5.2 m, further round to the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
   one and stand behind its console, and the HUD offers the controls (T). At them, the keys that
   would move the robot fly the platform: W and S ahead and back, A and D sideways, the mouse
   turns it, Space climbs and Ctrl descends, from just off the ground to 45 m up, Shift to go
@@ -295,8 +295,17 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   of the glaive, and what was on it drops to the deck. The stallholder's stool and the scooter
   are furniture too, and whoever sits sits on top of theirs: push the stool or the scooter and
   they ride along on it; push them, or break it, and they come off it to stand on the deck.
-- **People.** The people at the stall are characters in the world (`Person`), each with a body
-  like the robot's: they stand on whatever is under them, ride the barge wherever it is flown,
+- **A stand-up in the air.** On the meeting platform, a scrum meeting is under way: five developers
+  stood in a ring, each in a hoodie of their own, and the scrum master at its back, picked out at
+  a glance in an orange hoodie and a red cap, a badge on a lanyard and a clipboard held before
+  them. Behind them stands the team's scrum board on its legs, three columns, to do, doing and
+  done, headed in grey, blue and green, the cards stuck up in them. Each developer has the floor
+  in turn, five seconds each, talking with their hands; the others turn to whoever is talking,
+  the scrum master furthest. Fly the platform (its console is at the front, clear of the ring)
+  and the meeting goes with it, board and all. The board is furniture, to push or break; the
+  team are people, as the stall's are. It is on the Flying platform demo as well.
+- **People.** The people at the stall and the stand-up are characters in the world (`Person`), each
+  with a body like the robot's: they stand on whatever is under them, ride their platform wherever it is flown,
   and fall. Walk into someone and they are shoved out of the way, sent along at your pace and a
   little more; shove them off the edge of the deck and they fall off. A push gets anyone sitting
   to their feet, and people pushed into each other part. Rounds, the glaive and bombs strike

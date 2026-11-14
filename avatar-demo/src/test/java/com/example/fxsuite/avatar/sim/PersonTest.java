@@ -40,11 +40,12 @@ class PersonTest {
     }
 
     @Test
-    void theCastStandsOnTheBargeTheStallholderAndTheRiderSitting() {
+    void theStallsCastStandsOnTheBargeTheStallholderAndTheRiderSitting() {
         final Play start = Play.start(false);
-        assertEquals(3, start.people().size());
+        final List<Person> stall = start.people().subList(0, 3);
+        assertEquals(9, start.people().size(), "three at the stall, six at the stand-up");
         final double deck = start.lifts().get(1).place().height();
-        for (final Person person : start.people()) {
+        for (final Person person : stall) {
             // on the deck, or sat on top of their seat
             final double seat = person.role() == Person.Role.STALLHOLDER ? Furniture.STOOL.height()
                     : person.role() == Person.Role.RIDER ? Furniture.SCOOTER.height() : 0;
@@ -52,7 +53,7 @@ class PersonTest {
             assertEquals(Person.TOUGHNESS, person.health());
             assertFalse(person.down());
         }
-        assertEquals(List.of(true, false, true), start.people().stream().map(Person::sitting).toList());
+        assertEquals(List.of(true, false, true), stall.stream().map(Person::sitting).toList());
         // and they stay put, standing still, as the world goes on
         final Play later = run(start, Controls.NONE, 2, new ArrayList<>());
         for (int k = 0; k < 3; k++) {
