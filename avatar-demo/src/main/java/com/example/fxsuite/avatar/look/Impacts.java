@@ -95,13 +95,14 @@ public final class Impacts {
                 // second would be one solid beam; the heavy one's, every other
                 final int every = switch (fired.by()) {
                     case GATLING -> 3;
-                    case HEAVY_GATLING -> 2;
+                    case HEAVY_GATLING, GIANT_GATLING -> 2;
                     default -> 1;
                 };
                 if (every == 1 || ++gatlingRounds % every == 0) {
                     tracer(fired.from(), fired.to());
                 }
-            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB && struck.by() != Weapon.FALL) {
+            } else if (event instanceof Event.Struck struck && struck.by() != Weapon.BOMB && struck.by() != Weapon.FALL
+                    && struck.by() != Weapon.CRASH) {
                 // a bomb, or a fall, leaves no mark of its own on what it reaches: what comes of it is the wreckage's
                 struck(struck, avatar.body().yaw(), entry.step());
             } else if (event instanceof Event.Broke broke) {

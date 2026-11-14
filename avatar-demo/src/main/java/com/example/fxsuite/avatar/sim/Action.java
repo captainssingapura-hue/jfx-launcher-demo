@@ -27,8 +27,17 @@ public sealed interface Action {
     record Take() implements Action {
     }
 
+    /**
+     * At the controls of a vehicle with a gun on it (the pickup, the gunship, the airship), take
+     * control of the gun, or give it back: with it, the keys drive the vehicle as a car is
+     * driven, A and D turning it, and the mouse and the trigger are the gun's.
+     */
+    record Gun() implements Action {
+    }
+
     Action JUMP = new Jump();
     Action FLY = new Fly();
     Action PACK = new Pack();
     Action TAKE = new Take();
+    Action GUN = new Gun();
 }

@@ -25,6 +25,11 @@ public enum Weapon {
      */
     HEAVY_GATLING("Heavy Gatling gun", 40),
     /**
+     * A giant Gatling gun, in a turret under an airship's gondola: half as big again as the heavy
+     * one, its rounds two and a half times as heavy, a little slower to fire, and further reaching.
+     */
+    GIANT_GATLING("Giant Gatling gun", 100),
+    /**
      * An airship's bomb, going off: every piece that can break within {@link Sky#BLAST} of it
      * takes this. A drone or a small crate goes at once; a dummy takes two.
      */

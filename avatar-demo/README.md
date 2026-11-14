@@ -72,9 +72,11 @@ for the engines.
   mount (`Course.Mount#fixed`).
   The pickup (5.2 m, four wheels) has its seat well forward, and on a post at its back, high
   enough to fire over the driver's head, a heavy Gatling gun aimed freely: what a pickup with a
-  gun, or an armoured vehicle, is built on. T at its wheel takes both, as one: the keys drive it,
-  A and D steering as ever, and the mouse aims the gun all round, 10° down and 45° up; the gun
-  holds its aim on the world as the pickup turns under it, and the view rides behind the gun.
+  gun, or an armoured vehicle, is built on. T at its door takes its wheel, and its gun with it
+  (gun control): the keys drive it, A and D steering as ever, and the mouse aims the gun all
+  round, 10° down and 45° up, a click firing it; the gun holds its aim on the world as the
+  pickup turns under it. The view stays the pickup's, behind it, the gun's sight marked where it
+  points. G gives the gun up, and the pickup is driven as any car is; G again takes it back.
   Crates stand about behind the start, to turn it on.
 - **Bodies.** On the Roads demo each chassis wears a body: the car a low open roadster, blue; the
   truck a square cab over its front wheels and a flatbed, orange; the pickup a cab with a sloping
@@ -134,12 +136,12 @@ for the engines.
   go out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
   again steps out of the door.
 - **A gunship.** A platform with a heavy Gatling gun on its console. Jump onto its deck and stand
-  behind the gun: T mans it, and flies the gunship too, as a gunner on a pickup would. W and S
-  fly it ahead and back, A and D turn it, Space and Ctrl climb and descend; the mouse aims the
-  gun, all round, 30° down and 40° up, and the gun holds its aim on the world as the gunship
-  turns under it (stabilized). The robot stands behind the gun in plain sight, carried with the
-  gunship and facing the way the gun points, and the view is from over its shoulder. T again
-  steps away from the gun, and the gunship eases to a stop and hangs there.
+  at its console: T takes it, and its gun with it, as on the pickup. W and S fly it ahead and
+  back, A and D turn it, Space and Ctrl climb and descend; the mouse aims the gun, all round, 30°
+  down and 40° up, and the gun holds its aim on the world as the gunship turns under it
+  (stabilized). The view is the gunship's, behind it. G gives the gun up, and it flies as any
+  platform does (A and D sideways, the mouse turning it); G again takes it back. T again lets
+  go, and the gunship eases to a stop and hangs there.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -216,15 +218,22 @@ for the engines.
   its controls, the camera is the vehicle's: it follows the vehicle from as far back as it is
   big. A platform is open: the robot rides it in plain sight. An airship is closed: walk in
   under its gondola, take it (T) at the hatch in its floor, and the robot is inside and out of
-  sight. W and S fly it ahead and back, the mouse turns it (slowly, as an airship turns),
-  Space climbs and Ctrl descends, never below its moorings; it has no sideways and its engines
-  are never cut. A click drops a bomb from under the gondola, going as the airship goes; held,
-  a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
+  sight, at its controls and those of the giant Gatling gun in a ball turret hung under the gondola's back end (half
+  as big again as the heavy one, its rounds two and a half times as heavy, 1,200 a minute). W and
+  S fly it ahead and back, A and D turn it (slowly, as an airship turns), Space climbs and Ctrl
+  descends, never below its moorings; it has no sideways and its engines are never cut. The
+  mouse aims the gun, all round, 80° down and 10° up, and the gun holds its aim on the world as
+  the airship turns; a click fires it, spinning up first. The view stays the airship's, behind
+  it. G gives the gun up, and the airship is flown as it was before it had one, the mouse
+  turning it and a click dropping a bomb; G again takes it back. A right-click drops a bomb
+  from under the gondola, going as the airship goes; held, a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
   when it is down at its moorings (no bombs are dropped there). Low over its own bombs, it takes
   their blast too. T again and the robot drops out of the hatch, from wherever it is. Broken
   while flown, a vehicle throws out whoever flies it. At a vehicle's controls the HUD is the
   vehicle's: how fast and high it goes, how much of it is left, its engine or its bombs, and
-  its own keys in place of the robot's.
+  its own keys in place of the robot's. Low on the left, a small control panel shows what can be
+  done there, each with its key (the gun, a bomb, first person, the camera, getting out): free
+  the mouse with Esc to click them.
 - **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
   red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
   deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
@@ -315,7 +324,9 @@ the window, so clicks stay free for actions.
 | 1 | Draw the twin rifles, or put them away | Draw the twin rifles, or put them away |
 | 2 | Draw the glaive, or put it away | Draw the glaive, or put it away |
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
-| Left click (held) | Fire, or swing; aboard an airship, drop a bomb (held, a stick of them) | Fire, or swing |
+| Left click (held) | Fire, or swing; at a vehicle's controls, fire its gun (aboard the airship with its gun given up, drop a bomb) | Fire, or swing |
+| Right click (held) | Aboard the airship, drop a bomb (held, a stick of them) | |
+| G | At the controls of the pickup, the gunship or the airship: give up control of its gun, or take it back | |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | V | At a vehicle's controls: first person, or back | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |

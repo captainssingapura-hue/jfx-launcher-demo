@@ -45,8 +45,8 @@ class GunshipTest {
         final Turret gun = gun(start);
         final Play aboard = new Play(new Avatar(Body.standing(gun.at(gun.mount().station()), 0), false),
                 start.damage(), start.sky(), start.lifts(), start.people(), start.props(), start.turrets());
-        assertTrue(aboard.gunWithinReach().isPresent());
-        assertTrue(aboard.withinReach().isEmpty(), "its console is its gun's: not taken on its own");
+        assertTrue(aboard.withinReach().isPresent(), "taken at its console, as any platform is");
+        assertTrue(aboard.gunWithinReach().isEmpty(), "and its gun with it, not on its own");
         return run(aboard, TAKE, Clock.STEP, events);
     }
 

@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 23;
+    public static final int RULES = 24;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -139,7 +139,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             return Optional.empty();
         }
         final Obstacles world = obstacles();
-        return lifts.stream().filter(lift -> !armed(lift.piece()) && !damage.broken(lift.piece())
+        return lifts.stream().filter(lift -> !damage.broken(lift.piece())
                         && lift.reaches(avatar.body(), world))
                 .findFirst();
     }
@@ -149,33 +149,33 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Event> happened = new ArrayList<>();
         final Obstacles was = obstacles();
         // the controls change hands; at them, the climb and descent are the platform's
-        // manning a gun, the controls are the gun's: no vehicle's are taken
-        final boolean gunner = turrets.stream().anyMatch(Turret::held);
+        // manning a gun of its own (a bunker's), the controls are the gun's: no vehicle's are taken
+        final boolean gunner = turrets.stream().anyMatch(t -> t.held() && !onBoard(t));
         final Controls forLifts = gunner ? withoutTaking(controls) : controls;
-        final List<Lift> reached = engines(forLifts, handed(forLifts, was, happened), happened);
-        final boolean working = reached.stream().anyMatch(Lift::held);
+        final List<Lift> handed = engines(forLifts, handed(forLifts, was, happened), happened);
+        final boolean working = handed.stream().anyMatch(Lift::held);
         // going aboard a closed craft, the avatar is inside it, out of sight; stepping out, it is at its door
-        final Avatar boarded = boarded(reached);
-        final int inside = inside(reached);
-        // and a gun is manned or let go, with what is left of the controls once a vehicle's have changed hands
+        final Avatar boarded = boarded(handed);
+        final int inside = inside(handed);
+        // and a gun of its own is manned or let go, with what is left of the controls once a
+        // vehicle's have changed hands; a vehicle's gun is taken with it, and given up or taken back
         boolean changed = false;
-        for (int i = 0; i < reached.size(); i++) {
-            changed |= reached.get(i).held() != lifts.get(i).held();
+        for (int i = 0; i < handed.size(); i++) {
+            changed |= handed.get(i).held() != lifts.get(i).held();
         }
-        final List<Turret> manned = manned(controls, changed, happened);
-        // a vehicle with a gun on it is flown by whoever mans the gun: its keys fly it, A and D
+        final List<Turret> manned = gunControl(manned(controls, changed, happened), handed, controls);
+        // with the gun of the vehicle it drives, the keys drive it as a car is driven, A and D
         // turning it, and the mouse is the gun's
-        final List<Lift> handed = gunshipsHeld(reached, manned);
-        final int gunship = gunning(manned) < 0 ? -1 : liftOf(handed, manned.get(gunning(manned)).host());
+        final int gunship = gunship(handed, manned);
         // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it)
         final Controls steering = gunship >= 0 && !(handed.get(gunship).craft() instanceof Course.Chassis)
                 ? gunshipControls(controls, seconds) : controls;
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);
         final boolean still = inside >= 0 || gunning >= 0;
-        // driving a vehicle with a gun fixed to it, the trigger is the gun's, not the hands'
+        // driving a vehicle with a gun on it, fixed or under control, the trigger is the gun's, not the hands'
         final Controls own = !working ? withoutTaking(controls)
-                : drivesAGun(reached) ? unarmed(atTheControls(controls)) : atTheControls(controls);
+                : drivesAGun(handed) || gunship >= 0 ? unarmed(atTheControls(controls)) : atTheControls(controls);
         // what each loose thing rests on, as things are
         final double to = sky.time() + seconds;
         final Lift.Support[] under = new Lift.Support[props.size()];
@@ -223,7 +223,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final Moves moves = new Moves(handed, moved, props, settled);
         final Avatar carried = inside >= 0
                 ? self.carried(handed.get(inside).place(), moved.get(inside).place())
-                : gunship >= 0 ? self.carried(handed.get(gunship).place(), moved.get(gunship).place())
                 : gunning >= 0 ? self : carried(self, was, moves, to);
         final Obstacles now = obstacles(to, moved, settled);
         // the people go on as they were going, carried by what they stand on, hurt by coming down hard
@@ -263,7 +262,11 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             if (damage.broken(lift.piece())) {
                 continue;
             }
-            final Lift after = lift.loaded(seconds, i == inside && controls.trigger());
+            // the other button lets them go; and a click does too, unless it is the gun's
+            final int piece = lift.piece();
+            final boolean letGo = controls.bomb()
+                    || controls.trigger() && manned.stream().noneMatch(t -> t.host() == piece && t.held());
+            final Lift after = lift.loaded(seconds, i == inside && letGo);
             if (after.bombs() < lift.bombs()) {
                 final Vec3 at = after.at(after.craft().bay());
                 dropping = dropping.dropped(at, after.velocity(), after.piece());
@@ -663,9 +666,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Lift> handed = new ArrayList<>(lifts);
         for (int i = 0; i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (armed(lift.piece())) {
-                continue;  // flown by whoever mans its gun
-            }
             if (lift.held() && (take || damage.broken(lift.piece())
                     || !seated(lift) && !lift.reaches(avatar.body(), world))) {
                 handed.set(i, lift.held(false));
@@ -675,7 +675,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         for (int i = 0; take && i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (!armed(lift.piece()) && !damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
+            if (!damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
                 handed.set(i, lift.held(true));
                 happened.add(new Event.TookControls(lift.piece()));
                 take = false;
@@ -689,12 +689,60 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return turrets.stream().filter(Turret::held).findFirst();
     }
 
-    /** The gun the avatar could man where it stands, if any, and it is at no controls or gun yet. */
+    /**
+     * The gun the avatar could man where it stands, if any, and it is at no controls or gun yet: a
+     * gun of its own, as a bunker's is. (A vehicle's is taken with the vehicle.)
+     */
     public Optional<Turret> gunWithinReach() {
         if (atControls().isPresent() || manning().isPresent()) {
             return Optional.empty();
         }
-        return turrets.stream().filter(t -> !damage.broken(t.host()) && t.reaches(avatar.body())).findFirst();
+        return turrets.stream().filter(t -> canMan(t)).findFirst();
+    }
+
+    /** Whether the avatar can man {@code turret} where it stands, at its station: one not on a vehicle. */
+    private boolean canMan(final Turret turret) {
+        return !onBoard(turret) && !damage.broken(turret.host()) && turret.reaches(avatar.body());
+    }
+
+    /** Whether {@code turret} is on a vehicle, taken with it, rather than manned on its own. */
+    private boolean onBoard(final Turret turret) {
+        return lifts.stream().anyMatch(lift -> lift.piece() == turret.host());
+    }
+
+    /**
+     * The guns on the vehicles, under control or not ({@code handed} as the vehicles' controls now
+     * are): a vehicle's gun comes under control as its controls are taken, and goes with them;
+     * at them, {@link Action#GUN} gives it up, or takes it back. A fixed gun is never under
+     * control: whoever drives fires it.
+     */
+    private List<Turret> gunControl(final List<Turret> manned, final List<Lift> handed, final Controls controls) {
+        final boolean toggle = controls.actions().stream().anyMatch(a -> a instanceof Action.Gun);
+        final List<Turret> controlled = new ArrayList<>(manned);
+        for (int i = 0; i < controlled.size(); i++) {
+            final Turret turret = controlled.get(i);
+            final int on = liftOf(handed, turret.host());
+            if (on < 0 || turret.mount().fixed()) {
+                continue;
+            }
+            final boolean held = handed.get(on).held() && !damage.broken(turret.host())
+                    && (!lifts.get(on).held() || turret.held() != toggle);
+            if (held != turret.held()) {
+                controlled.set(i, turret.held(held));
+            }
+        }
+        return controlled;
+    }
+
+    /** Which of {@code handed} is driven with its gun under control ({@code manned}); -1 for none. */
+    private static int gunship(final List<Lift> handed, final List<Turret> manned) {
+        for (final Turret turret : manned) {
+            final int on = liftOf(handed, turret.host());
+            if (turret.held() && on >= 0 && handed.get(on).held()) {
+                return on;
+            }
+        }
+        return -1;
     }
 
     /** Whether the avatar is out of sight: inside a closed craft, or manning a gun from inside. */
@@ -712,6 +760,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         final List<Turret> manned = new ArrayList<>(turrets);
         for (int i = 0; i < manned.size(); i++) {
             final Turret turret = manned.get(i);
+            if (onBoard(turret)) {
+                continue;  // taken and let go with its vehicle (gunControl)
+            }
             if (turret.held() && (take || damage.broken(turret.host()))) {
                 manned.set(i, turret.held(false));
                 happened.add(new Event.LetGo(turret.host()));
@@ -720,7 +771,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         for (int i = 0; take && i < manned.size(); i++) {
             final Turret turret = manned.get(i);
-            if (!damage.broken(turret.host()) && turret.reaches(avatar.body())) {
+            if (canMan(turret)) {
                 manned.set(i, turret.held(true));
                 happened.add(new Event.TookControls(turret.host()));
                 take = false;
@@ -741,11 +792,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 .anyMatch(t -> t.host() == l.piece() && t.mount().fixed()));
     }
 
-    /** Whether piece {@code piece} carries a gun to be manned. */
-    private boolean armed(final int piece) {
-        return turrets.stream().anyMatch(t -> t.host() == piece && !t.mount().fixed());
-    }
-
     /** Which of {@code lifts} is piece {@code piece}; -1 for none. */
     private static int liftOf(final List<Lift> lifts, final int piece) {
         for (int i = 0; i < lifts.size(); i++) {
@@ -756,31 +802,20 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return -1;
     }
 
-    /** {@code lifts}, those with a gun on them held while their gun is manned ({@code manned}), and let go when it is not. */
-    private static List<Lift> gunshipsHeld(final List<Lift> lifts, final List<Turret> manned) {
-        final List<Lift> held = new ArrayList<>(lifts);
-        for (final Turret turret : manned) {
-            final int on = liftOf(held, turret.host());
-            if (on >= 0 && !turret.mount().fixed() && held.get(on).held() != turret.held()) {
-                held.set(on, held.get(on).held(turret.held()));
-            }
-        }
-        return held;
-    }
-
     /**
-     * The controls, as a gunship takes them from its gunner: ahead and back, up and down as they
-     * are; A and D, rather than sliding it sideways, turn it, the mouse's turn being the gun's.
+     * The controls, as a vehicle takes them with its gun under control: ahead and back, up and down
+     * as they are; A and D, rather than sliding it sideways, turn it, as a car's would, the mouse's
+     * turn being the gun's.
      */
     private static Controls gunshipControls(final Controls controls, final double seconds) {
         return new Controls(controls.forward(), 0, controls.sideways() * GUNSHIP_TURN * seconds, controls.lift(),
                 controls.run(), false, 0, List.of());
     }
 
-    /** Which of {@code manned} the avatar mans; -1 for none. */
-    private static int gunning(final List<Turret> manned) {
+    /** Which of {@code manned} the avatar mans on its own, not from a vehicle's controls; -1 for none. */
+    private int gunning(final List<Turret> manned) {
         for (int i = 0; i < manned.size(); i++) {
-            if (manned.get(i).held()) {
+            if (manned.get(i).held() && !onBoard(manned.get(i))) {
                 return i;
             }
         }
@@ -796,7 +831,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         for (int i = 0; i < manned.size(); i++) {
             final Turret was = turrets.get(i);
             final Turret now = manned.get(i);
-            if (was.held() == now.held()
+            if (was.held() == now.held() || onBoard(now)
                     || !now.held() && !now.mount().closed() && now.mount().station().equals(now.mount().seat())) {
                 continue;  // at an open gun, manned where it stands, whoever let it go is standing there still
             }

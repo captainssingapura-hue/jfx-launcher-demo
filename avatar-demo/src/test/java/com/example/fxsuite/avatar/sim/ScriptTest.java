@@ -53,6 +53,18 @@ class ScriptTest {
     }
 
     @Test
+    void bombHoldsTheOtherButtonForItsPart() {
+        final Script script = Script.parse("FIRE:1;BOMB:0.5");
+        assertTrue(script.controls(61).trigger());
+        assertFalse(script.controls(61).bomb());
+        assertTrue(script.controls(181).bomb(), "the other button, from where its part comes in");
+        assertFalse(script.controls(181).trigger());
+        assertTrue(script.controls(240).bomb(), "held to its end");
+        assertFalse(script.controls(241).bomb());
+        assertEquals(Set.of(), script.keys(), "neither is a key on the keyboard");
+    }
+
+    @Test
     void theScriptsKeysMeanWhatTheKeyboardsDo() {
         final Script script = Script.parse("SPACE+W+SHIFT+FIRE:0.5");
         final Controls first = script.controls(61);

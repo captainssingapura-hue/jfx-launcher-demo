@@ -11,6 +11,7 @@ import javafx.scene.shape.Box;
 import javafx.scene.shape.Cylinder;
 import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
+import javafx.scene.transform.Scale;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,10 @@ public final class Guns {
     /** How far out from the gun's middle each barrel runs, and how thick it is. */
     private static final double RING = 13;
     private static final double BORE = 4.5;
+    /** The heavy gun's barrels' length, as every gun is drawn before it is made bigger or smaller. */
+    private static final double HEAVY = 240;
+    /** How far above where a hanging gun turns the floor it hangs from is (as the airship's is hung). */
+    private static final double HANG = 45;
 
     private final Group root = new Group();
     private final List<Mounted> mounted = new ArrayList<>();
@@ -52,18 +57,14 @@ public final class Guns {
         final PhongMaterial steel = BoxRig.matte("#5d646b");
         for (final Turret turret : turrets) {
             final Mounted gun = new Mounted();
-            final double barrel = turret.mount().barrel();
+            // every gun is drawn as the heavy one is, and made as much bigger or smaller as its barrels are long
+            final double barrel = HEAVY;
+            final double size = turret.mount().barrel() / HEAVY;
             final double drop = turret.mount().pivot().up();
-            // the pedestal, from the floor up to where it turns
-            final Cylinder post = new Cylinder(10, drop);
-            post.setTranslateY(drop / 2);
-            post.setMaterial(metal);
-            final Cylinder foot = new Cylinder(34, 8);
-            foot.setTranslateY(drop - 4);
-            foot.setMaterial(metal);
+            final Group stand = drop >= 0 ? pedestal(drop, metal) : hanger(size, metal);
             // turned round: the cradle; tipped: the receiver, the ammunition box, the grips and the barrels
             final Group turned = new Group();
-            turned.getTransforms().add(gun.heading);
+            turned.getTransforms().addAll(gun.heading, new Scale(size, size, size));
             final Box cradle = box(56, 14, 40, 0, 16, 0, metal);
             final Group tipped = new Group();
             tipped.getTransforms().add(gun.pitch);
@@ -96,7 +97,7 @@ public final class Guns {
             gun.flash.setVisible(false);
             tipped.getChildren().addAll(receiver, ammunition, grips, barrels, gun.flash);
             turned.getChildren().addAll(cradle, tipped);
-            gun.node.getChildren().addAll(post, foot, turned);
+            gun.node.getChildren().addAll(stand, turned);
             mounted.add(gun);
             root.getChildren().add(gun.node);
         }
@@ -133,6 +134,34 @@ public final class Guns {
             // the flash flickers, a frame on and a frame off, while it fires
             gun.flash.setVisible(turret.firing() && frames % 2 == 0);
         }
+    }
+
+    /** A pedestal, from the floor {@code drop} below where the gun turns up to it. */
+    private static Group pedestal(final double drop, final PhongMaterial metal) {
+        final Cylinder post = new Cylinder(10, drop);
+        post.setTranslateY(drop / 2);
+        post.setMaterial(metal);
+        final Cylinder foot = new Cylinder(34, 8);
+        foot.setTranslateY(drop - 4);
+        foot.setMaterial(metal);
+        return new Group(post, foot);
+    }
+
+    /**
+     * A turret hung under what carries it, {@link #HANG} above where the gun turns: a ring against
+     * the floor, a post down from it, and a ball round where the gun turns, {@code size} times the
+     * heavy gun's.
+     */
+    private static Group hanger(final double size, final PhongMaterial metal) {
+        final Cylinder ring = new Cylinder(46 * size, 10);
+        ring.setTranslateY(-HANG + 5);
+        ring.setMaterial(metal);
+        final Cylinder post = new Cylinder(16 * size, HANG);
+        post.setTranslateY(-HANG / 2);
+        post.setMaterial(metal);
+        final Sphere ball = new Sphere(30 * size);
+        ball.setMaterial(metal);
+        return new Group(ring, post, ball);
     }
 
     private static Box box(final double w, final double h, final double d, final double x, final double y,

@@ -9,19 +9,31 @@ import java.util.List;
  * turn by during this step, right when positive, as the mouse gives it: the keys move the
  * avatar, the mouse turns it. {@code trigger} is held to fire, or to swing. {@code aim} is how far
  * up (down when negative) to shoot, in degrees, 0 level: the weapons always shoot straight ahead
- * of the body, tilted only by this.
+ * of the body, tilted only by this. {@code bomb} is the other button, held: aboard an airship
+ * with a gun, the trigger is the gun's, and this lets its bombs go.
  *
  * <p>{@code actions} are what the player did once, rather than holds (a jump, a take-off, the
  * pack, a weapon drawn), applied at the start of this step, in order, before it moves. So
  * nothing reaches the world between steps: everything the player does comes in with one.
  */
 public record Controls(double forward, double sideways, double turn, double lift, boolean run, boolean trigger,
-                       double aim, List<Action> actions) {
+                       double aim, List<Action> actions, boolean bomb) {
 
     public static final Controls NONE = new Controls(0, 0, 0, 0, false, false, 0);
 
     public Controls {
         actions = List.copyOf(actions);
+    }
+
+    /** With the other button left alone. */
+    public Controls(final double forward, final double sideways, final double turn, final double lift,
+                    final boolean run, final boolean trigger, final double aim, final List<Action> actions) {
+        this(forward, sideways, turn, lift, run, trigger, aim, actions, false);
+    }
+
+    /** The same, the other button held, or not. */
+    public Controls bombing(final boolean held) {
+        return new Controls(forward, sideways, turn, lift, run, trigger, aim, actions, held);
     }
 
     /** Held keys, the turn and the aim, with nothing done once. */

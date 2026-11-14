@@ -58,6 +58,9 @@ public record Turret(int host, Course.Mount mount, Place base, double yaw, doubl
                 turrets.add(new Turret(piece, Course.CAR_GUN, what.place()));
             } else if (what.kind() == Course.Kind.CAR && Course.Chassis.of(what.shape()) == Course.PICKUP_CHASSIS) {
                 turrets.add(new Turret(piece, Course.REAR_GUN, what.place()));
+            } else if (what.kind() == Course.Kind.AIRSHIP && what.moves() && !what.flies()) {
+                // the airship to be flown, not those going round on their routes
+                turrets.add(new Turret(piece, Course.AIRSHIP_GUN, what.place()));
             }
         }
         return turrets;

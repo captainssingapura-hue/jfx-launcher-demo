@@ -154,7 +154,7 @@ public final class Cues {
                         case RIFLES -> plays.add(new Play(Sound.RIFLES_DRAWN, 1, hands(body, 0)));
                         case GATLING -> plays.add(new Play(Sound.GATLING_DRAWN, 1, hands(body, 0)));
                         case GLAIVE -> plays.add(new Play(Sound.GLAIVE_DRAWN, 1, hands(body, 0)));
-                        case NONE, BOMB, FALL, CRASH, HEAVY_GATLING -> {
+                        case NONE, BOMB, FALL, CRASH, HEAVY_GATLING, GIANT_GATLING -> {
                         }
                     }
                 }

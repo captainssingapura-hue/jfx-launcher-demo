@@ -12,7 +12,7 @@ import java.util.Set;
  *
  * <p>It is written as {@code "F;W:2;W+D+SHIFT:1.5"}: each part holds its keys for its seconds
  * (a part without seconds is a tap, {@value #TAP} s, and {@code :1} on its own just waits).
- * Among a part's keys, {@code FIRE} holds the trigger, {@code @90} turns 90° over the part, as
+ * Among a part's keys, {@code FIRE} holds the trigger, {@code BOMB} the other button, {@code @90} turns 90° over the part, as
  * the mouse would, and {@code ^20} tilts the view, and so the aim, up 20° (down, when negative).
  * The first part comes in {@value #LEAD} s after the start. The keys are named as in {@link Keys};
  * those the world takes no notice of (the camera's) are kept for whatever shows it.
@@ -31,7 +31,7 @@ public final class Script {
     /** What one part does over steps {@code first} to {@code last}: a key held, the trigger, a turn or a tilt. */
     public record Span(Kind kind, String key, long first, long last, double perStep) {
 
-        public enum Kind { KEY, TRIGGER, TURN, TILT }
+        public enum Kind { KEY, TRIGGER, BOMB, TURN, TILT }
 
         boolean covers(final long step) {
             return step >= first && step <= last;
@@ -77,6 +77,8 @@ public final class Script {
                     }
                     if (name.equals("FIRE")) {
                         spans.add(new Span(Span.Kind.TRIGGER, name, first, last, 0));
+                    } else if (name.equals("BOMB")) {
+                        spans.add(new Span(Span.Kind.BOMB, name, first, last, 0));
                     } else if (name.startsWith("@")) {
                         spans.add(new Span(Span.Kind.TURN, name, first, last,
                                 Double.parseDouble(name.substring(1)) / count));
@@ -131,6 +133,11 @@ public final class Script {
         return spans.stream().anyMatch(s -> s.kind() == Span.Kind.TRIGGER && s.covers(step));
     }
 
+    /** Whether the other button is held at step {@code step}: bombs away, aboard an airship. */
+    public boolean bomb(final long step) {
+        return spans.stream().anyMatch(s -> s.kind() == Span.Kind.BOMB && s.covers(step));
+    }
+
     /** Degrees turned in step {@code step}. */
     public double turn(final long step) {
         return during(Span.Kind.TURN, step);
@@ -154,7 +161,7 @@ public final class Script {
 
     /** Step {@code step}'s inputs to the world. */
     public Controls controls(final long step) {
-        return Keys.controls(held(step), pressed(step), turn(step), trigger(step), aim(step));
+        return Keys.controls(held(step), pressed(step), turn(step), trigger(step), aim(step), bomb(step));
     }
 
     private double during(final Span.Kind kind, final long step) {

@@ -32,7 +32,7 @@ class PlaygroundTest {
         assertEquals(1, pieces.stream().filter(p -> p.kind() == Course.Kind.BUNKER).count());
         assertTrue(start.lifts().stream().anyMatch(l -> Course.GUNSHIP.equals(l.deck())), "the gunship");
         assertTrue(start.lifts().stream().anyMatch(l -> l.craft() instanceof Course.Ship), "an airship to fly");
-        assertEquals(Set.of(Course.BUNKER_GUN, Course.GUNSHIP_GUN, Course.CAR_GUN, Course.REAR_GUN),
+        assertEquals(Set.of(Course.BUNKER_GUN, Course.GUNSHIP_GUN, Course.CAR_GUN, Course.REAR_GUN, Course.AIRSHIP_GUN),
                 start.turrets().stream().map(Turret::mount).collect(Collectors.toSet()), "a gun on each that has one");
     }
 
