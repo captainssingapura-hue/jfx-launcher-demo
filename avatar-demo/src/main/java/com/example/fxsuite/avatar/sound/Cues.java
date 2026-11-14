@@ -55,7 +55,24 @@ public final class Cues {
      * muzzle is, and how much deeper it sounds than the hand-held one (1 the same; below, deeper).
      * Heard in place of the hand-held Gatling gun's spin and roar.
      */
-    public record Gunner(double spin, boolean firing, Vec3 at, double pitch) {
+    public record Gunner(double spin, boolean firing, Vec3 at, double pitch, Weapon by) {
+
+        /** The heavy Gatling gun's, as a gun on a mount was before there were others. */
+        public Gunner(final double spin, final boolean firing, final Vec3 at, final double pitch) {
+            this(spin, firing, at, pitch, Weapon.HEAVY_GATLING);
+        }
+    }
+
+    /**
+     * The Gatling gun being fired, made as it turns and fires ({@link GatlingVoice}): which gun, how
+     * fast its barrels turn (0 to 1), whether it is firing, and where its muzzle is.
+     */
+    public record Gunfire(Gatling gatling, double spin, boolean firing, Vec3 at) {
+
+        /** How high over the ground its muzzle is, in metres: what the ground sends back is as late as that. */
+        public double height() {
+            return Math.max(0, -at.y() / 100);
+        }
     }
 
     /**
@@ -79,12 +96,18 @@ public final class Cues {
     /**
      * All of it: what to play once, how every loop should be playing, and the engine to make as it
      * runs ({@code running}), if the profile makes engines so ({@link Profile#enginesAsTheyRun}) and
-     * one is driven; else null.
+     * one is driven; else null; and the Gatling gun to make as it fires ({@code gun}), if the
+     * profile makes guns so ({@link Profile#gunsAsTheyFire}) and one is in hand or manned; else null.
      */
-    public record Heard(List<Play> plays, List<Hum> hums, Motor running) {
+    public record Heard(List<Play> plays, List<Hum> hums, Motor running, Gunfire gun) {
         public Heard {
             plays = List.copyOf(plays);
             hums = List.copyOf(hums);
+        }
+
+        /** With no gun made as it fires. */
+        public Heard(final List<Play> plays, final List<Hum> hums, final Motor running) {
+            this(plays, hums, running, null);
         }
 
         /** With no engine made as it runs. */
@@ -229,10 +252,17 @@ public final class Cues {
             };
             final Level level = profile.level(loop, drive);
             final boolean gun = loop == Sound.GATLING_SPIN || loop == Sound.GATLING_FIRE;
-            hums.add(new Hum(loop, gun && gunner != null ? new Level(level.gain(), level.pitch() * gunner.pitch()) : level,
+            // a gun made as it fires is heard so, in place of its loops
+            hums.add(gun && profile.gunsAsTheyFire() ? new Hum(loop, Level.OFF, null)
+                    : new Hum(loop, gun && gunner != null ? new Level(level.gain(), level.pitch() * gunner.pitch()) : level,
                     at));
         }
-        return new Heard(plays, hums, motor != null && profile.enginesAsTheyRun() ? motor : null);
+        // the gun in hand or manned, made as it turns and fires, if the profile makes guns so
+        final Gunfire fired = !profile.gunsAsTheyFire() ? null
+                : gunner != null ? new Gunfire(Gatling.of(gunner.by()), gunner.spin(), gunner.firing(), gunner.at())
+                : arms.held() == Weapon.GATLING ? new Gunfire(Gatling.HAND, arms.spin(), arms.firing(),
+                Arms.gatlingMuzzle(body)) : null;
+        return new Heard(plays, hums, motor != null && profile.enginesAsTheyRun() ? motor : null, fired);
     }
 
     /** The one of {@code points} nearest {@code to}, or null if there are none. */

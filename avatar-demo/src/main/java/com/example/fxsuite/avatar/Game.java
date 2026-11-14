@@ -40,6 +40,7 @@ import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Cues;
 import com.example.fxsuite.avatar.sound.Engine;
 import com.example.fxsuite.avatar.sound.Gearbox;
+import com.example.fxsuite.avatar.sound.GunStyle;
 import com.example.fxsuite.avatar.sound.Vehicle;
 import com.example.fxsuite.avatar.view.Chase;
 
@@ -650,7 +651,8 @@ public final class Game {
         hearing.hear(avatar, forSound.read().events(), chase, droning.stream()
                 .map(a -> new Vec3(a.block().x(), -Course.hullHeight(a), a.block().z())).toList(),
                 firing.map(gun -> new Cues.Gunner(gun.gun().spin(), gun.firing(), gun.muzzle(),
-                        gun.mount().gun() == Gun.GIANT_GATLING ? GIANT_PITCH : GUN_PITCH)).orElse(null),
+                        gun.mount().gun() == Gun.GIANT_GATLING ? GIANT_PITCH : GUN_PITCH, gun.mount().gun().by()))
+                        .orElse(null),
                 flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
         // and its instruments, while one is driven
         instruments(flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null), seconds);
@@ -939,7 +941,21 @@ public final class Game {
         final Menu sounds = new Menu("Sound");
         sounds.getItems().addAll(
                 item("Mute or unmute   (M)", KeyCode.M),
-                item("Next sound profile   (P)", KeyCode.P));
+                item("Next sound profile   (P)", KeyCode.P),
+                new SeparatorMenuItem());
+        // how the Gatling guns are mixed, made as they fire (the Robot profile's)
+        final ToggleGroup gunStyles = new ToggleGroup();
+        for (final GunStyle style : GunStyle.values()) {
+            final RadioMenuItem item = new RadioMenuItem("Gatling guns: " + style.title());
+            item.setToggleGroup(gunStyles);
+            item.setSelected(style == GunStyle.fromSettings());
+            item.setOnAction(e -> {
+                if (hearing != null) {
+                    hearing.gunStyle(style);
+                }
+            });
+            sounds.getItems().add(item);
+        }
         for (final Menu menu : List.of(demos, views, sounds)) {
             menu.setOnShowing(e -> opening());
             menu.setOnHidden(e -> look.holdFree(false));

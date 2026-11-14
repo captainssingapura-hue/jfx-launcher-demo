@@ -4,8 +4,8 @@ A standalone experiment: a small robot built from boxes that walks, runs and jum
 world of pillars, crates and floating gates, followed by a chase camera. Put on its jet-pack
 and it flies as a drone does: upright, tipped gently toward where it goes, holding its place
 when let go. Everything is heard as well as seen. Two sound profiles give the same world two
-characters, and two separate benches are for working on the sounds: one for all of them, one
-for the engines.
+characters, and three separate benches are for working on the sounds: one for all of them, one
+for the engines, and one for the Gatling guns.
 
 ![Hovering among the pillars, the wings spread](images/flying.jpg)
 
@@ -296,7 +296,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -340,8 +340,10 @@ by tilting the view with it; looking round (Q/E) does not move the aim.
 
 Every footfall is heard, on the ground or on a block, along with each jump, landing (as hard
 as the fall), bump and gate flown through, the pack, and its wings swinging. So is every round from each
-rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun's
-motor whines up and down with its spin, and it roars while it fires. What they strike
+rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun in
+hand or manned is made as it turns and fires, shot by shot as the gun fires them, its motor
+whining up and down with its spin, mixed realistically or as a film would (the Sound menu; see
+[Gun bench](#gun-bench)); the Arcade profile loops its chip's whine and roar. What they strike
 is heard where it is struck: a round on a block, ticking or ricocheting, or thudding into the
 ground; the blade clanging off a block, or chopping into the earth. What breaks is heard where
 it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
@@ -466,6 +468,46 @@ It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`,
 `SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
 `-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's V6 and V8 are these,
 stock, made the same way as they are driven ([Sound](#sound)).
+
+### Gun bench
+
+The Gatling guns are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --guns
+```
+
+A gun here is not a roar looped: its sound is made as it turns and fires (`GatlingVoice`). Its
+barrels go round as fast as they are spun, and each time one comes to the top it is fired, if
+the gun is up to speed: so the shots come exactly as often as the gun fires them, forty a second
+for the hand-held gun, thirty for the heavy, twenty for the giant, and run together into its
+note. Each shot is a blast of air out of the muzzle, a short push and pull as long as the round
+is big; a thump after it, lower the bigger the round; the round's crack; and the clack of its
+bolt, each a little unlike the last. Under them the motor whines, its gears meshing at their
+note, rising as it spins the barrels up and falling as they run down, labouring as it fires; the
+barrels whoosh round; the giant's hydraulic drive hisses. Turning without firing, each bolt
+clicks over dry. The empty cases ring as they land, as long after as they take to fall. The
+ground sends the blast back, as late as it is far below: about 0.6 s from the airship a hundred
+metres up.
+
+- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, or the giant one under the
+  airship. Each is a set of figures (its gun's rate and spin-up, its barrels, its rounds'
+  calibre, its motor and gearing), so another gun is another set of figures.
+- Pick a mix (`GunStyle`): **Realistic**, as a microphone outdoors would have it, a sharp, dry
+  crack with the mechanism plain under it and the cases ringing; or **Cinematic**, as a film
+  would mix it, a thump and a boom an octave under it in each shot, driven hard into overload,
+  rolling away in a long tail.
+- Hold Space (or the Fire button) to fire: it spins up first, as long as that gun takes, and
+  fires at full speed; let go, it stops at once and runs down. Hold S to spin it without firing.
+- Set its height over the ground, for the ground's echo and the cases.
+- Watch the sound as it is made, each shot to be seen, and its frequencies: the shots' note in
+  orange, each shot's thump in red, and the gears' whine in blue, moving with the spin.
+
+It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`) picks the gun to start
+with, `-Dgun.style=realistic` the mix, `-Dgun.height=80` its height. In the game, the Robot
+profile makes the Gatling gun in hand or manned the same way, mixed as the Sound menu says
+(`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
+chip's gun as ever.
 
 ## Unattended runs
 

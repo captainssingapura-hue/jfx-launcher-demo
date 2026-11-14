@@ -464,7 +464,7 @@ public final class EngineBench extends Application {
     }
 
     /** In place, radix two: {@code re} and {@code im} a power of two long. */
-    private static void fft(final double[] re, final double[] im) {
+    static void fft(final double[] re, final double[] im) {
         final int n = re.length;
         for (int i = 1, j = 0; i < n; i++) {
             int bit = n >> 1;
@@ -505,13 +505,13 @@ public final class EngineBench extends Application {
         }
     }
 
-    private static Slider slider(final double min, final double max, final double value) {
+    static Slider slider(final double min, final double max, final double value) {
         final Slider slider = new Slider(min, max, value);
         slider.setPrefWidth(200);
         return slider;
     }
 
-    private static HBox row(final String name, final javafx.scene.Node control) {
+    static HBox row(final String name, final javafx.scene.Node control) {
         final Label label = new Label(name);
         label.setMinWidth(70);
         final HBox row = new HBox(8, label, control);
@@ -519,13 +519,13 @@ public final class EngineBench extends Application {
         return row;
     }
 
-    private static Label heading(final String text) {
+    static Label heading(final String text) {
         final Label label = new Label(text);
         label.setFont(Font.font("System", FontWeight.BOLD, 14));
         return label;
     }
 
-    private static Label label(final String text) {
+    static Label label(final String text) {
         final Label label = new Label(text);
         label.setWrapText(true);
         return label;
