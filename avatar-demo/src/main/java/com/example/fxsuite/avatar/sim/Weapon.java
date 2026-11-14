@@ -30,7 +30,13 @@ public enum Weapon {
      */
     BOMB("Bomb", 150),
     /** Coming down harder than a loose thing can take ({@link Loose#landing}): enough to break anything. */
-    FALL("A fall", 100_000);
+    FALL("A fall", 100_000),
+    /**
+     * A collision: a land vehicle running into something that gives, a crate or another vehicle,
+     * as hard as the energy the collision takes out of the two of them, dealt as so many blows of
+     * this ({@link Play}).
+     */
+    CRASH("A crash", 10);
 
     private final String title;
     private final double blow;
