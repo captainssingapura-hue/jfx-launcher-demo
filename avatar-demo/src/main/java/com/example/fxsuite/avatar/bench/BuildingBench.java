@@ -1,0 +1,297 @@
+package com.example.fxsuite.avatar.bench;
+
+import com.example.fxsuite.avatar.look.FormModel;
+import com.example.fxsuite.avatar.sim.Buildings;
+import com.example.fxsuite.avatar.sim.Form;
+
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.scene.AmbientLight;
+import javafx.scene.DirectionalLight;
+import javafx.scene.Group;
+import javafx.scene.PerspectiveCamera;
+import javafx.scene.Scene;
+import javafx.scene.SceneAntialiasing;
+import javafx.scene.SubScene;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.input.MouseButton;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.PhongMaterial;
+import javafx.scene.shape.Box;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Font;
+import javafx.scene.transform.Rotate;
+import javafx.scene.transform.Translate;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+import javafx.util.StringConverter;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * The buildings bench: a building's shape on show on its own ({@link Buildings}), as its skeleton
+ * ({@link FormModel}): every edge a thin rod, upright ones, level ones and sloped ones each in a
+ * colour of their own, and, if asked, its vertices; on a floor ruled every 10 m, to tell how big it
+ * is. Its figures read out: how many vertices and edges, its edges' length all told, how wide, deep
+ * and high it is, how many pieces it is in, and what is wrong with it. Saved as text, to read and
+ * edit by hand.
+ *
+ * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
+ * start with; {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
+ * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
+ * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
+ */
+public final class BuildingBench extends Application {
+
+    /** The floor's rule: a line every 10 m. */
+    private static final double RULE = 1000;
+
+    private final PerspectiveCamera eye = new PerspectiveCamera(true);
+    private final Rotate yaw = new Rotate(-140, Rotate.Y_AXIS);
+    private final Rotate pitch = new Rotate(-18, Rotate.X_AXIS);
+    private final Translate back = new Translate(0, 0, -5000);
+    private final Translate target = new Translate(0, 0, 0);
+    private final Group shown = new Group();
+    private final Group floor = new Group();
+    private final ComboBox<Form> buildings = new ComboBox<>();
+    private final CheckBox showVertices = new CheckBox("Vertices");
+    private final CheckBox showFloor = new CheckBox("The floor, ruled every 10 m");
+    private final Label figures = new Label();
+    private final Map<FormModel.Lean, PhongMaterial> colours = new EnumMap<>(FormModel.Lean.class);
+    private final PhongMaterial dots = matte("#d64545");
+    private Form building;
+    /** How far off it is seen whole: the camera's range is set from it. */
+    private double whole = 5000;
+    private double lastX;
+    private double lastY;
+    private Stage stage;
+
+    private static final Map<FormModel.Lean, String> SHADES = Map.of(
+            FormModel.Lean.UPRIGHT, "#2f6fb3", FormModel.Lean.LEVEL, "#3b3f45", FormModel.Lean.SLOPED, "#c26a1b");
+
+    @Override
+    public void start(final Stage stage) {
+        this.stage = stage;
+        SHADES.forEach((lean, shade) -> colours.put(lean, matte(shade)));
+        eye.setNearClip(10);
+        eye.setFarClip(1_000_000);
+        eye.setFieldOfView(40);
+        eye.getTransforms().addAll(target, yaw, pitch, back);
+        final AmbientLight ambient = new AmbientLight(Color.web("#9aa2ab"));
+        final DirectionalLight sun = new DirectionalLight(Color.web("#8a8780"));
+        sun.setDirection(new javafx.geometry.Point3D(0.4, 1, 0.6));
+        final Group scene3d = new Group(floor, shown, eye, ambient, sun);
+        final SubScene view = new SubScene(scene3d, 860, 700, true, SceneAntialiasing.BALANCED);
+        view.setFill(Color.web("#c9dbe8"));
+        view.setCamera(eye);
+        final Pane holder = new Pane(view);
+        view.widthProperty().bind(holder.widthProperty());
+        view.heightProperty().bind(holder.heightProperty());
+        orbit(view);
+
+        final List<Form> all = Buildings.all();
+        buildings.getItems().setAll(all);
+        buildings.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(final Form form) {
+                return form == null ? "" : capitalised(form.name());
+            }
+
+            @Override
+            public Form fromString(final String name) {
+                return null;
+            }
+        });
+        building = all.getFirst();
+        final String picked = System.getProperty("building.pick");
+        if (picked != null) {
+            final String wanted = picked.toLowerCase(Locale.ROOT);
+            building = all.stream().filter(f -> f.name().toLowerCase(Locale.ROOT).startsWith(wanted)
+                    || f.name().toLowerCase(Locale.ROOT).contains(" " + wanted)).findFirst().orElse(building);
+        }
+        buildings.setValue(building);
+        buildings.setOnAction(e -> pick(buildings.getValue(), true));
+        showFloor.setSelected(true);
+        showVertices.setOnAction(e -> redraw());
+        showFloor.setOnAction(e -> floor.setVisible(showFloor.isSelected()));
+        figures.setFont(Font.font("Monospaced", 12));
+        figures.setWrapText(true);
+        final Button save = new Button("Save as text…");
+        save.setOnAction(e -> save());
+
+        final VBox legend = new VBox(4);
+        for (final FormModel.Lean lean : FormModel.Lean.values()) {
+            final Rectangle swatch = new Rectangle(14, 14, Color.web(SHADES.get(lean)));
+            legend.getChildren().add(new HBox(8, swatch, new Label(switch (lean) {
+                case UPRIGHT -> "Upright edges: columns, piers, mullions";
+                case LEVEL -> "Level edges: floors, eaves, sills, ridges";
+                case SLOPED -> "Sloped edges: roofs, arches, spires";
+            })));
+        }
+        final VBox controls = new VBox(10, EngineBench.heading("On show"), buildings,
+                EngineBench.label("Its skeleton only: vertices with no size, edges with no thickness, each drawn"
+                        + " as a thin rod. What it is made of, and its faces, are to come."),
+                legend, showVertices, showFloor,
+                EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
+                        + " come nearer."),
+                EngineBench.heading("Its figures"), figures, save);
+        controls.setPadding(new Insets(14));
+        controls.setPrefWidth(370);
+        final ScrollPane scroll = new ScrollPane(controls);
+        scroll.setFitToWidth(true);
+        scroll.setPrefWidth(390);
+        scroll.setMinWidth(390);
+        final BorderPane root = new BorderPane();
+        root.setLeft(scroll);
+        root.setCenter(holder);
+        root.setStyle("-fx-background-color: #f4f5f7;");
+        final Scene scene = new Scene(root, 1260, 860);
+
+        pick(building, false);
+        yaw.setAngle(Double.parseDouble(System.getProperty("building.yaw", "-140")));
+        pitch.setAngle(-Double.parseDouble(System.getProperty("building.pitch", "18")));
+        final String distance = System.getProperty("building.distance");
+        if (distance != null) {
+            back.setZ(-Double.parseDouble(distance));
+        }
+        stage.setTitle("Buildings bench");
+        stage.setScene(scene);
+        stage.show();
+        SoundBench.snapshotIfAsked(scene);
+    }
+
+    /** Another building on show: seen whole, looked at about its middle, if {@code frame}d afresh. */
+    private void pick(final Form picked, final boolean frame) {
+        building = picked;
+        final Form.Bounds box = building.bounds();
+        whole = Math.max(box.height(), Math.max(box.width(), box.depth())) * 1.9 + 800;
+        target.setX((box.leftmost() + box.rightmost()) / 2);
+        target.setY(-(box.low() + box.high()) / 2);
+        target.setZ((box.back() + box.front()) / 2);
+        back.setZ(-whole);
+        if (frame) {
+            yaw.setAngle(-140);
+            pitch.setAngle(-18);
+        }
+        ruleFloor(box);
+        redraw();
+        describe();
+    }
+
+    /** The building drawn afresh, its edges as thick as suits its size: thin, but never too thin to see. */
+    private void redraw() {
+        final Form.Bounds box = building.bounds();
+        final double size = Math.max(box.height(), Math.max(box.width(), box.depth()));
+        final double thickness = Math.max(5, size / 900);
+        shown.getChildren().setAll(FormModel.of(building, thickness, colours, showVertices.isSelected(), dots));
+    }
+
+    /** The floor under it, well beyond it all round, ruled every 10 m. */
+    private void ruleFloor(final Form.Bounds box) {
+        final double reach = Math.ceil((Math.max(box.width(), box.depth()) / 2 + 3000) / RULE) * RULE;
+        final Box ground = new Box(reach * 2, 2, reach * 2);
+        ground.setTranslateY(1.5);
+        ground.setMaterial(matte("#9fae8f"));
+        floor.getChildren().setAll(ground);
+        final PhongMaterial line = matte("#7d8b70");
+        for (double at = -reach; at <= reach + 1e-6; at += RULE) {
+            final Box across = new Box(reach * 2, 1, 12);
+            across.setTranslateZ(at);
+            final Box along = new Box(12, 1, reach * 2);
+            along.setTranslateX(at);
+            across.setMaterial(line);
+            along.setMaterial(line);
+            floor.getChildren().addAll(across, along);
+        }
+    }
+
+    /** Its figures, read out. */
+    private void describe() {
+        final Form.Bounds box = building.bounds();
+        final List<String> problems = building.problems();
+        final StringBuilder out = new StringBuilder();
+        out.append(String.format("%d vertices, %d edges%n", building.vertices().size(), building.edges().size()));
+        out.append(String.format("%.0f m of edges all told%n", building.length() / 100));
+        out.append(String.format("%.1f m wide, %.1f m deep, %.1f m high%n", box.width() / 100, box.depth() / 100,
+                box.height() / 100));
+        final Map<FormModel.Lean, Integer> leaning = new EnumMap<>(FormModel.Lean.class);
+        for (final Form.Edge edge : building.edges()) {
+            leaning.merge(FormModel.lean(building, edge), 1, Integer::sum);
+        }
+        out.append(String.format("%d upright, %d level, %d sloped%n", leaning.getOrDefault(FormModel.Lean.UPRIGHT, 0),
+                leaning.getOrDefault(FormModel.Lean.LEVEL, 0), leaning.getOrDefault(FormModel.Lean.SLOPED, 0)));
+        out.append(building.pieces() == 1 ? "all one piece\n"
+                : String.format("in %d pieces: its frame, and outlines standing apart%n", building.pieces()));
+        out.append(problems.isEmpty() ? "nothing wrong with it" : "");
+        problems.stream().limit(12).forEach(p -> out.append("\n! ").append(p));
+        if (problems.size() > 12) {
+            out.append("\n! and ").append(problems.size() - 12).append(" more");
+        }
+        figures.setText(out.toString());
+    }
+
+    private void save() {
+        final FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save the building as text");
+        chooser.setInitialFileName(building.name().replace(' ', '-') + ".form");
+        final File file = chooser.showSaveDialog(stage);
+        if (file == null) {
+            return;
+        }
+        try {
+            Files.writeString(file.toPath(), building.text());
+        } catch (IOException e) {
+            figures.setText("Could not save: " + e.getMessage());
+        }
+    }
+
+    /** Dragged, it turns round what is on show; right-dragged, moves across it; scrolled, nearer or further. */
+    private void orbit(final SubScene view) {
+        view.setOnMousePressed(e -> {
+            lastX = e.getSceneX();
+            lastY = e.getSceneY();
+        });
+        view.setOnMouseDragged(e -> {
+            final double dx = e.getSceneX() - lastX;
+            final double dy = e.getSceneY() - lastY;
+            lastX = e.getSceneX();
+            lastY = e.getSceneY();
+            if (e.getButton() == MouseButton.SECONDARY || e.isShiftDown()) {
+                final double scale = -back.getZ() / 900;
+                final double turn = Math.toRadians(yaw.getAngle());
+                target.setX(target.getX() - (dx * Math.cos(turn)) * scale);
+                target.setZ(target.getZ() + (dx * Math.sin(turn)) * scale);
+                target.setY(target.getY() - dy * scale);
+            } else {
+                yaw.setAngle(yaw.getAngle() + dx * 0.4);
+                pitch.setAngle(Math.clamp(pitch.getAngle() - dy * 0.4, -89, 89));
+            }
+        });
+        view.setOnScroll(e -> back.setZ(Math.clamp(back.getZ() * Math.pow(1.0015, -e.getDeltaY()), -whole * 4,
+                -Math.max(100, whole / 40))));
+    }
+
+    private static PhongMaterial matte(final String colour) {
+        final PhongMaterial material = new PhongMaterial(Color.web(colour));
+        material.setSpecularColor(Color.web("#3a3f46"));
+        return material;
+    }
+
+    private static String capitalised(final String name) {
+        return name.isEmpty() ? name : Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+}

@@ -338,7 +338,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -629,6 +629,46 @@ motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where 
 `-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them;
 `-Dride.speed=60` (km/h), `-Dride.steer=2` (degrees, right when positive) and `-Dride.passenger=80`
 (kg) where the test ride starts; `-Dmodel.over=true` lays the game's outfit over on its side.
+
+### Buildings bench
+
+Buildings are shaped on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --buildings
+```
+
+A building's shape is a `Form`: a graph of vertices, each a point with no size, and edges, each a
+line with no thickness, every vertex named. Nothing else: what it is made of, how thick its walls
+are, its faces and what bears what are for whatever uses the shape to lay on it later, each about
+its parts by their names. So one shape can serve a building drawn and broken as a whole, one walked
+through, and one loaded until a pillar gives and it falls.
+
+- Three typical buildings (`Buildings`), each made by a generator:
+  - **Brutalist apartments**: a concrete slab of flats 36 m by 12 m, five storeys on a 6 m grid of
+    columns, its tall ground storey open on pilotis but for a glazed lobby; its front a
+    checkerboard of deep balconies, each with its door; its back in bands of windows; its ends
+    blank; a parapet round its roof and the stair tower on it.
+  - **Skyscraper**: a two-storey podium 48 m square; on it a tower 32 m square, 36 floors of 4 m,
+    mullions every 4 m, set back to 24 m square for its top eight floors; a core 12 m square up its
+    middle; a screen round its roof plant; and a spire on the core to 200 m.
+  - **Town church**: a nave 24 m by 10 m in six bays, a pointed window in each bay each side, under a
+    pitched roof; a rounded apse at its back under a half cone; at its front a tower 5 m square, a
+    pointed doorway in its foot, a pointed opening in each face of its belfry, and a spire, its cross
+    at 39 m.
+- Shown as its skeleton: every edge a thin rod, all of them in a few meshes (`FormModel`), so even
+  the skyscraper's 2,800 edges draw at once: upright ones blue (columns, piers, mullions), level
+  ones dark (floors, eaves, sills), sloped ones orange (roofs, arches, spires); its vertices too,
+  if asked; on a floor ruled every 10 m.
+- Its figures: how many vertices and edges, its edges' length all told, how wide, deep and high it
+  is, how many of its edges are upright, level and sloped, how many pieces it is in (a window's
+  outline stands apart from the wall round it, until a face holds it as a hole), and what is wrong
+  with it: two vertices one point, an edge twice, a vertex nothing joins.
+- Saved as text (`Form.text`, `Form.read`): a line for each vertex, one for each edge by its
+  vertices' names, to read and edit by hand.
+
+`-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
+`-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
 
 ## Unattended runs
 
