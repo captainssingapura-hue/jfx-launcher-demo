@@ -115,8 +115,9 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   drives; and a cruiser, long and low, dark blue, a teardrop tank, its V-twin's two cylinders
   standing out of the engine, fenders over both wheels and long chrome pipes down the right;
   and a big boxer cruiser, black, a long tank, its boxer twin's two great cylinders lying flat,
-  standing out to either side ahead of the rider's knees, a shaft to the back wheel and a pipe
-  down each side, heavy and steady.
+  standing out to either side ahead of the rider's knees, a pipe down each side, heavy and steady;
+  built, as a real motorcycle is, on a frame of steel tubes, a double cradle, its swing arm the
+  shaft's housing (see the [vehicle bench](#vehicle-bench)).
   Got onto from beside them (T), ridden as a car is driven, and got off again there. The rider
   sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
   tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
@@ -541,22 +542,40 @@ java -jar avatar-demo/target/avatar-demo.jar --models
   sidecar.
 - Look round it: drag to turn round it, right-drag (or Shift-drag) to move across it, scroll to
   come nearer or go further off.
-- Shape the sidecar's chassis (`Sidecar`): a few steel tubes, 38 mm across, welded into one frame
-  (`SidecarModel` draws each tube from joint to joint, a weld at each joint), bolted to the boxer's
-  frame at four points, two low struts and two high, so it cannot twist; a flat frame beside the
-  motorcycle, an inner rail and an outer one with a cross tube at each end and a brace across;
-  and its wheel on a stub axle off the rear part of the outer rail, about 1.3 m out and 15 cm ahead
-  of the boxer's back wheel, as a sidecar is set up. Mount it on the right, or on the left (as where
-  traffic keeps left): the same frame, mirrored (`Sidecar.Side`). Set its wheel along the outer
-  rail, as far as the rail reaches, and how far out: its stub axle and the joint it starts from on
-  the rail go with it. Pick any joint of the frame and move it out, along and up by its sliders;
-  the tubes follow, and the wheel stays where it was set. Size the tubes and the wheel. The bench reads out
-  how much steel it takes and how heavy (about 9 m and 20 kg), how far out the wheel is and how far
-  ahead of the back wheel, whether the wheel stands on the ground, and whether it is still one
-  frame; and prints it as code, to paste back into `Sidecar.BOXER`.
+- Shape what is built of rods (`Frame`): anything of rigid rods joined at their ends, as a graph.
+  Its nodes are where rods meet, each named, and welded, bolted to what carries it (a mount), or a
+  pivot (a hinge, held as a weld for now); its rods each run straight from one node to another,
+  each a round tube, its own or the frame's. From these come its length of tube, its mass and
+  where its mass is, whether it is one piece, what is wrong with it (a rod to nowhere, two rods
+  alike, a node no rod meets), and how much it leans on its welds to keep its shape (`slack`, by
+  Maxwell's count of how it could move were its welds pins). `FrameModel` draws any frame, a tube
+  for each rod, a bead at each weld, a clamp at each mount, a boss at each pivot.
+  - **The boxer's own frame** (`Frames.BOXER`), as a real motorcycle's is built: a double cradle of
+    28 mm steel tube, its head tube raked on the forks' line, a twin backbone under the tank out to
+    the seat rails and the tail, two down tubes in front of the cylinders into a cradle under the
+    engine, rising to the swing arm's pivot; struts and stays to brace the back; a tube across at
+    each pair; and the swing arm, its right arm the shaft's heavier housing. 18 nodes, 28 rods,
+    about 11 m of tube and 18 kg. The game draws the boxer on it.
+  - **The sidecar's chassis** (`Sidecar`): a few 38 mm tubes welded into one frame, clamped to the
+    boxer's own tubes at four points, two low struts and two high, so it cannot twist; a flat
+    frame beside the motorcycle, an inner rail and an outer one with a cross tube at each end and
+    a brace across; and its wheel on a stub axle off the rear part of the outer rail, about 1.3 m
+    out and 15 cm ahead of the boxer's back wheel, as a sidecar is set up. Mount it on the right,
+    or on the left (as where traffic keeps left): the same frame, mirrored. Set its wheel along the
+    outer rail, as far as the rail reaches, how far out, and how big: its stub axle and the node
+    it starts from on the rail go with it.
+- Pick a node and move it across (out, for the sidecar), along and up by its sliders; the rods
+  follow. Pick a rod and size its tube, split it in two at a new node, or take it away; or join the
+  node picked to another with a new rod. Its figures are read out as it changes, and anything
+  wrong with it.
+- Keep it: save what is being shaped as text, a line a node and a line a rod, rods by their nodes'
+  names, to read and edit by hand, and open it again (`Frame.text`, `Frame.read`; a sidecar's
+  adds its side and its wheel).
 
 `-Dmodel.pick=van` (or the start of any vehicle's name, or `sidecar`) picks what is on show to start
-with, `-Dmodel.side=left` mounts the sidecar on the left; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from.
+with, `-Dmodel.side=left` mounts the sidecar on the left, `-Dmodel.shape=frame` shapes the
+motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from;
+`-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them.
 
 ## Unattended runs
 

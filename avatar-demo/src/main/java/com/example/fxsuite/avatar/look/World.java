@@ -4,6 +4,8 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Frame;
+import com.example.fxsuite.avatar.sim.Frames;
 import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
@@ -94,6 +96,8 @@ public final class World {
     private final Map<Integer, Rig> rigs = new HashMap<>();
     /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
     private final Map<Integer, Wheels> wheeled = new HashMap<>();
+    /** Whether the frames of what is built of rods are drawn. */
+    private final boolean frames;
     /** Each vehicle's glass, by piece: hidden from inside, when it is looked out of. */
     private final Map<Integer, Node> glass = new HashMap<>();
     /**
@@ -104,6 +108,15 @@ public final class World {
     private static final int HISTORY = 240;
 
     public World(final Course course) {
+        this(course, true);
+    }
+
+    /**
+     * As {@link #World(Course)}; with the frames of what is built of rods ({@link Frames}) drawn, or
+     * left out ({@code frames} false) for the vehicle bench to draw as it shapes them.
+     */
+    public World(final Course course, final boolean frames) {
+        this.frames = frames;
         final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
         ground.setTranslateY(1);
         ground.setMaterial(BoxRig.matte("#66775c"));
@@ -1108,8 +1121,8 @@ public final class World {
                     section(body, frame, new Course.Section(side * 30, 22, -8, 16, 10, 9), engine);
                     section(body, frame, new Course.Section(side * 45, 22, -8, 4, 11, 10), chrome);
                 }
-                // the shaft down to the back wheel, fenders over both wheels, and a pipe down each side
-                section(body, frame, new Course.Section(-12, back / 2 - 6, -18, 4, -back / 2 - 6, 4), chrome);
+                // fenders over both wheels, and a pipe down each side (its frame, the shaft's housing in
+                // its swing arm, is its rods, below)
                 section(body, frame, new Course.Section(0, front, r - ride + r + 4, 10, r * 0.85, 3), paint);
                 section(body, frame, new Course.Section(0, back - 4, r - ride + r + 4, 11, r * 0.9, 3), paint);
                 for (final double side : new double[] {-1, 1}) {
@@ -1129,6 +1142,17 @@ public final class World {
                 for (final double up : new double[] {-22, -12}) {
                     section(body, frame, new Course.Section(18, back + 22, up, 4, 62, 4), chrome);
                 }
+            }
+        }
+        // a motorcycle built of rods, as a real one is: its frame its tubes (Frames), in place of a
+        // frame drawn as a box; drawn standing on the ground, as its nodes are placed
+        final Frame rods = Frames.of(bike);
+        if (rods != null) {
+            slab.setVisible(false);
+            if (frames) {
+                final Group tubes = FrameModel.of(rods, BoxRig.matte("#1c1e21"));
+                tubes.setTranslateY(ride + frame.up());
+                body.getChildren().add(tubes);
             }
         }
         // the lamps: a headlamp over the front wheel, a tail lamp at the back
