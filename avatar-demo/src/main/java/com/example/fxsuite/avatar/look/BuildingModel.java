@@ -17,8 +17,8 @@ import java.util.Map;
  * A building as dressed ({@code build.Building#dressed}), drawn: its solids, all those of a material
  * in one mesh, in that material's colour: board-marked concrete warm grey, precast paler, glass a
  * dark see-through blue-grey (drawn last, so what is behind it shows), metal near black, the roof's
- * gravel darker. In the building's frame, standing on the ground: across to the right is x, up is
- * -y, along ahead is z.
+ * gravel darker, brick a red brown, stone a warm pale limestone. In the building's frame, standing
+ * on the ground: across to the right is x, up is -y, along ahead is z.
  */
 public final class BuildingModel {
 
@@ -29,6 +29,8 @@ public final class BuildingModel {
         LOOKS.put(Material.PRECAST, BoxRig.matte("#cfcac0"));
         LOOKS.put(Material.METAL, BoxRig.matte("#33373c"));
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));
+        LOOKS.put(Material.BRICK, BoxRig.matte("#9a5844"));
+        LOOKS.put(Material.STONE, BoxRig.matte("#cbbd9b"));
         final PhongMaterial glass = new PhongMaterial(Color.web("#4f6f86", 0.55));
         glass.setSpecularColor(Color.web("#d8e6f0"));
         glass.setSpecularPower(40);

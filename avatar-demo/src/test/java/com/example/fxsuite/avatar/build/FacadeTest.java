@@ -69,10 +69,10 @@ class FacadeTest {
 
     @Test
     void aFacadeFillsEachCellAsItsPatternSaysAndTrimsItAll() {
-        final Facade checker = new Facade("test", Material.CONCRETE, 30,
+        final Facade checker = new Facade("test", Role.WALL, 30,
                 Facade.Pattern.checker(Infills.window(100, 90, 240), Infills.blank()),
-                List.of(Trims.floorBands(Material.CONCRETE, 20, 25)), false);
-        final List<Solid> solids = checker.dress(wall());
+                List.of(Trims.floorBands(Role.DRESSING, 20, 25)), false);
+        final List<Solid> solids = checker.dress(wall(), Palette.CONCRETE);
         // a window in two of the four cells, chessboard-wise: its glass, its mullions
         assertEquals(2, solids.stream().filter(s -> s.name().endsWith("window, glass")).count());
         assertTrue(solids.stream().anyMatch(s -> s.name().equals("test wall, storey 0, bay 0, window, glass")));
@@ -96,9 +96,9 @@ class FacadeTest {
 
     @Test
     void aWallThatWrapsReachesRoundItsCornersByHalfItsThickness() {
-        final Facade plain = new Facade("plain", Material.CONCRETE, 30, Facade.Pattern.all(Infills.blank()), List.of(),
+        final Facade plain = new Facade("plain", Role.WALL, 30, Facade.Pattern.all(Infills.blank()), List.of(),
                 true);
-        final double reach = plain.dress(wall()).stream().flatMap(s -> s.corners().stream())
+        final double reach = plain.dress(wall(), Palette.CONCRETE).stream().flatMap(s -> s.corners().stream())
                 .mapToDouble(p -> Math.abs(p.across())).max().orElseThrow();
         assertEquals(615, reach, 1e-9);
     }

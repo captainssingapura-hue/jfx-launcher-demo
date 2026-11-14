@@ -677,8 +677,29 @@ through, and one loaded until a pillar gives and it falls.
   (`Infills`: blank, a window, a ribbon window, glazing, a balcony and its door, deep punched
   windows; `Pattern`: all alike, or chessboard-wise), the wall cut round each fill's openings, and
   trims laid over it all (`Trims`: bands at its floors, fins, a coping), carried round its corners
-  by half its thickness. Everything comes out as solids, each a named box of a material
-  (`Solid`), drawn a mesh a material (`BuildingModel`).
+  by half its thickness. Everything comes out as solids, each a named box (`Solid`), drawn a mesh
+  a material (`BuildingModel`).
+- **Built in any palette** (`Palette`): a design never names a material, only what each part does
+  (`Role`: wall, base, dressing, structure, roof, glazing, frame), and a palette says what each
+  role is made of, and how thick walls and base are. Four: board-marked concrete, all of it (the
+  apartments' own); precast panels, 40 cm, on a cast base; brick, 35 cm, with stone dressings, on a
+  50 cm stone base; and ashlar stone, 50 cm, on a 60 cm base. So the same facade in stone has its
+  windows set deeper, its surrounds and coping in stone, and its base stands out under it as a
+  plinth. A stone base is rusticated: laid in courses, 40 or 45 cm, each 2 cm proud of the joints
+  between. The structure that shows (the pilotis), the glass, the frames and the roof are the same
+  in every palette.
+- **What is doubtful, said** (`Design.doubts`): each material spans so wide an opening with
+  nothing to carry what is over it (concrete any, brick 3 m, stone 2.5 m), and a facade whose
+  openings are wider is marked on the bench with a ? and why: ribbon windows in brick, 5.6 m
+  openings; shopfronts in a stone base. Allowed, not forbidden: the designer's to weigh.
+- **Dressings added, whatever the facade** (`Dressings`, `Building.Addition`): an option can add
+  to surfaces once they are dressed, not only dress them, and is given what their design made, so
+  it can keep clear of their windows. Two such choices, each its own: **corners**, plain or with
+  corner stones (quoins) up each corner of the walls, in even courses of about 30 cm, long (60 cm)
+  and short (30) by turns, wrapping the corner, a long stone on one face meeting a short one on the
+  other, left out where they would come over a window; and **top**, the plain coping or a cornice,
+  four steps standing further out the higher, the corona deepest, over the coping and round the
+  corners. Both in the palette's dressings: stone on brick, concrete on concrete.
   - The apartments have five facades, the same building each time: balconies on a chessboard in
     front and ribbon windows behind; ribbon windows all round; an egg-crate of concrete fins and
     floor bands over full-height glazing; deep punched windows in precast concrete, their
@@ -688,14 +709,15 @@ through, and one loaded until a pillar gives and it falls.
   - Its ground floor is a choice of its own, whatever its facade above: open, on its pilotis, the
     glass box of its lobby among them; closed in with shopfronts all round, its entrance in the
     middle of its front under concrete canopies; or closed in with solid concrete, a band of high
-    windows along it, the same entrance. Its ground storey's four walls are surfaces of the
+    windows, a pair in each bay (narrow enough for stone), the same entrance. Its ground storey's four walls are surfaces of the
     building either way; open, no option dresses them.
-  - On the bench, pick a facade and a ground floor, and show the building dressed, its skeleton,
-    or both.
+  - On the bench, pick a facade, a ground floor, its corners, its top and what to build it in, and
+    show the building dressed, its skeleton, or both.
 
 `-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
 `-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
-apartments are dressed;
+apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice` their dressings,
+`-Dbuilding.materials=brick` (the start of a palette's name) what in;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
 
 ## Unattended runs

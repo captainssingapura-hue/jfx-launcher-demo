@@ -28,7 +28,8 @@ class ApartmentsTest {
         FLATS.surfaces().forEach(s -> kinds.add(s.kind()));
         assertEquals(Set.of("front", "back", "end", "roof", "underside", "lobby", "tower", "tower top", "ground front",
                 "ground back", "ground end"), kinds);
-        assertEquals(List.of(Apartments.FACADE, Apartments.GROUND), List.copyOf(FLATS.choices().keySet()));
+        assertEquals(List.of(Apartments.FACADE, Apartments.GROUND, Apartments.CORNERS, Apartments.TOP),
+                List.copyOf(FLATS.choices().keySet()));
         final Surface front = FLATS.surfaces().stream().filter(s -> s.name().equals("front")).findFirst().orElseThrow();
         // the front on the front line of columns, over the upper storeys, its bays the column grid's
         assertEquals(600, front.at(0, 0, 0).along(), 1e-9);
@@ -46,7 +47,7 @@ class ApartmentsTest {
         for (final Building.Option facade : FLATS.choices().get(Apartments.FACADE)) {
             for (final Building.Option ground : FLATS.choices().get(Apartments.GROUND)) {
                 final Building.Option option = facade.and(ground);
-                checkDressed(option, FLATS.dressed(List.of(facade, ground)));
+                checkDressed(option, FLATS.dressed(List.of(facade, ground), Palette.CONCRETE));
             }
         }
     }
@@ -71,10 +72,11 @@ class ApartmentsTest {
     @Test
     void itsGroundFloorOpenOnItsPilotisOrClosedIn() {
         final Building.Option facade = FLATS.own().getFirst();
-        final List<Solid> open = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")));
-        final List<Solid> shops = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Shopfronts")));
-        final List<Solid> solid = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Solid, high windows")));
-        assertEquals(FLATS.own(), List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")), "open, its own");
+        final List<Solid> open = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")), Palette.CONCRETE);
+        final List<Solid> shops = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Shopfronts")), Palette.CONCRETE);
+        final List<Solid> solid = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Solid, high windows")), Palette.CONCRETE);
+        assertEquals(FLATS.own().subList(0, 2), List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")),
+                "open, its own");
         // open: nothing round the ground storey but the lobby's glass among the pilotis
         assertTrue(open.stream().noneMatch(s -> s.name().startsWith("ground ")));
         assertTrue(open.stream().anyMatch(s -> s.name().startsWith("lobby, ") && s.material() == Material.GLASS));
@@ -106,8 +108,8 @@ class ApartmentsTest {
     void theSameBuildingDressedAnotherWayChangesOnlyItsFacades() {
         final Building.Option balconies = FLATS.option(Apartments.FACADE, "Balconies front, ribbons back");
         final Building.Option fins = FLATS.option(Apartments.FACADE, "Egg-crate fins");
-        final List<Solid> a = FLATS.dressed(balconies);
-        final List<Solid> b = FLATS.dressed(fins);
+        final List<Solid> a = FLATS.dressed(balconies, Palette.CONCRETE);
+        final List<Solid> b = FLATS.dressed(fins, Palette.CONCRETE);
         assertNotEquals(a, b);
         // its ends, roof, lobby and tower the same either way
         for (final String part : List.of("left end, ", "right end, ", "roof, ", "roof tower")) {
@@ -122,11 +124,11 @@ class ApartmentsTest {
         assertEquals(2 * (6 * 3 + 1), b.stream().filter(s -> s.name().contains(", fin ")).count());
         // and an option changed one surface at a time
         final Building.Option mixed = balconies.with("balconies, punched back", "back",
-                new Facade("punched", Material.PRECAST, 40, Facade.Pattern.all(Infills.punched(2, 130, 12,
-                        Material.CONCRETE)), List.of(), true));
-        final List<Solid> c = FLATS.dressed(mixed);
+                new Facade("punched", Role.WALL, 0, Facade.Pattern.all(Infills.punched(2, 130, 12,
+                        Role.DRESSING)), List.of(), true));
+        final List<Solid> c = FLATS.dressed(mixed, Palette.CONCRETE);
         assertEquals(a.stream().filter(s -> s.name().startsWith("front, ")).toList(),
                 c.stream().filter(s -> s.name().startsWith("front, ")).toList(), "its front untouched");
-        assertTrue(c.stream().anyMatch(s -> s.name().startsWith("back, ") && s.material() == Material.PRECAST));
+        assertTrue(c.stream().anyMatch(s -> s.name().startsWith("back, ") && s.name().contains("surround")));
     }
 }

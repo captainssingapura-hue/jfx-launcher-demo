@@ -5,21 +5,24 @@ import java.util.List;
 import java.util.TreeSet;
 
 /**
- * A wall's design, put together: a wall of {@code material}, {@code thickness} thick about the
- * surface's plane, cut by its building's lines into cells (a bay of a storey each); each cell filled
+ * A wall's design, put together: a wall doing {@code role} (a wall, or a base), of what its palette
+ * makes that of and as thick as it says (or {@code thickness}, if that is not 0), about the surface's
+ * plane, cut by its building's lines into cells (a bay of a storey each); each cell filled
  * ({@link Infill}) as {@code pattern} says, the fill cutting its openings out of the wall and adding
  * what it adds (glass, a balcony); its parapet band solid; and {@code trims} over all of it (bands
  * at its floors, fins, a coping). Its wall is carried round its ends by half its thickness, to meet
- * the walls at its corners, if {@code wraps}.
+ * the walls at its corners, if {@code wraps}. A base in a stone palette is rusticated: laid in
+ * courses as high as the palette says, each standing proud of the joints between them. What is
+ * doubtful about it ({@link #doubts}): an opening wider than its wall's material spans.
  *
  * @param title     what it is called
- * @param material  its wall's
- * @param thickness its wall's
+ * @param role      its wall's: {@link Role#WALL} or {@link Role#BASE}
+ * @param thickness its wall's; 0 for its palette's
  * @param pattern   which fill each cell has
  * @param trims     laid over it all
  * @param wraps     whether it reaches round its corners
  */
-public record Facade(String title, Material material, double thickness, Pattern pattern, List<Design> trims,
+public record Facade(String title, Role role, double thickness, Pattern pattern, List<Design> trims,
                      boolean wraps) implements Design {
 
     public Facade {
@@ -64,7 +67,7 @@ public record Facade(String title, Material material, double thickness, Pattern 
     /** How a cell of a wall is filled: a window, a balcony, nothing. */
     @FunctionalInterface
     public interface Infill {
-        Fill fill(Surface surface, Cell cell, double thickness);
+        Fill fill(Surface surface, Cell cell, double thickness, Palette palette);
     }
 
     /** Which fill each cell has. */
@@ -83,34 +86,95 @@ public record Facade(String title, Material material, double thickness, Pattern 
         }
     }
 
-    @Override
-    public List<Solid> dress(final Surface surface) {
-        final List<Solid> solids = new ArrayList<>();
-        final double half = thickness / 2;
-        final double last = surface.bays() - 1;
+    /** How thick its wall is, in {@code palette}. */
+    public double thick(final Palette palette) {
+        return thickness > 0 ? thickness : palette.thickness(role);
+    }
+
+    /** How high its courses are, in {@code palette}: a base's, if the palette rusticates it; else 0. */
+    private double courses(final Palette palette) {
+        return role == Role.BASE ? palette.rustication() : 0;
+    }
+
+    /** Each cell of {@code surface}, as it is filled in {@code palette}. */
+    private void cells(final Surface surface, final Palette palette,
+                       final java.util.function.BiConsumer<Cell, Fill> each) {
         for (int s = 0; s < surface.storeys(); s++) {
             for (int b = 0; b < surface.bays(); b++) {
                 final Cell cell = new Cell(b, s, surface.columns()[b], surface.columns()[b + 1], surface.floors()[s],
                         surface.storeyTop(s));
-                final Fill fill = pattern.at(cell).fill(surface, cell, thickness);
-                final Rect wall = new Rect(cell.u0() - (wraps && b == 0 ? half : 0),
-                        cell.u1() + (wraps && b == last ? half : 0), cell.v0(), cell.v1());
-                int k = 0;
-                for (final Rect piece : cut(wall, fill.openings())) {
-                    solids.add(surface.box(cell.name() + ", wall " + k++, material, piece.u0(), piece.u1(), piece.v0(),
-                            piece.v1(), -half, half));
-                }
-                solids.addAll(fill.solids());
+                each.accept(cell, pattern.at(cell).fill(surface, cell, thick(palette), palette));
             }
         }
+    }
+
+    @Override
+    public List<Solid> dress(final Surface surface, final Palette palette) {
+        final List<Solid> solids = new ArrayList<>();
+        final double thickness = thick(palette);
+        final double half = thickness / 2;
+        final double course = courses(palette);
+        final double last = surface.bays() - 1;
+        cells(surface, palette, (cell, fill) -> {
+            final Rect wall = new Rect(cell.u0() - (wraps && cell.bay() == 0 ? half : 0),
+                    cell.u1() + (wraps && cell.bay() == last ? half : 0), cell.v0(), cell.v1());
+            int k = 0;
+            for (final Rect piece : cut(wall, fill.openings())) {
+                solids.add(surface.box(cell.name() + ", wall " + k, palette, role, piece.u0(), piece.u1(), piece.v0(),
+                        piece.v1(), -half, half));
+                if (course > 0) {
+                    rusticate(surface, palette, cell.name() + ", wall " + k, piece, half, course, solids);
+                }
+                k++;
+            }
+            solids.addAll(fill.solids());
+        });
         if (surface.parapet() > 0) {
-            solids.add(surface.box("parapet", material, wraps ? -half : 0, surface.width() + (wraps ? half : 0),
+            solids.add(surface.box("parapet", palette, role, wraps ? -half : 0, surface.width() + (wraps ? half : 0),
                     surface.height() - surface.parapet(), surface.height(), -half, half));
         }
         for (final Design trim : trims) {
-            solids.addAll(trim.dress(surface));
+            solids.addAll(trim.dress(surface, palette));
         }
         return solids;
+    }
+
+    /** Rustication's joints, this wide: each course stands this far proud of them. */
+    private static final double PROUD = 2;
+    private static final double JOINT = 3;
+
+    /**
+     * {@code piece} of a wall laid in courses {@code course} high, from the surface's foot: each a
+     * slab standing proud of its face, the joints between them left back.
+     */
+    private void rusticate(final Surface surface, final Palette palette, final String name, final Rect piece,
+                           final double half, final double course, final List<Solid> solids) {
+        final int first = (int) Math.floor(piece.v0() / course);
+        for (int c = first; c * course < piece.v1(); c++) {
+            final double low = Math.max(piece.v0(), c * course + (c == 0 ? 0 : JOINT / 2));
+            final double high = Math.min(piece.v1(), (c + 1) * course - JOINT / 2);
+            if (high - low > JOINT) {
+                solids.add(surface.box(name + ", course " + c, palette, role, piece.u0(), piece.u1(), low, high, half,
+                        half + PROUD));
+            }
+        }
+    }
+
+    /**
+     * What is doubtful about it on {@code surface} in {@code palette}: an opening wider than its
+     * wall's material spans with nothing to carry what is over it.
+     */
+    @Override
+    public List<String> doubts(final Surface surface, final Palette palette) {
+        final Material material = palette.of(role);
+        final double[] widest = {0};
+        cells(surface, palette, (cell, fill) -> fill.openings()
+                .forEach(o -> widest[0] = Math.max(widest[0], o.u1() - o.u0())));
+        if (widest[0] <= material.span()) {
+            return List.of();
+        }
+        return List.of(String.format(java.util.Locale.ROOT, "%s: %s in %s, openings %.1f m wide; %s spans %.1f m unsupported",
+                surface.name(), title, material.title(), widest[0] / 100, material.title(), material.span() / 100));
     }
 
     /**

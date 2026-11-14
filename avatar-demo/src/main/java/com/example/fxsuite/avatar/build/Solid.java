@@ -6,9 +6,10 @@ import java.util.List;
  * One solid part of a building as dressed: a box, not necessarily square to the building, given by
  * its eight corners: corner {@code k} is at the low or high end of its first edge as bit 0 of k
  * says, of its second as bit 1, of its third as bit 2. Named, so whatever comes after (damage,
- * collision) can tell which it is; made of {@code material}.
+ * collision) can tell which it is; what it does ({@code role}), and so what it is made of
+ * ({@code material}), as the palette it was dressed in says.
  */
-public record Solid(String name, Material material, List<Point> corners) {
+public record Solid(String name, Role role, Material material, List<Point> corners) {
 
     public Solid {
         corners = List.copyOf(corners);

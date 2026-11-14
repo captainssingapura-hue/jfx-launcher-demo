@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.bench;
 import com.example.fxsuite.avatar.build.Apartments;
 import com.example.fxsuite.avatar.build.Building;
 import com.example.fxsuite.avatar.build.Material;
+import com.example.fxsuite.avatar.build.Palette;
 import com.example.fxsuite.avatar.build.Solid;
 import com.example.fxsuite.avatar.look.BuildingModel;
 import com.example.fxsuite.avatar.look.FormModel;
@@ -57,7 +58,7 @@ import java.util.Map;
  *
  * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
  * start with; {@code -Dbuilding.facade=egg} and {@code -Dbuilding.ground=shop} (the start of an option's
- * name) how a composed one is dressed;
+ * name) how a composed one is dressed, and {@code -Dbuilding.materials=brick} what it is built in;
  * {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
  * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
@@ -78,6 +79,8 @@ public final class BuildingBench extends Application {
     /** A choice of options for each of a composed building's choices: its facade, its ground floor. */
     private final VBox choosing = new VBox(8);
     private final List<ComboBox<Building.Option>> picks = new java.util.ArrayList<>();
+    /** What a composed building is built in. */
+    private final ComboBox<Palette> palettes = new ComboBox<>();
     private final CheckBox showSkeleton = new CheckBox("Its skeleton");
     private final CheckBox showDressed = new CheckBox("Dressed: its surfaces' designs");
     private final CheckBox showVertices = new CheckBox("Vertices");
@@ -163,7 +166,8 @@ public final class BuildingBench extends Application {
         final VBox controls = new VBox(10, EngineBench.heading("On show"), buildings,
                 EngineBench.label("Its skeleton: vertices with no size, edges with no thickness, each drawn as a"
                         + " thin rod. A building composed has surfaces too, each dressed by a design: pick its facade"
-                        + " and its ground floor to dress the same building another way."),
+                        + " and its ground floor to dress the same building another way, and what to build it in."
+                        + " Doubtful choices are marked ? in its figures."),
                 choosing, showDressed, showSkeleton,
                 legend, showVertices, showFloor,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
@@ -255,6 +259,29 @@ public final class BuildingBench extends Application {
             picks.add(pick);
             choosing.getChildren().add(EngineBench.row(choice, pick));
         });
+        palettes.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(final Palette palette) {
+                return palette == null ? "" : palette.name();
+            }
+
+            @Override
+            public Palette fromString(final String name) {
+                return null;
+            }
+        });
+        palettes.getItems().setAll(composed.palettes());
+        palettes.setValue(composed.palettes().getFirst());
+        final String material = System.getProperty("building.materials");
+        if (material != null) {
+            composed.palettes().stream().filter(p -> p.name().toLowerCase(Locale.ROOT)
+                    .startsWith(material.toLowerCase(Locale.ROOT))).findFirst().ifPresent(palettes::setValue);
+        }
+        palettes.setOnAction(e -> {
+            redraw();
+            describe();
+        });
+        choosing.getChildren().add(EngineBench.row("Materials", palettes));
     }
 
     /** The options picked, one of each choice. */
@@ -269,7 +296,7 @@ public final class BuildingBench extends Application {
         final double thickness = Math.max(5, size / 900);
         shown.getChildren().clear();
         if (composed != null && showDressed.isSelected()) {
-            shown.getChildren().add(BuildingModel.of(composed.dressed(chosen())));
+            shown.getChildren().add(BuildingModel.of(composed.dressed(chosen(), palettes.getValue())));
         }
         if (composed == null || showSkeleton.isSelected()) {
             shown.getChildren().add(FormModel.of(building, thickness, colours, showVertices.isSelected(), dots));
@@ -313,13 +340,15 @@ public final class BuildingBench extends Application {
         out.append(building.pieces() == 1 ? "all one piece\n"
                 : String.format("in %d pieces: its frame, and outlines standing apart%n", building.pieces()));
         if (composed != null) {
-            final List<Solid> solids = composed.dressed(chosen());
+            final List<Solid> solids = composed.dressed(chosen(), palettes.getValue());
             final Map<Material, Integer> made = new EnumMap<>(Material.class);
             solids.forEach(s -> made.merge(s.material(), 1, Integer::sum));
             out.append(String.format("%d surfaces, dressed in %d solids:%n", composed.surfaces().size(), solids.size()));
             made.forEach((material, count) -> out.append(String.format("  %d %s%n", count, material.title())));
+            final List<String> doubts = composed.doubts(chosen(), palettes.getValue());
+            doubts.forEach(d -> out.append("? ").append(d).append('\n'));
         }
-        out.append(problems.isEmpty() ? "nothing wrong with it" : "");
+        out.append(problems.isEmpty() ? "its skeleton: nothing wrong with it" : "its skeleton:");
         problems.stream().limit(12).forEach(p -> out.append("\n! ").append(p));
         if (problems.size() > 12) {
             out.append("\n! and ").append(problems.size() - 12).append(" more");

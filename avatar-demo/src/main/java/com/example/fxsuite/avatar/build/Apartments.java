@@ -39,6 +39,8 @@ public final class Apartments {
     /** What its choices are about: its facade, above; and its ground floor. */
     public static final String FACADE = "Facade";
     public static final String GROUND = "Ground floor";
+    public static final String CORNERS = "Corners";
+    public static final String TOP = "Top";
 
     /** The building, its own way of being dressed first. */
     public static Building building() {
@@ -81,11 +83,17 @@ public final class Apartments {
             final Form.Vertex a = skeleton.vertices().get(edge.from());
             final Form.Vertex b = skeleton.vertices().get(edge.to());
             return a.across() == b.across() && a.along() == b.along() && Math.max(a.up(), b.up()) <= FIRST;
-        }, 50, Material.CONCRETE);
+        }, 50, Role.STRUCTURE);
         final Map<String, List<Building.Option>> choices = new java.util.LinkedHashMap<>();
         choices.put(FACADE, options());
         choices.put(GROUND, groundFloors());
-        return new Building("brutalist apartments", skeleton, surfaces, List.of(pilotis), choices);
+        // what is added to its walls, whatever their facade: corner stones up its corners; a cornice along its top
+        final String[] walls = {"front", "back", "end"};
+        choices.put(CORNERS, List.of(new Building.Option("Plain", Map.of()), Building.Option.adding("Corner stones",
+                Dressings.cornerStones(Role.WALL, 30, 60, 30, 3), walls)));
+        choices.put(TOP, List.of(new Building.Option("Coping", Map.of()),
+                Building.Option.adding("Cornice", Dressings.cornice(Role.WALL), walls)));
+        return new Building("brutalist apartments", skeleton, surfaces, List.of(pilotis), choices, Palette.ALL);
     }
 
     /** A box's four walls, {@code halfWide} by {@code halfDeep} about the middle, from {@code low}, {@code high} high. */
@@ -107,14 +115,14 @@ public final class Apartments {
 
     /** What every facade shares: the ends blank, the roof and the floor's underside slabs, the tower blank. */
     private static Map<String, Design> common() {
-        final Design blank = new Facade("blank concrete", Material.CONCRETE, 30, Pattern.all(Infills.blank()),
-                List.of(Trims.coping(Material.CONCRETE, 8, 20)), false);
+        final Design blank = new Facade("blank", Role.WALL, 0, Pattern.all(Infills.blank()),
+                List.of(Trims.coping(Role.DRESSING, 8, 20)), false);
         return Map.of(
                 "end", blank,
-                "roof", Design.slab(Material.CONCRETE, -30, 0).and(Design.slab(Material.GRAVEL, 0, 4)),
-                "underside", Design.slab(Material.CONCRETE, -30, 0),
-                "tower", new Facade("tower", Material.CONCRETE, 25, Pattern.all(Infills.blank()), List.of(), true),
-                "tower top", Design.slab(Material.CONCRETE, -25, 0));
+                "roof", Design.slab(Role.STRUCTURE, -30, 0).and(Design.slab(Role.ROOF, 0, 4)),
+                "underside", Design.slab(Role.STRUCTURE, -30, 0),
+                "tower", new Facade("tower", Role.WALL, 0, Pattern.all(Infills.blank()), List.of(), true),
+                "tower top", Design.slab(Role.STRUCTURE, -25, 0));
     }
 
     /** {@code common} with a front and a back of their own. */
@@ -128,44 +136,45 @@ public final class Apartments {
     /**
      * The ways its ground storey can be: open, on its pilotis, the glass box of its lobby among them;
      * closed in with shopfronts, its entrance in the middle of its front under a canopy; or closed
-     * in with solid concrete, a band of high windows along it, its entrance glazed.
+     * in with a solid base, a pair of high windows in each bay, its entrance glazed. Its walls its base:
+     * as its palette says, concrete, or rusticated stone.
      */
     public static List<Building.Option> groundFloors() {
-        final Design blank = new Facade("blank concrete", Material.CONCRETE, 30, Pattern.all(Infills.blank()), List.of(),
+        final Design blank = new Facade("blank", Role.BASE, 0, Pattern.all(Infills.blank()), List.of(),
                 false);
-        final Facade.Infill entrance = Infills.entrance(240, 280, 150, Material.CONCRETE);
+        final Facade.Infill entrance = Infills.entrance(240, 280, 150, Role.DRESSING);
         final Pattern middle = cell -> cell.bay() == 2 || cell.bay() == 3 ? entrance : null;
         final Facade.Infill shop = Infills.shopfront(45, 60, 50);
-        final Facade.Infill high = Infills.ribbon(270, 360, 50);
+        final Facade.Infill high = Infills.windows(2, 200, 270, 360);
         return List.of(
-                new Building.Option("Open, on pilotis", Map.of("lobby", new Facade("glazed lobby", Material.METAL, 10,
+                new Building.Option("Open, on pilotis", Map.of("lobby", new Facade("glazed lobby", Role.FRAME, 10,
                         Pattern.all(Infills.glazing(0, 0)), List.of(), false))),
                 new Building.Option("Shopfronts", Map.of(
-                        "ground front", new Facade("shopfronts", Material.CONCRETE, 30,
+                        "ground front", new Facade("shopfronts", Role.BASE, 0,
                                 cell -> middle.at(cell) != null ? entrance : shop, List.of(), true),
-                        "ground back", new Facade("shopfronts", Material.CONCRETE, 30, Pattern.all(shop), List.of(), true),
+                        "ground back", new Facade("shopfronts", Role.BASE, 0, Pattern.all(shop), List.of(), true),
                         "ground end", blank)),
                 new Building.Option("Solid, high windows", Map.of(
-                        "ground front", new Facade("solid", Material.CONCRETE, 30,
+                        "ground front", new Facade("solid", Role.BASE, 0,
                                 cell -> middle.at(cell) != null ? entrance : high, List.of(), true),
-                        "ground back", new Facade("solid", Material.CONCRETE, 30, Pattern.all(high), List.of(), true),
+                        "ground back", new Facade("solid", Role.BASE, 0, Pattern.all(high), List.of(), true),
                         "ground end", blank)));
     }
 
     /** The ways its facade, above its ground storey, can be dressed. */
     public static List<Building.Option> options() {
-        final Design coping = Trims.coping(Material.CONCRETE, 8, 22);
-        final Design ribbons = new Facade("ribbon windows", Material.CONCRETE, 30,
-                Pattern.all(Infills.ribbon(90, 240, 40)), List.of(Trims.floorBands(Material.CONCRETE, 25, 25), coping),
+        final Design coping = Trims.coping(Role.DRESSING, 8, 22);
+        final Design ribbons = new Facade("ribbon windows", Role.WALL, 0,
+                Pattern.all(Infills.ribbon(90, 240, 40)), List.of(Trims.floorBands(Role.WALL, 0, 25), coping),
                 true);
-        final Design balconies = new Facade("balconies", Material.CONCRETE, 30,
-                Pattern.checker(Infills.balcony(150, 60, 120, Material.CONCRETE), Infills.window(70, 90, 250)),
+        final Design balconies = new Facade("balconies", Role.WALL, 0,
+                Pattern.checker(Infills.balcony(150, 60, 120, Role.DRESSING), Infills.window(70, 90, 250)),
                 List.of(coping), true);
-        final Design eggCrate = new Facade("egg-crate", Material.CONCRETE, 30, Pattern.all(Infills.glazing(30, 45)),
-                List.of(Trims.fins(Material.CONCRETE, 2, 20, 90), Trims.floorBands(Material.CONCRETE, 25, 90), coping),
+        final Design eggCrate = new Facade("egg-crate", Role.WALL, 0, Pattern.all(Infills.glazing(30, 45)),
+                List.of(Trims.fins(Role.DRESSING, 2, 20, 90), Trims.floorBands(Role.WALL, 0, 90), coping),
                 true);
-        final Design punched = new Facade("punched", Material.PRECAST, 40,
-                Pattern.all(Infills.punched(2, 130, 12, Material.CONCRETE)), List.of(coping), true);
+        final Design punched = new Facade("punched", Role.WALL, 0,
+                Pattern.all(Infills.punched(2, 130, 12, Role.DRESSING)), List.of(coping), true);
         return List.of(
                 option("Balconies front, ribbons back", balconies, ribbons),
                 option("Ribbon windows", ribbons, ribbons),

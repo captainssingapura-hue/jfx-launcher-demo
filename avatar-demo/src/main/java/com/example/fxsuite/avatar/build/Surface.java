@@ -48,14 +48,17 @@ public record Surface(String name, String kind, Point origin, Point u, Point v, 
         return origin.plus(this.u.times(u)).plus(this.v.times(v)).plus(out.times(w));
     }
 
-    /** A box on it, from {@code u0} to {@code u1} along, {@code v0} to {@code v1} up, {@code w0} to {@code w1} out. */
-    public Solid box(final String called, final Material material, final double u0, final double u1, final double v0,
-                     final double v1, final double w0, final double w1) {
+    /**
+     * A box on it, from {@code u0} to {@code u1} along, {@code v0} to {@code v1} up, {@code w0} to
+     * {@code w1} out; doing {@code role}, of what {@code palette} makes that of.
+     */
+    public Solid box(final String called, final Palette palette, final Role role, final double u0, final double u1,
+                     final double v0, final double v1, final double w0, final double w1) {
         final List<Point> corners = new ArrayList<>(8);
         for (int k = 0; k < 8; k++) {
             corners.add(at((k & 1) == 0 ? u0 : u1, (k & 2) == 0 ? v0 : v1, (k & 4) == 0 ? w0 : w1));
         }
-        return new Solid(name + ", " + called, material, corners);
+        return new Solid(name + ", " + called, role, palette.of(role), corners);
     }
 
     /** How many storeys it has, below its parapet. */
