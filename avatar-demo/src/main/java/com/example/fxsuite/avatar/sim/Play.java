@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 24;
+    public static final int RULES = 25;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -167,8 +167,11 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // with the gun of the vehicle it drives, the keys drive it as a car is driven, A and D
         // turning it, and the mouse is the gun's
         final int gunship = gunship(handed, manned);
+        // and an airship, which cannot go sideways, is steered so always, gun or no gun: A and D
+        // turn it, as a car's wheel would
+        final int steered = gunship >= 0 ? gunship : inside >= 0 && handed.get(inside).craft().closed() ? inside : -1;
         // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it)
-        final Controls steering = gunship >= 0 && !(handed.get(gunship).craft() instanceof Course.Chassis)
+        final Controls steering = steered >= 0 && !(handed.get(steered).craft() instanceof Course.Chassis)
                 ? gunshipControls(controls, seconds) : controls;
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);

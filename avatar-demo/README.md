@@ -224,8 +224,8 @@ for the engines.
   descends, never below its moorings; it has no sideways and its engines are never cut. The
   mouse aims the gun, all round, 80° down and 10° up, and the gun holds its aim on the world as
   the airship turns; a click fires it, spinning up first. The view stays the airship's, behind
-  it. G gives the gun up, and the airship is flown as it was before it had one, the mouse
-  turning it and a click dropping a bomb; G again takes it back. A right-click drops a bomb
+  it. A and D steer it always, as a car's wheel would: it cannot go sideways. G gives the gun
+  up, the mouse then left alone and a click dropping a bomb; G again takes it back. A right-click drops a bomb
   from under the gondola, going as the airship goes; held, a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
   when it is down at its moorings (no bombs are dropped there). Low over its own bombs, it takes
   their blast too. T again and the robot drops out of the hatch, from wherever it is. Broken

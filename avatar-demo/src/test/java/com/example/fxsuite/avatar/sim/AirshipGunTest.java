@@ -133,17 +133,21 @@ class AirshipGunTest {
     }
 
     @Test
-    void theGunGivenUpItIsFlownAsBeforeAndTakenBackItIsTheGunsAgain() {
+    void theGunGivenUpItIsStillSteeredAsACarAndTakenBackItIsTheGunsAgain() {
         final List<Event> events = new ArrayList<>();
         Play play = aloft(3, events);
         play = run(play, Controls.doing(Action.GUN), Clock.STEP, events);
         assertFalse(gun(play).held(), "the gun given up");
         assertTrue(ship(play).held(), "the airship still flown");
         assertTrue(play.hidden(), "from inside");
-        // the mouse turns the airship again, and leaves the gun be
+        // the mouse neither turns the airship nor aims the gun
+        final double still = ship(play).place().yaw();
+        play = run(play, new Controls(0, 0, 0.5, 0, true, false, 0), 1, events);
+        assertEquals(still, ship(play).place().yaw(), 1e-9, "the mouse does not steer it");
+        // A and D still turn it, as a car's wheel would; the gun, let be, holds its aim on the world
         final double yaw = ship(play).place().yaw();
         final double gunYaw = gun(play).yaw();
-        play = run(play, new Controls(0, 0, 0.5, 0, true, false, 0), 1, events);
+        play = run(play, TURN_RIGHT, 1, events);
         assertTrue(Num.wrap(ship(play).place().yaw() - yaw) > 1, "the airship turned");
         assertEquals(gunYaw, Num.wrap(gun(play).yaw() + ship(play).place().yaw() - yaw), 1e-6,
                 "the gun held where it was pointing");

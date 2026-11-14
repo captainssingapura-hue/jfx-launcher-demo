@@ -243,7 +243,7 @@ public final class Game {
     private static final String GUN_HELP = "The heavy Gatling gun: the mouse aims it, 55° either way, 8° down and 25° up;"
             + " it swings round at its own pace · T step out\n"
             + "Click fire: held, it spins up, then fires\n" + VIEW_KEYS;
-    private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · mouse turns (slowly) · "
+    private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
             + VIEW_KEYS;
