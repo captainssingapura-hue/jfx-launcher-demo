@@ -323,6 +323,162 @@ public final class Temple {
         return new Placed("steps", form.build(), Vec3.ZERO, 0, joints);
     }
 
+    /** The eave from corner {@code from} to corner {@code to}: one bow, turned up and out at its ends, as points. */
+    private static List<Vec3> eave(final Vec3 from, final Vec3 to) {
+        final boolean longSide = Math.abs(from.y() - to.y()) < 1e-6;
+        final Vec3 inward = longSide ? new Vec3(0, -Math.signum(from.y()), 0) : new Vec3(-Math.signum(from.x()), 0, 0);
+        final Vec3 bow = inward.multiply(FLARE).add(new Vec3(0, 0, -UPTURN));
+        final List<Vec3> points = new ArrayList<>();
+        for (int k = 0; k <= 40; k++) {
+            points.add(Curve.bowAt(bow, SWEEP, from, to, k / 40.0));
+        }
+        return points;
+    }
+
+    /** A hip, from the eave's corner {@code corner} up to the ridge's end {@code end}, bowed down, as points. */
+    private static List<Vec3> hip(final Vec3 corner, final Vec3 end) {
+        final Curve bow = Curve.bow(new Vec3(0, 0, -HIP_SAG), 2);
+        final List<Vec3> points = new ArrayList<>();
+        for (int k = 0; k <= 24; k++) {
+            points.add(bow.at(corner, end, k / 24.0));
+        }
+        return points;
+    }
+
+    private static Sheet rect(final String name, final String kind, final Vec3 a, final Vec3 b, final Vec3 c,
+                              final Vec3 d, final Vec3 out) {
+        return Sheet.flat(name, kind, List.of(a, b, c, d), List.of(), out);
+    }
+
+    /**
+     * Its faces: its platform's sides and top, and its steps; its back and side walls; the doors in its
+     * front's bays; its roof's two long slopes (each filled in between its eave, its two hips and its
+     * ridge) and its two hip ends (each between its eave and its two hips, up to the ridge's end).
+     */
+    public static List<Sheet> sheets() {
+        final List<Sheet> sheets = new ArrayList<>();
+        final double pw = HALF_WIDE + MARGIN;
+        final double pd = HALF_DEEP + MARGIN;
+        // the platform: its four sides, and its top
+        sheets.add(rect("platform, front", "platform", new Vec3(-pw, pd, 0), new Vec3(pw, pd, 0), new Vec3(pw, pd, PLATFORM),
+                new Vec3(-pw, pd, PLATFORM), new Vec3(0, 1, 0)));
+        sheets.add(rect("platform, back", "platform", new Vec3(-pw, -pd, 0), new Vec3(pw, -pd, 0),
+                new Vec3(pw, -pd, PLATFORM), new Vec3(-pw, -pd, PLATFORM), new Vec3(0, -1, 0)));
+        for (final double side : new double[] {-pw, pw}) {
+            sheets.add(rect("platform, " + (side < 0 ? "left" : "right"), "platform", new Vec3(side, -pd, 0),
+                    new Vec3(side, pd, 0), new Vec3(side, pd, PLATFORM), new Vec3(side, -pd, PLATFORM),
+                    new Vec3(Math.signum(side), 0, 0)));
+        }
+        sheets.add(rect("platform, top", "platform", new Vec3(-pw, -pd, PLATFORM), new Vec3(pw, -pd, PLATFORM),
+                new Vec3(pw, pd, PLATFORM), new Vec3(-pw, pd, PLATFORM), new Vec3(0, 0, 1)));
+        // its steps: each riser, and each tread
+        final double half = ACROSS[ACROSS.length / 2] / 2;
+        final double rise = PLATFORM / 4;
+        for (int k = 0; k < 4; k++) {
+            final double y = pd + 35 * k;
+            final double z = PLATFORM - rise * (k + 1);
+            sheets.add(rect("steps, riser " + k, "platform", new Vec3(-half, y, z), new Vec3(half, y, z),
+                    new Vec3(half, y, z + rise), new Vec3(-half, y, z + rise), new Vec3(0, 1, 0)));
+            sheets.add(rect("steps, tread " + k, "platform", new Vec3(-half, y, z), new Vec3(half, y, z),
+                    new Vec3(half, y + 35, z), new Vec3(-half, y + 35, z), new Vec3(0, 0, 1)));
+        }
+        // its back and side walls, on its lines of columns, from the platform to the columns' heads
+        sheets.add(rect("back wall", "walls", new Vec3(-HALF_WIDE, -HALF_DEEP, PLATFORM), new Vec3(HALF_WIDE, -HALF_DEEP, PLATFORM),
+                new Vec3(HALF_WIDE, -HALF_DEEP, HEAD), new Vec3(-HALF_WIDE, -HALF_DEEP, HEAD), new Vec3(0, -1, 0)));
+        for (final double side : new double[] {-HALF_WIDE, HALF_WIDE}) {
+            sheets.add(rect((side < 0 ? "left" : "right") + " wall", "walls", new Vec3(side, -HALF_DEEP, PLATFORM),
+                    new Vec3(side, HALF_DEEP, PLATFORM), new Vec3(side, HALF_DEEP, HEAD), new Vec3(side, -HALF_DEEP, HEAD),
+                    new Vec3(Math.signum(side), 0, 0)));
+        }
+        // the doors in its front's bays
+        final double[] xs = lines(ACROSS, HALF_WIDE);
+        for (int b = 0; b + 1 < xs.length; b++) {
+            sheets.add(rect("doors, bay " + b, "doors", new Vec3(xs[b], HALF_DEEP, PLATFORM), new Vec3(xs[b + 1], HALF_DEEP, PLATFORM),
+                    new Vec3(xs[b + 1], HALF_DEEP, HEAD), new Vec3(xs[b], HALF_DEEP, HEAD), new Vec3(0, 1, 0)));
+        }
+        // its roof: the eaves' corners, the ridge's ends
+        final Vec3[] corner = new Vec3[4];
+        final double[][] signs = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
+        for (int c = 0; c < 4; c++) {
+            corner[c] = new Vec3(signs[c][0] * (HALF_WIDE + OVERHANG + FLARE), signs[c][1] * (HALF_DEEP + OVERHANG + FLARE),
+                    EAVE + UPTURN);
+        }
+        final Vec3 west = new Vec3(-RIDGE_HALF, 0, RIDGE);
+        final Vec3 east = new Vec3(RIDGE_HALF, 0, RIDGE);
+        final Vec3 inside = new Vec3(0, 0, EAVE);
+        // its long slopes: front (its eave from the front left corner to the front right), and back
+        sheets.add(Sheet.patch("roof, front slope", "roof", eave(corner[3], corner[2]), hip(corner[2], east),
+                List.of(west, east), hip(corner[3], west), 32, 12, inside));
+        sheets.add(Sheet.patch("roof, back slope", "roof", eave(corner[0], corner[1]), hip(corner[1], east),
+                List.of(west, east), hip(corner[0], west), 32, 12, inside));
+        // its hip ends, each up to a ridge's end
+        sheets.add(Sheet.patch("roof, east end", "roof", eave(corner[1], corner[2]), hip(corner[2], east), List.of(east),
+                hip(corner[1], east), 16, 12, inside));
+        sheets.add(Sheet.patch("roof, west end", "roof", eave(corner[0], corner[3]), hip(corner[3], west), List.of(west),
+                hip(corner[0], west), 16, 12, inside));
+        return sheets;
+    }
+
+    /** Its palettes: red lacquer, painted brackets, red walls on a stone platform; or dark timber and grey brick. */
+    public static final Palette LACQUERED = new Palette("Red lacquer, painted brackets, red walls",
+            Map.of(Role.WALL, Material.PLASTER, Role.BASE, Material.STONE, Role.DRESSING, Material.PAINTED,
+                    Role.STRUCTURE, Material.LACQUER, Role.FRAME, Material.LACQUER, Role.ROOF, Material.GLAZED),
+            30, 30, 0);
+    public static final Palette PLAIN = new Palette("Dark timber, grey brick",
+            Map.of(Role.WALL, Material.BRICK, Role.BASE, Material.STONE, Role.DRESSING, Material.TIMBER,
+                    Role.STRUCTURE, Material.TIMBER, Role.FRAME, Material.TIMBER, Role.ROOF, Material.GREY_TILE),
+            30, 30, 0);
+
+    /**
+     * The hall as a building to dress ({@link Building}): its skeleton, its faces; its columns, its
+     * bracket sets and its roof's ridge, hips and ornaments as members; its roof's tiles a choice
+     * (yellow glazed, green glazed, grey), the rest as its palette says.
+     */
+    public static Building building() {
+        final Map<String, Design> faces = Map.of(
+                "platform", Design.slab(Role.BASE, -30, 0),
+                "walls", Design.slab(Role.WALL, -15, 15),
+                "doors", Design.slab(Role.FRAME, -5, 5),
+                "roof", Design.slab(Role.ROOF, 0, 30));
+        final Map<String, List<Building.Option>> choices = new LinkedHashMap<>();
+        choices.put("Roof tiles", List.of(
+                Building.Option.choosing("Yellow glazed", faces, Map.of(Role.ROOF, Material.GLAZED)),
+                Building.Option.choosing("Green glazed", faces, Map.of(Role.ROOF, Material.GREEN_GLAZED)),
+                Building.Option.choosing("Grey", faces, Map.of(Role.ROOF, Material.GREY_TILE))));
+        // the columns: the hall's own, from the platform to their heads
+        final Form hall = stacks().get(1).skeleton(true);
+        final Building.Structure columns = (skeleton, palette) -> Building.Structure.members("column",
+                e -> hall.at(e.from()).x() == hall.at(e.to()).x() && hall.at(e.from()).y() == hall.at(e.to()).y(),
+                44, Role.STRUCTURE).of(lifted(hall), palette);
+        // the bracket sets, every arm of them
+        final Form sets = brackets().form();
+        final Building.Structure brackets = (skeleton, palette) -> Building.Structure.members("bracket", e -> true, 12,
+                Role.DRESSING).of(sets, palette);
+        // the ridge, the hips and the ornaments: the roof's edges up from its eaves' corners and along its top
+        final Form roof = roof().form();
+        final Building.Structure ridges = (skeleton, palette) -> Building.Structure.members("ridge", e -> {
+            final String a = roof.vertices().get(e.from()).name();
+            final String b = roof.vertices().get(e.to()).name();
+            final boolean top = a.startsWith("ridge") || a.startsWith("ornament");
+            final boolean high = b.startsWith("ridge") || b.startsWith("ornament");
+            return top && high || top && b.startsWith("eave corner") || high && a.startsWith("eave corner");
+        }, 36, Role.ROOF).of(roof, palette);
+        return new Building("temple hall", skeleton(), List.of(), List.of(), sheets(), List.of(columns, brackets, ridges),
+                choices, List.of(LACQUERED, PLAIN));
+    }
+
+    /** {@code form}, lifted onto the platform. */
+    private static Form lifted(final Form form) {
+        final Form.Builder up = new Form.Builder(form.name());
+        for (final Form.Vertex v : form.vertices()) {
+            up.vertex(v.name(), v.across(), v.along(), v.up() + PLATFORM);
+        }
+        for (final Form.Edge e : form.edges()) {
+            up.edge(e.from(), e.to(), e.curved() ? e.curve().moved(new Vec3(0, 0, PLATFORM)) : null);
+        }
+        return up.build();
+    }
+
     private static int vertex(final Form.Builder form, final String name, final Vec3 at) {
         return form.vertex(name, at.x(), at.y(), at.z());
     }

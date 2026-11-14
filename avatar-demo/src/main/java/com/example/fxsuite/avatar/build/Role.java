@@ -14,10 +14,12 @@ public enum Role {
     DRESSING,
     /** The structure that shows: columns, slabs, the undersides of floors. */
     STRUCTURE,
-    /** A flat roof's covering. */
+    /** A roof's covering: a flat roof's gravel, a pitched roof's slates or tiles. */
     ROOF,
     /** Glass, in windows, doors and shopfronts. */
     GLAZING,
-    /** Window frames, mullions, transoms. */
-    FRAME
+    /** Window frames, mullions, transoms; doors and their lattices. */
+    FRAME,
+    /** A spire's covering, and what crowns it. */
+    SPIRE
 }

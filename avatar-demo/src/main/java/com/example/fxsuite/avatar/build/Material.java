@@ -18,7 +18,20 @@ public enum Material {
     /** Window frames, mullions, rails. */
     METAL("dark metal", Double.POSITIVE_INFINITY),
     /** A flat roof's covering. */
-    GRAVEL("gravel", Double.POSITIVE_INFINITY);
+    GRAVEL("gravel", Double.POSITIVE_INFINITY),
+    /** Pitched roofs' coverings: slate, clay tiles, copper gone green; glazed tiles, yellow or green; grey tiles. */
+    SLATE("slate", Double.POSITIVE_INFINITY),
+    TILE("clay tile", Double.POSITIVE_INFINITY),
+    COPPER("copper, gone green", Double.POSITIVE_INFINITY),
+    GLAZED("yellow glazed tile", Double.POSITIVE_INFINITY),
+    GREEN_GLAZED("green glazed tile", Double.POSITIVE_INFINITY),
+    GREY_TILE("grey tile", Double.POSITIVE_INFINITY),
+    /** Timber: lacquered red, painted (a bracket set's blue and green), or dark and plain. */
+    LACQUER("red lacquered timber", Double.POSITIVE_INFINITY),
+    PAINTED("painted timber", Double.POSITIVE_INFINITY),
+    TIMBER("dark timber", Double.POSITIVE_INFINITY),
+    /** A wall's plaster, red. */
+    PLASTER("red plaster", 300);
 
     private final String title;
     private final double span;

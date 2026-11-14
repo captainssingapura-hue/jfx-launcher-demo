@@ -21,6 +21,11 @@ public interface Design {
         return List.of();
     }
 
+    /** {@code sheet}, a face of any shape, flat or curved, dressed: nothing, unless it lays slabs. */
+    default List<Solid> sheet(final Sheet sheet, final Palette palette) {
+        return List.of();
+    }
+
     /** What is doubtful about it on {@code surface}, built in {@code palette}: nothing, unless it says. */
     default List<String> doubts(final Surface surface, final Palette palette) {
         return List.of();
@@ -45,6 +50,13 @@ public interface Design {
             }
 
             @Override
+            public List<Solid> sheet(final Sheet sheet, final Palette palette) {
+                final List<Solid> both = new ArrayList<>(first.sheet(sheet, palette));
+                both.addAll(more.sheet(sheet, palette));
+                return both;
+            }
+
+            @Override
             public List<String> doubts(final Surface surface, final Palette palette) {
                 final List<String> both = new ArrayList<>(first.doubts(surface, palette));
                 both.addAll(more.doubts(surface, palette));
@@ -60,7 +72,8 @@ public interface Design {
 
     /**
      * A plain slab doing {@code role} over all of it, from {@code w0} to {@code w1} out: over a
-     * rectangle, one box; over a level surface of any shape, a prism on each of its triangles.
+     * rectangle, one box; over a level surface of any shape, or a face of any shape ({@link Sheet}), a
+     * prism on each of its triangles.
      */
     static Design slab(final Role role, final double w0, final double w1) {
         return new Design() {
@@ -72,6 +85,11 @@ public interface Design {
             @Override
             public List<Solid> plate(final Plate plate, final Palette palette) {
                 return plate.slab("slab", palette, role, w0, w1);
+            }
+
+            @Override
+            public List<Solid> sheet(final Sheet sheet, final Palette palette) {
+                return sheet.slab("slab", palette, role, w0, w1);
             }
         };
     }

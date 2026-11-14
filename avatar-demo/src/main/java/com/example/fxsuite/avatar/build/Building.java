@@ -21,12 +21,19 @@ import java.util.function.Predicate;
  * @param skeleton  its lines
  * @param surfaces  its surfaces
  * @param plates    its level surfaces of any shape: floors, roofs, terraces
+ * @param sheets    its faces of any shape, flat or curved: walls with arched windows, swept roofs
  * @param structure what of its structure shows, from its skeleton
  * @param choices   by what each is about, the options to choose from, the first of each its own
  * @param palettes  what it can be built in, the first its own
  */
-public record Building(String name, Form skeleton, List<Surface> surfaces, List<Plate> plates,
+public record Building(String name, Form skeleton, List<Surface> surfaces, List<Plate> plates, List<Sheet> sheets,
                        List<Structure> structure, Map<String, List<Option>> choices, List<Palette> palettes) {
+
+    /** One with no faces but its rectangles and its level surfaces. */
+    public Building(final String name, final Form skeleton, final List<Surface> surfaces, final List<Plate> plates,
+                    final List<Structure> structure, final Map<String, List<Option>> choices, final List<Palette> palettes) {
+        this(name, skeleton, surfaces, plates, List.of(), structure, choices, palettes);
+    }
 
     /** One with no level surfaces but its rectangles. */
     public Building(final String name, final Form skeleton, final List<Surface> surfaces, final List<Structure> structure,
@@ -37,6 +44,7 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
     public Building {
         surfaces = List.copyOf(surfaces);
         plates = List.copyOf(plates);
+        sheets = List.copyOf(sheets);
         structure = List.copyOf(structure);
         // in the order given, each choice's options in theirs
         final java.util.LinkedHashMap<String, List<Option>> kept = new java.util.LinkedHashMap<>();
@@ -65,9 +73,16 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
                 final List<Solid> members = new ArrayList<>();
                 int k = 0;
                 for (final Form.Edge edge : skeleton.edges()) {
-                    if (which.test(edge)) {
-                        members.add(member(called + " " + k++, skeleton.vertices().get(edge.from()),
-                                skeleton.vertices().get(edge.to()), size, role, palette.of(role)));
+                    if (!which.test(edge)) {
+                        continue;
+                    }
+                    // a curved edge, member by member along its curve
+                    final List<com.example.fxsuite.avatar.sim.Vec3> along = skeleton.points(edge, 80);
+                    for (int p = 1; p < along.size(); p++) {
+                        final com.example.fxsuite.avatar.sim.Vec3 a = along.get(p - 1);
+                        final com.example.fxsuite.avatar.sim.Vec3 b = along.get(p);
+                        members.add(member(called + " " + k++, new Form.Vertex("a", a.x(), a.y(), a.z()),
+                                new Form.Vertex("b", b.x(), b.y(), b.z()), size, role, palette.of(role)));
                     }
                 }
                 return members;
@@ -111,15 +126,29 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
     /**
      * A way to dress a building: for each kind of surface, its design; a surface whose kind it does
      * not name is left open. And, for each kind, what is added to it once dressed, whatever its
-     * design ({@link Addition}).
+     * design ({@link Addition}). And what it makes some roles of, over the palette (a roof's covering).
      *
      * @param name      what it is called
      * @param designs   by the kind of surface each dresses
      * @param additions by the kind of surface each is added to
+     * @param materials what it makes some roles of, whatever the palette says
      */
-    public record Option(String name, Map<String, Design> designs, Map<String, List<Addition>> additions) {
+    public record Option(String name, Map<String, Design> designs, Map<String, List<Addition>> additions,
+                         Map<Role, Material> materials) {
+
+        /** One that dresses and adds, choosing no materials. */
+        public Option(final String name, final Map<String, Design> designs, final Map<String, List<Addition>> additions) {
+            this(name, designs, additions, Map.of());
+        }
+
+        /** One that dresses, as {@code designs} say, and chooses what {@code materials} say. */
+        public static Option choosing(final String name, final Map<String, Design> designs,
+                                      final Map<Role, Material> materials) {
+            return new Option(name, designs, Map.of(), materials);
+        }
 
         public Option {
+            materials = Map.copyOf(materials);
             designs = Map.copyOf(designs);
             final java.util.HashMap<String, List<Addition>> kept = new java.util.HashMap<>();
             additions.forEach((kind, added) -> kept.put(kind, List.copyOf(added)));
@@ -150,14 +179,16 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
             final java.util.HashMap<String, List<Addition>> added = new java.util.HashMap<>();
             additions.forEach((kind, list) -> added.put(kind, new ArrayList<>(list)));
             more.additions().forEach((kind, list) -> added.computeIfAbsent(kind, k -> new ArrayList<>()).addAll(list));
-            return new Option(name + "; " + more.name(), both, added);
+            final java.util.HashMap<Role, Material> chosen = new java.util.HashMap<>(materials);
+            chosen.putAll(more.materials());
+            return new Option(name + "; " + more.name(), both, added, chosen);
         }
 
         /** The same, but {@code kind} dressed with {@code design}: one surface changed, the rest kept. */
         public Option with(final String called, final String kind, final Design design) {
             final java.util.HashMap<String, Design> changed = new java.util.HashMap<>(designs);
             changed.put(kind, design);
-            return new Option(called, changed, additions);
+            return new Option(called, changed, additions, materials);
         }
     }
 
@@ -176,7 +207,8 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
     }
 
     /** Dressed as {@code option} says, built in {@code palette}: its structure, and each surface's solids. */
-    public List<Solid> dressed(final Option option, final Palette palette) {
+    public List<Solid> dressed(final Option option, final Palette asked) {
+        final Palette palette = asked.with(option.materials());
         final List<Solid> solids = new ArrayList<>();
         for (final Structure part : structure) {
             solids.addAll(part.of(skeleton, palette));
@@ -191,6 +223,9 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
         }
         for (final Plate plate : plates) {
             solids.addAll(option.designs().getOrDefault(plate.kind(), Design.none()).plate(plate, palette));
+        }
+        for (final Sheet sheet : sheets) {
+            solids.addAll(option.designs().getOrDefault(sheet.kind(), Design.none()).sheet(sheet, palette));
         }
         return solids;
     }

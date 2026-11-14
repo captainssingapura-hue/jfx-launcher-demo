@@ -12,6 +12,12 @@ final class MeshBuilder {
     private int[] faces = new int[6 * 1024];
     private int pointCount;
     private int faceCount;
+    /**
+     * Each triangle's smoothing group: a quad's two triangles one, each quad of a box another, so a
+     * box's faces are each shaded flat, not smoothed round its edges (which streaks long thin ones).
+     */
+    private int[] groups = new int[1024];
+    private int quads;
 
     boolean empty() {
         return faceCount == 0;
@@ -31,16 +37,21 @@ final class MeshBuilder {
         if (6 * (faceCount + 1) > faces.length) {
             faces = java.util.Arrays.copyOf(faces, faces.length * 2);
         }
+        if (faceCount + 1 > groups.length) {
+            groups = java.util.Arrays.copyOf(groups, groups.length * 2);
+        }
         final int at = 6 * faceCount;
         faces[at] = a;
         faces[at + 2] = b;
         faces[at + 4] = c;
+        groups[faceCount] = 1 << (quads % 6);
         faceCount++;
     }
 
     private void quad(final int a, final int b, final int c, final int d) {
         triangle(a, b, c);
         triangle(a, c, d);
+        quads++;
     }
 
     /** A square rod {@code width} across from {@code a} to {@code b}. */
@@ -96,6 +107,7 @@ final class MeshBuilder {
         mesh.getPoints().setAll(points, 0, 3 * pointCount);
         mesh.getTexCoords().setAll(0, 0);
         mesh.getFaces().setAll(faces, 0, 6 * faceCount);
+        mesh.getFaceSmoothingGroups().setAll(groups, 0, faceCount);
         final MeshView view = new MeshView(mesh);
         view.setMaterial(material);
         view.setCullFace(CullFace.NONE);

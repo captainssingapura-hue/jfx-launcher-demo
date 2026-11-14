@@ -31,6 +31,16 @@ public final class BuildingModel {
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));
         LOOKS.put(Material.BRICK, BoxRig.matte("#9a5844"));
         LOOKS.put(Material.STONE, BoxRig.matte("#cbbd9b"));
+        LOOKS.put(Material.SLATE, BoxRig.matte("#4a5058"));
+        LOOKS.put(Material.TILE, BoxRig.matte("#a4553a"));
+        LOOKS.put(Material.COPPER, BoxRig.matte("#5e9e86"));
+        LOOKS.put(Material.GLAZED, BoxRig.matte("#d9a520"));
+        LOOKS.put(Material.GREEN_GLAZED, BoxRig.matte("#3f8a5a"));
+        LOOKS.put(Material.GREY_TILE, BoxRig.matte("#5d6166"));
+        LOOKS.put(Material.LACQUER, BoxRig.matte("#a3241f"));
+        LOOKS.put(Material.PAINTED, BoxRig.matte("#2f7d78"));
+        LOOKS.put(Material.TIMBER, BoxRig.matte("#4a3326"));
+        LOOKS.put(Material.PLASTER, BoxRig.matte("#b2453a"));
         final PhongMaterial glass = new PhongMaterial(Color.web("#4f6f86", 0.55));
         glass.setSpecularColor(Color.web("#d8e6f0"));
         glass.setSpecularPower(40);

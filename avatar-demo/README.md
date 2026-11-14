@@ -752,6 +752,20 @@ through, and one loaded until a pillar gives and it falls.
   and out, cut where its rafters start: a bow can be cut into parts along its length), its rafters
   and hips bowed down, steeper toward the ridge, ornaments curled up on the ridge's ends; and steps
   down before the middle bay. Its plan tab shows its platform's and hall's plans.
+- **Faces of any shape** (`Sheet`): a flat face with holes (a wall and its arched windows, a doorway
+  cut into its foot), cut into triangles by clipping ears, each hole first slit to the outline; or a
+  curved one filled in from the curves round its edge (a Coons patch: four, a roof's slope between
+  its eave, hips and ridge; or three, a hip's end, a spire's flared face, the apse's half cone).
+  Either laid as a slab along its normals, so a curved slab has no cracks. An option can choose
+  materials too, over the palette (`Option.choosing`), so a roof's covering is chosen apart from the
+  walls'. **The church dressed**: its walls ashlar stone or brick (the palette), arched windows cut
+  out and glazed, the doorway cut into the tower's foot, the belfry's openings; the apse's curved
+  wall; its roofs slate, clay tile or copper; its flared spire copper or slate; the cross. **The
+  temple hall dressed**: its platform and steps stone; red walls; lacquered doors in its front bays;
+  its 24 columns red lacquer, its bracket sets painted; its roof's two long slopes and two hip ends
+  filled in between its swept eaves, its hips and its ridge, in yellow or green glazed or grey tiles,
+  its ridge, hips and ornaments standing proud; or all in dark timber and grey brick. Each box's
+  faces are shaded flat, so long thin triangles do not streak.
 - **Towers stacked from plans** (`Tower`, `Towers`): a tower is sections, bottom to top, each one
   plan stacked so many floors so high (a podium, a shaft, a set-back top). Its skeleton is generated
   from them: at every floor level its plan's graph (columns, beams, the slab's edge), its columns up

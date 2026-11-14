@@ -108,6 +108,8 @@ public final class BuildingBench extends Application {
     static {
         ASSEMBLED.put("town church", com.example.fxsuite.avatar.build.Church.assembled());
         ASSEMBLED.put("temple hall", com.example.fxsuite.avatar.build.Temple.assembled());
+        COMPOSED.put("town church", com.example.fxsuite.avatar.build.Church.building());
+        COMPOSED.put("temple hall", com.example.fxsuite.avatar.build.Temple.building());
     }
 
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
@@ -423,7 +425,8 @@ public final class BuildingBench extends Application {
             final List<Solid> solids = composed.dressed(chosen(), palettes.getValue());
             final Map<Material, Integer> made = new EnumMap<>(Material.class);
             solids.forEach(s -> made.merge(s.material(), 1, Integer::sum));
-            out.append(String.format("%d surfaces, dressed in %d solids:%n", composed.surfaces().size(), solids.size()));
+            out.append(String.format("%d surfaces and %d faces, dressed in %d solids:%n", composed.surfaces().size()
+                    + composed.plates().size(), composed.sheets().size(), solids.size()));
             made.forEach((material, count) -> out.append(String.format("  %d %s%n", count, material.title())));
             final List<String> doubts = composed.doubts(chosen(), palettes.getValue());
             doubts.forEach(d -> out.append("? ").append(d).append('\n'));

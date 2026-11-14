@@ -24,6 +24,7 @@ public record Palette(String name, Map<Role, Material> materials, double wall, d
         all.put(Role.ROOF, Material.GRAVEL);
         all.put(Role.GLAZING, Material.GLASS);
         all.put(Role.FRAME, Material.METAL);
+        all.put(Role.SPIRE, Material.SLATE);
         all.putAll(materials);
         for (final Role role : Role.values()) {
             if (!all.containsKey(role)) {
@@ -31,6 +32,16 @@ public record Palette(String name, Map<Role, Material> materials, double wall, d
             }
         }
         materials = Map.copyOf(all);
+    }
+
+    /** The same, but {@code changed} roles made of what it says: a roof's covering chosen, the walls as they were. */
+    public Palette with(final Map<Role, Material> changed) {
+        if (changed.isEmpty()) {
+            return this;
+        }
+        final EnumMap<Role, Material> all = new EnumMap<>(materials);
+        all.putAll(changed);
+        return new Palette(name, all, wall, base, rustication);
     }
 
     /** What {@code role} is made of. */
