@@ -490,9 +490,15 @@ clicks over dry. The empty cases ring as they land, as long after as they take t
 ground sends the blast back, as late as it is far below: about 0.6 s from the airship a hundred
 metres up.
 
-- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, or the giant one under the
-  airship. Each is a set of figures (its gun's rate and spin-up, its barrels, its rounds'
-  calibre, its motor and gearing), so another gun is another set of figures.
+- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, the giant one under the
+  airship, or a rapid giant: seven barrels of cannon shells, 3,900 a minute, spun up in half a
+  second, so fast the shots fuse into one tearing note. Each is a set of figures (its rate and
+  spin-up, its barrels, its rounds' calibre, its motor and gearing), so another gun is another
+  set of figures.
+- Size its rounds (5 to 40 mm) and set its rate (300 to 6,000 a minute), each apart from the
+  other (`Gatling.sized`, `Gatling.firing`): bigger rounds are lower, longer and louder; a
+  faster rate turns the barrels faster, and the motor geared to them whines higher. Either may
+  be changed while it fires.
 - Pick a mix (`GunStyle`): **Realistic**, as a microphone outdoors would have it, a sharp, dry
   crack with the mechanism plain under it and the cases ringing; or **Cinematic**, as a film
   would mix it, a thump and a boom an octave under it in each shot, driven hard into overload,
@@ -503,8 +509,9 @@ metres up.
 - Watch the sound as it is made, each shot to be seen, and its frequencies: the shots' note in
   orange, each shot's thump in red, and the gears' whine in blue, moving with the spin.
 
-It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`) picks the gun to start
-with, `-Dgun.style=realistic` the mix, `-Dgun.height=80` its height. In the game, the Robot
+It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`, `RAPID`) picks the gun to
+start with, `-Dgun.size=20` and `-Dgun.rate=3000` size and rate it, `-Dgun.style=realistic` the
+mix, `-Dgun.height=80` its height. In the game, the Robot
 profile makes the Gatling gun in hand or manned the same way, mixed as the Sound menu says
 (`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
 chip's gun as ever.

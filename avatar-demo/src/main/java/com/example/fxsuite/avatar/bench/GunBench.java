@@ -44,7 +44,13 @@ import javafx.stage.Stage;
  * it is made of: its frequencies, with the shots' note marked (orange, how often it fires, and
  * its multiples), each shot's thump (red) and the gears' whine (blue).
  *
- * <p>{@code -Dgun.pick=GIANT} (or {@code HAND}, {@code HEAVY}) picks the gun to start with;
+ * <p>Each gun's rounds may be made bigger or smaller, and it may be made to fire faster or slower,
+ * each apart from the other ({@link Gatling#sized}, {@link Gatling#firing}): a giant that fires
+ * like a rifle, or a rifle-sized gun firing as slowly as the giant does.
+ *
+ * <p>{@code -Dgun.pick=GIANT} (or {@code HAND}, {@code HEAVY}, {@code RAPID}) picks the gun to start
+ * with; {@code -Dgun.size=20} sizes its rounds in millimetres, and {@code -Dgun.rate=3000} sets its
+ * rate a minute;
  * {@code -Dgun.style=realistic} the mix; {@code -Dgun.height=80} its height in metres;
  * {@code -Dgun.fire=true} holds the trigger from the start; {@code -Dbench.snapshot=out.png} saves
  * the window after {@code -Dbench.settle} ms and exits, playing nothing.
@@ -77,6 +83,11 @@ public final class GunBench extends Application {
     private final Label about = new Label();
     private final Label styleAbout = new Label();
     private final Label facts = new Label();
+    /** The gun as picked; its rounds' size and its rate, each set on its own; and whether a pick is setting them. */
+    private Gatling base = Gatling.HAND;
+    private final Slider size = EngineBench.slider(Gatling.SMALLEST, Gatling.BIGGEST, 7.62);
+    private final Slider rate = EngineBench.slider(Gatling.SLOWEST, Gatling.FASTEST, 2400);
+    private boolean choosing;
     private final Slider height = EngineBench.slider(0, 150, 1.2);
     private final Slider volume = EngineBench.slider(0, 1, 0.8);
     private final Label readout = new Label();
@@ -98,6 +109,19 @@ public final class GunBench extends Application {
         guns.getItems().setAll(Gatling.ALL);
         guns.setValue(gatling);
         guns.setOnAction(e -> pick(guns.getValue()));
+        for (final Slider slider : java.util.List.of(size, rate)) {
+            slider.setShowTickLabels(true);
+            slider.valueProperty().addListener((o, was, now) -> retune());
+        }
+        size.setMajorTickUnit(5);
+        rate.setMajorTickUnit(1000);
+        pick(gatling);
+        if (System.getProperty("gun.size") != null) {
+            size.setValue(Double.parseDouble(System.getProperty("gun.size")));
+        }
+        if (System.getProperty("gun.rate") != null) {
+            rate.setValue(Double.parseDouble(System.getProperty("gun.rate")));
+        }
         final ToggleGroup mix = new ToggleGroup();
         realistic.setToggleGroup(mix);
         cinematic.setToggleGroup(mix);
@@ -120,7 +144,8 @@ public final class GunBench extends Application {
         fire.setOnMouseReleased(e -> pressed = false);
 
         final VBox controls = new VBox(10,
-                EngineBench.heading("Gun"), guns, about, facts,
+                EngineBench.heading("Gun"), guns, about,
+                EngineBench.row("Size (mm)", size), EngineBench.row("Rate (/min)", rate), facts,
                 EngineBench.heading("Mix"), new HBox(14, realistic, cinematic), styleAbout,
                 EngineBench.heading("Firing"), fire,
                 EngineBench.label("Hold S to spin it without firing."),
@@ -139,7 +164,7 @@ public final class GunBench extends Application {
         root.setLeft(controls);
         root.setCenter(shown);
         root.setStyle("-fx-background-color: #f4f5f7;");
-        final Scene scene = new Scene(new HBox(root), 1020, 640);
+        final Scene scene = new Scene(new HBox(root), 1020, 780);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             switch (e.getCode()) {
                 case SPACE, ENTER -> trigger = true;
@@ -180,10 +205,26 @@ public final class GunBench extends Application {
         SoundBench.snapshotIfAsked(scene);
     }
 
+    /** Another gun, as it comes: its size and its rate as made, to be changed from there. */
     private void pick(final Gatling picked) {
+        base = picked;
         gatling = picked;
         spin = 0;
+        choosing = true;
+        size.setValue(picked.calibre());
+        rate.setValue(picked.rate());
+        choosing = false;
         out.gatling(picked);
+        describe();
+    }
+
+    /** The gun picked, its rounds as big and its rate as fast as the sliders say, each apart from the other. */
+    private void retune() {
+        if (choosing) {
+            return;
+        }
+        gatling = base.firing(rate.getValue()).sized(size.getValue());
+        out.gatling(gatling);
         describe();
     }
 
@@ -192,8 +233,8 @@ public final class GunBench extends Application {
         styleAbout.setText(style.about());
         facts.setText(String.format("%.0f rounds a minute (%.0f a second), %d barrels, %.1f mm; spins up in %.1f s,"
                         + " down in %.1f s; each shot thumps at %.0f Hz, the gears whine at %.0f Hz%s.",
-                gatling.rate(), gatling.perSecond(), gatling.barrels(), gatling.calibre(), gatling.gun().spinUp(),
-                gatling.gun().spinDown(), gatling.thump(), gatling.whine(),
+                gatling.rate(), gatling.perSecond(), gatling.barrels(), gatling.calibre(), gatling.spinUp(),
+                gatling.spinDown(), gatling.thump(), gatling.whine(),
                 gatling.hydraulic() ? ", the hydraulic drive hissing" : ""));
     }
 
@@ -201,8 +242,8 @@ public final class GunBench extends Application {
     private void frame(final double seconds) {
         final boolean firing = trigger || pressed;
         final boolean turning = firing || dry;
-        spin = turning ? Math.min(1, spin + seconds / gatling.gun().spinUp())
-                : Math.max(0, spin - seconds / gatling.gun().spinDown());
+        spin = turning ? Math.min(1, spin + seconds / gatling.spinUp())
+                : Math.max(0, spin - seconds / gatling.spinDown());
         out.set(spin, firing && spin >= 1, height.getValue());
         readout.setText(String.format("%-14s %3.0f%%%n%-14s %d%n%-14s %.0f ms",
                 firing && spin >= 1 ? "Firing" : turning ? "Spinning up" : spin > 0 ? "Running down" : "Still",

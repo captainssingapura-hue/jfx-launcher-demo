@@ -78,6 +78,39 @@ class GatlingVoiceTest {
     }
 
     @Test
+    void itsSizeAndItsRateAreEachSetApartFromTheOther() {
+        final Gatling smaller = Gatling.GIANT.sized(10);
+        assertEquals(10, smaller.calibre(), 1e-9);
+        assertEquals(Gatling.GIANT.rate(), smaller.rate(), 1e-9, "as fast as ever");
+        assertTrue(smaller.thump() > Gatling.GIANT.thump() && smaller.loud() < Gatling.GIANT.loud(), "higher, quieter");
+        final Gatling faster = Gatling.GIANT.firing(3600);
+        assertEquals(3600, faster.rate(), 1e-9);
+        assertEquals(Gatling.GIANT.calibre(), faster.calibre(), 1e-9, "as big as ever");
+        assertEquals(3 * Gatling.GIANT.whine(), faster.whine(), 1e-9, "its motor geared to its barrels, three times as fast");
+        assertEquals(Gatling.BIGGEST, Gatling.HAND.sized(1000).calibre(), 1e-9, "within reason");
+        assertEquals(Gatling.SLOWEST, Gatling.HAND.firing(1).rate(), 1e-9);
+    }
+
+    @Test
+    void theRapidGiantIsAsBigAsTheGiantAndFiresMoreThanThreeTimesAsFast() {
+        assertEquals(Gatling.GIANT.calibre(), Gatling.RAPID.calibre(), 1e-9);
+        assertEquals(65, Gatling.RAPID.perSecond(), 1e-9);
+        assertTrue(Gatling.RAPID.spinUp() < Gatling.GIANT.spinUp(), "and spins up quicker");
+    }
+
+    @Test
+    void retunedAsItFiresItFiresAtTheNewRateFromThenOn() {
+        final GatlingVoice voice = new GatlingVoice(Gatling.HAND, GunStyle.REALISTIC, 1);
+        voice.set(1, true, 1);
+        run(voice, 1);
+        final long before = voice.shots();
+        voice.gatling(Gatling.HAND.firing(1200).sized(30));
+        run(voice, 1);
+        assertEquals(20, voice.shots() - before, 1.5, "twenty a second now, not forty");
+        assertEquals(30, voice.gatling().calibre(), 1e-9);
+    }
+
+    @Test
     void notUpToSpeedItDoesNotFireButClicksOverDry() {
         final GatlingVoice voice = new GatlingVoice(Gatling.HEAVY, GunStyle.REALISTIC, 1);
         voice.set(0.5, true, 1);

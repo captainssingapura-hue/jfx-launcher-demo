@@ -59,7 +59,7 @@ public final class GatlingVoice {
     private static final double[] COMBS = {0.0297, 0.0371, 0.0411, 0.0437};
     private static final double[] DIFFUSERS = {0.0050, 0.0017};
 
-    private final Gatling gatling;
+    private Gatling gatling;
     private final Dsp.Noise noise;
     private GunStyle style;
 
@@ -112,14 +112,11 @@ public final class GatlingVoice {
     private long landed;
 
     public GatlingVoice(final Gatling gatling, final GunStyle style, final long seed) {
-        this.gatling = gatling;
         noise = new Dsp.Noise(seed);
-        clackFilter = new Dsp.Filter(3600 * Math.pow(7.62 / gatling.calibre(), 0.25), 3);
-        brush = new Dsp.Filter(gatling.whine(), 6);
-        // bigger cases ring lower
-        final double ring = Math.sqrt(7.62 / gatling.calibre());
-        cases = new Dsp.Filter[] {new Dsp.Filter(3900 * ring, 28), new Dsp.Filter(5600 * ring, 24),
-                new Dsp.Filter(7700 * ring, 20)};
+        clackFilter = new Dsp.Filter(3600, 3);
+        brush = new Dsp.Filter(1000, 6);
+        cases = new Dsp.Filter[] {new Dsp.Filter(3900, 28), new Dsp.Filter(5600, 24), new Dsp.Filter(7700, 20)};
+        gatling(gatling);
         final int size = Integer.highestOneBit((int) (ECHO * RATE) + 2) << 1;
         echo = new float[size];
         echoMask = size - 1;
@@ -134,6 +131,22 @@ public final class GatlingVoice {
 
     public Gatling gatling() {
         return gatling;
+    }
+
+    /**
+     * The gun retuned, as it turns: bigger or smaller rounds, faster or slower firing, from the
+     * next shot on. What rings now rings on; the barrels turn on from where they are.
+     */
+    public void gatling(final Gatling retuned) {
+        gatling = retuned;
+        // a bigger bolt clacks lower; the motor's brushes whine at the gears' note
+        clackFilter.tune(3600 * Math.pow(7.62 / retuned.calibre(), 0.25), 3);
+        brush.tune(retuned.whine(), 6);
+        // bigger cases ring lower
+        final double ring = Math.sqrt(7.62 / retuned.calibre());
+        cases[0].tune(3900 * ring, 28);
+        cases[1].tune(5600 * ring, 24);
+        cases[2].tune(7700 * ring, 20);
     }
 
     public GunStyle style() {

@@ -72,7 +72,7 @@ final class GunOut implements AutoCloseable {
         return device;
     }
 
-    /** Which gun; another starts afresh. */
+    /** Which gun; another starts afresh, the same one resized or re-rated goes on, retuned. */
     void gatling(final Gatling gatling) {
         this.gatling = gatling;
     }
@@ -122,8 +122,13 @@ final class GunOut implements AutoCloseable {
         try {
             while (running) {
                 if (gatling != playing) {
+                    // another gun starts afresh; the same one resized or re-rated is retuned as it turns
+                    if (gatling.key().equals(playing.key())) {
+                        voice.gatling(gatling);
+                    } else {
+                        voice = new GatlingVoice(gatling, style, 1);
+                    }
                     playing = gatling;
-                    voice = new GatlingVoice(playing, style, 1);
                 }
                 if (style != voice.style()) {
                     voice.style(style);
