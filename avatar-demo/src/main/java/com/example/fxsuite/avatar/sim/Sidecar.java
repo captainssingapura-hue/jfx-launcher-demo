@@ -30,7 +30,52 @@ import com.example.fxsuite.avatar.sim.Frame.Tube;
  * @param width    the wheel's width
  */
 public record Sidecar(Side side, Frame frame, Mounting mounting, double along, double out, double radius,
-                      double width) {
+                      double width, Body body) {
+
+    /**
+     * What rides on its frame: a {@code TUB} for a passenger, as a sidecar has; or an
+     * {@code ICE_CREAM_CART}, a freezer on it under an umbrella, to sell from. Each as heavy as it is
+     * ({@code kg}, the wheel too), its weight {@code up} so high; its solid box ({@code solid}, as if
+     * on the right; up from the ground) what it takes of the world.
+     */
+    public enum Body {
+        TUB("tub", 50, 40, new Course.Section(87, -5, 45, 32, 78, 17)),
+        ICE_CREAM_CART("ice cream cart", 110, 62, new Course.Section(87, -10, 55, 34, 70, 29));
+
+        private final String title;
+        private final double kg;
+        private final double up;
+        private final Course.Section solid;
+
+        Body(final String title, final double kg, final double up, final Course.Section solid) {
+            this.title = title;
+            this.kg = kg;
+            this.up = up;
+            this.solid = solid;
+        }
+
+        public String title() {
+            return title;
+        }
+
+        public double kg() {
+            return kg;
+        }
+
+        public double up() {
+            return up;
+        }
+
+        public Course.Section solid() {
+            return solid;
+        }
+    }
+
+    /** One with a tub, for a passenger. */
+    public Sidecar(final Side side, final Frame frame, final Mounting mounting, final double along, final double out,
+                   final double radius, final double width) {
+        this(side, frame, mounting, along, out, radius, width, Body.TUB);
+    }
 
     /** Which side of the motorcycle: its right, as where traffic keeps right; or its left, as where it keeps left. */
     public enum Side {
@@ -151,28 +196,34 @@ public record Sidecar(Side side, Frame frame, Mounting mounting, double along, d
 
     /** The same, its frame {@code reshaped}: the wheel stays set, the stub axle still on the rail. */
     public Sidecar with(final Frame reshaped) {
-        return new Sidecar(side, reshaped, mounting, along, out, radius, width);
+        return new Sidecar(side, reshaped, mounting, along, out, radius, width, body);
     }
 
     /** The same, its wheel set {@code along} and {@code out}: along the outer rail, no further than its ends. */
     public Sidecar wheel(final double along, final double out) {
-        return new Sidecar(side, frame, mounting, along, out, radius, width);
+        return new Sidecar(side, frame, mounting, along, out, radius, width, body);
     }
 
     /** The same, mounted on {@code side} of the motorcycle. */
     public Sidecar on(final Side side) {
-        return new Sidecar(side, frame, mounting, along, out, radius, width);
+        return new Sidecar(side, frame, mounting, along, out, radius, width, body);
     }
 
     /** The same, its wheel {@code radius}, standing on the ground. */
     public Sidecar wheeled(final double radius) {
-        return new Sidecar(side, frame, mounting, along, out, radius, width);
+        return new Sidecar(side, frame, mounting, along, out, radius, width, body);
     }
 
-    /** As text: its frame's ({@link Frame#text}), and lines for its side, its wheel and how it is held. */
+    /** The same, carrying {@code what} on its frame: a tub, or an ice cream cart. */
+    public Sidecar carrying(final Body what) {
+        return new Sidecar(side, frame, mounting, along, out, radius, width, what);
+    }
+
+    /** As text: its frame's ({@link Frame#text}), and lines for its side, its body, its wheel and how it is held. */
     public String text() {
         final List<Node> nodes = frame.nodes();
         return frame.text() + "side " + side.name().toLowerCase(Locale.ROOT) + '\n'
+                + "body " + body.name().toLowerCase(Locale.ROOT) + '\n'
                 + "wheel " + Frame.number(along) + ' ' + Frame.number(out) + ' ' + Frame.number(radius) + ' '
                 + Frame.number(width) + '\n'
                 + "mounting " + Frame.quoted(nodes.get(mounting.front()).name()) + ' '
@@ -184,6 +235,7 @@ public record Sidecar(Side side, Frame frame, Mounting mounting, double along, d
     public static Sidecar read(final String text) {
         final Frame frame = Frame.read(text);
         Side side = Side.RIGHT;
+        Body body = Body.TUB;
         double[] wheel = null;
         Mounting mounting = null;
         for (final String line : text.split("\\R")) {
@@ -193,6 +245,7 @@ public record Sidecar(Side side, Frame frame, Mounting mounting, double along, d
             }
             switch (words.getFirst()) {
                 case "side" -> side = Side.valueOf(words.get(1).toUpperCase(Locale.ROOT));
+                case "body" -> body = Body.valueOf(words.get(1).toUpperCase(Locale.ROOT));
                 case "wheel" -> wheel = new double[] {Double.parseDouble(words.get(1)), Double.parseDouble(words.get(2)),
                         Double.parseDouble(words.get(3)), Double.parseDouble(words.get(4))};
                 case "mounting" -> {
@@ -214,6 +267,6 @@ public record Sidecar(Side side, Frame frame, Mounting mounting, double along, d
         if (wheel == null || mounting == null) {
             throw new IllegalArgumentException("a sidecar has a wheel, and holds it");
         }
-        return new Sidecar(side, frame, mounting, wheel[0], wheel[1], wheel[2], wheel[3]);
+        return new Sidecar(side, frame, mounting, wheel[0], wheel[1], wheel[2], wheel[3], body);
     }
 }

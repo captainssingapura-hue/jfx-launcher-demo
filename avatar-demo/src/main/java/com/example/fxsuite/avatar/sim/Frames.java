@@ -91,6 +91,6 @@ public final class Frames {
 
     /** The frame a motorcycle built on {@code chassis} has, as rods; null for one not yet built so. */
     public static Frame of(final Course.Chassis chassis) {
-        return chassis == Course.BOXER ? BOXER : null;
+        return chassis == Course.BOXER || chassis == Course.BOXER_SIDECAR || chassis == Course.BOXER_ICE_CREAM ? BOXER : null;
     }
 }

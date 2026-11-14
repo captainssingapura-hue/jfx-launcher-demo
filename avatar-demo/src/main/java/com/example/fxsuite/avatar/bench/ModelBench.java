@@ -9,6 +9,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Frame;
 import com.example.fxsuite.avatar.sim.Frames;
+import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Outfit;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Play;
@@ -79,6 +80,7 @@ import java.util.Locale;
  * {@code -Dmodel.pitch=20} where it is seen from (-140, from ahead on its right),
  * {@code -Dmodel.distance=600} how far off; {@code -Dride.speed=60} (km/h), {@code -Dride.steer=2}
  * (degrees, right when positive) and {@code -Dride.passenger=80} (kg) where the test ride starts;
+ * {@code -Dmodel.over=true} lays a sidecar outfit the game has over on its side, as it goes over;
  * {@code -Dmodel.asgame=true} has the game draw even the frames
  * being shaped, as it has them; {@code -Dbench.snapshot=out.png} saves the window after
  * {@code -Dbench.settle} ms and exits.
@@ -102,7 +104,9 @@ public final class ModelBench extends Application {
             new Model("Scooter", Course.SCOOTER, null, false),
             new Model("Sport bike", Course.SPORT_BIKE, null, false),
             new Model("Cruiser", Course.CRUISER, null, false),
-            new Model("Boxer", Course.BOXER, null, false));
+            new Model("Boxer", Course.BOXER, null, false),
+            new Model("Boxer with sidecar, as the game has it", Course.BOXER_SIDECAR, null, false),
+            new Model("Boxer with ice cream cart, as the game has it", Course.BOXER_ICE_CREAM, null, false));
 
     /** What is being shaped: the sidecar's chassis, or the motorcycle's own frame. */
     private static final String SIDECAR = "The sidecar's chassis";
@@ -345,13 +349,19 @@ public final class ModelBench extends Application {
         final Damage damage = Damage.of(course);
         // whoever looks at it stands well off, out of sight
         play = new Play(new Avatar(Body.standing(new Vec3(0, 0, -100_000), 0), false), damage);
+        if (Boolean.getBoolean("model.over") && picked.chassis().sidecar() != null) {
+            final Lift lying = play.lifts().getFirst();
+            play = new Play(play.avatar(), damage, play.sky(), List.of(new Lift(lying.piece(), lying.craft(), lying.place(),
+                    0, 0, 0, false, true, 0, 0, 0, 0, 0, -1, Outfit.TIPS)), play.people(), play.props(), play.turrets());
+        }
         shown.getChildren().setAll(world.node());
-        editing.setDisable(!picked.sidecar() && Frames.of(picked.chassis()) == null);
+        editing.setDisable(!picked.sidecar() && !shapesBike());
         riding.setDisable(!picked.sidecar());
+        rideOn();
         fallen = false;
         over = 0;
         tilted = 0;
-        if (!picked.sidecar() && Frames.of(picked.chassis()) != null) {
+        if (!picked.sidecar() && shapesBike()) {
             shaping.setValue(BIKE);
         }
         listNodes();
@@ -359,7 +369,8 @@ public final class ModelBench extends Application {
 
     /** Whether the vehicle on show is one the bench draws the frame of, as it shapes it. */
     private boolean shapesBike() {
-        return Frames.of(model.chassis()) != null;
+        // an outfit is shown as the game has it, sidecar and all; its motorcycle alone is shaped as the boxer
+        return Frames.of(model.chassis()) != null && model.chassis().sidecar() == null;
     }
 
     private boolean shapingSidecar() {
@@ -508,7 +519,10 @@ public final class ModelBench extends Application {
 
     /** The test ride, as the sliders now have it: its outfit, its table worked out afresh, read out. */
     private void rideOn() {
-        outfit = new Outfit(Course.BOXER, sidecar, passenger.getValue());
+        // carrying what the outfit on show carries: an ice cream cart, or a tub
+        final Sidecar.Body carried = model != null && model.chassis().sidecar() != null ? model.chassis().sidecar().body()
+                : sidecar.body();
+        outfit = new Outfit(Course.BOXER, sidecar.carrying(carried), passenger.getValue());
         rows = outfit.table();
         final StringBuilder lines = new StringBuilder(" km/h  toward  away   (sharpest steer, degrees)\n");
         for (final Outfit.Row row : rows) {

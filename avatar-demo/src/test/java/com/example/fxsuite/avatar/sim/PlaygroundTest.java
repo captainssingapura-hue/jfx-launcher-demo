@@ -28,7 +28,8 @@ class PlaygroundTest {
                 .map(l -> pieces.get(l.piece()).body() != null ? pieces.get(l.piece()).body().name()
                         : ((Course.Chassis) l.craft()).name())
                 .collect(Collectors.toSet());
-        assertEquals(Set.of("roadster", "van", "pickup", "truck", "scooter", "sport bike", "cruiser", "boxer"),
+        assertEquals(Set.of("roadster", "van", "pickup", "truck", "scooter", "sport bike", "cruiser", "boxer",
+                        "boxer with sidecar", "boxer with ice cream cart"),
                 vehicles);
         assertEquals(1, pieces.stream().filter(p -> p.kind() == Course.Kind.BUNKER).count());
         assertEquals(pieces.stream().filter(p -> p.kind() == Course.Kind.PILLAR).count(),

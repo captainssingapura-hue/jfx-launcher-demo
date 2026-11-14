@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 28;
+    public static final int RULES = 31;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -193,6 +193,15 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // and is slowed by it, as their masses and their speeds say; hard enough, both take harm
         final Collided crashed = collide(handed, rolled);
         final List<Lift> moved = crashed.lifts();
+        // a sidecar outfit going over on its side comes down with a thud, as hard as it was going
+        for (int i = 0; i < moved.size(); i++) {
+            final Lift now = moved.get(i);
+            if (now.over() && !handed.get(i).over()) {
+                final Place p = now.place();
+                happened.add(new Event.Settled(now.piece(), Math.max(300, Math.abs(handed.get(i).ahead())),
+                        new Vec3(p.x(), -p.height(), p.z())));
+            }
+        }
         final List<Prop> carriedProps = new ArrayList<>(carriedProps(to, handed, moved, under));
         for (int k = 0; k < carriedProps.size(); k++) {
             final Vec3 shove = crashed.shoved().get(carriedProps.get(k).piece());
@@ -665,14 +674,16 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /**
      * The platforms, their controls taken or let go: a {@link Action#TAKE} at a console takes
-     * them, and another lets them go, as does no longer standing at them.
+     * them, and another lets them go, as does no longer standing at them. A sidecar outfit that
+     * has gone over on its side throws whoever rides it off; and taken where it lies, it is righted,
+     * not ridden: set back on its wheels, to be got onto again.
      */
     private List<Lift> handed(final Controls controls, final Obstacles world, final List<Event> happened) {
         boolean take = controls.actions().stream().anyMatch(a -> a instanceof Action.Take);
         final List<Lift> handed = new ArrayList<>(lifts);
         for (int i = 0; i < handed.size(); i++) {
             final Lift lift = handed.get(i);
-            if (lift.held() && (take || damage.broken(lift.piece())
+            if (lift.held() && (take || damage.broken(lift.piece()) || lift.over()
                     || !seated(lift) && !lift.reaches(avatar.body(), world))) {
                 handed.set(i, lift.held(false));
                 happened.add(new Event.LetGo(lift.piece()));
@@ -682,8 +693,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         for (int i = 0; take && i < handed.size(); i++) {
             final Lift lift = handed.get(i);
             if (!damage.broken(lift.piece()) && lift.reaches(avatar.body(), world)) {
-                handed.set(i, lift.held(true));
-                happened.add(new Event.TookControls(lift.piece()));
+                handed.set(i, lift.over() ? lift.righted() : lift.held(true));
+                if (!lift.over()) {
+                    happened.add(new Event.TookControls(lift.piece()));
+                }
                 take = false;
             }
         }

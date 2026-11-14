@@ -130,6 +130,31 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   V-twin, its uneven beat, with five; the boxer a 1.8-litre boxer twin, its two cylinders firing a
   turn apart, evenly, into a pipe each side, a deep, even thrum, lazy to rev and done by 5,750, with
   six gears. They stand behind the start on the Roads demo, and along the street on the playground.
+- **A sidecar outfit.** The boxer with its sidecar clamped on its right (`Course.BOXER_SIDECAR`):
+  its sidecar's tubes, a tub on them with a seat, and its wheel; got onto from the left, away from
+  the sidecar, and ridden as the boxer is, but heavier (496 kg) and slower (about 161 km/h flat out),
+  its engine and gears the boxer's own. On three wheels, it does not lean. Going round, it is held
+  against its table of the sharpest it may be steered at its speed (`Outfit`, as on the
+  [vehicle bench](#vehicle-bench)): toward the sidecar it is soon too much (at 30 km/h, about three
+  degrees of steer), and the chair lifts, the outfit heeling away from it; past the limit for a
+  quarter of a second, it goes over on its left side, the sidecar in the air, with a thud, throwing
+  its rider off, and lies there, still, until T beside it rights it. Away from the sidecar it
+  holds. Its bars are turned gently, the more so the faster it goes, by the same table: toward the
+  sidecar they take half a second to come round to the sharpest it may be steered at its speed
+  (about 6° a second at 30 km/h, under 2° at 60), and go no further than 1.6 times that, so held
+  over it still lifts the chair and goes over, but a touch of the key does not; away from it, they
+  go no further than just short of its limit that way, the tyres sliding long before it would tip
+  so; and let go, they come back three times as fast, to catch a lifting chair. It stands with the
+  other bikes on the Roads demo, the playground and pit road.
+- **An ice cream cart outfit.** The same boxer and sidecar frame, wheel and all, carrying an ice
+  cream cart in place of the tub (`Course.BOXER_ICE_CREAM`, `Sidecar.Body.ICE_CREAM_CART`): a white
+  freezer, a pink stripe and a sky blue one round it, two chrome lids on top, a pink and white
+  striped umbrella over it on a pole, and a great cone of three scoops on its front for a sign.
+  Heavier still (556 kg) and slower (about 147 km/h); the cart is ballast out over the sidecar's
+  wheel, so it takes more to lift (0.36 g toward it, against the tub's 0.22 g; at 40 km/h nearly
+  three degrees of steer, not under two), and less to tip the other way (1.19 g), still more than
+  the tyres hold. It is ridden, tipped and righted as the tub outfit is, and stands beside it on
+  the Roads demo, the playground and pit road.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -538,8 +563,9 @@ java -jar avatar-demo/target/avatar-demo.jar --models
 
 - Put any of the game's vehicles on show on its own, drawn exactly as the game draws it (the game's
   own `World`, of a world with nothing else in it, `Course.of`): the roadster, the van, the
-  pickup, the truck, the scooter, the sport bike, the cruiser, the boxer, or the boxer with its
-  sidecar.
+  pickup, the truck, the scooter, the sport bike, the cruiser, the boxer, the boxer with its
+  sidecar as the game has it, the boxer with its ice cream cart, or the boxer with the sidecar the
+  bench shapes.
 - Look round it: drag to turn round it, right-drag (or Shift-drag) to move across it, scroll to
   come nearer or go further off.
 - Shape what is built of rods (`Frame`): anything of rigid rods joined at their ends, as a graph.
@@ -586,14 +612,14 @@ java -jar avatar-demo/target/avatar-demo.jar --models
   over; the table and the figures read out.
 - Keep it: save what is being shaped as text, a line a node and a line a rod, rods by their nodes'
   names, to read and edit by hand, and open it again (`Frame.text`, `Frame.read`; a sidecar's
-  adds its side and its wheel).
+  adds its side, what it carries and its wheel).
 
 `-Dmodel.pick=van` (or the start of any vehicle's name, or `sidecar`) picks what is on show to start
 with, `-Dmodel.side=left` mounts the sidecar on the left, `-Dmodel.shape=frame` shapes the
 motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from;
 `-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them;
 `-Dride.speed=60` (km/h), `-Dride.steer=2` (degrees, right when positive) and `-Dride.passenger=80`
-(kg) where the test ride starts.
+(kg) where the test ride starts; `-Dmodel.over=true` lays the game's outfit over on its side.
 
 ## Unattended runs
 

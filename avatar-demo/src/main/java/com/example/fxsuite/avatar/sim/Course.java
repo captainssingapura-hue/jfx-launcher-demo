@@ -482,10 +482,15 @@ public final class Course {
      * two axles, in line, under a narrow frame; {@code width} the width of its handlebars, which
      * stand where a steering wheel would; ridden astride, at {@code driverAcross} 0. It drives as a
      * car does, and is shown leaning into its turns as a two-wheeler must ({@link Lift#lean}).
+     *
+     * <p>And a two-wheeler may have a {@code sidecar} (null for none): then it is a sidecar outfit,
+     * on three wheels. It does not lean; going round too hard toward its sidecar, it tips
+     * ({@link Outfit}). It takes the sidecar's room as well as its own, out on that side, and is got
+     * onto from the other.
      */
     public record Chassis(String name, double width, double length, double ride, double wheelRadius,
                           double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive,
-                          boolean twoWheels)
+                          boolean twoWheels, Sidecar sidecar)
             implements Craft {
 
         /** How thick the bed is, and how high the steering wheel stands over it: within reach of a seated driver. */
@@ -500,6 +505,9 @@ public final class Course {
             if (twoWheels && (axles.size() != 2 || driverAcross != 0)) {
                 throw new IllegalArgumentException(name + ": two wheels in line, ridden astride");
             }
+            if (sidecar != null && !twoWheels) {
+                throw new IllegalArgumentException(name + ": a sidecar goes on a motorcycle");
+            }
         }
 
         /** A car's or a truck's: a wheel either side of each axle. */
@@ -508,6 +516,49 @@ public final class Course {
                        final double driverAcross, final double driverAlong, final Drive drive) {
             this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, false);
         }
+
+        /** A car's or a truck's, or a two-wheeler's ({@code twoWheels}), with no sidecar. */
+        public Chassis(final String name, final double width, final double length, final double ride,
+                       final double wheelRadius, final double wheelWidth, final List<Double> axles,
+                       final double driverAcross, final double driverAlong, final Drive drive,
+                       final boolean twoWheels) {
+            this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, twoWheels,
+                    null);
+        }
+
+        /** Whether it leans into its turns: a two-wheeler does; a sidecar outfit, on three, does not. */
+        public boolean leans() {
+            return twoWheels && sidecar == null;
+        }
+
+        /** How far it reaches to its left (negative) and its right, all told: its sidecar too, out on its side. */
+        public double[] reach() {
+            if (sidecar == null) {
+                return new double[] {-half(), half()};
+            }
+            final double out = sidecar.track() + sidecar.width() / 2;
+            return sidecar.side() == Sidecar.Side.RIGHT ? new double[] {-half(), out} : new double[] {-out, half()};
+        }
+
+        /**
+         * Its sidecar's solid parts, if it has one: its tub, out over its frame, and its wheel; in
+         * its own frame, as its other parts are (up from where it is, its bed's top).
+         */
+        public List<Section> sidecarParts() {
+            if (sidecar == null) {
+                return List.of();
+            }
+            final double side = sidecar.side().sign();
+            final Section body = sidecar.body().solid();
+            return List.of(
+                    new Section(side * body.across(), body.along(), body.up() - ride, body.halfAcross(), body.halfAlong(),
+                            body.halfUp()),
+                    new Section(side * sidecar.track(), sidecar.along(), sidecar.radius() - ride, sidecar.width() / 2,
+                            sidecar.radius(), sidecar.radius()));
+        }
+
+        /** A sidecar's tub, its body, out over its frame (as if on the right; up from the ground). */
+        public static final Section TUB = Sidecar.Body.TUB.solid();
 
         /** The bed, a slab, its top where the vehicle is: a two-wheeler's, its narrow frame. */
         public Section bed() {
@@ -556,13 +607,14 @@ public final class Course {
             return axles.stream().skip(1).mapToDouble(Double::doubleValue).average().orElseThrow();
         }
 
-        /** All of it, and its parts: the bed first, then the steering column, then the wheels. */
+        /** All of it, and its parts: the bed first, then the steering column, then the wheels; then any sidecar's. */
         public Shape shape() {
             final List<Section> parts = new ArrayList<>(List.of(bed(), column()));
             parts.addAll(wheels());
-            final double out = half();
-            return new Shape(new Section(0, 0, (bars() - ride) / 2, out, length / 2, (bars() + ride) / 2),
-                    parts);
+            parts.addAll(sidecarParts());
+            final double[] reach = reach();
+            return new Shape(new Section((reach[0] + reach[1]) / 2, 0, (bars() - ride) / 2, (reach[1] - reach[0]) / 2,
+                    length / 2, (bars() + ride) / 2), parts);
         }
 
         /**
@@ -586,19 +638,32 @@ public final class Course {
             return new Shape(new Section(0, 0, (top - ride) / 2, out, front, (top + ride) / 2), parts);
         }
 
-        /** The chassis a shape was made from ({@link #shape}), with whatever body: known by its bed. */
+        /**
+         * The chassis a shape was made from ({@link #shape}), with whatever body: the one whose own
+         * parts it begins with, the most of them (a motorcycle's are the start of its outfit's).
+         */
         public static Chassis of(final Shape shape) {
-            final Section bed = shape.parts().getFirst();
-            return CHASSES.stream().filter(c -> c.bed().equals(bed)).findFirst().orElseThrow();
+            Chassis best = null;
+            for (final Chassis c : CHASSES) {
+                final List<Section> own = c.shape().parts();
+                if (shape.parts().size() >= own.size() && shape.parts().subList(0, own.size()).equals(own)
+                        && (best == null || own.size() > best.shape().parts().size())) {
+                    best = c;
+                }
+            }
+            if (best == null) {
+                throw new IllegalArgumentException("no chassis made that shape");
+            }
+            return best;
         }
 
         /**
          * Where whoever drives it gets in from, and is let out at: on the ground, beside the
-         * driver's seat, clear of any body it wears.
+         * driver's seat, clear of any body it wears; on an outfit, on the side away from the sidecar.
          */
         @Override
         public Section door() {
-            final double side = driverAcross < 0 ? -1 : 1;
+            final double side = sidecar != null ? -sidecar.side().sign() : driverAcross < 0 ? -1 : 1;
             return new Section(side * (half() + 60), driverAlong, -ride, 0, 0, 0);
         }
 
@@ -606,13 +671,16 @@ public final class Course {
         @Override
         public Section room() {
             final double top = Body.TALL + 30;
-            return new Section(0, 0, (top - ride) / 2, half(), length / 2, (top + ride) / 2);
+            final double[] reach = reach();
+            return new Section((reach[0] + reach[1]) / 2, 0, (top - ride) / 2, (reach[1] - reach[0]) / 2, length / 2,
+                    (top + ride) / 2);
         }
 
         /** It stands on its wheels: the bottom of them. */
         @Override
         public Section footing() {
-            return new Section(0, 0, 1 - ride, half(), length / 2, 1);
+            final double[] reach = reach();
+            return new Section((reach[0] + reach[1]) / 2, 0, 1 - ride, (reach[1] - reach[0]) / 2, length / 2, 1);
         }
 
         /** As fast as it drives; not flown, and its engine is not cut. */
@@ -671,6 +739,21 @@ public final class Course {
      */
     public static final Chassis BOXER = new Chassis("boxer", 96, 244, 40, 32, 18, List.of(88.0, -85.0), 0, -32,
             new Drive(5040, 300, 598, 2200, 300, 20, 90, 425), true);
+    /**
+     * The boxer with its sidecar, as an outfit: the boxer's chassis, its sidecar ({@link Sidecar#BOXER})
+     * clamped to it on its right; on three wheels, so it does not lean, but tips going round too hard
+     * toward the sidecar ({@link Outfit}). Heavier and slower than the boxer alone.
+     */
+    public static final Chassis BOXER_SIDECAR = new Chassis("boxer with sidecar", 96, 244, 40, 32, 18,
+            List.of(88.0, -85.0), 0, -32, new Drive(4470, 300, 589, 2000, 300, 20, 90, 496), true, Sidecar.BOXER);
+    /**
+     * The boxer with an ice cream cart on its sidecar's frame in place of the tub: a freezer, under a
+     * striped umbrella, to sell from. Heavier, and its weight higher, than with the tub: it goes over
+     * otherwise ({@link Outfit}); and slower.
+     */
+    public static final Chassis BOXER_ICE_CREAM = new Chassis("boxer with ice cream cart", 96, 244, 40, 32, 18,
+            List.of(88.0, -85.0), 0, -32, new Drive(4090, 300, 542, 2000, 300, 20, 90, 556), true,
+            Sidecar.BOXER.carrying(Sidecar.Body.ICE_CREAM_CART));
     /** The two-wheelers. */
     public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER, BOXER);
     /**
@@ -715,7 +798,7 @@ public final class Course {
 
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS, SCOOTER, SPORT_BIKE,
-            CRUISER, BOXER);
+            CRUISER, BOXER, BOXER_SIDECAR, BOXER_ICE_CREAM);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -1052,7 +1135,8 @@ public final class Course {
         pieces.add(new Piece(new Block(pit, 0, PIT / 2, half * 0.8, 0, 0, SURFACE), Kind.TRACK, 1));
         final Object[][] parked = {
                 {CAR_CHASSIS, ROADSTER}, {CAR_CHASSIS, VAN}, {PICKUP_CHASSIS, PICKUP_BODY}, {TRUCK_CHASSIS, TRUCK_CAB},
-                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}, {BOXER, null}};
+                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}, {BOXER, null}, {BOXER_SIDECAR, null},
+                {BOXER_ICE_CREAM, null}};
         double along = 2400;
         for (int k = 0; k < parked.length; k++) {
             final Chassis chassis = (Chassis) parked[k][0];
@@ -1083,6 +1167,10 @@ public final class Course {
         pieces.add(Piece.vehicle(SPORT_BIKE, null, new Place(320, -700, SPORT_BIKE.ride(), 0), 0));
         pieces.add(Piece.vehicle(CRUISER, null, new Place(1000, -700, CRUISER.ride(), 0), 0));
         pieces.add(Piece.vehicle(BOXER, null, new Place(1700, -700, BOXER.ride(), 0), 0));
+        // and the boxer with its sidecar, out on its right
+        pieces.add(Piece.vehicle(BOXER_SIDECAR, null, new Place(2500, -700, BOXER_SIDECAR.ride(), 0), 0));
+        // and the boxer with an ice cream cart for its sidecar, beyond it
+        pieces.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(3300, -700, BOXER_ICE_CREAM.ride(), 0), 0));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {
@@ -1164,6 +1252,8 @@ public final class Course {
         extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
         extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
         extras.add(Piece.vehicle(BOXER, null, new Place(1150, -1500, BOXER.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER_SIDECAR, null, new Place(1700, -1500, BOXER_SIDECAR.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(2300, -1500, BOXER_ICE_CREAM.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
         return extras;

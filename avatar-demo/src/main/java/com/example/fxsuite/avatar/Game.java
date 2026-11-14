@@ -217,6 +217,10 @@ public final class Game {
     private static final String DRIVE_HELP = "The chassis: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + VIEW_KEYS;
+    private static final String SIDECAR_HELP = "The outfit: W throttle · S brake, then back · A/D steer ·"
+            + " Space brake hard · Shift gently · T get off\n"
+            + "It does not lean: steer gently toward the sidecar at speed, or the chair lifts, and then it goes"
+            + " over on its side (T beside it rights it)\n" + VIEW_KEYS;
     private static final String RIDE_HELP = "Astride: W throttle · S brake, then back · A/D steer ·"
             + " Space brake hard · Shift gently · T get off\n"
             + "It leans into its turns, the harder the faster it goes round; the gears change by themselves\n"
@@ -612,7 +616,7 @@ public final class Game {
             // in a car, sat; on a two-wheeler, astride, leaning with it into its turns
             final Course.Chassis chassis = (Course.Chassis) driven.craft();
             // and on a banked turn, rolled with it
-            final double tipped = driven.lean() + driven.roll();
+            final double tipped = driven.lean() + driven.roll() + driven.heel();
             rig.show(seated(avatar, chassis, craft, tipped),
                     chassis.twoWheels() ? Gait.astride(looking, chassis, tipped) : Gait.seated(looking, tipped));
         } else if (alone.filter(gun -> gun.mount().rides()).isPresent()) {
@@ -739,6 +743,16 @@ public final class Game {
             final String gun = fixedGun(lift).map(g -> " · gun " + (g.firing() ? "firing" : g.gun().spin() >= 1
                     ? "up to speed" : g.gun().spin() > 0 ? String.format("spinning, %.0f%%", 100 * g.gun().spin()) : "still"))
                     .orElse("");
+            if (chassis.sidecar() != null) {
+                // a sidecar outfit: how near it is to tipping, going round
+                final double share = com.example.fxsuite.avatar.sim.Outfit.of(chassis)
+                        .share(com.example.fxsuite.avatar.sim.Outfit.table(chassis), lift.ahead(), lift.steer());
+                final String going = lift.over() ? "OVER on its side: T beside it to right it"
+                        : share > 1 ? "TIPPING" : share > com.example.fxsuite.avatar.sim.Outfit.LIFTS
+                        ? "the chair lifting!" : String.format("%.0f%% of its limit", 100 * share);
+                return String.format("Riding the %s · %.1f m/s%s · bars %+.1f° · %s · %.0f%% left", chassis.name(),
+                        Math.abs(speed), speed < -0.05 ? " in reverse" : "", lift.steer(), going, left);
+            }
             if (chassis.twoWheels()) {
                 // ridden, leaning into its turns
                 return String.format("Riding the %s · %.1f m/s%s · bars %+.0f° · leaning %+.0f°%s · %.0f%% left",
@@ -855,7 +869,8 @@ public final class Game {
                 : gunControl ? flown.map(lift -> lift.craft() instanceof Course.Chassis ? PICKUP_HELP
                         : lift.craft().closed() ? ARMED_AIRSHIP_HELP : ARMED_PLATFORM_HELP).orElseThrow()
                 : flown.map(lift -> lift.craft() instanceof Course.Chassis chassis
-                        ? (chassis.twoWheels() ? RIDE_HELP : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
+                        ? (chassis.sidecar() != null ? SIDECAR_HELP : chassis.twoWheels() ? RIDE_HELP
+                        : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElseThrow()
                         + (vehicleGun.isPresent() ? GUN_OFF_HELP : "");
         if (!keys.equals(help.getText())) {

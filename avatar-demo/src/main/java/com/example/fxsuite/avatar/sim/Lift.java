@@ -36,7 +36,14 @@ import java.util.List;
  */
 public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
                    boolean held, boolean engine, int bombs, double ready, double steer, double tilt, double roll,
-                   int bumped) {
+                   int bumped, double tipped) {
+
+    /** Upright: not tipping, as all but a sidecar outfit going round too hard are. */
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
+                final double climb, final boolean held, final boolean engine, final int bombs, final double ready,
+                final double steer, final double tilt, final double roll, final int bumped) {
+        this(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, bumped, 0);
+    }
 
     /** One with no roll: level from side to side, as all but a land vehicle on a cross-slope are. */
     public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
@@ -54,7 +61,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, having run into piece {@code what} ({@link #bumped}); -1 nothing, -2 the avatar. */
     public Lift bumped(final int what) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what, tipped);
     }
 
     /**
@@ -64,8 +71,52 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     public Lift going(final double nowAhead, final double nowAside) {
         return new Lift(piece, craft, place, nowAhead, nowAside, climb, held, engine, bombs, ready, steer, tilt, roll,
-                bumped);
+                bumped, tipped);
     }
+
+    /** Over on its side: a sidecar outfit, past its limit for long enough ({@link Outfit#TIPS}). */
+    public boolean over() {
+        return tipped >= Outfit.TIPS;
+    }
+
+    /** The same, {@code seconds} past its limit so far (0: within it). */
+    private Lift tipping(final double seconds) {
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, bumped,
+                seconds);
+    }
+
+    /** Set back on its wheels, still: an outfit that went over, righted. */
+    public Lift righted() {
+        return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, 0, tilt, roll, -1, 0);
+    }
+
+    /**
+     * How far it is heeled over, in degrees, as it is drawn: a sidecar outfit nearing its limit, a
+     * wheel lifting, up to {@link #HEEL} at its limit; over on its side, {@link #ON_ITS_SIDE}. As a
+     * two-wheeler's lean is reckoned: positive with its right side down. Turning toward the sidecar
+     * it heels away from it, the sidecar's wheel lifting; away from it, toward it, its own back wheel
+     * lifting. 0 for anything else.
+     */
+    public double heel() {
+        if (!(craft instanceof Course.Chassis chassis) || chassis.sidecar() == null) {
+            return 0;
+        }
+        final double side = chassis.sidecar().side().sign();
+        if (over()) {
+            return -side * ON_ITS_SIDE;
+        }
+        final Outfit outfit = Outfit.of(chassis);
+        final double share = outfit.share(Outfit.table(chassis), ahead, steer);
+        if (share <= Outfit.LIFTS) {
+            return 0;
+        }
+        final double lifted = HEEL * Math.min(1, (share - Outfit.LIFTS) / (1 - Outfit.LIFTS));
+        return outfit.towardSidecar(steer) ? -side * lifted : side * lifted;
+    }
+
+    /** How far a sidecar outfit heels at most with a wheel lifting; and over on its side. */
+    public static final double HEEL = 9;
+    public static final double ON_ITS_SIDE = 88;
 
     /** Its velocity across the ground: ahead the way it heads, and aside to its right. */
     public Vec3 across() {
@@ -143,19 +194,19 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll, -1, tipped);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll, -1, tipped);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
         return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
-                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll);
+                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, -1, tipped);
     }
 
     /** How fast it is going, all told: across the ground and up or down. */
@@ -194,7 +245,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             now = drops ? bombs - 1 : bombs;
             next = drops ? RACK : wait;
         }
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll, -1, tipped);
     }
 
     /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
@@ -287,7 +338,18 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public Lift step(final Controls controls, final double seconds, final Obstacles world,
                      final Collection<Integer> aboard, final List<Block> also) {
         if (craft instanceof Course.Chassis chassis) {
-            return drive(chassis, controls, seconds, world, aboard, also);
+            if (chassis.sidecar() == null) {
+                return drive(chassis, controls, seconds, world, aboard, also);
+            }
+            // a sidecar outfit over on its side lies where it is, still, until righted
+            if (over()) {
+                return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, 0, tilt, roll, -1, tipped);
+            }
+            // driven as any land vehicle is; then, as it goes round, held against its table: past its
+            // limit, tipping, and over once past it for long enough
+            final Lift driven = drive(chassis, controls, seconds, world, aboard, also);
+            final double share = Outfit.of(chassis).share(Outfit.table(chassis), driven.ahead(), driven.steer());
+            return driven.tipping(share > 1 ? tipped + seconds : 0);
         }
         return engine ? fly(controls, seconds, world, aboard) : fall(seconds, world, aboard, also);
     }
@@ -319,9 +381,26 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                        final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
         final Course.Drive drive = chassis.drive();
         // the front wheels: turned as asked, the less the faster it goes, no faster than they turn
-        final double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
-        final double wanted = held ? Num.clamp(controls.sideways(), -1, 1) * most : 0;
-        final double turning = drive.steerRate() * seconds;
+        final double asked = held ? Num.clamp(controls.sideways(), -1, 1) : 0;
+        double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
+        double rate = drive.steerRate();
+        boolean gentle = false;
+        if (chassis.sidecar() != null) {
+            // a sidecar outfit's bars, gently, the more so the faster it goes, by its table: toward the
+            // way asked, or, let go, the way they are turned
+            final Outfit outfit = Outfit.of(chassis);
+            final List<Outfit.Row> table = Outfit.table(chassis);
+            final double way = asked != 0 ? asked : steer;
+            if (way != 0) {
+                most = outfit.lock(table, ahead, way, most);
+                rate = outfit.rate(table, ahead, way, rate);
+            }
+            gentle = true;
+        }
+        final double wanted = asked * most;
+        // and on an outfit, let back faster than they are turned in, to catch a lifting chair
+        final boolean backing = Math.abs(wanted) < Math.abs(steer) || wanted * steer < 0;
+        final double turning = rate * (gentle && backing ? Outfit.BACK_OFF : 1) * seconds;
         final double nowSteer = steer + Num.clamp(wanted - steer, -turning, turning);
         // the pedals: ahead speeds it up (braking first, going back), back brakes then reverses
         final double pedal = held ? Num.clamp(controls.forward(), -1, 1) : 0;
@@ -372,7 +451,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      * stands as ever. Not a two-wheeler, 0.
      */
     public double lean() {
-        if (!(craft instanceof Course.Chassis chassis) || !chassis.twoWheels()) {
+        if (!(craft instanceof Course.Chassis chassis) || !chassis.leans()) {
             return 0;
         }
         // how hard it is going round: its speed, times how fast it turns

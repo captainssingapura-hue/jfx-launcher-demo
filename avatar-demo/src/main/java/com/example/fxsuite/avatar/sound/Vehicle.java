@@ -62,6 +62,15 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
      */
     public static final Vehicle BOXER_CRUISER = new Vehicle("Boxer cruiser", Engine.BOXER, 425, 158,
             new double[] {2.438, 1.696, 1.296, 1.065, 0.903, 0.784}, 3.71, 0.32, 0.85, 0.8, 0.3, 0, 0, 0, 0);
+    /**
+     * The boxer with its sidecar: the same engine and gears, but nearly 500 kg of it, the sidecar's
+     * body broadside to the wind: slower to pull away, and slower flat out.
+     */
+    public static final Vehicle BOXER_OUTFIT = new Vehicle("Boxer with sidecar", Engine.BOXER, 496, 158,
+            new double[] {2.438, 1.696, 1.296, 1.065, 0.903, 0.784}, 3.71, 0.32, 1.25, 0.75, 0.3, 0, 0, 0, 0);
+    /** The boxer with an ice cream cart on its sidecar: 60 kg more than with the tub, the freezer and its umbrella in the wind. */
+    public static final Vehicle BOXER_ICE_CREAM = new Vehicle("Boxer with ice cream cart", Engine.BOXER, 556, 158,
+            new double[] {2.438, 1.696, 1.296, 1.065, 0.903, 0.784}, 3.71, 0.32, 1.55, 0.7, 0.3, 0, 0, 0, 0);
     public static final Vehicle SPORT_BIKE = new Vehicle("Sport bike", Engine.L_TWIN, 275, 120,
             new double[] {2.6, 1.9, 1.55, 1.3, 1.15, 1.04}, 5.0, 0.31, 0.45, 1.0, 0.08, 0, 0, 0, 0);
     public static final Vehicle CLASSIC_BIKE = new Vehicle("Classic bike", Engine.PARALLEL_TWIN, 295, 60,
@@ -81,7 +90,9 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
 
     /** One for each engine. */
     public static final List<Vehicle> ALL = List.of(HATCHBACK, RALLY, SALOON, MUSCLE, SUPERCAR,
-            SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, BOXER_CRUISER, SPORT_BIKE, CLASSIC_BIKE, CAR, PICKUP, TRUCK);
+            SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, BOXER_CRUISER, BOXER_OUTFIT, BOXER_ICE_CREAM, SPORT_BIKE, CLASSIC_BIKE, CAR,
+            PICKUP,
+            TRUCK);
 
     /** The vehicle {@code engine} drives, however it is charged. */
     public static Vehicle of(final Engine engine) {
@@ -110,6 +121,12 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
         }
         if (chassis == com.example.fxsuite.avatar.sim.Course.SPORT_BIKE) {
             return SPORT_BIKE;
+        }
+        if (chassis == com.example.fxsuite.avatar.sim.Course.BOXER_ICE_CREAM) {
+            return BOXER_ICE_CREAM;
+        }
+        if (chassis == com.example.fxsuite.avatar.sim.Course.BOXER_SIDECAR) {
+            return BOXER_OUTFIT;
         }
         if (chassis == com.example.fxsuite.avatar.sim.Course.BOXER) {
             return BOXER_CRUISER;

@@ -35,10 +35,23 @@ public record Outfit(Course.Chassis bike, Sidecar sidecar, double passenger) {
 
     /** Gravity, in centimetres a second a second. */
     public static final double GRAVITY = 981;
-    /** The sidecar's body, a tub, and its wheel, in kilograms. */
-    public static final double CHAIR = 50;
+    /** The sidecar's body, a tub, and its wheel, in kilograms: as the tub has it ({@link Sidecar.Body}). */
+    public static final double CHAIR = Sidecar.Body.TUB.kg();
     /** Past this much of the limit, a wheel lifts. */
     public static final double LIFTS = 0.85;
+    /**
+     * How its bars are turned, gently, the more so the faster it goes: toward the sidecar, they take
+     * {@code ROLL_IN} seconds to come round to the sharpest it may be steered at its speed, and go
+     * no further than {@code LOCK} times that, so held over it still tips, but a touch does not;
+     * away from it, no further than {@code AWAY} of its limit that way, as the tyres would slide
+     * long before it tipped so; and they are let back {@code BACK_OFF} times as fast as they turn in.
+     */
+    public static final double ROLL_IN = 0.5;
+    public static final double LOCK = 1.6;
+    public static final double AWAY = 0.95;
+    public static final double BACK_OFF = 3;
+    /** Its bars never turn slower than this, in degrees a second. */
+    public static final double SLOWEST = 1;
     /** The table's speeds: every 10 km/h, to the motorcycle's top. */
     public static final double STEP = 1000 / 3.6;
 
@@ -53,8 +66,31 @@ public record Outfit(Course.Chassis bike, Sidecar sidecar, double passenger) {
     /** How it is going round: steady; a wheel lifting; or tipping over. */
     public enum Grip { STEADY, LIFTING, TIPPING }
 
+    /** Past its limit for this long, in seconds, it goes over. */
+    public static final double TIPS = 0.25;
+
     /** The boxer, its sidecar as it is set up, no passenger. */
     public static final Outfit BOXER = new Outfit(Course.BOXER, Sidecar.BOXER, 0);
+
+    /** Each outfit's table, by its chassis: worked out once, the first time it is wanted. */
+    private static final java.util.Map<Course.Chassis, List<Row>> TABLES =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * The outfit a sidecar outfit's chassis is: the motorcycle it is built on (whose weight is its
+     * own and its rider's) with its sidecar, no passenger. The boxer's, for the boxer with its sidecar.
+     */
+    public static Outfit of(final Course.Chassis outfit) {
+        if (outfit.sidecar() == null) {
+            throw new IllegalArgumentException(outfit.name() + " has no sidecar");
+        }
+        return outfit.sidecar() == Sidecar.BOXER ? BOXER : new Outfit(Course.BOXER, outfit.sidecar(), 0);
+    }
+
+    /** The table of chassis {@code outfit}'s outfit ({@link #of}): worked out once, then looked up. */
+    public static List<Row> table(final Course.Chassis outfit) {
+        return TABLES.computeIfAbsent(outfit, c -> of(c).table());
+    }
 
     /** Its masses: the motorcycle with its rider, the sidecar's tubes, its body and wheel, and any passenger. */
     public List<Mass> masses() {
@@ -65,7 +101,8 @@ public record Outfit(Course.Chassis bike, Sidecar sidecar, double passenger) {
         final Frame tubes = sidecar.placed();
         final Frame.Point centre = tubes.centre();
         all.add(new Mass("the sidecar's tubes", tubes.mass(), centre.across(), centre.along(), centre.up()));
-        all.add(new Mass("the sidecar's body and wheel", CHAIR, side * sidecar.track() * 0.7, sidecar.along() + 35, 40));
+        all.add(new Mass("the sidecar's " + sidecar.body().title() + " and wheel", sidecar.body().kg(),
+                side * sidecar.track() * 0.7, sidecar.along() + 35, sidecar.body().up()));
         if (passenger > 0) {
             all.add(new Mass("its passenger", passenger, side * sidecar.track() * 0.68, sidecar.along() + 20, 65));
         }
@@ -201,6 +238,29 @@ public record Outfit(Course.Chassis bike, Sidecar sidecar, double passenger) {
             return 0;
         }
         return Math.abs(steer) / lookUp(table, Math.abs(speed), towardSidecar(steer), bike.drive().steer());
+    }
+
+    /**
+     * The furthest its bars may be turned at {@code speed} (cm/s), toward the side {@code steer}'s
+     * sign says, from {@code table}: no further than {@code most}, as any land vehicle's at that
+     * speed; toward its sidecar, no further than {@link #LOCK} times the sharpest it may be steered
+     * that way; away, no further than {@link #AWAY} of it.
+     */
+    public double lock(final List<Row> table, final double speed, final double steer, final double most) {
+        final boolean toward = towardSidecar(steer);
+        final double sharpest = lookUp(table, Math.abs(speed), toward, bike.drive().steer());
+        return Math.min(most, (toward ? LOCK : AWAY) * sharpest);
+    }
+
+    /**
+     * How fast its bars may be turned at {@code speed} (cm/s), toward the side {@code steer}'s sign
+     * says, in degrees a second, from {@code table}: round to the sharpest it may be steered that way
+     * in {@link #ROLL_IN} seconds, the slower the faster it goes; no faster than {@code fastest},
+     * nor slower than {@link #SLOWEST}.
+     */
+    public double rate(final List<Row> table, final double speed, final double steer, final double fastest) {
+        final double sharpest = lookUp(table, Math.abs(speed), towardSidecar(steer), bike.drive().steer());
+        return Math.clamp(sharpest / ROLL_IN, SLOWEST, fastest);
     }
 
     /** The same, with {@code kg} in the sidecar. */
