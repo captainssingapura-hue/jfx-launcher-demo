@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Demo;
@@ -33,6 +34,8 @@ class TownTest {
             assertEquals(k, building.tint(), "its site's number, to draw it by");
             assertFalse(building.solid().isEmpty());
             assertTrue(Double.isFinite(Damage.toughness(building)), "broken as a whole");
+            assertTrue(building.block().top() + Body.TALL < Body.CEILING,
+                    Town.SITES.get(k).name() + " can be flown over");
             // its solid blocks within its box
             for (final Block part : building.solid()) {
                 assertTrue(part.top() <= building.block().top() + 1e-6, Town.SITES.get(k).name());
