@@ -48,7 +48,7 @@ public final class Course {
 
         /** Whether it is loose ({@link Prop}): it stands on what is under it, and can be pushed about and fall. */
         public boolean loose() {
-            return this == FURNITURE || this == FRUIT;
+            return this == FURNITURE || this == FRUIT || this == CRATE;
         }
     }
 
@@ -121,9 +121,17 @@ public final class Course {
             return carrier >= 0;
         }
 
-        /** A piece that is just its box. */
+        /** A piece that is just its box: a crate, loose, standing where it is put ({@link Crate}). */
         public Piece(final Block block, final Kind kind, final int tint) {
-            this(block, kind, tint, List.of(block));
+            this(block, kind, tint, List.of(block), kind == Kind.CRATE ? crateShape(block) : null,
+                    kind == Kind.CRATE ? new Place(block.x(), block.z(), block.bottom(), block.yaw()) : null, null, -1,
+                    kind == Kind.CRATE ? Crate.of(block) : null);
+        }
+
+        /** A crate's shape: its box in its own frame, standing on its place. */
+        private static Shape crateShape(final Block block) {
+            final Section at = Crate.of(block).at(0, 0, 0);
+            return new Shape(at, List.of(at));
         }
 
         /** A piece that can move, made of {@code shape}, at {@code place}; along {@code route} if it flies of itself, or null. */
@@ -440,7 +448,8 @@ public final class Course {
      * gets up to speed ({@code accel}), stops under the brakes ({@code brake}) and rolls to a stop
      * left to itself ({@code drag}), all in units a second, a second; how far its front wheels turn
      * at most ({@code steer}, degrees, at a crawl: less the faster it goes), and how fast they turn
-     * there ({@code steerRate}, degrees a second).
+     * there ({@code steerRate}, degrees a second); and how heavy it is, its driver aboard
+     * ({@code mass}, kilograms): what it has to shift running into something, and what shifts it.
      *
      * <p>Its top speed is its real one, as its engine, gears and the air make it on the engine
      * bench; and it gets up to speed as a real one does, briskly from a standstill, less and less
@@ -448,7 +457,7 @@ public final class Course {
      * bench to make most of its speed.
      */
     public record Drive(double top, double reverse, double accel, double brake, double drag, double steer,
-                        double steerRate) {
+                        double steerRate, double mass) {
 
         /** It gets this much of its {@code accel} at its very top, so it gets there. */
         private static final double LEAST = 0.02;
@@ -626,36 +635,36 @@ public final class Course {
 
     /** A car's chassis: 4 m long, 1.8 m wide, four wheels; quick, and nimble. */
     public static final Chassis CAR_CHASSIS = new Chassis("car", 180, 400, 75, 35, 24, List.of(130.0, -130.0), -40,
-            40, new Drive(6905, 700, 405, 2600, 350, 34, 140));
+            40, new Drive(6905, 700, 405, 2600, 350, 34, 140, 1450));
     /** A truck's: 7 m long, 2.4 m wide, six wheels, the back four on two axles together; slower, and wider in its turns. */
     public static final Chassis TRUCK_CHASSIS = new Chassis("truck", 240, 700, 105, 50, 30,
-            List.of(240.0, -150.0, -280.0), -60, 170, new Drive(3334, 450, 449, 1900, 300, 30, 100));
+            List.of(240.0, -150.0, -280.0), -60, 170, new Drive(3334, 450, 449, 1900, 300, 30, 100, 6500));
     /**
      * A pickup's: 5.2 m long, 2 m wide, four wheels, its seat well forward to leave the back of it
      * free, for a gun on a post ({@link #REAR_GUN}); what a pickup with a gun, or an armoured
      * vehicle, is built on.
      */
     public static final Chassis PICKUP_CHASSIS = new Chassis("pickup", 200, 520, 85, 40, 26, List.of(170.0, -170.0),
-            -45, 110, new Drive(5140, 600, 514, 2300, 330, 32, 120));
+            -45, 110, new Drive(5140, 600, 514, 2300, 330, 32, 120, 2100));
     /**
      * A scooter's: 1.8 m long, on two small wheels, its rider sat upright well back, feet on the
      * floorboard between them; not quick, but nimble. The first of the two-wheelers.
      */
     public static final Chassis SCOOTER = new Chassis("scooter", 70, 180, 40, 22, 12, List.of(62.0, -62.0), 0, -22,
-            new Drive(2696, 300, 344, 1800, 300, 26, 130), true);
+            new Drive(2696, 300, 344, 1800, 300, 26, 130, 195), true);
     /**
      * A sport bike's: 2.05 m long, on big wheels, its rider tucked forward over the tank; the
      * quickest of everything that drives, though a little less nimble than a scooter.
      */
     public static final Chassis SPORT_BIKE = new Chassis("sport bike", 70, 205, 45, 31, 18, List.of(70.0, -70.0),
             0, -25,
-            new Drive(6556, 300, 926, 2600, 320, 22, 110), true);
+            new Drive(6556, 300, 926, 2600, 320, 22, 110, 275), true);
     /**
      * A cruiser's: 2.4 m long and low, its wheels far apart, its rider sat back, feet forward, arms
      * out to wide bars; steady, slower to turn.
      */
     public static final Chassis CRUISER = new Chassis("cruiser", 90, 240, 40, 32, 16, List.of(88.0, -82.0), 0, -30,
-            new Drive(5056, 300, 581, 2200, 300, 20, 90), true);
+            new Drive(5056, 300, 581, 2200, 300, 20, 90, 395), true);
     /** The two-wheelers. */
     public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER);
     /**

@@ -32,6 +32,8 @@ class GameSpeedTest {
                 driving = driving.step(vehicle, 1, 0, 0, true, 1.0 / 120);
                 bench += 1.0 / 120;
             }
+            // as heavy as on the bench, what it shoves and is shoved by in a collision
+            assertEquals(vehicle.mass(), drive.mass(), 1e-9, chassis.name() + "'s mass");
             // the game: its top speed, in centimetres a second, and its own time to 60% of it
             assertEquals(top * 100, drive.top(), 0.02 * drive.top(), chassis.name() + "'s top speed");
             double speed = 0;

@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 22;
+    public static final int RULES = 23;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -184,9 +184,19 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         // the world moves on, carrying whoever stands on what moves, and the platforms docked on it
         // and the loose things resting on it
-        final List<Lift> moved = moved(steering, seconds, to, was, handed, happened,
+        final List<Lift> rolled = moved(steering, seconds, to, was, handed, happened,
                 piece -> restingOn(piece, under));
-        final List<Prop> carriedProps = carriedProps(to, handed, moved, under);
+        // a land vehicle that ran into something that gives, a crate or another vehicle, shoves it,
+        // and is slowed by it, as their masses and their speeds say; hard enough, both take harm
+        final Collided crashed = collide(handed, rolled);
+        final List<Lift> moved = crashed.lifts();
+        final List<Prop> carriedProps = new ArrayList<>(carriedProps(to, handed, moved, under));
+        for (int k = 0; k < carriedProps.size(); k++) {
+            final Vec3 shove = crashed.shoved().get(carriedProps.get(k).piece());
+            if (shove != null) {
+                carriedProps.set(k, carriedProps.get(k).pushed(shove.x(), shove.z()));
+            }
+        }
         // each loose thing a step on: those still first, then those sliding, the foremost of them
         // first, each moving out of the way of what comes behind it
         Obstacles among = obstacles(to, moved, carriedProps);
@@ -198,7 +208,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 stepped[k] = prop;
                 continue;
             }
-            final Prop.Stepped step = prop.step(seconds, among, restingOn(prop.piece(), under));
+            // shoved by a vehicle, it goes on clear of that vehicle, which it may yet be touching
+            final List<Integer> ignore = restingOn(prop.piece(), under);
+            ignore.addAll(leaving(prop, moved, among));
+            final Prop.Stepped step = prop.step(seconds, among, ignore);
             stepped[k] = step.prop();
             landings.addAll(step.blows());
             if (!step.prop().place().equals(prop.place())) {
@@ -267,6 +280,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         }
         blows.addAll(fell.blows());
         blows.addAll(landings);
+        blows.addAll(crashed.blows());
         final Damage.Taken taken = damage.took(blows, piece -> placed(piece, to, moved, settled));
         final List<Person> hurt = struck(going, atPeople, fell.events(), toPeople);
         // and whoever the avatar walks into is pushed out of its way, and whatever it pushes against goes
@@ -284,6 +298,135 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 ? acted.avatar().facing(turned.get(gunning).heading()) : acted.avatar();
         return new Stepped(new Play(shown, taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
                 happened);
+    }
+
+    /** How much of their closing speed two things that collide part with: little, as crumpling things do. */
+    public static final double BOUNCE = 0.2;
+    /** A collision gentler than this, in joules taken out of the two, harms neither: a push. */
+    public static final double PUSH = 1500;
+    /** And a harder one deals one crash blow ({@link Weapon#CRASH}) to each for every this many joules. */
+    public static final double JOULES_A_BLOW = 1000;
+
+    /**
+     * The land vehicles, after a collision with whatever gives that they ran into on this step;
+     * how fast each loose thing they ran into is shoved ({@code shoved}, by piece); and the
+     * collisions' blows.
+     */
+    private record Collided(List<Lift> lifts, Map<Integer, Vec3> shoved, List<Blow> blows) {
+    }
+
+    /**
+     * Each land vehicle that ran into something on this step ({@link Lift#bumped}), {@code before}
+     * it moved and {@code after}, in a collision with it, if it gives: a loose thing, a crate, or
+     * another land vehicle. The push between them, along the line from one's middle to the
+     * other's, is as their masses and how fast they close say, and they part a little
+     * ({@link #BOUNCE}): a truck shoves a crate on, hardly slowed; a car running into a truck stops,
+     * and nudges it. The vehicle shoved rolls on ahead, and its tyres scrub off going sideways
+     * ({@link Lift#going}). The energy the collision takes out of them, past a push's
+     * ({@link #PUSH}), harms them both. What does not give, a wall, stops it, as ever.
+     */
+    private Collided collide(final List<Lift> before, final List<Lift> after) {
+        final List<Lift> lifts = new ArrayList<>(after);
+        final Map<Integer, Vec3> shoved = new TreeMap<>();
+        final List<Blow> blows = new ArrayList<>();
+        for (int i = 0; i < lifts.size(); i++) {
+            final Lift hit = lifts.get(i);
+            if (hit.bumped() < 0 || !(hit.craft() instanceof Course.Chassis chassis) || damage.broken(hit.piece())) {
+                continue;
+            }
+            final Lift was = before.get(i);
+            final int target = hit.bumped();
+            // what it ran into, how fast it was going, and how heavy it is: a loose thing, or a land vehicle
+            Vec3 other = null;
+            Vec3 centre = null;
+            double heavy = 0;
+            int lift = -1;
+            for (final Prop prop : props) {
+                if (prop.piece() == target && !damage.broken(target)) {
+                    other = new Vec3(prop.vx(), 0, prop.vz());
+                    centre = new Vec3(prop.place().x(), 0, prop.place().z());
+                    heavy = prop.thing().mass();
+                }
+            }
+            for (int j = 0; j < lifts.size(); j++) {
+                if (lifts.get(j).piece() == target && lifts.get(j).craft() instanceof Course.Chassis struck
+                        && !damage.broken(target)) {
+                    other = lifts.get(j).across();
+                    centre = new Vec3(lifts.get(j).place().x(), 0, lifts.get(j).place().z());
+                    heavy = struck.drive().mass();
+                    lift = j;
+                }
+            }
+            if (centre == null) {
+                continue;  // what does not give: stopped against it
+            }
+            final Vec3 mover = was.across();
+            final Vec3 from = new Vec3(was.place().x(), 0, was.place().z());
+            final Vec3 line = centre.subtract(from);
+            final Vec3 n = line.magnitude() > 1e-6 ? line.normalize() : Num.heading(was.place().yaw());
+            final double closing = mover.subtract(other).dotProduct(n);
+            if (closing <= 0) {
+                continue;
+            }
+            final double light = chassis.drive().mass();
+            final double reduced = light * heavy / (light + heavy);
+            final double push = (1 + BOUNCE) * closing * reduced;
+            final Vec3 going = mover.subtract(n.multiply(push / light));
+            final Vec3 sent = other.add(n.multiply(push / heavy));
+            lifts.set(i, hit.going(going.dotProduct(Num.heading(hit.place().yaw())),
+                    going.dotProduct(Num.right(hit.place().yaw()))));
+            if (lift >= 0) {
+                final Lift struck = lifts.get(lift);
+                // head on, each into the other: one collision between them, not two
+                lifts.set(lift, struck.going(sent.dotProduct(Num.heading(struck.place().yaw())),
+                        sent.dotProduct(Num.right(struck.place().yaw()))).bumped(struck.bumped() == hit.piece() ? -1
+                        : struck.bumped()));
+            } else {
+                shoved.put(target, sent);
+            }
+            // and, hard enough, the harm: so many crash blows each, by the energy it took out of them
+            final double joules = 0.5 * reduced * Math.pow(closing / 100, 2) * (1 - BOUNCE * BOUNCE);
+            if (joules > PUSH) {
+                final Vec3 at = new Vec3((from.x() + centre.x()) / 2, -(was.place().height() + 30),
+                        (from.z() + centre.z()) / 2);
+                for (long k = Math.round(joules / JOULES_A_BLOW); k > 0; k--) {
+                    blows.add(new Blow(at, n.multiply(-1), Surface.BLOCK, Weapon.CRASH, target));
+                    blows.add(new Blow(at, n, Surface.BLOCK, Weapon.CRASH, hit.piece()));
+                }
+            }
+        }
+        return new Collided(lifts, shoved, blows);
+    }
+
+    /**
+     * The land vehicles {@code prop} touches, among {@code lifts} as they are in {@code among}, that
+     * it is going away from: shoved by one, it goes on clear of it, though the vehicle pushing it
+     * follows it close. Not in its way, as a vehicle it is going toward is.
+     */
+    private static List<Integer> leaving(final Prop prop, final List<Lift> lifts, final Obstacles among) {
+        final List<Integer> away = new ArrayList<>();
+        if (prop.vx() == 0 && prop.vz() == 0) {
+            return away;
+        }
+        final Block box = prop.box();
+        final Block touching = new Block(box.x(), box.z(), box.halfWidth() + 5, box.halfDepth() + 5, box.yaw(),
+                box.bottom(), box.top(), box.toe());
+        for (final Lift lift : lifts) {
+            if (!(lift.craft() instanceof Course.Chassis)) {
+                continue;
+            }
+            final double going = (box.x() - lift.place().x()) * prop.vx() + (box.z() - lift.place().z()) * prop.vz();
+            if (going <= 0) {
+                continue;
+            }
+            for (int i = 0; i < among.blocks().size(); i++) {
+                if (among.pieces().get(i) == lift.piece() && touching.overlaps(among.blocks().get(i))) {
+                    away.add(lift.piece());
+                    break;
+                }
+            }
+        }
+        return away;
     }
 
     /** How everything that moves under its own rules moved on this step: the platforms, and the loose things. */

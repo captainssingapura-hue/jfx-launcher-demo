@@ -70,6 +70,12 @@ public enum Fruit implements Loose {
         return 1;
     }
 
+    /** How heavy: a watermelon a good eight kilograms, a pineapple under two. */
+    @Override
+    public double mass() {
+        return this == WATERMELON ? 8 : 1.8;
+    }
+
     @Override
     public double landing() {
         return landing;

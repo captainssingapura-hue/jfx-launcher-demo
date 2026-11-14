@@ -137,8 +137,8 @@ public record Arms(Weapon held, double reload, boolean leftNext, double sinceLef
         final Arms aimed = new Arms(held, reload, leftNext, sinceLeft, sinceRight, stroke, strokes, rounds,
                 Num.clamp(aim, -limit(held), limit(held)), spin);
         return switch (held) {
-            // no one holds a bomb, or a fall
-            case NONE, BOMB, FALL, HEAVY_GATLING -> out.stepped(aimed);
+            // no one holds a bomb, a fall, or a crash
+            case NONE, BOMB, FALL, CRASH, HEAVY_GATLING -> out.stepped(aimed);
             case RIFLES -> aimed.fire(Gun.RIFLES, trigger, seconds, body, world);
             case GATLING -> aimed.fire(Gun.GATLING, trigger, seconds, body, world);
             case GLAIVE -> aimed.swing(trigger, seconds, body, world, out);

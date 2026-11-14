@@ -73,6 +73,16 @@ public enum Furniture implements Loose {
         return give;
     }
 
+    /** How heavy: the table of planks and pallets sixty kilograms, a stool four, the little scooter ninety. */
+    @Override
+    public double mass() {
+        return switch (this) {
+            case TABLE -> 60;
+            case STOOL -> 4;
+            case SCOOTER -> 90;
+        };
+    }
+
     @Override
     public double landing() {
         return landing;

@@ -5,7 +5,7 @@ package com.example.fxsuite.avatar.sim;
  * pushed about, falls, and can be broken. Fruit, and furniture: each kind says how big it is, how
  * much it takes, how readily it is pushed, and how hard a landing it comes through.
  */
-public sealed interface Loose permits Fruit, Furniture {
+public sealed interface Loose permits Fruit, Furniture, Crate {
 
     /** What it is called. */
     String title();
@@ -27,6 +27,9 @@ public sealed interface Loose permits Fruit, Furniture {
 
     /** How fast it can come down and land whole, units a second: any faster, and it breaks. */
     double landing();
+
+    /** How heavy it is, in kilograms: what a vehicle running into it has to shift ({@link Play}). */
+    double mass();
 
     /** Its solid box, its middle {@code across} and {@code along} in the frame it is put in, sitting on what is {@code on} high. */
     default Course.Section at(final double across, final double along, final double on) {

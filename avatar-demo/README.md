@@ -92,6 +92,19 @@ for the engines.
   parts and the body's together. With the body round the seat, a vehicle is got into from the
   ground beside the driver's door (T), and let out there; at the wheel, the driver sits still in
   it, carried.
+- **Collisions.** A land vehicle running into something that gives, a crate or another
+  vehicle, collides with it as their masses and speeds say (`Play.collide`): every vehicle has
+  its mass, its bench vehicle's (`Course.Drive.mass`: the car 1,450 kg, the pickup 2,100, the
+  truck 6,500, the bikes 195 to 395 with their riders), and every loose thing its own
+  (`Loose.mass`). The push between them is along the line from one's middle to the other's,
+  momentum kept, and they part a little (bounce 0.2). A truck shoves a crate on, hardly slowed;
+  a car running into the parked truck stops short and barely moves it; the truck running into
+  the parked car sends it off at about the truck's own speed. A vehicle shoved rolls on ahead,
+  and shoved sideways its tyres scrub that off hard. Kept on the throttle against a crate, a
+  vehicle pushes it along ahead of it. The energy a collision takes out of the two, past a
+  gentle push's 1.5 kJ, harms them both, a crash blow (`Weapon.CRASH`) each for every
+  kilojoule: the pickup at 50 km/h breaks a crate, and is dented. What does not give, a wall, a
+  pillar, a ramp's side, stops it dead, as ever.
 - **Two-wheelers: a scooter and motorcycles.** The same chassis, on two wheels in line under a
   narrow frame, with handlebars over the front wheel on raked forks (`Course.Chassis`,
   `twoWheels`): a scooter, small-wheeled, teal, its engine under a cowl beneath the seat, a
@@ -222,7 +235,10 @@ for the engines.
   stallholder shakes a fist; burst, it throws its flesh and skin, seeds or leaves, with a wet
   splat, deeper for a watermelon, and everyone jumps, hands in the air. The HUD counts the fruit
   smashed.
-- **Loose things: furniture and fruit.** The table and the fruit are loose things (`Prop`): each
+- **Loose things: furniture, fruit and crates.** The crates are loose too (`Crate`): each as
+  heavy as its planks, a hollow box at 18 kg a square metre of its sides, so a two-metre crate
+  is about 450 kg. Too heavy to shove by hand, they stand where they are until a vehicle runs
+  into one. The table and the fruit are loose things (`Prop`): each
   stands on whatever is under it (the deck, the table, the ground), and goes where that goes, so
   the fruit rides the table and the table rides the barge. Walk into one and push, and it slides
   the way you push it, as readily as it gives (`Loose#give`): fruit at your pace, the heavy table
