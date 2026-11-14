@@ -894,6 +894,15 @@ public final class Course {
         this(Demo.PLAYGROUND);
     }
 
+    /** A world of only {@code these} pieces: a showroom, as the vehicle bench has one vehicle on show. */
+    public static Course of(final List<Piece> these) {
+        return new Course(these);
+    }
+
+    private Course(final List<Piece> these) {
+        pieces.addAll(these);
+    }
+
     /** The world of {@code demo}: the playground, or a simple one round a single vehicle. */
     public Course(final Demo demo) {
         switch (demo) {

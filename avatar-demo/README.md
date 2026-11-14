@@ -4,8 +4,8 @@ A standalone experiment: a small robot built from boxes that walks, runs and jum
 world of pillars, crates and floating gates, followed by a chase camera. Put on its jet-pack
 and it flies as a drone does: upright, tipped gently toward where it goes, holding its place
 when let go. Everything is heard as well as seen. Two sound profiles give the same world two
-characters, and three separate benches are for working on the sounds: one for all of them, one
-for the engines, and one for the Gatling guns.
+characters. Three separate benches are for working on the sounds (one for all of them, one for the
+engines, one for the Gatling guns), and a fourth on the vehicles' models.
 
 ![Hovering among the pillars, the wings spread](images/flying.jpg)
 
@@ -303,7 +303,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -526,6 +526,37 @@ profile makes the Gatling gun in hand or manned the same way, each with its own 
 giant on the airship), mixed as the Sound menu says
 (`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
 chip's gun as ever.
+
+### Vehicle bench
+
+The vehicles' models are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --models
+```
+
+- Put any of the game's vehicles on show on its own, drawn exactly as the game draws it (the game's
+  own `World`, of a world with nothing else in it, `Course.of`): the roadster, the van, the
+  pickup, the truck, the scooter, the sport bike, the cruiser, the boxer, or the boxer with its
+  sidecar.
+- Look round it: drag to turn round it, right-drag (or Shift-drag) to move across it, scroll to
+  come nearer or go further off.
+- Shape the sidecar's chassis (`Sidecar`): a few steel tubes, 38 mm across, welded into one frame
+  (`SidecarModel` draws each tube from joint to joint, a weld at each joint), bolted to the boxer's
+  frame at four points, two low struts and two high, so it cannot twist; a flat frame beside the
+  motorcycle, an inner rail and an outer one with a cross tube at each end and a brace across;
+  and its wheel on a stub axle off the rear part of the outer rail, about 1.3 m out and 15 cm ahead
+  of the boxer's back wheel, as a sidecar is set up. Mount it on the right, or on the left (as where
+  traffic keeps left): the same frame, mirrored (`Sidecar.Side`). Set its wheel along the outer
+  rail, as far as the rail reaches, and how far out: its stub axle and the joint it starts from on
+  the rail go with it. Pick any joint of the frame and move it out, along and up by its sliders;
+  the tubes follow, and the wheel stays where it was set. Size the tubes and the wheel. The bench reads out
+  how much steel it takes and how heavy (about 9 m and 20 kg), how far out the wheel is and how far
+  ahead of the back wheel, whether the wheel stands on the ground, and whether it is still one
+  frame; and prints it as code, to paste back into `Sidecar.BOXER`.
+
+`-Dmodel.pick=van` (or the start of any vehicle's name, or `sidecar`) picks what is on show to start
+with, `-Dmodel.side=left` mounts the sidecar on the left; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from.
 
 ## Unattended runs
 
