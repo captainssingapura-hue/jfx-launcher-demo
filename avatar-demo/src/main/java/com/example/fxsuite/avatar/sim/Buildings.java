@@ -101,13 +101,6 @@ public final class Buildings {
         return on;
     }
 
-    /** A rectangle on {@code wall}, from {@code u0} to {@code u1} and {@code low} to {@code high}: a window's outline. */
-    private static void opening(final Form.Builder form, final String name, final Wall wall, final double u0,
-                                final double u1, final double low, final double high) {
-        form.loop(vertex(form, name + ", low left", wall.at(u0, low)), vertex(form, name + ", low right", wall.at(u1, low)),
-                vertex(form, name + ", high right", wall.at(u1, high)), vertex(form, name + ", high left", wall.at(u0, high)));
-    }
-
     /**
      * A pointed arch on {@code wall}, {@code width} wide about {@code middle}: its jambs up from
      * {@code sill} to {@code spring}, then two arcs, each struck from the other's springing, meeting
@@ -154,11 +147,11 @@ public final class Buildings {
     }
 
     /**
-     * A brutalist low-rise block of flats: a long concrete slab, 36 m by 12 m, five storeys and
-     * 17 m high, on a 6 m grid of columns; its ground storey taller and open, on pilotis, but for a
-     * glazed lobby in its middle; its front a checkerboard of deep balconies, each with its door,
-     * the bays between them windowed; its back in bands of windows; its ends blank; a parapet round
-     * its roof, and the stair and lift tower standing up from the middle of it.
+     * A brutalist low-rise block of flats, its structure: a long concrete slab, 36 m by 12 m, five
+     * storeys and 17 m high, on a 6 m grid of columns, three lines of them deep, its ground storey
+     * taller (on pilotis); a parapet round its roof, and the stair and lift tower standing up from the
+     * middle of it. Its faces, how it is dressed, are its surfaces' designs' to say
+     * ({@code build.Apartments}).
      */
     public static Form apartments() {
         final Form.Builder form = new Form.Builder("brutalist apartments");
@@ -173,39 +166,6 @@ public final class Buildings {
                 // its floor's beams, front to back along each line of columns
                 for (int i = 1; i < xs.length - 1; i++) {
                     form.line(floor[l][i][0], floor[l][i][1], floor[l][i][2]);
-                }
-            }
-        }
-        final Wall front = facing(600);
-        final Wall back = facing(-600);
-        // the glazed lobby, in the middle two bays of the open ground storey
-        opening(form, "lobby", front, xs[2] + 40, xs[4] - 40, 30, 390);
-        for (int l = 1; l < levels.length - 1; l++) {
-            for (int b = 0; b + 1 < xs.length; b++) {
-                final double left = xs[b];
-                final double right = xs[b + 1];
-                final double up = levels[l];
-                final String bay = "floor " + l + ", bay " + b;
-                opening(form, bay + ", back window", back, left + 60, right - 60, up + 90, up + 240);
-                if ((l + b) % 2 == 0) {
-                    // a balcony: a deep box out of the front, its parapet a metre high, its door behind it
-                    final double out = 750;
-                    final double rail = up + 110;
-                    final int backLeft = vertex(form, bay + ", balcony back left", new double[] {left + 60, 600, up});
-                    final int frontLeft = vertex(form, bay + ", balcony front left", new double[] {left + 60, out, up});
-                    final int frontRight = vertex(form, bay + ", balcony front right", new double[] {right - 60, out, up});
-                    final int backRight = vertex(form, bay + ", balcony back right", new double[] {right - 60, 600, up});
-                    final int railBackLeft = vertex(form, bay + ", rail back left", new double[] {left + 60, 600, rail});
-                    final int railFrontLeft = vertex(form, bay + ", rail front left", new double[] {left + 60, out, rail});
-                    final int railFrontRight = vertex(form, bay + ", rail front right", new double[] {right - 60, out, rail});
-                    final int railBackRight = vertex(form, bay + ", rail back right", new double[] {right - 60, 600, rail});
-                    form.line(backLeft, frontLeft, frontRight, backRight);
-                    form.line(railBackLeft, railFrontLeft, railFrontRight, railBackRight);
-                    form.edge(frontLeft, railFrontLeft).edge(frontRight, railFrontRight)
-                            .edge(backLeft, railBackLeft).edge(backRight, railBackRight);
-                    opening(form, bay + ", balcony door", front, left + 140, right - 140, up + 15, up + 235);
-                } else {
-                    opening(form, bay + ", front window", front, left + 70, right - 70, up + 90, up + 250);
                 }
             }
         }

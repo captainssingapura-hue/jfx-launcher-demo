@@ -5,9 +5,6 @@ import com.example.fxsuite.avatar.sim.Form;
 import javafx.geometry.Point3D;
 import javafx.scene.Group;
 import javafx.scene.paint.PhongMaterial;
-import javafx.scene.shape.CullFace;
-import javafx.scene.shape.MeshView;
-import javafx.scene.shape.TriangleMesh;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -45,9 +42,9 @@ public final class FormModel {
      */
     public static Group of(final Form form, final double thickness, final Map<Lean, PhongMaterial> materials,
                            final boolean vertices, final PhongMaterial dots) {
-        final Map<Lean, Mesh> meshes = new EnumMap<>(Lean.class);
+        final Map<Lean, MeshBuilder> meshes = new EnumMap<>(Lean.class);
         for (final Lean lean : Lean.values()) {
-            meshes.put(lean, new Mesh());
+            meshes.put(lean, new MeshBuilder());
         }
         for (final Form.Edge edge : form.edges()) {
             meshes.get(lean(form, edge)).rod(point(form.vertices().get(edge.from())),
@@ -60,7 +57,7 @@ public final class FormModel {
             }
         }
         if (vertices && !form.vertices().isEmpty()) {
-            final Mesh cubes = new Mesh();
+            final MeshBuilder cubes = new MeshBuilder();
             for (final Form.Vertex v : form.vertices()) {
                 cubes.cube(point(v), thickness * 2.2);
             }
@@ -72,90 +69,5 @@ public final class FormModel {
     /** Where {@code vertex} is, in the model's terms. */
     public static Point3D point(final Form.Vertex vertex) {
         return new Point3D(vertex.across(), -vertex.up(), vertex.along());
-    }
-
-    /** A mesh put together a piece at a time. */
-    private static final class Mesh {
-        private float[] points = new float[3 * 1024];
-        private int[] faces = new int[6 * 1024];
-        private int pointCount;
-        private int faceCount;
-
-        boolean empty() {
-            return faceCount == 0;
-        }
-
-        private int point(final Point3D p) {
-            if (3 * (pointCount + 1) > points.length) {
-                points = java.util.Arrays.copyOf(points, points.length * 2);
-            }
-            points[3 * pointCount] = (float) p.getX();
-            points[3 * pointCount + 1] = (float) p.getY();
-            points[3 * pointCount + 2] = (float) p.getZ();
-            return pointCount++;
-        }
-
-        private void triangle(final int a, final int b, final int c) {
-            if (6 * (faceCount + 1) > faces.length) {
-                faces = java.util.Arrays.copyOf(faces, faces.length * 2);
-            }
-            final int at = 6 * faceCount;
-            faces[at] = a;
-            faces[at + 2] = b;
-            faces[at + 4] = c;
-            faceCount++;
-        }
-
-        private void quad(final int a, final int b, final int c, final int d) {
-            triangle(a, b, c);
-            triangle(a, c, d);
-        }
-
-        /** A square rod {@code width} across from {@code a} to {@code b}. */
-        void rod(final Point3D a, final Point3D b, final double width) {
-            final Point3D run = b.subtract(a).normalize();
-            // two directions square to the run, and to each other
-            final Point3D other = Math.abs(run.getY()) < 0.9 ? new Point3D(0, 1, 0) : new Point3D(1, 0, 0);
-            final Point3D u = run.crossProduct(other).normalize().multiply(width / 2);
-            final Point3D v = run.crossProduct(u).normalize().multiply(width / 2);
-            final int[] at = new int[8];
-            final Point3D[] corners = {u.add(v), u.subtract(v), u.multiply(-1).subtract(v), v.subtract(u)};
-            for (int k = 0; k < 4; k++) {
-                at[k] = point(a.add(corners[k]));
-                at[k + 4] = point(b.add(corners[k]));
-            }
-            for (int k = 0; k < 4; k++) {
-                final int next = (k + 1) % 4;
-                quad(at[k], at[next], at[next + 4], at[k + 4]);
-            }
-            quad(at[0], at[1], at[2], at[3]);
-            quad(at[4], at[7], at[6], at[5]);
-        }
-
-        /** A cube {@code size} across about {@code middle}. */
-        void cube(final Point3D middle, final double size) {
-            final double h = size / 2;
-            final int[] at = new int[8];
-            for (int k = 0; k < 8; k++) {
-                at[k] = point(middle.add((k & 1) == 0 ? -h : h, (k & 2) == 0 ? -h : h, (k & 4) == 0 ? -h : h));
-            }
-            quad(at[0], at[1], at[3], at[2]);
-            quad(at[4], at[6], at[7], at[5]);
-            quad(at[0], at[4], at[5], at[1]);
-            quad(at[2], at[3], at[7], at[6]);
-            quad(at[0], at[2], at[6], at[4]);
-            quad(at[1], at[5], at[7], at[3]);
-        }
-
-        MeshView view(final PhongMaterial material) {
-            final TriangleMesh mesh = new TriangleMesh();
-            mesh.getPoints().setAll(points, 0, 3 * pointCount);
-            mesh.getTexCoords().setAll(0, 0);
-            mesh.getFaces().setAll(faces, 0, 6 * faceCount);
-            final MeshView view = new MeshView(mesh);
-            view.setMaterial(material);
-            view.setCullFace(CullFace.NONE);
-            return view;
-        }
     }
 }

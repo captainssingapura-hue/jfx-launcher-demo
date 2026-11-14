@@ -28,29 +28,22 @@ class BuildingsTest {
         }
     }
 
-    /** How many pieces it is in, less the outlines standing apart: those named as openings, each one piece. */
-    private static int framePieces(final Form building, final int outlines) {
-        return building.pieces() - outlines;
-    }
-
     private static long named(final Form building, final String part) {
         return building.vertices().stream().map(Form.Vertex::name).filter(n -> n.endsWith(part)).count();
     }
 
     @Test
-    void theBrutalistFlatsAreALongLowSlabOfFiveStoreys() {
+    void theBrutalistFlatsAreALongLowSlabOfFiveStoreysItsStructureOnly() {
         final Form.Bounds box = FLATS.bounds();
         assertEquals(3600, box.width(), 1e-9);
+        assertEquals(1200, box.depth(), 1e-9);
         assertEquals(1620 + 350, box.height(), 1e-9, "the roof at 16.2 m, its stair tower over it");
-        assertTrue(box.width() > 2.5 * 1200, "long and shallow");
-        // a balcony on every other bay of the four upper floors; a window or a door in every bay
-        assertEquals(12, named(FLATS, "balcony front left"));
-        assertEquals(24, named(FLATS, "back window, low left"));
-        assertEquals(12, named(FLATS, "front window, low left"));
-        assertEquals(12, named(FLATS, "balcony door, low left"));
-        // its frame, its balconies (each apart from it, standing on its floor's edge), the roof tower,
-        // and 61 windows' and doors' outlines
-        assertEquals(1 + 12 + 1, framePieces(FLATS, 24 + 12 + 12 + 1));
+        assertTrue(box.width() > 2.5 * box.depth(), "long and shallow");
+        // its grid of columns, at six levels; no windows nor balconies: those are its facades' to say
+        assertEquals(6 * 7 * 3, FLATS.vertices().stream().filter(v -> v.name().contains(", x")
+                && !v.name().startsWith("roof tower") && !v.name().startsWith("parapet")).count());
+        assertEquals(0, named(FLATS, "low left"));
+        assertEquals(2, FLATS.pieces(), "its frame, and the stair tower standing on its roof");
     }
 
     @Test

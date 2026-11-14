@@ -646,9 +646,8 @@ through, and one loaded until a pillar gives and it falls.
 
 - Three typical buildings (`Buildings`), each made by a generator:
   - **Brutalist apartments**: a concrete slab of flats 36 m by 12 m, five storeys on a 6 m grid of
-    columns, its tall ground storey open on pilotis but for a glazed lobby; its front a
-    checkerboard of deep balconies, each with its door; its back in bands of windows; its ends
-    blank; a parapet round its roof and the stair tower on it.
+    columns, its tall ground storey open on pilotis; a parapet round its roof and the stair tower
+    on it. Its skeleton is its structure only: how it is dressed is its surfaces' designs' to say.
   - **Skyscraper**: a two-storey podium 48 m square; on it a tower 32 m square, 36 floors of 4 m,
     mullions every 4 m, set back to 24 m square for its top eight floors; a core 12 m square up its
     middle; a screen round its roof plant; and a spire on the core to 200 m.
@@ -666,8 +665,29 @@ through, and one loaded until a pillar gives and it falls.
   with it: two vertices one point, an edge twice, a vertex nothing joins.
 - Saved as text (`Form.text`, `Form.read`): a line for each vertex, one for each edge by its
   vertices' names, to read and edit by hand.
+- **Composed, and dressed many ways** (`build`): a building (`Building`) is its skeleton, its
+  high-level surfaces (`Surface`: a front, an end, the roof, a floor's underside, each a rectangle
+  with its own frame, u along it, v up it, w out of it, and the lines of its structure across it:
+  its bays and storeys), and the structure that shows of itself, worked out from its skeleton (the
+  pilotis: the skeleton's upright edges in the open ground storey, as concrete columns). How each
+  surface is dressed is a design's (`Design`), and a way of dressing the whole building (an
+  `Option`) is a design for each kind of surface. A wall's design (`Facade`) is a wall of a
+  material and a thickness, cut into its bays and storeys, each cell filled as a pattern says
+  (`Infills`: blank, a window, a ribbon window, glazing, a balcony and its door, deep punched
+  windows; `Pattern`: all alike, or chessboard-wise), the wall cut round each fill's openings, and
+  trims laid over it all (`Trims`: bands at its floors, fins, a coping), carried round its corners
+  by half its thickness. Everything comes out as solids, each a named box of a material
+  (`Solid`), drawn a mesh a material (`BuildingModel`).
+  - The apartments have five facades, the same building each time: balconies on a chessboard in
+    front and ribbon windows behind; ribbon windows all round; an egg-crate of concrete fins and
+    floor bands over full-height glazing; deep punched windows in precast concrete, their
+    surrounds standing proud; and balconies both sides. Ends blank, a gravel roof, the lobby a
+    glass box among the pilotis, in all of them. An option changed one surface at a time
+    (`Option.with`) makes another.
+  - On the bench, pick a facade, and show the building dressed, its skeleton, or both.
 
 `-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
+`-Dbuilding.facade=egg` (the start of a facade's name) how the apartments are dressed;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
 
 ## Unattended runs

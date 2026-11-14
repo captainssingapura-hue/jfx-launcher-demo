@@ -1,5 +1,10 @@
 package com.example.fxsuite.avatar.bench;
 
+import com.example.fxsuite.avatar.build.Apartments;
+import com.example.fxsuite.avatar.build.Building;
+import com.example.fxsuite.avatar.build.Material;
+import com.example.fxsuite.avatar.build.Solid;
+import com.example.fxsuite.avatar.look.BuildingModel;
 import com.example.fxsuite.avatar.look.FormModel;
 import com.example.fxsuite.avatar.sim.Buildings;
 import com.example.fxsuite.avatar.sim.Form;
@@ -51,7 +56,8 @@ import java.util.Map;
  * edit by hand.
  *
  * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
- * start with; {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
+ * start with; {@code -Dbuilding.facade=egg} (the start of a facade's name) how a composed one is dressed;
+ * {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
  * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
@@ -68,12 +74,18 @@ public final class BuildingBench extends Application {
     private final Group shown = new Group();
     private final Group floor = new Group();
     private final ComboBox<Form> buildings = new ComboBox<>();
+    private final ComboBox<Building.Option> facades = new ComboBox<>();
+    private final CheckBox showSkeleton = new CheckBox("Its skeleton");
+    private final CheckBox showDressed = new CheckBox("Dressed: its surfaces' designs");
     private final CheckBox showVertices = new CheckBox("Vertices");
     private final CheckBox showFloor = new CheckBox("The floor, ruled every 10 m");
     private final Label figures = new Label();
     private final Map<FormModel.Lean, PhongMaterial> colours = new EnumMap<>(FormModel.Lean.class);
     private final PhongMaterial dots = matte("#d64545");
     private Form building;
+    /** The building composed, for those that are: dressed as its options say. */
+    private static final Map<String, Building> COMPOSED = Map.of("brutalist apartments", Apartments.building());
+    private Building composed;
     /** How far off it is seen whole: the camera's range is set from it. */
     private double whole = 5000;
     private double lastX;
@@ -125,6 +137,24 @@ public final class BuildingBench extends Application {
         }
         buildings.setValue(building);
         buildings.setOnAction(e -> pick(buildings.getValue(), true));
+        facades.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(final Building.Option option) {
+                return option == null ? "" : option.name();
+            }
+
+            @Override
+            public Building.Option fromString(final String name) {
+                return null;
+            }
+        });
+        facades.setOnAction(e -> {
+            redraw();
+            describe();
+        });
+        showSkeleton.setOnAction(e -> redraw());
+        showDressed.setSelected(true);
+        showDressed.setOnAction(e -> redraw());
         showFloor.setSelected(true);
         showVertices.setOnAction(e -> redraw());
         showFloor.setOnAction(e -> floor.setVisible(showFloor.isSelected()));
@@ -143,8 +173,10 @@ public final class BuildingBench extends Application {
             })));
         }
         final VBox controls = new VBox(10, EngineBench.heading("On show"), buildings,
-                EngineBench.label("Its skeleton only: vertices with no size, edges with no thickness, each drawn"
-                        + " as a thin rod. What it is made of, and its faces, are to come."),
+                EngineBench.label("Its skeleton: vertices with no size, edges with no thickness, each drawn as a"
+                        + " thin rod. A building composed has surfaces too, each dressed by a design: pick a facade"
+                        + " to dress the same building another way."),
+                EngineBench.row("Facade", facades), showDressed, showSkeleton,
                 legend, showVertices, showFloor,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -177,6 +209,18 @@ public final class BuildingBench extends Application {
     /** Another building on show: seen whole, looked at about its middle, if {@code frame}d afresh. */
     private void pick(final Form picked, final boolean frame) {
         building = picked;
+        composed = COMPOSED.get(building.name());
+        facades.getItems().setAll(composed == null ? List.of() : composed.options());
+        facades.setValue(composed == null ? null : composed.options().getFirst());
+        final String facade = System.getProperty("building.facade");
+        if (facade != null && composed != null) {
+            composed.options().stream().filter(o -> o.name().toLowerCase(Locale.ROOT)
+                    .startsWith(facade.toLowerCase(Locale.ROOT))).findFirst().ifPresent(facades::setValue);
+        }
+        facades.setDisable(composed == null);
+        showDressed.setDisable(composed == null);
+        showSkeleton.setDisable(composed == null);
+        showSkeleton.setSelected(composed == null);
         final Form.Bounds box = building.bounds();
         whole = Math.max(box.height(), Math.max(box.width(), box.depth())) * 1.9 + 800;
         target.setX((box.leftmost() + box.rightmost()) / 2);
@@ -197,7 +241,13 @@ public final class BuildingBench extends Application {
         final Form.Bounds box = building.bounds();
         final double size = Math.max(box.height(), Math.max(box.width(), box.depth()));
         final double thickness = Math.max(5, size / 900);
-        shown.getChildren().setAll(FormModel.of(building, thickness, colours, showVertices.isSelected(), dots));
+        shown.getChildren().clear();
+        if (composed != null && showDressed.isSelected() && facades.getValue() != null) {
+            shown.getChildren().add(BuildingModel.of(composed.dressed(facades.getValue())));
+        }
+        if (composed == null || showSkeleton.isSelected()) {
+            shown.getChildren().add(FormModel.of(building, thickness, colours, showVertices.isSelected(), dots));
+        }
     }
 
     /** The floor under it, well beyond it all round, ruled every 10 m. */
@@ -236,6 +286,13 @@ public final class BuildingBench extends Application {
                 leaning.getOrDefault(FormModel.Lean.LEVEL, 0), leaning.getOrDefault(FormModel.Lean.SLOPED, 0)));
         out.append(building.pieces() == 1 ? "all one piece\n"
                 : String.format("in %d pieces: its frame, and outlines standing apart%n", building.pieces()));
+        if (composed != null && facades.getValue() != null) {
+            final List<Solid> solids = composed.dressed(facades.getValue());
+            final Map<Material, Integer> made = new EnumMap<>(Material.class);
+            solids.forEach(s -> made.merge(s.material(), 1, Integer::sum));
+            out.append(String.format("%d surfaces, dressed in %d solids:%n", composed.surfaces().size(), solids.size()));
+            made.forEach((material, count) -> out.append(String.format("  %d %s%n", count, material.title())));
+        }
         out.append(problems.isEmpty() ? "nothing wrong with it" : "");
         problems.stream().limit(12).forEach(p -> out.append("\n! ").append(p));
         if (problems.size() > 12) {
