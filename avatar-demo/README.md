@@ -740,6 +740,18 @@ through, and one loaded until a pillar gives and it falls.
   from a podium (154 m), a round one, an oval one, a rounded one, an L-shaped block on a podium, one
   with a bow front; and a tower from the plan tab, stacked as many floors as asked, made afresh as
   its plan is changed.
+- **Towers dressed** (`TowerBuildings`): a tower is assembled into a building like the apartments,
+  its surfaces made from its stack apart from its skeleton, then checked against it: every wall's
+  line of columns must meet a column of the skeleton, foot and head, and where one does not it is
+  said. For each section, a wall on each straight run of its outline and on each straight piece of
+  each curve (so a round tower is faceted, as a real curtain wall is), over all its floors, its
+  column lines where its plan's columns stand along it, and a parapet on it only where nothing
+  stands on it above; floors at each level between and its roof, as level surfaces of any shape
+  (`Plate`), laid as slabs in triangles. Each section is a choice of its own (a curtain wall, glass
+  over dark spandrels; the same with fins; ribbon windows; a base of shopfronts; a podium's own its
+  base), so different designs stack: a stone podium under a glass shaft under a finned top. The
+  columns standing clear of its outline show through its glass. Built in any palette, its doubts
+  said as the apartments' are.
 - On the bench, each tower's **Plan (2D)** tab shows its sections' plans flat, a section at a time,
   north up, to scale: the floor, the outline as it was square (dashed) and as shaped, the points on
   its curves, its columns and beams, the ring round its curves; with its figures and what is wrong

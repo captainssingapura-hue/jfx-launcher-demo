@@ -96,12 +96,16 @@ public final class BuildingBench extends Application {
     private final PhongMaterial dots = matte("#d64545");
     private Form building;
     /** The building composed, for those that are: dressed as its options say. */
-    private static final Map<String, Building> COMPOSED = Map.of("brutalist apartments", Apartments.building());
+    private static final Map<String, Building> COMPOSED = new java.util.HashMap<>(
+            Map.of("brutalist apartments", Apartments.building()));
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
     private static final Map<String, com.example.fxsuite.avatar.build.Tower> TOWERS = new java.util.LinkedHashMap<>();
 
     static {
-        com.example.fxsuite.avatar.build.Towers.all().forEach(t -> TOWERS.put(t.name(), t));
+        com.example.fxsuite.avatar.build.Towers.all().forEach(t -> {
+            TOWERS.put(t.name(), t);
+            COMPOSED.put(t.name(), com.example.fxsuite.avatar.build.TowerBuildings.of(t));
+        });
     }
     private Building composed;
     /** How far off it is seen whole: the camera's range is set from it. */
@@ -136,7 +140,9 @@ public final class BuildingBench extends Application {
         // the buildings drawn by hand; then the towers stacked from their plans; then one stacked from the plan tab's plan
         final List<Form> all = new java.util.ArrayList<>(Buildings.all());
         TOWERS.values().forEach(t -> all.add(t.skeleton()));
-        all.add(towerPlan.tower().skeleton());
+        final Building fromPlan = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
+        COMPOSED.put(PlanPanel.TOWER, fromPlan);
+        all.add(fromPlan.skeleton());
         buildings.getItems().setAll(all);
         towerPlan.onChange(this::replan);
         buildings.setConverter(new StringConverter<>() {
@@ -358,7 +364,9 @@ public final class BuildingBench extends Application {
 
     /** The plan tab's plan changed: the tower stacked from it made afresh, and shown, if it is on show. */
     private void replan() {
-        final Form made = towerPlan.tower().skeleton();
+        final Building rebuilt = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
+        COMPOSED.put(PlanPanel.TOWER, rebuilt);
+        final Form made = rebuilt.skeleton();
         final int k = buildings.getItems().indexOf(buildings.getItems().stream()
                 .filter(f -> f.name().equals(PlanPanel.TOWER)).findFirst().orElse(null));
         if (k < 0) {
@@ -374,6 +382,7 @@ public final class BuildingBench extends Application {
         }
         if (shown) {
             building = made;
+            composed = rebuilt;
             redraw();
             describe();
         }
@@ -415,7 +424,9 @@ public final class BuildingBench extends Application {
         if (tower != null) {
             figures.setText(out + String.format(Locale.ROOT, "%n%d floors, %.1f m to its roof, in %d section%s", tower.floors(),
                     tower.height() / 100, tower.sections().size(), tower.sections().size() == 1 ? "" : "s")
-                    + tower.problems().stream().map(p -> "\n! " + p).reduce("", String::concat));
+                    + tower.problems().stream().map(p -> "\n! " + p).reduce("", String::concat)
+                    + (composed == null ? "" : com.example.fxsuite.avatar.build.TowerBuildings.mismatches(composed, tower)
+                            .stream().limit(8).map(p -> "\n! " + p).reduce("", String::concat)));
             return;
         }
         figures.setText(out.toString());

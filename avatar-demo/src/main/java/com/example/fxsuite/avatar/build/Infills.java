@@ -103,6 +103,18 @@ public final class Infills {
     }
 
     /**
+     * A curtain wall's cell: glass the bay's whole width, from {@code spandrel} up the storey (an
+     * opaque spandrel panel below it, across the slab's edge) to its top; mullions no further apart
+     * than a panel, near the wall's face.
+     */
+    public static Infill curtain(final double spandrel) {
+        return (surface, cell, thickness, palette) -> {
+            final Rect opening = new Rect(cell.u0(), cell.u1(), cell.v0() + spandrel, cell.v1());
+            return new Fill(List.of(opening), glazed(surface, palette, cell, "curtain", opening, thickness / 2 - 3, 0));
+        };
+    }
+
+    /**
      * A shopfront: glass the bay's width but for a pier {@code pier} wide at each line of columns,
      * on a riser {@code riser} high, up to a fascia {@code fascia} deep under the storey's top; a
      * transom across it at door height.

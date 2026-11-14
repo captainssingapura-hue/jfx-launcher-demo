@@ -20,15 +20,23 @@ import java.util.function.Predicate;
  * @param name      what it is
  * @param skeleton  its lines
  * @param surfaces  its surfaces
+ * @param plates    its level surfaces of any shape: floors, roofs, terraces
  * @param structure what of its structure shows, from its skeleton
  * @param choices   by what each is about, the options to choose from, the first of each its own
  * @param palettes  what it can be built in, the first its own
  */
-public record Building(String name, Form skeleton, List<Surface> surfaces, List<Structure> structure,
-                       Map<String, List<Option>> choices, List<Palette> palettes) {
+public record Building(String name, Form skeleton, List<Surface> surfaces, List<Plate> plates,
+                       List<Structure> structure, Map<String, List<Option>> choices, List<Palette> palettes) {
+
+    /** One with no level surfaces but its rectangles. */
+    public Building(final String name, final Form skeleton, final List<Surface> surfaces, final List<Structure> structure,
+                    final Map<String, List<Option>> choices, final List<Palette> palettes) {
+        this(name, skeleton, surfaces, List.of(), structure, choices, palettes);
+    }
 
     public Building {
         surfaces = List.copyOf(surfaces);
+        plates = List.copyOf(plates);
         structure = List.copyOf(structure);
         // in the order given, each choice's options in theirs
         final java.util.LinkedHashMap<String, List<Option>> kept = new java.util.LinkedHashMap<>();
@@ -180,6 +188,9 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
                 dressed.addAll(added.add(surface, palette, List.copyOf(dressed)));
             }
             solids.addAll(dressed);
+        }
+        for (final Plate plate : plates) {
+            solids.addAll(option.designs().getOrDefault(plate.kind(), Design.none()).plate(plate, palette));
         }
         return solids;
     }
