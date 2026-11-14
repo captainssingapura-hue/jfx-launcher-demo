@@ -45,7 +45,7 @@ for the engines, and one for the Gatling guns.
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
   Each is a vehicle of the engine bench's (`Vehicle.of`), and goes as it does: its real top
   speed, as its engine, its gears and the air make it there (the car about 249 km/h, the pickup
-  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser 182), and
+  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser and the boxer 182), and
   getting up to speed as it does, briskly from a standstill, less and less so as it nears its top,
   as quick as on the bench to make most of it (`Course.Drive.accelAt`). Its gearbox (`Gearbox`) is
   the bench vehicle's too, the same gears, final drive and wheels (`Vehicle.rpm`): at any speed,
@@ -63,7 +63,7 @@ for the engines, and one for the Gatling guns.
   white line across the front straight to start and finish at, pit road inside the front
   straight, and grandstands outside it. Every land vehicle stands on pit road, heading the way
   they race, round to the left: the roadster, the van, the pickup, the truck, the scooter, the
-  sport bike and the cruiser. Driven flat out, the roadster laps it from a standing start, at
+  sport bike, the cruiser and the boxer. Driven flat out, the roadster laps it from a standing start, at
   240 km/h down the straights.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
@@ -113,18 +113,22 @@ for the engines, and one for the Gatling guns.
   floorboard for the feet and a shield before the legs; a sport bike, red, its nose fairing, a
   tank to tuck down over, a raised tail and a pipe out the back, the quickest of everything that
   drives; and a cruiser, long and low, dark blue, a teardrop tank, its V-twin's two cylinders
-  standing out of the engine, fenders over both wheels and long chrome pipes down the right.
+  standing out of the engine, fenders over both wheels and long chrome pipes down the right;
+  and a big boxer cruiser, black, a long tank, its boxer twin's two great cylinders lying flat,
+  standing out to either side ahead of the rider's knees, a shaft to the back wheel and a pipe
+  down each side, heavy and steady.
   Got onto from beside them (T), ridden as a car is driven, and got off again there. The rider
   sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
   tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
-  wide bars. Each leans into its turns as a rider would lean it to balance going round
+  wide bars; upright on the boxer, feet forward, knees wide round its cylinders. Each leans into its turns as a rider would lean it to balance going round
   (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
   rider leaning with it about where its tyres touch the ground; only how it is shown, to the
   world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
   single on a CVT, which holds it most of the way up its revs as the speed builds (D on the
   dial); the sport bike a 90° L-twin with six gears, changed in a flash; the cruiser a 45°
-  V-twin, its uneven beat, with five. They stand behind the start on the Roads demo, and along
-  the street on the playground.
+  V-twin, its uneven beat, with five; the boxer a 1.8-litre boxer twin, its two cylinders firing a
+  turn apart, evenly, into a pipe each side, a deep, even thrum, lazy to rev and done by 5,750, with
+  six gears. They stand behind the start on the Roads demo, and along the street on the playground.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -359,7 +363,8 @@ drones from where it is, faint from the ground and loud alongside it. The vehicl
   is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
   of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
   order giving it its lumpy burble; a buzzing single in the scooter, an L-twin's hard beat in the
-  sport bike, and a V-twin's uneven one in the cruiser. In the Robot profile the engine is made as it runs, the
+  sport bike, a V-twin's uneven one in the cruiser, and a boxer twin's deep, even thrum in the
+  boxer. In the Robot profile the engine is made as it runs, the
   engine bench's own (`EngineVoice`, played as a stream by `EngineStream`): each cylinder firing
   in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through its
   gears as the vehicle gathers speed and drops back at each change, its note the revs' while its
@@ -424,8 +429,9 @@ is worked hard; and pops and crackle off the throttle at speed.
   or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
   four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
   a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
-  then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
-  twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
+  then 450°, harder and higher-revving; a 360° parallel twin, evenly, a single's beat at
+  twice the rate; and a big boxer twin, its two great cylinders opposed, firing a turn apart into
+  a pipe each side, deep and even, idling low and revving lazily. Each is a set of figures (two strokes or four, its firing pattern, idle and
   red line, how briskly it revs, its pipes), so another engine is another set of figures.
 - Pipe it (`Exhaust`). Each engine fires in its real firing order (1-8-4-3-6-5-7-2 for the
   cross-plane V8, 1-5-3-7-4-8-2-6 for the flat-plane, 1-2-4-5-3 for the five, ...), each
@@ -452,10 +458,10 @@ is worked hard; and pops and crackle off the throttle at speed.
   the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
 - Set the load, from revving free to pulling hard.
 - Or drive it: each engine is in a vehicle of its own (`Vehicle`): a hatchback, a saloon, a
-  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
-  bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
+  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a boxer cruiser, a sport bike and a
+  classic bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
   limited to; and the game's own: its car (the roadster's and the van's), its pickup and its
-  truck, and its scooter, sport bike and cruiser, which go here exactly as in the game, the same
+  truck, and its scooter, sport bike, cruiser and boxer, which go here exactly as in the game, the same
   revs at the same speed (the Vehicle choice, of those with the engine picked;
   `-Dengine.vehicle=pickup`). W or Space is the throttle,
   S the brake, E or Up changes up and Q or Down changes down, or the gearbox changes by itself:
@@ -468,7 +474,7 @@ is worked hard; and pops and crackle off the throttle at speed.
   in orange, moving with the revs, and the pipes' notes in blue, staying put.
 
 It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
-`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
+`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`, `BOXER`) picks the engine to start with, and
 `-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's V6 and V8 are these,
 stock, made the same way as they are driven ([Sound](#sound)).
 

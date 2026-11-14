@@ -195,12 +195,25 @@ public record Engine(String key, String name, String about, int strokes, double[
             1000, 7500, 8500, 5200, new double[] {120, 330, 900}, 3.5, 4.5, 1.3, 420)
             .piped(new Exhaust(new int[] {1, 2}, new double[] {0.50, 0.50}, Exhaust.NONE));
 
+    /**
+     * A big boxer twin, as the biggest touring cruisers have: two great cylinders lying flat,
+     * opposed, one out to each side, their pistons going in and out together, so they fire a turn
+     * apart, evenly. Each has its own pipe down its own side, as long as the other: a deep, even,
+     * rumbling thrum, the left pipe and the right in turn. Huge pistons, a heavy flywheel: it
+     * idles low, revs lazily, and is done by 5,750.
+     */
+    public static final Engine BOXER = new Engine("BOXER", "Boxer twin (big cruiser)",
+            "Two great flat cylinders, opposed, firing a turn apart into a pipe each side: a deep, even thrum.",
+            4, new double[] {0, 360}, new int[] {0, 1}, 0.95,
+            950, 5750, 4300, 3300, new double[] {72, 205, 560}, 3.5, 6.5, 0.8, 250)
+            .piped(new Exhaust(new int[] {1, 2}, new double[] {0.68, 0.68}, Exhaust.NONE));
+
     /** The cars' engines: any of them may be turbocharged or supercharged ({@link #with}). */
     public static final List<Engine> CARS = List.of(I4, I5, V6, V8, FLAT_V8);
 
     /** All of them, as the bench offers them: the cars', then the scooters' and the motorcycles'. */
     public static final List<Engine> ALL = List.of(I4, I5, V6, V8, FLAT_V8,
-            SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN);
+            SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN, BOXER);
 
     private static final Map<String, Engine> KEYS = new LinkedHashMap<>();
 

@@ -665,8 +665,14 @@ public final class Course {
      */
     public static final Chassis CRUISER = new Chassis("cruiser", 90, 240, 40, 32, 16, List.of(88.0, -82.0), 0, -30,
             new Drive(5056, 300, 581, 2200, 300, 20, 90, 395), true);
+    /**
+     * A big boxer cruiser's: 2.44 m long, nearly a metre across its cylinders, which stand out to
+     * either side, low and long, its rider sat upright, feet forward; heavy and steady, slow to turn.
+     */
+    public static final Chassis BOXER = new Chassis("boxer", 96, 244, 40, 32, 18, List.of(88.0, -85.0), 0, -32,
+            new Drive(5040, 300, 598, 2200, 300, 20, 90, 425), true);
     /** The two-wheelers. */
-    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER);
+    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER, BOXER);
     /**
      * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
      * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
@@ -709,7 +715,7 @@ public final class Course {
 
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS, SCOOTER, SPORT_BIKE,
-            CRUISER);
+            CRUISER, BOXER);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -1037,7 +1043,7 @@ public final class Course {
         pieces.add(new Piece(new Block(pit, 0, PIT / 2, half * 0.8, 0, 0, SURFACE), Kind.TRACK, 1));
         final Object[][] parked = {
                 {CAR_CHASSIS, ROADSTER}, {CAR_CHASSIS, VAN}, {PICKUP_CHASSIS, PICKUP_BODY}, {TRUCK_CHASSIS, TRUCK_CAB},
-                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}};
+                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}, {BOXER, null}};
         double along = 2400;
         for (int k = 0; k < parked.length; k++) {
             final Chassis chassis = (Chassis) parked[k][0];
@@ -1062,11 +1068,12 @@ public final class Course {
         pieces.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-950, 250, CAR_CHASSIS.ride(), 0), 3));
         // and a pickup's, its gun on the back, behind the start
         pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
-        // and the two-wheelers beside it: the scooter, the sport bike and the cruiser, each with a clear
+        // and the two-wheelers beside it: the scooter, the sport bike, the cruiser and the boxer, each with a clear
         // way ahead between the cars
         pieces.add(Piece.vehicle(SCOOTER, null, new Place(-700, -700, SCOOTER.ride(), 0), 0));
         pieces.add(Piece.vehicle(SPORT_BIKE, null, new Place(320, -700, SPORT_BIKE.ride(), 0), 0));
         pieces.add(Piece.vehicle(CRUISER, null, new Place(1000, -700, CRUISER.ride(), 0), 0));
+        pieces.add(Piece.vehicle(BOXER, null, new Place(1700, -700, BOXER.ride(), 0), 0));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {
@@ -1147,6 +1154,7 @@ public final class Course {
         extras.add(Piece.vehicle(SCOOTER, null, new Place(-650, -1500, SCOOTER.ride(), 0), 0));
         extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
         extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER, null, new Place(1150, -1500, BOXER.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
         return extras;

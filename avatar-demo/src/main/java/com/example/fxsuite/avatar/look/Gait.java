@@ -189,6 +189,8 @@ public final class Gait {
         final double[] style = switch (bike.name()) {
             case "sport bike" -> new double[] {26, 38, 62, 10, 14};
             case "cruiser" -> new double[] {-6, 72, 58, 22, 18};
+            // upright, feet forward, the knees wide round its cylinders
+            case "boxer" -> new double[] {-2, 66, 56, 20, 24};
             default -> new double[] {2, 64, 52, 12, 10};
         };
         return new Pose(style[0], lean, SEAT - BoxRig.HIP,

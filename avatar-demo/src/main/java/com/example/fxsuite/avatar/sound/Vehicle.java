@@ -55,6 +55,13 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
             new double[] {2.5, 1.7, 1.3, 1.05, 0.88}, 5.8, 0.31, 0.60, 0.9, 0.15, 0, 0, 0, 0);
     public static final Vehicle CRUISER = new Vehicle("Cruiser", Engine.V_TWIN, 395, 140,
             new double[] {3.0, 2.0, 1.5, 1.2, 1.0, 0.85}, 3.2, 0.33, 0.70, 0.8, 0.25, 0, 0, 0, 0);
+    /**
+     * A big boxer cruiser: 1.8 litres, 158 newton metres at 3,000, six gears and a shaft to the back
+     * wheel; 345 kg of it, its rider aboard 425, sat upright in the wind: lazy to rev, strong low
+     * down, about 180 km/h flat out.
+     */
+    public static final Vehicle BOXER_CRUISER = new Vehicle("Boxer cruiser", Engine.BOXER, 425, 158,
+            new double[] {2.438, 1.696, 1.296, 1.065, 0.903, 0.784}, 3.71, 0.32, 0.85, 0.8, 0.3, 0, 0, 0, 0);
     public static final Vehicle SPORT_BIKE = new Vehicle("Sport bike", Engine.L_TWIN, 275, 120,
             new double[] {2.6, 1.9, 1.55, 1.3, 1.15, 1.04}, 5.0, 0.31, 0.45, 1.0, 0.08, 0, 0, 0, 0);
     public static final Vehicle CLASSIC_BIKE = new Vehicle("Classic bike", Engine.PARALLEL_TWIN, 295, 60,
@@ -74,7 +81,7 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
 
     /** One for each engine. */
     public static final List<Vehicle> ALL = List.of(HATCHBACK, RALLY, SALOON, MUSCLE, SUPERCAR,
-            SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, SPORT_BIKE, CLASSIC_BIKE, CAR, PICKUP, TRUCK);
+            SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, BOXER_CRUISER, SPORT_BIKE, CLASSIC_BIKE, CAR, PICKUP, TRUCK);
 
     /** The vehicle {@code engine} drives, however it is charged. */
     public static Vehicle of(final Engine engine) {
@@ -103,6 +110,9 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
         }
         if (chassis == com.example.fxsuite.avatar.sim.Course.SPORT_BIKE) {
             return SPORT_BIKE;
+        }
+        if (chassis == com.example.fxsuite.avatar.sim.Course.BOXER) {
+            return BOXER_CRUISER;
         }
         if (chassis == com.example.fxsuite.avatar.sim.Course.CRUISER) {
             return CRUISER;

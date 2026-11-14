@@ -1065,6 +1065,7 @@ public final class World {
         final PhongMaterial paint = BoxRig.matte(switch (bike.name()) {
             case "scooter" -> "#4fa3a5";
             case "sport bike" -> "#c8302c";
+            case "boxer" -> "#141516";
             default -> "#1e2a3a";
         });
         final PhongMaterial dark = BoxRig.matte("#25292e");
@@ -1081,8 +1082,8 @@ public final class World {
         final double sat = bike.driverAlong();
         Shape3D painted = slab;
         // the seat, where the rider sits astride
-        section(body, frame, new Course.Section(0, sat - 4, Gait.SEAT - 7, 15, bike.name().equals("cruiser") ? 22 : 28,
-                7), seat);
+        final boolean cruising = bike.name().equals("cruiser") || bike.name().equals("boxer");
+        section(body, frame, new Course.Section(0, sat - 4, Gait.SEAT - 7, 15, cruising ? 22 : 28, 7), seat);
         switch (bike.name()) {
             case "scooter" -> {
                 // under the seat, the cowl round the engine; ahead of it the floorboard, and the shield
@@ -1097,6 +1098,23 @@ public final class World {
                 section(body, frame, new Course.Section(0, sat - 40, Gait.SEAT + 4, 10, 22, 7), paint);
                 section(body, frame, new Course.Section(0, 4, -12, 14, 26, 18), engine);
                 section(body, frame, new Course.Section(10, back + 10, 4, 5, 22, 5), chrome);
+            }
+            case "boxer" -> {
+                // a long dark tank; under it the boxer: the engine low in the frame, and its two great
+                // cylinders lying flat, out to either side ahead of the rider's knees, chrome heads on them
+                painted = section(body, frame, new Course.Section(0, sat + 44, Gait.SEAT - 2, 14, 26, 10), paint);
+                section(body, frame, new Course.Section(0, 10, -14, 14, 26, 14), engine);
+                for (final double side : new double[] {-1, 1}) {
+                    section(body, frame, new Course.Section(side * 30, 22, -8, 16, 10, 9), engine);
+                    section(body, frame, new Course.Section(side * 45, 22, -8, 4, 11, 10), chrome);
+                }
+                // the shaft down to the back wheel, fenders over both wheels, and a pipe down each side
+                section(body, frame, new Course.Section(-12, back / 2 - 6, -18, 4, -back / 2 - 6, 4), chrome);
+                section(body, frame, new Course.Section(0, front, r - ride + r + 4, 10, r * 0.85, 3), paint);
+                section(body, frame, new Course.Section(0, back - 4, r - ride + r + 4, 11, r * 0.9, 3), paint);
+                for (final double side : new double[] {-1, 1}) {
+                    section(body, frame, new Course.Section(side * 19, back + 18, -20, 5, 66, 5), chrome);
+                }
             }
             default -> {
                 painted = section(body, frame, new Course.Section(0, sat + 42, Gait.SEAT - 2, 15, 24, 10), paint);
