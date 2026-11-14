@@ -56,7 +56,8 @@ import java.util.Map;
  * edit by hand.
  *
  * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
- * start with; {@code -Dbuilding.facade=egg} (the start of a facade's name) how a composed one is dressed;
+ * start with; {@code -Dbuilding.facade=egg} and {@code -Dbuilding.ground=shop} (the start of an option's
+ * name) how a composed one is dressed;
  * {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
  * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
@@ -74,7 +75,9 @@ public final class BuildingBench extends Application {
     private final Group shown = new Group();
     private final Group floor = new Group();
     private final ComboBox<Form> buildings = new ComboBox<>();
-    private final ComboBox<Building.Option> facades = new ComboBox<>();
+    /** A choice of options for each of a composed building's choices: its facade, its ground floor. */
+    private final VBox choosing = new VBox(8);
+    private final List<ComboBox<Building.Option>> picks = new java.util.ArrayList<>();
     private final CheckBox showSkeleton = new CheckBox("Its skeleton");
     private final CheckBox showDressed = new CheckBox("Dressed: its surfaces' designs");
     private final CheckBox showVertices = new CheckBox("Vertices");
@@ -137,21 +140,6 @@ public final class BuildingBench extends Application {
         }
         buildings.setValue(building);
         buildings.setOnAction(e -> pick(buildings.getValue(), true));
-        facades.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(final Building.Option option) {
-                return option == null ? "" : option.name();
-            }
-
-            @Override
-            public Building.Option fromString(final String name) {
-                return null;
-            }
-        });
-        facades.setOnAction(e -> {
-            redraw();
-            describe();
-        });
         showSkeleton.setOnAction(e -> redraw());
         showDressed.setSelected(true);
         showDressed.setOnAction(e -> redraw());
@@ -174,9 +162,9 @@ public final class BuildingBench extends Application {
         }
         final VBox controls = new VBox(10, EngineBench.heading("On show"), buildings,
                 EngineBench.label("Its skeleton: vertices with no size, edges with no thickness, each drawn as a"
-                        + " thin rod. A building composed has surfaces too, each dressed by a design: pick a facade"
-                        + " to dress the same building another way."),
-                EngineBench.row("Facade", facades), showDressed, showSkeleton,
+                        + " thin rod. A building composed has surfaces too, each dressed by a design: pick its facade"
+                        + " and its ground floor to dress the same building another way."),
+                choosing, showDressed, showSkeleton,
                 legend, showVertices, showFloor,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -210,14 +198,7 @@ public final class BuildingBench extends Application {
     private void pick(final Form picked, final boolean frame) {
         building = picked;
         composed = COMPOSED.get(building.name());
-        facades.getItems().setAll(composed == null ? List.of() : composed.options());
-        facades.setValue(composed == null ? null : composed.options().getFirst());
-        final String facade = System.getProperty("building.facade");
-        if (facade != null && composed != null) {
-            composed.options().stream().filter(o -> o.name().toLowerCase(Locale.ROOT)
-                    .startsWith(facade.toLowerCase(Locale.ROOT))).findFirst().ifPresent(facades::setValue);
-        }
-        facades.setDisable(composed == null);
+        choices();
         showDressed.setDisable(composed == null);
         showSkeleton.setDisable(composed == null);
         showSkeleton.setSelected(composed == null);
@@ -236,14 +217,59 @@ public final class BuildingBench extends Application {
         describe();
     }
 
+    /**
+     * A pick of options for each of the composed building's choices, its own first; or, asked for
+     * ({@code -Dbuilding.facade}, {@code -Dbuilding.ground}: the first word of a choice), the option
+     * whose name starts so. None, for a building only a skeleton.
+     */
+    private void choices() {
+        picks.clear();
+        choosing.getChildren().clear();
+        if (composed == null) {
+            return;
+        }
+        composed.choices().forEach((choice, options) -> {
+            final ComboBox<Building.Option> pick = new ComboBox<>();
+            pick.setConverter(new StringConverter<>() {
+                @Override
+                public String toString(final Building.Option option) {
+                    return option == null ? "" : option.name();
+                }
+
+                @Override
+                public Building.Option fromString(final String name) {
+                    return null;
+                }
+            });
+            pick.getItems().setAll(options);
+            pick.setValue(options.getFirst());
+            final String asked = System.getProperty("building." + choice.split(" ")[0].toLowerCase(Locale.ROOT));
+            if (asked != null) {
+                options.stream().filter(o -> o.name().toLowerCase(Locale.ROOT).startsWith(asked.toLowerCase(Locale.ROOT)))
+                        .findFirst().ifPresent(pick::setValue);
+            }
+            pick.setOnAction(e -> {
+                redraw();
+                describe();
+            });
+            picks.add(pick);
+            choosing.getChildren().add(EngineBench.row(choice, pick));
+        });
+    }
+
+    /** The options picked, one of each choice. */
+    private List<Building.Option> chosen() {
+        return picks.stream().map(ComboBox::getValue).toList();
+    }
+
     /** The building drawn afresh, its edges as thick as suits its size: thin, but never too thin to see. */
     private void redraw() {
         final Form.Bounds box = building.bounds();
         final double size = Math.max(box.height(), Math.max(box.width(), box.depth()));
         final double thickness = Math.max(5, size / 900);
         shown.getChildren().clear();
-        if (composed != null && showDressed.isSelected() && facades.getValue() != null) {
-            shown.getChildren().add(BuildingModel.of(composed.dressed(facades.getValue())));
+        if (composed != null && showDressed.isSelected()) {
+            shown.getChildren().add(BuildingModel.of(composed.dressed(chosen())));
         }
         if (composed == null || showSkeleton.isSelected()) {
             shown.getChildren().add(FormModel.of(building, thickness, colours, showVertices.isSelected(), dots));
@@ -286,8 +312,8 @@ public final class BuildingBench extends Application {
                 leaning.getOrDefault(FormModel.Lean.LEVEL, 0), leaning.getOrDefault(FormModel.Lean.SLOPED, 0)));
         out.append(building.pieces() == 1 ? "all one piece\n"
                 : String.format("in %d pieces: its frame, and outlines standing apart%n", building.pieces()));
-        if (composed != null && facades.getValue() != null) {
-            final List<Solid> solids = composed.dressed(facades.getValue());
+        if (composed != null) {
+            final List<Solid> solids = composed.dressed(chosen());
             final Map<Material, Integer> made = new EnumMap<>(Material.class);
             solids.forEach(s -> made.merge(s.material(), 1, Integer::sum));
             out.append(String.format("%d surfaces, dressed in %d solids:%n", composed.surfaces().size(), solids.size()));

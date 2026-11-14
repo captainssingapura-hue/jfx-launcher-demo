@@ -671,7 +671,8 @@ through, and one loaded until a pillar gives and it falls.
   its bays and storeys), and the structure that shows of itself, worked out from its skeleton (the
   pilotis: the skeleton's upright edges in the open ground storey, as concrete columns). How each
   surface is dressed is a design's (`Design`), and a way of dressing the whole building (an
-  `Option`) is a design for each kind of surface. A wall's design (`Facade`) is a wall of a
+  `Option`) is a design for each kind of surface it names. A building's options come in choices,
+  each about some of its surfaces, one option taken from each and put together (`Option.and`). A wall's design (`Facade`) is a wall of a
   material and a thickness, cut into its bays and storeys, each cell filled as a pattern says
   (`Infills`: blank, a window, a ribbon window, glazing, a balcony and its door, deep punched
   windows; `Pattern`: all alike, or chessboard-wise), the wall cut round each fill's openings, and
@@ -682,12 +683,19 @@ through, and one loaded until a pillar gives and it falls.
     front and ribbon windows behind; ribbon windows all round; an egg-crate of concrete fins and
     floor bands over full-height glazing; deep punched windows in precast concrete, their
     surrounds standing proud; and balconies both sides. Ends blank, a gravel roof, the lobby a
-    glass box among the pilotis, in all of them. An option changed one surface at a time
+    glass box among the pilotis unless the ground floor is closed in, in all of them. An option changed one surface at a time
     (`Option.with`) makes another.
-  - On the bench, pick a facade, and show the building dressed, its skeleton, or both.
+  - Its ground floor is a choice of its own, whatever its facade above: open, on its pilotis, the
+    glass box of its lobby among them; closed in with shopfronts all round, its entrance in the
+    middle of its front under concrete canopies; or closed in with solid concrete, a band of high
+    windows along it, the same entrance. Its ground storey's four walls are surfaces of the
+    building either way; open, no option dresses them.
+  - On the bench, pick a facade and a ground floor, and show the building dressed, its skeleton,
+    or both.
 
 `-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
-`-Dbuilding.facade=egg` (the start of a facade's name) how the apartments are dressed;
+`-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
+apartments are dressed;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
 
 ## Unattended runs

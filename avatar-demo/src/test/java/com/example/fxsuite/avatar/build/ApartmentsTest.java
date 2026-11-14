@@ -26,7 +26,9 @@ class ApartmentsTest {
         assertEquals(Buildings.apartments(), FLATS.skeleton());
         final Set<String> kinds = new HashSet<>();
         FLATS.surfaces().forEach(s -> kinds.add(s.kind()));
-        assertEquals(Set.of("front", "back", "end", "roof", "underside", "lobby", "tower", "tower top"), kinds);
+        assertEquals(Set.of("front", "back", "end", "roof", "underside", "lobby", "tower", "tower top", "ground front",
+                "ground back", "ground end"), kinds);
+        assertEquals(List.of(Apartments.FACADE, Apartments.GROUND), List.copyOf(FLATS.choices().keySet()));
         final Surface front = FLATS.surfaces().stream().filter(s -> s.name().equals("front")).findFirst().orElseThrow();
         // the front on the front line of columns, over the upper storeys, its bays the column grid's
         assertEquals(600, front.at(0, 0, 0).along(), 1e-9);
@@ -37,36 +39,78 @@ class ApartmentsTest {
     }
 
     @Test
-    void eachOptionDressesItsWholeAndNothingFarOutsideIt() {
-        final Set<String> names = new HashSet<>();
-        for (final Building.Option option : FLATS.options()) {
-            assertTrue(names.add(option.name()), "each its own name");
-            final List<Solid> solids = FLATS.dressed(option);
-            for (final Surface surface : FLATS.surfaces()) {
-                assertTrue(solids.stream().anyMatch(s -> s.name().startsWith(surface.name() + ", ")),
-                        option.name() + " dresses " + surface.name());
-            }
-            for (final Solid solid : solids) {
-                for (final Point p : solid.corners()) {
-                    assertTrue(Math.abs(p.across()) <= 1800 + 120 && Math.abs(p.along()) <= 600 + 200
-                            && p.up() >= 0 && p.up() <= 1970 + 10, option.name() + ": " + solid.name() + " at " + p);
-                }
-            }
-            assertTrue(solids.stream().anyMatch(s -> s.material() == Material.GLASS), option.name() + " glazed");
-            // the open ground storey's columns, whatever the facade: three lines of seven
-            assertEquals(21, solids.stream().filter(s -> s.name().startsWith("pilotis")).count());
+    void eachFacadeWithEachGroundFloorDressesWhatTheyNameAndNothingFarOutsideIt() {
+        for (final List<Building.Option> choice : FLATS.choices().values()) {
+            assertEquals(choice.size(), choice.stream().map(Building.Option::name).distinct().count(), "each its own name");
         }
+        for (final Building.Option facade : FLATS.choices().get(Apartments.FACADE)) {
+            for (final Building.Option ground : FLATS.choices().get(Apartments.GROUND)) {
+                final Building.Option option = facade.and(ground);
+                checkDressed(option, FLATS.dressed(List.of(facade, ground)));
+            }
+        }
+    }
+
+    private static void checkDressed(final Building.Option option, final List<Solid> solids) {
+        for (final Surface surface : FLATS.surfaces()) {
+            assertEquals(option.designs().containsKey(surface.kind()),
+                    solids.stream().anyMatch(s -> s.name().startsWith(surface.name() + ", ")),
+                    option.name() + " dresses " + surface.name() + " if it names its kind");
+        }
+        for (final Solid solid : solids) {
+            for (final Point p : solid.corners()) {
+                assertTrue(Math.abs(p.across()) <= 1800 + 120 && Math.abs(p.along()) <= 600 + 200
+                        && p.up() >= 0 && p.up() <= 1970 + 10, option.name() + ": " + solid.name() + " at " + p);
+            }
+        }
+        assertTrue(solids.stream().anyMatch(s -> s.material() == Material.GLASS), option.name() + " glazed");
+        // the open ground storey's columns, whatever the facade: three lines of seven
+        assertEquals(21, solids.stream().filter(s -> s.name().startsWith("pilotis")).count());
+    }
+
+    @Test
+    void itsGroundFloorOpenOnItsPilotisOrClosedIn() {
+        final Building.Option facade = FLATS.own().getFirst();
+        final List<Solid> open = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")));
+        final List<Solid> shops = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Shopfronts")));
+        final List<Solid> solid = FLATS.dressed(List.of(facade, FLATS.option(Apartments.GROUND, "Solid, high windows")));
+        assertEquals(FLATS.own(), List.of(facade, FLATS.option(Apartments.GROUND, "Open, on pilotis")), "open, its own");
+        // open: nothing round the ground storey but the lobby's glass among the pilotis
+        assertTrue(open.stream().noneMatch(s -> s.name().startsWith("ground ")));
+        assertTrue(open.stream().anyMatch(s -> s.name().startsWith("lobby, ") && s.material() == Material.GLASS));
+        // closed in: all round, the lobby gone in; its entrance in the middle two bays of its front, under canopies
+        for (final List<Solid> closed : List.of(shops, solid)) {
+            for (final String side : List.of("ground front, ", "ground back, ", "ground left end, ", "ground right end, ")) {
+                assertTrue(closed.stream().anyMatch(s -> s.name().startsWith(side)), side);
+            }
+            assertTrue(closed.stream().noneMatch(s -> s.name().startsWith("lobby, ")));
+            assertEquals(List.of("ground front, storey 0, bay 2, entrance, canopy", "ground front, storey 0, bay 3, entrance, canopy"),
+                    closed.stream().map(Solid::name).filter(n -> n.endsWith("canopy")).toList());
+            assertEquals(21, closed.stream().filter(s -> s.name().startsWith("pilotis")).count(), "its columns still there");
+        }
+        // shopfronts glazed along it; solid, a band of high windows only
+        final double shopGlass = glass(shops, "ground back, ");
+        final double highGlass = glass(solid, "ground back, ");
+        assertTrue(shopGlass > 2.5 * highGlass, shopGlass + " against " + highGlass);
+        // and the facade above the same whatever is below
+        assertEquals(open.stream().filter(s -> s.name().startsWith("front, ")).toList(),
+                shops.stream().filter(s -> s.name().startsWith("front, ")).toList());
+    }
+
+    private static double glass(final List<Solid> solids, final String on) {
+        return solids.stream().filter(s -> s.name().startsWith(on) && s.material() == Material.GLASS)
+                .mapToDouble(Solid::volume).sum();
     }
 
     @Test
     void theSameBuildingDressedAnotherWayChangesOnlyItsFacades() {
-        final Building.Option balconies = FLATS.option("Balconies front, ribbons back");
-        final Building.Option fins = FLATS.option("Egg-crate fins");
+        final Building.Option balconies = FLATS.option(Apartments.FACADE, "Balconies front, ribbons back");
+        final Building.Option fins = FLATS.option(Apartments.FACADE, "Egg-crate fins");
         final List<Solid> a = FLATS.dressed(balconies);
         final List<Solid> b = FLATS.dressed(fins);
         assertNotEquals(a, b);
         // its ends, roof, lobby and tower the same either way
-        for (final String part : List.of("left end, ", "right end, ", "roof, ", "lobby, ", "roof tower")) {
+        for (final String part : List.of("left end, ", "right end, ", "roof, ", "roof tower")) {
             assertEquals(a.stream().filter(s -> s.name().startsWith(part)).toList(),
                     b.stream().filter(s -> s.name().startsWith(part)).toList(), part);
         }

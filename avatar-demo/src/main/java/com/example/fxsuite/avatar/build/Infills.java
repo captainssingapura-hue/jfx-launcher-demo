@@ -84,6 +84,36 @@ public final class Infills {
     }
 
     /**
+     * A shopfront: glass the bay's width but for a pier {@code pier} wide at each line of columns,
+     * on a riser {@code riser} high, up to a fascia {@code fascia} deep under the storey's top; a
+     * transom across it at door height.
+     */
+    public static Infill shopfront(final double riser, final double fascia, final double pier) {
+        return (surface, cell, thickness) -> {
+            final Rect opening = new Rect(cell.u0() + pier / 2, cell.u1() - pier / 2, cell.v0() + riser,
+                    cell.v1() - fascia);
+            return new Fill(List.of(opening), glazed(surface, cell, "shopfront", opening, thickness / 2 - 10, 230 - riser));
+        };
+    }
+
+    /**
+     * An entrance: glazed doors {@code width} wide and {@code height} high in the middle of the bay,
+     * from its floor, a transom over them; and over it all a canopy of {@code material}, standing
+     * {@code canopy} out of the wall.
+     */
+    public static Infill entrance(final double width, final double height, final double canopy,
+                                  final Material material) {
+        return (surface, cell, thickness) -> {
+            final double middle = (cell.u0() + cell.u1()) / 2;
+            final Rect opening = new Rect(middle - width / 2, middle + width / 2, cell.v0(), cell.v0() + height);
+            final List<Solid> solids = new ArrayList<>(glazed(surface, cell, "entrance", opening, 0, 220));
+            solids.add(surface.box(cell.name() + ", entrance, canopy", material, opening.u0() - 40, opening.u1() + 40,
+                    opening.v1() + 10, opening.v1() + 30, thickness / 2, thickness / 2 + canopy));
+            return new Fill(List.of(opening), solids);
+        };
+    }
+
+    /**
      * A balcony, {@code depth} deep out of the wall, {@code side} in from the cell's sides: a slab at
      * the floor, a solid front a metre high and solid sides, of {@code material}; and behind it, a
      * glazed door {@code door} wide.

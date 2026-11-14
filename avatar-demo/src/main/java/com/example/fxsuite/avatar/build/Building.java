@@ -12,21 +12,31 @@ import java.util.function.Predicate;
  * high-level surfaces ({@link Surface}), each a rectangle on it with the lines of its structure
  * across it; and the structure that shows of itself ({@link #structure}), worked out from its
  * skeleton. How its surfaces are dressed is not its to say: an {@link Option} says, a design for
- * each kind of surface; so the same building can be dressed as many ways as there are options.
+ * each kind of surface it names. Its options come in choices, each about some of its surfaces (its
+ * facade; its ground floor), one option taken from each; so the same building can be dressed as
+ * many ways as its choices' options can be put together.
  *
  * @param name      what it is
  * @param skeleton  its lines
  * @param surfaces  its surfaces
  * @param structure what of its structure shows, from its skeleton
- * @param options   the ways it can be dressed, the first its own
+ * @param choices   by what each is about, the options to choose from, the first of each its own
  */
 public record Building(String name, Form skeleton, List<Surface> surfaces, List<Structure> structure,
-                       List<Option> options) {
+                       Map<String, List<Option>> choices) {
 
     public Building {
         surfaces = List.copyOf(surfaces);
         structure = List.copyOf(structure);
-        options = List.copyOf(options);
+        // in the order given, each choice's options in theirs
+        final java.util.LinkedHashMap<String, List<Option>> kept = new java.util.LinkedHashMap<>();
+        choices.forEach((choice, options) -> kept.put(choice, List.copyOf(options)));
+        choices = java.util.Collections.unmodifiableMap(kept);
+    }
+
+    /** Its own way of being dressed: the first option of each choice. */
+    public List<Option> own() {
+        return choices.values().stream().map(List::getFirst).toList();
     }
 
     /** Structure worked out from a skeleton: its edges given bodies, those it picks. */
@@ -91,12 +101,28 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
             designs = Map.copyOf(designs);
         }
 
+        /** This, and {@code more}'s designs over it: for the kinds of surface both name, {@code more}'s. */
+        public Option and(final Option more) {
+            final java.util.HashMap<String, Design> both = new java.util.HashMap<>(designs);
+            both.putAll(more.designs());
+            return new Option(name + "; " + more.name(), both);
+        }
+
         /** The same, but {@code kind} dressed with {@code design}: one surface changed, the rest kept. */
         public Option with(final String called, final String kind, final Design design) {
             final java.util.HashMap<String, Design> changed = new java.util.HashMap<>(designs);
             changed.put(kind, design);
             return new Option(called, changed);
         }
+    }
+
+    /** Dressed as {@code options} say together, each over those before it. */
+    public List<Solid> dressed(final List<Option> options) {
+        Option all = new Option("", Map.of());
+        for (final Option option : options) {
+            all = all.and(option);
+        }
+        return dressed(all);
     }
 
     /** Dressed as {@code option} says: its structure, and each surface's solids. */
@@ -111,8 +137,9 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
         return solids;
     }
 
-    /** The option called {@code called}, or its own if there is none. */
-    public Option option(final String called) {
+    /** Of choice {@code choice}, the option called {@code called}; or the first, if there is none of that name. */
+    public Option option(final String choice, final String called) {
+        final List<Option> options = choices.get(choice);
         return options.stream().filter(o -> o.name().equalsIgnoreCase(called)).findFirst().orElse(options.getFirst());
     }
 }

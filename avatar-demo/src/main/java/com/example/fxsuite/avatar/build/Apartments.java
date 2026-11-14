@@ -12,7 +12,8 @@ import java.util.Map;
  * The brutalist apartments, composed: their structure ({@link Buildings#apartments}); their
  * surfaces (a front and a back, 36 m long, and two ends, 12 m, each over the four upper storeys and
  * their parapet; the flat roof; the underside of the first floor, over the open ground storey; a
- * glazed lobby in among the pilotis; the stair tower on the roof); the columns of the open ground
+ * glazed lobby in among the pilotis; its ground storey all round, to close it in; the stair tower
+ * on the roof); the columns of the open ground
  * storey, worked out from the skeleton; and the ways it can be dressed, each a design for each
  * kind of surface: the same building, many facades.
  */
@@ -35,6 +36,10 @@ public final class Apartments {
 
     private static final Point UP = new Point(0, 0, 1);
 
+    /** What its choices are about: its facade, above; and its ground floor. */
+    public static final String FACADE = "Facade";
+    public static final String GROUND = "Ground floor";
+
     /** The building, its own way of being dressed first. */
     public static Building building() {
         final double wallHeight = UPPER * STOREY + PARAPET;
@@ -48,6 +53,16 @@ public final class Apartments {
                 new Point(-1, 0, 0), 2 * HALF_DEPTH, wallHeight, DEEP, FLOORS, PARAPET));
         surfaces.add(new Surface("right end", "end", new Point(HALF_LENGTH, -HALF_DEPTH, FIRST), new Point(0, 1, 0), UP,
                 new Point(1, 0, 0), 2 * HALF_DEPTH, wallHeight, DEEP, FLOORS, PARAPET));
+        // its ground storey, round it on the same lines: open on its pilotis, or closed in, as its ground floor's option says
+        final double[] ground = {0};
+        surfaces.add(new Surface("ground front", "ground front", new Point(HALF_LENGTH, HALF_DEPTH, 0), new Point(-1, 0, 0),
+                UP, new Point(0, 1, 0), 2 * HALF_LENGTH, FIRST, BAYS, ground, 0));
+        surfaces.add(new Surface("ground back", "ground back", new Point(-HALF_LENGTH, -HALF_DEPTH, 0), new Point(1, 0, 0),
+                UP, new Point(0, -1, 0), 2 * HALF_LENGTH, FIRST, BAYS, ground, 0));
+        surfaces.add(new Surface("ground left end", "ground end", new Point(-HALF_LENGTH, HALF_DEPTH, 0),
+                new Point(0, -1, 0), UP, new Point(-1, 0, 0), 2 * HALF_DEPTH, FIRST, DEEP, ground, 0));
+        surfaces.add(new Surface("ground right end", "ground end", new Point(HALF_LENGTH, -HALF_DEPTH, 0),
+                new Point(0, 1, 0), UP, new Point(1, 0, 0), 2 * HALF_DEPTH, FIRST, DEEP, ground, 0));
         // its roof, and the underside of its first floor over the open ground storey
         surfaces.add(new Surface("roof", "roof", new Point(-HALF_LENGTH, -HALF_DEPTH, ROOF), new Point(1, 0, 0),
                 new Point(0, 1, 0), UP, 2 * HALF_LENGTH, 2 * HALF_DEPTH, BAYS, DEEP, 0));
@@ -67,7 +82,10 @@ public final class Apartments {
             final Form.Vertex b = skeleton.vertices().get(edge.to());
             return a.across() == b.across() && a.along() == b.along() && Math.max(a.up(), b.up()) <= FIRST;
         }, 50, Material.CONCRETE);
-        return new Building("brutalist apartments", skeleton, surfaces, List.of(pilotis), options());
+        final Map<String, List<Building.Option>> choices = new java.util.LinkedHashMap<>();
+        choices.put(FACADE, options());
+        choices.put(GROUND, groundFloors());
+        return new Building("brutalist apartments", skeleton, surfaces, List.of(pilotis), choices);
     }
 
     /** A box's four walls, {@code halfWide} by {@code halfDeep} about the middle, from {@code low}, {@code high} high. */
@@ -87,7 +105,7 @@ public final class Apartments {
                         new Point(1, 0, 0), 2 * halfDeep, high, along, floors, 0));
     }
 
-    /** What every option shares: the ends blank, the roof and the floor's underside slabs, the lobby glazed, the tower blank. */
+    /** What every facade shares: the ends blank, the roof and the floor's underside slabs, the tower blank. */
     private static Map<String, Design> common() {
         final Design blank = new Facade("blank concrete", Material.CONCRETE, 30, Pattern.all(Infills.blank()),
                 List.of(Trims.coping(Material.CONCRETE, 8, 20)), false);
@@ -95,8 +113,6 @@ public final class Apartments {
                 "end", blank,
                 "roof", Design.slab(Material.CONCRETE, -30, 0).and(Design.slab(Material.GRAVEL, 0, 4)),
                 "underside", Design.slab(Material.CONCRETE, -30, 0),
-                "lobby", new Facade("glazed lobby", Material.METAL, 10, Pattern.all(Infills.glazing(0, 0)), List.of(),
-                        false),
                 "tower", new Facade("tower", Material.CONCRETE, 25, Pattern.all(Infills.blank()), List.of(), true),
                 "tower top", Design.slab(Material.CONCRETE, -25, 0));
     }
@@ -109,7 +125,34 @@ public final class Apartments {
         return new Building.Option(name, designs);
     }
 
-    /** The ways it can be dressed. */
+    /**
+     * The ways its ground storey can be: open, on its pilotis, the glass box of its lobby among them;
+     * closed in with shopfronts, its entrance in the middle of its front under a canopy; or closed
+     * in with solid concrete, a band of high windows along it, its entrance glazed.
+     */
+    public static List<Building.Option> groundFloors() {
+        final Design blank = new Facade("blank concrete", Material.CONCRETE, 30, Pattern.all(Infills.blank()), List.of(),
+                false);
+        final Facade.Infill entrance = Infills.entrance(240, 280, 150, Material.CONCRETE);
+        final Pattern middle = cell -> cell.bay() == 2 || cell.bay() == 3 ? entrance : null;
+        final Facade.Infill shop = Infills.shopfront(45, 60, 50);
+        final Facade.Infill high = Infills.ribbon(270, 360, 50);
+        return List.of(
+                new Building.Option("Open, on pilotis", Map.of("lobby", new Facade("glazed lobby", Material.METAL, 10,
+                        Pattern.all(Infills.glazing(0, 0)), List.of(), false))),
+                new Building.Option("Shopfronts", Map.of(
+                        "ground front", new Facade("shopfronts", Material.CONCRETE, 30,
+                                cell -> middle.at(cell) != null ? entrance : shop, List.of(), true),
+                        "ground back", new Facade("shopfronts", Material.CONCRETE, 30, Pattern.all(shop), List.of(), true),
+                        "ground end", blank)),
+                new Building.Option("Solid, high windows", Map.of(
+                        "ground front", new Facade("solid", Material.CONCRETE, 30,
+                                cell -> middle.at(cell) != null ? entrance : high, List.of(), true),
+                        "ground back", new Facade("solid", Material.CONCRETE, 30, Pattern.all(high), List.of(), true),
+                        "ground end", blank)));
+    }
+
+    /** The ways its facade, above its ground storey, can be dressed. */
     public static List<Building.Option> options() {
         final Design coping = Trims.coping(Material.CONCRETE, 8, 22);
         final Design ribbons = new Facade("ribbon windows", Material.CONCRETE, 30,
