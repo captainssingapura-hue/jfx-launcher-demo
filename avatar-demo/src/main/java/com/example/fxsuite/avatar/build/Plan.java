@@ -90,6 +90,10 @@ public record Plan(String name, List<Part> parts) {
         /** Each shaped loop's points, whether each lies on a curve (a corner shaped). */
         private final List<List<Boolean>> curved = new ArrayList<>();
         private final Map<String, Pt> columns = new LinkedHashMap<>();
+        /** The columns along its curves, by name: where its grid stands back from its outline. */
+        private final Map<String, Pt> perimeter = new LinkedHashMap<>();
+        /** The beams tying each of those to the nearest column of its grid. */
+        private final List<Pt[]> ties = new ArrayList<>();
         private final List<String> problems = new ArrayList<>();
 
         Layout(final Plan plan) {
@@ -124,6 +128,7 @@ public record Plan(String name, List<Part> parts) {
             trace();
             shape();
             placeColumns();
+            placePerimeter();
             if (square.isEmpty()) {
                 problems.add("nothing left of it");
             } else if (square.stream().filter(loop -> signedArea(loop) > 0).count() > 1) {
@@ -501,10 +506,96 @@ public record Plan(String name, List<Part> parts) {
             return beams;
         }
 
+        /** Its columns along its curves, by name. */
+        public Map<String, Pt> perimeterColumns() {
+            return Map.copyOf(perimeter);
+        }
+
+        /** The beams tying its columns along its curves each to the nearest column of its grid. */
+        public List<Pt[]> ties() {
+            return List.copyOf(ties);
+        }
+
+        /** All its columns, by name: its grid's, and those along its curves. */
+        public Map<String, Pt> allColumns() {
+            final Map<String, Pt> all = new LinkedHashMap<>(columns);
+            all.putAll(perimeter);
+            return all;
+        }
+
+        /** A column along its curves no further than this from the next. */
+        public static final double PERIMETER = 600;
+
+        /**
+         * Columns along each curve of its outline, where its grid stands back from it: at each end of
+         * the curve (where it leaves a straight edge) and evenly between, no more than
+         * {@link #PERIMETER} apart round it; a whole loop curved (a circle) evenly all round. Each tied
+         * to the nearest column of its grid by a beam.
+         */
+        private void placePerimeter() {
+            for (int l = 0; l < shaped.size(); l++) {
+                final List<Pt> loop = shaped.get(l);
+                final List<Boolean> onCurve = curved.get(l);
+                final int n = loop.size();
+                final boolean whole = onCurve.stream().allMatch(c -> c);
+                // each run of points on a curve, in turn round the loop: where it starts and how many points it has
+                final List<int[]> runs = new ArrayList<>();
+                if (whole) {
+                    runs.add(new int[] {0, n + 1});
+                } else {
+                    int start = 0;
+                    while (onCurve.get(start)) {
+                        start++;
+                    }
+                    for (int k = 1; k <= n; k++) {
+                        final int at = (start + k) % n;
+                        if (onCurve.get(at) && !onCurve.get((at + n - 1) % n)) {
+                            int length = 0;
+                            while (onCurve.get((at + length) % n) && length < n) {
+                                length++;
+                            }
+                            runs.add(new int[] {at, length});
+                        }
+                    }
+                }
+                for (final int[] run : runs) {
+                    final double[] along = new double[run[1]];
+                    for (int k = 1; k < run[1]; k++) {
+                        along[k] = along[k - 1] + loop.get((run[0] + k - 1) % n).distance(loop.get((run[0] + k) % n));
+                    }
+                    final double length = along[run[1] - 1];
+                    final int pieces = Math.max(1, (int) Math.ceil(length / PERIMETER));
+                    for (int p = 0; p < pieces + (whole ? 0 : 1); p++) {
+                        final double want = length * p / pieces;
+                        int best = 0;
+                        for (int k = 1; k < run[1]; k++) {
+                            if (Math.abs(along[k] - want) < Math.abs(along[best] - want)) {
+                                best = k;
+                            }
+                        }
+                        final int index = (run[0] + best) % n;
+                        final Pt at = loop.get(index);
+                        if (columns.values().stream().noneMatch(c -> c.distance(at) < TOLERANCE)) {
+                            perimeter.putIfAbsent("perimeter " + l + ", " + index, at);
+                        }
+                    }
+                }
+            }
+            for (final Pt at : perimeter.values()) {
+                columns.values().stream().min((a, b) -> Double.compare(a.distance(at), b.distance(at)))
+                        .filter(nearest -> inside(new Pt((nearest.x() + at.x()) / 2, (nearest.y() + at.y()) / 2)))
+                        .ifPresent(nearest -> ties.add(new Pt[] {at, nearest}));
+            }
+        }
+
         /** Its columns and beams, how many pieces: one, unless its grids share no line to tie them. */
         public int structures() {
             final Map<String, String> lot = new HashMap<>();
             columns.values().forEach(p -> lot.put(key(p), key(p)));
+            perimeter.values().forEach(p -> lot.put(key(p), key(p)));
+            for (final Pt[] tie : ties) {
+                lot.put(root(lot, key(tie[0])), root(lot, key(tie[1])));
+            }
             for (final Pt[] beam : beams()) {
                 final String a = root(lot, key(beam[0]));
                 final String b = root(lot, key(beam[1]));
@@ -523,15 +614,19 @@ public record Plan(String name, List<Part> parts) {
 
         /**
          * As a graph, level ({@link Form}: across x, along y, up 0): its columns; a beam between each
-         * two next to each other along a line, where it runs within it; and its outline, shaped, each
-         * point of it a column where one stands there.
+         * two next to each other along a line, where it runs within it; its columns along its curves,
+         * each tied to its grid; and its outline, shaped, each point of it a column where one stands there.
          */
         public Form graph() {
             final Form.Builder form = new Form.Builder(plan.name());
             final Map<String, Integer> at = new HashMap<>();
             columns.forEach((name, p) -> at.put(key(p), form.vertex(name, p.x(), p.y(), 0)));
+            perimeter.forEach((name, p) -> at.put(key(p), form.vertex(name, p.x(), p.y(), 0)));
             for (final Pt[] beam : beams()) {
                 form.edge(at.get(key(beam[0])), at.get(key(beam[1])));
+            }
+            for (final Pt[] tie : ties) {
+                form.edge(at.get(key(tie[0])), at.get(key(tie[1])));
             }
             for (int l = 0; l < shaped.size(); l++) {
                 // its points, and the columns standing on it between them, in turn

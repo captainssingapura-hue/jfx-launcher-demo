@@ -728,19 +728,34 @@ through, and one loaded until a pillar gives and it falls.
   columns no beam ties together. The common shapes (`Plans`): a square, a rectangle, a rounded
   rectangle, a circle, an oval as round or as square as asked, an L (one grid, its corner cut out
   along its own lines), a rectangle with one end round, a rectangle with a round bow out of its
-  front. On the bench, the skyscraper's **Plan (2D)** tab shows one flat, north up, to scale, its
-  floor, its outline as it was square (dashed) and as shaped, the points on its curves, its columns
-  and beams; its shape picked, its width, depth, bays and its one more setting by sliders, and its
-  figures read out. The other buildings' plan tabs are empty, as yet.
+  front. Where a curve stands clear of the grid, a ring of columns follows it, no more than 6 m apart,
+  each tied in to the nearest column of the grid by a beam.
+- **Towers stacked from plans** (`Tower`, `Towers`): a tower is sections, bottom to top, each one
+  plan stacked so many floors so high (a podium, a shaft, a set-back top). Its skeleton is generated
+  from them: at every floor level its plan's graph (columns, beams, the slab's edge), its columns up
+  from level to level, and where one section stands on another the level between shared, a column
+  above standing on the column below. What is wrong with one is said: its plans' faults, a section
+  whose columns stand on no column below (they need a transfer structure), one reaching beyond the
+  one under it. Six on an 8 m grid, each section's lines the one below's: a tower set back twice
+  from a podium (154 m), a round one, an oval one, a rounded one, an L-shaped block on a podium, one
+  with a bow front; and a tower from the plan tab, stacked as many floors as asked, made afresh as
+  its plan is changed.
+- On the bench, each tower's **Plan (2D)** tab shows its sections' plans flat, a section at a time,
+  north up, to scale: the floor, the outline as it was square (dashed) and as shaped, the points on
+  its curves, its columns and beams, the ring round its curves; with its figures and what is wrong
+  with the tower. The tower from the plan tab's own tab is where its plan is worked: its shape
+  picked, its width, depth, bays, one more setting, floors and floor height by sliders. The other
+  buildings' plan tabs are empty, as yet.
 
 `-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
 `-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
 apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice` their dressings,
 `-Dbuilding.materials=brick` (the start of a palette's name) what in;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
-`-Dbuilding.tab=plan` opens on the plan tab; `-Dplan.shape=oval` (the start of a shape's name),
-`-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in metres; an oval's squareness as
-it is) the plan to start with.
+`-Dbuilding.tab=plan` opens on the plan tab; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
+(the start of a shape's name), `-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in
+metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
+plan tab to start with.
 
 ## Unattended runs
 

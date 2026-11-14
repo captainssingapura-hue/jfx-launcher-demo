@@ -15,7 +15,8 @@ import java.util.List;
  * A floor plan, drawn flat ({@link Plan.Layout}), north up, scaled to fit: its floor, inside its
  * outline as shaped (its courtyards left out); its outline square, faint and dashed, where its
  * corners were before they were shaped; its outline as shaped, dark, the points on its curves
- * marked; the beams between its columns, and its columns; a 10 m scale and its size.
+ * marked; the beams between its columns, and its columns (round, along its curves, tied in to its
+ * grid by dashed beams); a 10 m scale and its size.
  */
 final class PlanView extends Pane {
 
@@ -85,10 +86,23 @@ final class PlanView extends Pane {
             final double[] b = to.at(beam[1].x(), beam[1].y());
             g.strokeLine(a[0], a[1], b[0], b[1]);
         }
+        // the beams tying its columns along its curves in to its grid, dashed
+        g.setLineDashes(4, 3);
+        for (final Plan.Pt[] tie : layout.ties()) {
+            final double[] a = to.at(tie[0].x(), tie[0].y());
+            final double[] b = to.at(tie[1].x(), tie[1].y());
+            g.strokeLine(a[0], a[1], b[0], b[1]);
+        }
+        g.setLineDashes();
         g.setFill(Color.web("#2f6fb3"));
         for (final Plan.Pt column : layout.columns().values()) {
             final double[] at = to.at(column.x(), column.y());
             g.fillRect(at[0] - 3.5, at[1] - 3.5, 7, 7);
+        }
+        g.setFill(Color.web("#5b8fd0"));
+        for (final Plan.Pt column : layout.perimeterColumns().values()) {
+            final double[] at = to.at(column.x(), column.y());
+            g.fillOval(at[0] - 4, at[1] - 4, 8, 8);
         }
         // its outline as shaped, and the points on its curves
         g.setStroke(Color.web("#22262b"));

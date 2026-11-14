@@ -97,6 +97,12 @@ public final class BuildingBench extends Application {
     private Form building;
     /** The building composed, for those that are: dressed as its options say. */
     private static final Map<String, Building> COMPOSED = Map.of("brutalist apartments", Apartments.building());
+    /** The towers stacked from their plans, by name: their skeletons generated from them. */
+    private static final Map<String, com.example.fxsuite.avatar.build.Tower> TOWERS = new java.util.LinkedHashMap<>();
+
+    static {
+        com.example.fxsuite.avatar.build.Towers.all().forEach(t -> TOWERS.put(t.name(), t));
+    }
     private Building composed;
     /** How far off it is seen whole: the camera's range is set from it. */
     private double whole = 5000;
@@ -127,8 +133,12 @@ public final class BuildingBench extends Application {
         view.heightProperty().bind(holder.heightProperty());
         orbit(view);
 
-        final List<Form> all = Buildings.all();
+        // the buildings drawn by hand; then the towers stacked from their plans; then one stacked from the plan tab's plan
+        final List<Form> all = new java.util.ArrayList<>(Buildings.all());
+        TOWERS.values().forEach(t -> all.add(t.skeleton()));
+        all.add(towerPlan.tower().skeleton());
         buildings.getItems().setAll(all);
+        towerPlan.onChange(this::replan);
         buildings.setConverter(new StringConverter<>() {
             @Override
             public String toString(final Form form) {
@@ -148,7 +158,11 @@ public final class BuildingBench extends Application {
                     || f.name().toLowerCase(Locale.ROOT).contains(" " + wanted)).findFirst().orElse(building);
         }
         buildings.setValue(building);
-        buildings.setOnAction(e -> pick(buildings.getValue(), true));
+        buildings.setOnAction(e -> {
+            if (!replanning) {
+                pick(buildings.getValue(), true);
+            }
+        });
         showSkeleton.setOnAction(e -> redraw());
         showDressed.setSelected(true);
         showDressed.setOnAction(e -> redraw());
@@ -217,7 +231,8 @@ public final class BuildingBench extends Application {
         building = picked;
         composed = COMPOSED.get(building.name());
         // its floor plan, flat: the tower's; empty, for the rest, until theirs are worked out
-        planTab.setContent("skyscraper".equals(building.name()) ? towerPlan : new Pane());
+        planTab.setContent(PlanPanel.TOWER.equals(building.name()) ? towerPlan
+                : TOWERS.containsKey(building.name()) ? new TowerPlans(TOWERS.get(building.name())) : new Pane());
         choices();
         showDressed.setDisable(composed == null);
         showSkeleton.setDisable(composed == null);
@@ -338,6 +353,32 @@ public final class BuildingBench extends Application {
         }
     }
 
+    /** Whether the tower from the plan tab is being made afresh: the picker's value set, not picked. */
+    private boolean replanning;
+
+    /** The plan tab's plan changed: the tower stacked from it made afresh, and shown, if it is on show. */
+    private void replan() {
+        final Form made = towerPlan.tower().skeleton();
+        final int k = buildings.getItems().indexOf(buildings.getItems().stream()
+                .filter(f -> f.name().equals(PlanPanel.TOWER)).findFirst().orElse(null));
+        if (k < 0) {
+            return;
+        }
+        final boolean shown = building != null && PlanPanel.TOWER.equals(building.name());
+        replanning = true;
+        try {
+            buildings.getItems().set(k, made);
+            buildings.setValue(shown ? made : building);
+        } finally {
+            replanning = false;
+        }
+        if (shown) {
+            building = made;
+            redraw();
+            describe();
+        }
+    }
+
     /** Its figures, read out. */
     private void describe() {
         final Form.Bounds box = building.bounds();
@@ -368,6 +409,14 @@ public final class BuildingBench extends Application {
         problems.stream().limit(12).forEach(p -> out.append("\n! ").append(p));
         if (problems.size() > 12) {
             out.append("\n! and ").append(problems.size() - 12).append(" more");
+        }
+        final com.example.fxsuite.avatar.build.Tower tower = PlanPanel.TOWER.equals(building.name()) ? towerPlan.tower()
+                : TOWERS.get(building.name());
+        if (tower != null) {
+            figures.setText(out + String.format(Locale.ROOT, "%n%d floors, %.1f m to its roof, in %d section%s", tower.floors(),
+                    tower.height() / 100, tower.sections().size(), tower.sections().size() == 1 ? "" : "s")
+                    + tower.problems().stream().map(p -> "\n! " + p).reduce("", String::concat));
+            return;
         }
         figures.setText(out.toString());
     }

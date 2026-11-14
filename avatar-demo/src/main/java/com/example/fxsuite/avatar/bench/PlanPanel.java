@@ -23,7 +23,8 @@ import java.util.Locale;
  * its columns and beams, what is wrong with it.
  *
  * <p>{@code -Dplan.shape=oval} (the start of a shape's name) picks the shape to start with;
- * {@code -Dplan.width}, {@code -Dplan.depth}, {@code -Dplan.bay} and {@code -Dplan.extra}, in metres
+ * {@code -Dplan.floors} and {@code -Dplan.storey} (m) how it is stacked; {@code -Dplan.width},
+ * {@code -Dplan.depth}, {@code -Dplan.bay} and {@code -Dplan.extra}, in metres
  * (an oval's squareness as it is), how big.
  */
 final class PlanPanel extends BorderPane {
@@ -36,7 +37,32 @@ final class PlanPanel extends BorderPane {
     private final Label extraName = new Label();
     private final Label figures = new Label();
     private final PlanView view = new PlanView();
+    /** How many floors the plan is stacked, and how high each, for the tower made of it ({@link #tower}). */
+    private final Slider floors = new Slider(1, 80, 30);
+    private final Slider floorHeight = new Slider(3, 5, 3.8);
+    private Runnable changed = () -> { };
     private boolean setting;
+
+    /** What the tower made of the plan is called. */
+    static final String TOWER = "tower from its plan";
+
+    /** The plan as the sliders have it. */
+    Plan plan() {
+        final Shape shape = shapes.getValue();
+        final double e = shape == Shape.OVAL ? extra.getValue() : extra.getValue() * 100;
+        return Plans.of(shape, new Plans.Size(width.getValue() * 100, depth.getValue() * 100, bay.getValue() * 100, e));
+    }
+
+    /** The plan stacked as many floors as the sliders say, each as high. */
+    com.example.fxsuite.avatar.build.Tower tower() {
+        return com.example.fxsuite.avatar.build.Tower.of(TOWER, plan(), (int) Math.round(floors.getValue()),
+                Math.round(floorHeight.getValue() * 10) * 10.0);
+    }
+
+    /** Runs {@code then} whenever the plan, or its stacking, changes. */
+    void onChange(final Runnable then) {
+        changed = then;
+    }
 
     PlanPanel() {
         shapes.getItems().setAll(Shape.values());
@@ -73,14 +99,17 @@ final class PlanPanel extends BorderPane {
             shaped(shapes.getValue());
             redraw();
         });
-        for (final Slider slider : new Slider[] {width, depth, bay, extra}) {
+        floors.setValue(Double.parseDouble(System.getProperty("plan.floors", "30")));
+        floorHeight.setValue(Double.parseDouble(System.getProperty("plan.storey", "3.8")));
+        for (final Slider slider : new Slider[] {width, depth, bay, extra, floors, floorHeight}) {
             slider.setPrefWidth(150);
             slider.valueProperty().addListener((o, was, now) -> redraw());
         }
         figures.setFont(Font.font("Monospaced", 12));
         final FlowPane controls = new FlowPane(16, 8, new HBox(8, new Label("Shape"), shapes),
                 new HBox(6, new Label("Width (m)"), width), new HBox(6, new Label("Depth (m)"), depth),
-                new HBox(6, new Label("Bay (m)"), bay), new HBox(6, extraName, extra));
+                new HBox(6, new Label("Bay (m)"), bay), new HBox(6, extraName, extra),
+                new HBox(6, new Label("Floors"), floors), new HBox(6, new Label("Floor height (m)"), floorHeight));
         controls.setPadding(new Insets(10));
         setTop(controls);
         setCenter(view);
@@ -107,18 +136,21 @@ final class PlanPanel extends BorderPane {
             return;
         }
         final Shape shape = shapes.getValue();
-        final double e = shape == Shape.OVAL ? extra.getValue() : extra.getValue() * 100;
-        final Plan.Layout layout = Plans.of(shape, new Plans.Size(width.getValue() * 100, depth.getValue() * 100,
-                bay.getValue() * 100, e)).layout();
+        final Plan.Layout layout = plan().layout();
         view.show(layout);
+        final com.example.fxsuite.avatar.build.Tower tower = tower();
         final StringBuilder out = new StringBuilder(String.format(Locale.ROOT,
-                "%s: %.0f m² of floor, its outline %.1f m long; %d columns, %d beams", shape.title(),
-                layout.area() / 10_000, layout.perimeter() / 100, layout.columns().size(), layout.beams().size()));
+                "%s: %.0f m² of floor, its outline %.1f m long; %d columns (%d round its curves), %d beams;"
+                        + " %d floors of %.1f m, %.1f m high",
+                shape.title(), layout.area() / 10_000, layout.perimeter() / 100, layout.allColumns().size(),
+                layout.perimeterColumns().size(), layout.beams().size() + layout.ties().size(), tower.floors(),
+                tower.sections().getFirst().height() / 100, tower.height() / 100));
         if (shape.extra() != null) {
             out.append(String.format(Locale.ROOT, "; %s %.1f", shape.extra().toLowerCase(Locale.ROOT), extra.getValue()));
         }
         out.append(layout.problems().isEmpty() ? "\nnothing wrong with it" : "");
         layout.problems().forEach(p -> out.append("\n! ").append(p));
         figures.setText(out.toString());
+        changed.run();
     }
 }
