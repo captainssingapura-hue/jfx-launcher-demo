@@ -714,11 +714,33 @@ through, and one loaded until a pillar gives and it falls.
   - On the bench, pick a facade, a ground floor, its corners, its top and what to build it in, and
     show the building dressed, its skeleton, or both.
 
+- **Floor plans, composed** (`Plan`, `Grid`, `Corner`, `Plans`): the first step to building
+  towers from their plans. A plan is rectangles of structural grid, each a bay pattern of its own,
+  added or cut out in turn; its outline traced round the filled cells, its outside anticlockwise and
+  any courtyard clockwise. A later grid's lines within 1.5 m of an earlier one's are moved onto it,
+  so grids put together share one set of column lines. Any outside corner can be shaped (`Corner`):
+  cut back along each edge and joined by a quarter superellipse, its squareness 1 a straight chamfer,
+  2 a quarter ellipse or circle, more fuller; the structure's grid stays square under it, and only
+  the outline follows the curve, in straight pieces no wider than a facade panel (1.5 m). From it:
+  its floor area, its outline's length, its columns (where its lines cross within it), the beams
+  between them, and its graph (`Form`, level). What is wrong with one is said: corners cut further
+  than their edges run, an inside corner shaped, parts touching at a corner only, grids whose
+  columns no beam ties together. The common shapes (`Plans`): a square, a rectangle, a rounded
+  rectangle, a circle, an oval as round or as square as asked, an L (one grid, its corner cut out
+  along its own lines), a rectangle with one end round, a rectangle with a round bow out of its
+  front. On the bench, the skyscraper's **Plan (2D)** tab shows one flat, north up, to scale, its
+  floor, its outline as it was square (dashed) and as shaped, the points on its curves, its columns
+  and beams; its shape picked, its width, depth, bays and its one more setting by sliders, and its
+  figures read out. The other buildings' plan tabs are empty, as yet.
+
 `-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
 `-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
 apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice` their dressings,
 `-Dbuilding.materials=brick` (the start of a palette's name) what in;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
+`-Dbuilding.tab=plan` opens on the plan tab; `-Dplan.shape=oval` (the start of a shape's name),
+`-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in metres; an oval's squareness as
+it is) the plan to start with.
 
 ## Unattended runs
 

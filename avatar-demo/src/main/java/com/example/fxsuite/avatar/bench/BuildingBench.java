@@ -59,6 +59,7 @@ import java.util.Map;
  * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
  * start with; {@code -Dbuilding.facade=egg} and {@code -Dbuilding.ground=shop} (the start of an option's
  * name) how a composed one is dressed, and {@code -Dbuilding.materials=brick} what it is built in;
+ * {@code -Dbuilding.tab=plan} opens on its floor plan ({@link PlanPanel}, for its options);
  * {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
  * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
@@ -86,6 +87,11 @@ public final class BuildingBench extends Application {
     private final CheckBox showVertices = new CheckBox("Vertices");
     private final CheckBox showFloor = new CheckBox("The floor, ruled every 10 m");
     private final Label figures = new Label();
+    /** The 3D view, and the floor plan's tab. */
+    private final javafx.scene.control.TabPane tabs = new javafx.scene.control.TabPane();
+    private final javafx.scene.control.Tab planTab = new javafx.scene.control.Tab("Plan (2D)");
+    /** The tower's floor plan, worked on: the only building whose plan is, as yet. */
+    private final PlanPanel towerPlan = new PlanPanel();
     private final Map<FormModel.Lean, PhongMaterial> colours = new EnumMap<>(FormModel.Lean.class);
     private final PhongMaterial dots = matte("#d64545");
     private Form building;
@@ -181,7 +187,15 @@ public final class BuildingBench extends Application {
         scroll.setMinWidth(390);
         final BorderPane root = new BorderPane();
         root.setLeft(scroll);
-        root.setCenter(holder);
+        // the building in 3D; and, in a tab of its own, its floor plan flat, for those whose plans are worked out
+        final javafx.scene.control.Tab inThree = new javafx.scene.control.Tab("3D", holder);
+        inThree.setClosable(false);
+        planTab.setClosable(false);
+        tabs.getTabs().setAll(inThree, planTab);
+        if ("plan".equalsIgnoreCase(System.getProperty("building.tab"))) {
+            tabs.getSelectionModel().select(planTab);
+        }
+        root.setCenter(tabs);
         root.setStyle("-fx-background-color: #f4f5f7;");
         final Scene scene = new Scene(root, 1260, 860);
 
@@ -202,6 +216,8 @@ public final class BuildingBench extends Application {
     private void pick(final Form picked, final boolean frame) {
         building = picked;
         composed = COMPOSED.get(building.name());
+        // its floor plan, flat: the tower's; empty, for the rest, until theirs are worked out
+        planTab.setContent("skyscraper".equals(building.name()) ? towerPlan : new Pane());
         choices();
         showDressed.setDisable(composed == null);
         showSkeleton.setDisable(composed == null);
