@@ -4,8 +4,8 @@ A standalone experiment: a small robot built from boxes that walks, runs and jum
 world of pillars, crates and floating gates, followed by a chase camera. Put on its jet-pack
 and it flies as a drone does: upright, tipped gently toward where it goes, holding its place
 when let go. Everything is heard as well as seen. Two sound profiles give the same world two
-characters, and two separate benches are for working on the sounds: one for all of them, one
-for the engines.
+characters. Three separate benches are for working on the sounds (one for all of them, one for the
+engines, one for the Gatling guns), and a fourth on the vehicles' models.
 
 ![Hovering among the pillars, the wings spread](images/flying.jpg)
 
@@ -27,7 +27,7 @@ for the engines.
   are cleared away; everything else is where it was.
   And everything since is in it too: down the street behind the start, the four vehicles parked
   two each side of it, the roadster and the van on its west side, the pickup and the truck on
-  its east; out west, the bunker with its heavy Gatling gun and the gunship standing ready by it;
+  its east; out west, the bunker with its heavy Gatling gun;
   and off to the east, behind the start, an airship moored low to be boarded and flown, bombs and all, beside
   the three that sail their routes overhead.
 - **Land vehicles: a bare chassis.** What a car or a truck is built on (`Course.Chassis`): a flat
@@ -45,7 +45,7 @@ for the engines.
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
   Each is a vehicle of the engine bench's (`Vehicle.of`), and goes as it does: its real top
   speed, as its engine, its gears and the air make it there (the car about 249 km/h, the pickup
-  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser 182), and
+  limited to 185, the truck to 120, the scooter 97, the sport bike 236, the cruiser and the boxer 182), and
   getting up to speed as it does, briskly from a standstill, less and less so as it nears its top,
   as quick as on the bench to make most of it (`Course.Drive.accelAt`). Its gearbox (`Gearbox`) is
   the bench vehicle's too, the same gears, final drive and wheels (`Vehicle.rpm`): at any speed,
@@ -63,7 +63,7 @@ for the engines.
   white line across the front straight to start and finish at, pit road inside the front
   straight, and grandstands outside it. Every land vehicle stands on pit road, heading the way
   they race, round to the left: the roadster, the van, the pickup, the truck, the scooter, the
-  sport bike and the cruiser. Driven flat out, the roadster laps it from a standing start, at
+  sport bike, the cruiser and the boxer. Driven flat out, the roadster laps it from a standing start, at
   240 km/h down the straights.
   The car carries a heavy Gatling gun fixed to the right of the seat: it does not turn on its
   own, but fires the way the car faces, tipped up or down with it on a ramp, and whoever drives
@@ -72,9 +72,11 @@ for the engines.
   mount (`Course.Mount#fixed`).
   The pickup (5.2 m, four wheels) has its seat well forward, and on a post at its back, high
   enough to fire over the driver's head, a heavy Gatling gun aimed freely: what a pickup with a
-  gun, or an armoured vehicle, is built on. T at its wheel takes both, as one: the keys drive it,
-  A and D steering as ever, and the mouse aims the gun all round, 10° down and 45° up; the gun
-  holds its aim on the world as the pickup turns under it, and the view rides behind the gun.
+  gun, or an armoured vehicle, is built on. T at its door takes its wheel, and its gun with it
+  (gun control): the keys drive it, A and D steering as ever, and the mouse aims the gun all
+  round, 10° down and 45° up, a click firing it; the gun holds its aim on the world as the
+  pickup turns under it. The view stays the pickup's, behind it, the gun's sight marked where it
+  points. G gives the gun up, and the pickup is driven as any car is; G again takes it back.
   Crates stand about behind the start, to turn it on.
 - **Bodies.** On the Roads demo each chassis wears a body: the car a low open roadster, blue; the
   truck a square cab over its front wheels and a flatbed, orange; the pickup a cab with a sloping
@@ -111,18 +113,48 @@ for the engines.
   floorboard for the feet and a shield before the legs; a sport bike, red, its nose fairing, a
   tank to tuck down over, a raised tail and a pipe out the back, the quickest of everything that
   drives; and a cruiser, long and low, dark blue, a teardrop tank, its V-twin's two cylinders
-  standing out of the engine, fenders over both wheels and long chrome pipes down the right.
+  standing out of the engine, fenders over both wheels and long chrome pipes down the right;
+  and a big boxer cruiser, black, a long tank, its boxer twin's two great cylinders lying flat,
+  standing out to either side ahead of the rider's knees, a pipe down each side, heavy and steady;
+  built, as a real motorcycle is, on a frame of steel tubes, a double cradle, its swing arm the
+  shaft's housing (see the [vehicle bench](#vehicle-bench)).
   Got onto from beside them (T), ridden as a car is driven, and got off again there. The rider
   sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
   tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
-  wide bars. Each leans into its turns as a rider would lean it to balance going round
+  wide bars; upright on the boxer, feet forward, knees wide round its cylinders. Each leans into its turns as a rider would lean it to balance going round
   (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
   rider leaning with it about where its tyres touch the ground; only how it is shown, to the
   world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
   single on a CVT, which holds it most of the way up its revs as the speed builds (D on the
   dial); the sport bike a 90° L-twin with six gears, changed in a flash; the cruiser a 45°
-  V-twin, its uneven beat, with five. They stand behind the start on the Roads demo, and along
-  the street on the playground.
+  V-twin, its uneven beat, with five; the boxer a 1.8-litre boxer twin, its two cylinders firing a
+  turn apart, evenly, into a pipe each side, a deep, even thrum, lazy to rev and done by 5,750, with
+  six gears. They stand behind the start on the Roads demo, and along the street on the playground.
+- **A sidecar outfit.** The boxer with its sidecar clamped on its right (`Course.BOXER_SIDECAR`):
+  its sidecar's tubes, a tub on them with a seat, and its wheel; got onto from the left, away from
+  the sidecar, and ridden as the boxer is, but heavier (496 kg) and slower (about 161 km/h flat out),
+  its engine and gears the boxer's own. On three wheels, it does not lean. Going round, it is held
+  against its table of the sharpest it may be steered at its speed (`Outfit`, as on the
+  [vehicle bench](#vehicle-bench)): toward the sidecar it is soon too much (at 30 km/h, about three
+  degrees of steer), and the chair lifts, the outfit heeling away from it; past the limit for a
+  quarter of a second, it goes over on its left side, the sidecar in the air, with a thud, throwing
+  its rider off, and lies there, still, until T beside it rights it. Away from the sidecar it
+  holds. Its bars are turned gently, the more so the faster it goes, by the same table: toward the
+  sidecar they take half a second to come round to the sharpest it may be steered at its speed
+  (about 6° a second at 30 km/h, under 2° at 60), and go no further than 1.6 times that, so held
+  over it still lifts the chair and goes over, but a touch of the key does not; away from it, they
+  go no further than just short of its limit that way, the tyres sliding long before it would tip
+  so; and let go, they come back three times as fast, to catch a lifting chair. It stands with the
+  other bikes on the Roads demo, the playground and pit road.
+- **An ice cream cart outfit.** The same boxer and sidecar frame, wheel and all, carrying an ice
+  cream cart in place of the tub (`Course.BOXER_ICE_CREAM`, `Sidecar.Body.ICE_CREAM_CART`): a white
+  freezer, a pink stripe and a sky blue one round it, two chrome lids on top, a pink and white
+  striped umbrella over it on a pole, and a great cone of three scoops on its front for a sign.
+  Heavier still (556 kg) and slower (about 147 km/h); the cart is ballast out over the sidecar's
+  wheel, so it takes more to lift (0.36 g toward it, against the tub's 0.22 g; at 40 km/h nearly
+  three degrees of steer, not under two), and less to tip the other way (1.19 g), still more than
+  the tyres hold. It is ridden, tipped and righted as the tub outfit is, and stands beside it on
+  the Roads demo, the playground and pit road.
 - **A bunker with a heavy Gatling gun.** A concrete pillbox, its gun on a pedestal behind a slit
   along its front. Walk up to the door at its back and press T to man it: the robot is inside, out
   of sight, and the view is the gunner's, from just behind the gun, looking out through the slit.
@@ -133,13 +165,15 @@ for the engines.
   long as it is held (a mount can be made to overheat, but neither gun does for now). Its rounds
   go out through its own bunker. Wreck the bunker (it takes 2500) and the gunner is thrown out. T
   again steps out of the door.
-- **A gunship.** A platform with a heavy Gatling gun on its console. Jump onto its deck and stand
-  behind the gun: T mans it, and flies the gunship too, as a gunner on a pickup would. W and S
-  fly it ahead and back, A and D turn it, Space and Ctrl climb and descend; the mouse aims the
-  gun, all round, 30° down and 40° up, and the gun holds its aim on the world as the gunship
-  turns under it (stabilized). The robot stands behind the gun in plain sight, carried with the
-  gunship and facing the way the gun points, and the view is from over its shoulder. T again
-  steps away from the gun, and the gunship eases to a stop and hangs there.
+- **Mounted guns.** A heavy Gatling gun on a pedestal, a seat behind it, bolted to the top of
+  anything solid (`Course.MOUNTED_GUN`): to begin with, one on top of every pillar, facing out from
+  the middle of the world. Fly up and land behind one: T sits down at it. It is worked by the keys
+  alone (`Course.Mount#keyed`): A and D run an electric motor that turns it all round, without
+  stops, at a steady 60° a second, the seat turning with the gun and carrying the gunner round
+  with it; W and S raise and lower it, 30° down to 75° up, its hydraulics easing it smoothly to
+  where the keys have asked (`Course.Mount#ease`). Space, or a click, fires it. The view is from
+  behind and over it, tilting with it. T again gets up, standing on the pillar where the seat had
+  turned to.
 - **A jet with swing wings.** Avatar and pack are drawn as a fighter jet standing on its
   tail, held up by the thrust of its twin engines. The wings lie in the plane of the back and
   pivot there as a variable-sweep fighter's do. They are tucked along the engines on the
@@ -194,10 +228,10 @@ for the engines.
   goes off at the first thing it meets, in a fireball, embers and, on the ground, clods of earth
   thrown up. Every crate or target within 3.5 m of it takes 150: a drone or a small crate goes at
   once, a dummy takes two. The robot takes no harm from them yet.
-- **Platforms, flown like magic carpets.** Two steel platforms float just off the ground, edged
+- **Platforms, flown like magic carpets.** Three steel platforms float just off the ground, edged
   in yellow and black, a thruster glowing under each corner and a console at the front: a
-  small one, 3 m by 2.4 m, off to the right of the start, and a broad barge, 10 m by 6 m, off to
-  the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
+  small one, 3 m by 2.4 m, off to the right of the start, a broad barge, 10 m by 6 m, off to
+  the left, and a meeting platform, 6.4 m by 5.2 m, further round to the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
   one and stand behind its console, and the HUD offers the controls (T). At them, the keys that
   would move the robot fly the platform: W and S ahead and back, A and D sideways, the mouse
   turns it, Space climbs and Ctrl descends, from just off the ground to 45 m up, Shift to go
@@ -216,15 +250,23 @@ for the engines.
   its controls, the camera is the vehicle's: it follows the vehicle from as far back as it is
   big. A platform is open: the robot rides it in plain sight. An airship is closed: walk in
   under its gondola, take it (T) at the hatch in its floor, and the robot is inside and out of
-  sight. W and S fly it ahead and back, the mouse turns it (slowly, as an airship turns),
-  Space climbs and Ctrl descends, never below its moorings; it has no sideways and its engines
-  are never cut. A click drops a bomb from under the gondola, going as the airship goes; held,
-  a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
+  sight, at its controls and those of the rapid giant Gatling gun in a ball turret hung under the
+  gondola's back end: 30 mm shells, two and a half times as heavy as the heavy gun's, from seven
+  barrels, 3,900 a minute, spun up in little more than half a second. W and
+  S fly it ahead and back, A and D turn it (slowly, as an airship turns), Space climbs and Ctrl
+  descends, never below its moorings; it has no sideways and its engines are never cut. The
+  mouse aims the gun, all round, 80° down and 10° up, and the gun holds its aim on the world as
+  the airship turns; a click fires it, spinning up first. The view stays the airship's, behind
+  it. A and D steer it always, as a car's wheel would: it cannot go sideways. G gives the gun
+  up, the mouse then left alone and a click dropping a bomb; G again takes it back. A right-click drops a bomb
+  from under the gondola, going as the airship goes; held, a stick of them, one every 0.4 s. Its bay holds a dozen, and loads them back, one a second,
   when it is down at its moorings (no bombs are dropped there). Low over its own bombs, it takes
   their blast too. T again and the robot drops out of the hatch, from wherever it is. Broken
   while flown, a vehicle throws out whoever flies it. At a vehicle's controls the HUD is the
   vehicle's: how fast and high it goes, how much of it is left, its engine or its bombs, and
-  its own keys in place of the robot's.
+  its own keys in place of the robot's. Low on the left, a small control panel shows what can be
+  done there, each with its key (the gun, a bomb, first person, the camera, getting out): free
+  the mouse with Esc to click them.
 - **The fruit stall.** On the barge stands a fruit stall: a table of planks on pallets under a
   red and white awning, a sign (西瓜), a scale, a row of striped watermelons and a few more on the
   deck, and three pineapples standing at the other end. The stallholder sits on a stool behind it; a customer stands before
@@ -253,8 +295,17 @@ for the engines.
   of the glaive, and what was on it drops to the deck. The stallholder's stool and the scooter
   are furniture too, and whoever sits sits on top of theirs: push the stool or the scooter and
   they ride along on it; push them, or break it, and they come off it to stand on the deck.
-- **People.** The people at the stall are characters in the world (`Person`), each with a body
-  like the robot's: they stand on whatever is under them, ride the barge wherever it is flown,
+- **A stand-up in the air.** On the meeting platform, a scrum meeting is under way: five developers
+  stood in a ring, each in a hoodie of their own, and the scrum master at its back, picked out at
+  a glance in an orange hoodie and a red cap, a badge on a lanyard and a clipboard held before
+  them. Behind them stands the team's scrum board on its legs, three columns, to do, doing and
+  done, headed in grey, blue and green, the cards stuck up in them. Each developer has the floor
+  in turn, five seconds each, talking with their hands; the others turn to whoever is talking,
+  the scrum master furthest. Fly the platform (its console is at the front, clear of the ring)
+  and the meeting goes with it, board and all. The board is furniture, to push or break; the
+  team are people, as the stall's are. It is on the Flying platform demo as well.
+- **People.** The people at the stall and the stand-up are characters in the world (`Person`), each
+  with a body like the robot's: they stand on whatever is under them, ride their platform wherever it is flown,
   and fall. Walk into someone and they are shoved out of the way, sent along at your pace and a
   little more; shove them off the edge of the deck and they fall off. A push gets anyone sitting
   to their feet, and people pushed into each other part. Rounds, the glaive and bombs strike
@@ -274,11 +325,11 @@ java -jar avatar-demo/target/avatar-demo.jar
 ```
 
 It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
-airships, the flyovers, the four vehicles, the bunker, the gunship and an airship to fly), or one built round a
+airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and an airship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-and a gunship, each with a heavy Gatling gun, and crates and dummies out in front; and the **track**, a NASCAR-style
+with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; and the **track**, a NASCAR-style
 oval to take every land vehicle round flat out (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
@@ -287,7 +338,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -305,7 +356,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |
@@ -315,7 +366,9 @@ the window, so clicks stay free for actions.
 | 1 | Draw the twin rifles, or put them away | Draw the twin rifles, or put them away |
 | 2 | Draw the glaive, or put it away | Draw the glaive, or put it away |
 | 3 | Draw the Gatling gun, or put it away | Draw the Gatling gun, or put it away |
-| Left click (held) | Fire, or swing; aboard an airship, drop a bomb (held, a stick of them) | Fire, or swing |
+| Left click (held) | Fire, or swing; at a vehicle's controls, fire its gun (aboard the airship with its gun given up, drop a bomb) | Fire, or swing |
+| Right click (held) | Aboard the airship, drop a bomb (held, a stick of them) | |
+| G | At the controls of the pickup or the airship: give up control of its gun, or take it back | |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | V | At a vehicle's controls: first person, or back | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
@@ -329,8 +382,10 @@ by tilting the view with it; looking round (Q/E) does not move the aim.
 
 Every footfall is heard, on the ground or on a block, along with each jump, landing (as hard
 as the fall), bump and gate flown through, the pack, and its wings swinging. So is every round from each
-rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun's
-motor whines up and down with its spin, and it roars while it fires. What they strike
+rifle's muzzle, every stroke of the glaive, and each weapon as it is drawn. The Gatling gun in
+hand or manned is made as it turns and fires, shot by shot as the gun fires them, its motor
+whining up and down with its spin, mixed realistically or as a film would (the Sound menu; see
+[Gun bench](#gun-bench)); the Arcade profile loops its chip's whine and roar. What they strike
 is heard where it is struck: a round on a block, ticking or ricocheting, or thudding into the
 ground; the blade clanging off a block, or chopping into the earth. What breaks is heard where
 it stood: a crate or dummy splintering and its pieces clattering down, deeper the bigger it
@@ -343,7 +398,8 @@ drones from where it is, faint from the ground and loud alongside it. The vehicl
   is heard from under its bonnet: a V6 in the roadster and the van, smooth and raspy, every third
   of a turn a cylinder firing; a V8 in the pickup and the truck, deeper, its cross-plane firing
   order giving it its lumpy burble; a buzzing single in the scooter, an L-twin's hard beat in the
-  sport bike, and a V-twin's uneven one in the cruiser. In the Robot profile the engine is made as it runs, the
+  sport bike, a V-twin's uneven one in the cruiser, and a boxer twin's deep, even thrum in the
+  boxer. In the Robot profile the engine is made as it runs, the
   engine bench's own (`EngineVoice`, played as a stream by `EngineStream`): each cylinder firing
   in turn at the revs the vehicle is at, down its runner into its pipe, so it climbs through its
   gears as the vehicle gathers speed and drops back at each change, its note the revs' while its
@@ -408,8 +464,9 @@ is worked hard; and pops and crackle off the throttle at speed.
   or a flat-plane V8 that screams. For scooters and motorcycles: a 50 cc two-stroke scooter, firing every turn into an expansion chamber, high and raspy; a 125 cc
   four-stroke scooter, a busy little buzz; a big single, each thump heard on its own at idle;
   a 45° V-twin, firing 315° then 405° apart, the cruiser's uneven beat; a 90° L-twin, 270°
-  then 450°, harder and higher-revving; and a 360° parallel twin, evenly, a single's beat at
-  twice the rate. Each is a set of figures (two strokes or four, its firing pattern, idle and
+  then 450°, harder and higher-revving; a 360° parallel twin, evenly, a single's beat at
+  twice the rate; and a big boxer twin, its two great cylinders opposed, firing a turn apart into
+  a pipe each side, deep and even, idling low and revving lazily. Each is a set of figures (two strokes or four, its firing pattern, idle and
   red line, how briskly it revs, its pipes), so another engine is another set of figures.
 - Pipe it (`Exhaust`). Each engine fires in its real firing order (1-8-4-3-6-5-7-2 for the
   cross-plane V8, 1-5-3-7-4-8-2-6 for the flat-plane, 1-2-4-5-3 for the five, ...), each
@@ -436,10 +493,10 @@ is worked hard; and pops and crackle off the throttle at speed.
   the limiter (`Revs`). Or hold the revs anywhere in its range, to listen to one place.
 - Set the load, from revving free to pulling hard.
 - Or drive it: each engine is in a vehicle of its own (`Vehicle`): a hatchback, a saloon, a
-  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a sport bike and a classic
-  bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
+  rally coupe, a muscle car, a supercar, two scooters, a dual-sport bike, a cruiser, a boxer cruiser, a sport bike and a
+  classic bike, each with its weight, torque, gears, wheels, drag and grip, and, some, a speed it is
   limited to; and the game's own: its car (the roadster's and the van's), its pickup and its
-  truck, and its scooter, sport bike and cruiser, which go here exactly as in the game, the same
+  truck, and its scooter, sport bike, cruiser and boxer, which go here exactly as in the game, the same
   revs at the same speed (the Vehicle choice, of those with the engine picked;
   `-Dengine.vehicle=pickup`). W or Space is the throttle,
   S the brake, E or Up changes up and Q or Down changes down, or the gearbox changes by itself:
@@ -452,9 +509,126 @@ is worked hard; and pops and crackle off the throttle at speed.
   in orange, moving with the revs, and the pipes' notes in blue, staying put.
 
 It plays through Java Sound. `-Dengine.pick=V8` (or `I4`, `I5`, `V6`, `FLAT_V8`, `SCOOTER_2T`,
-`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`) picks the engine to start with, and
+`SCOOTER`, `THUMPER`, `V_TWIN`, `L_TWIN`, `PARALLEL_TWIN`, `BOXER`) picks the engine to start with, and
 `-Dengine.charger=turbo` (or `super`, `none`) charges a car's. The game's V6 and V8 are these,
 stock, made the same way as they are driven ([Sound](#sound)).
+
+### Gun bench
+
+The Gatling guns are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --guns
+```
+
+A gun here is not a roar looped: its sound is made as it turns and fires (`GatlingVoice`). Its
+barrels go round as fast as they are spun, and each time one comes to the top it is fired, if
+the gun is up to speed: so the shots come exactly as often as the gun fires them, forty a second
+for the hand-held gun, thirty for the heavy, twenty for the giant, and run together into its
+note. Each shot is a blast of air out of the muzzle, a short push and pull as long as the round
+is big; a thump after it, lower the bigger the round; the round's crack; and the clack of its
+bolt, each a little unlike the last. Under them the motor whines, its gears meshing at their
+note, rising as it spins the barrels up and falling as they run down, labouring as it fires; the
+barrels whoosh round; the giant's hydraulic drive hisses. Turning without firing, each bolt
+clicks over dry. The empty cases ring as they land, as long after as they take to fall. The
+ground sends the blast back, as late as it is far below: about 0.6 s from the airship a hundred
+metres up.
+
+- Pick a gun (`Gatling`): the hand-held one, the heavy one on a mount, the giant one, or the
+  rapid giant under the airship: seven barrels of cannon shells, 3,900 a minute, spun up in half a
+  second, so fast the shots fuse into one tearing note. Each is a set of figures (its rate and
+  spin-up, its barrels, its rounds' calibre, its motor and gearing), so another gun is another
+  set of figures.
+- Size its rounds (5 to 40 mm) and set its rate (300 to 6,000 a minute), each apart from the
+  other (`Gatling.sized`, `Gatling.firing`): bigger rounds are lower, longer and louder; a
+  faster rate turns the barrels faster, and the motor geared to them whines higher. Either may
+  be changed while it fires.
+- Pick a mix (`GunStyle`): **Realistic**, as a microphone outdoors would have it, a sharp, dry
+  crack with the mechanism plain under it and the cases ringing; or **Cinematic**, as a film
+  would mix it, a thump and a boom an octave under it in each shot, driven hard into overload,
+  rolling away in a long tail.
+- Hold Space (or the Fire button) to fire: it spins up first, as long as that gun takes, and
+  fires at full speed; let go, it stops at once and runs down. Hold S to spin it without firing.
+- Set its height over the ground, for the ground's echo and the cases.
+- Watch the sound as it is made, each shot to be seen, and its frequencies: the shots' note in
+  orange, each shot's thump in red, and the gears' whine in blue, moving with the spin.
+
+It plays through Java Sound. `-Dgun.pick=GIANT` (or `HAND`, `HEAVY`, `RAPID`) picks the gun to
+start with, `-Dgun.size=20` and `-Dgun.rate=3000` size and rate it, `-Dgun.style=realistic` the
+mix, `-Dgun.height=80` its height. In the game, the Robot
+profile makes the Gatling gun in hand or manned the same way, each with its own figures, fixed
+(the hand-held one, the heavy one on the pickup, in the bunker and on the pillars, the rapid
+giant on the airship), mixed as the Sound menu says
+(`-Davatar.guns=realistic` to start so; cinematic otherwise). The Arcade profile loops its
+chip's gun as ever.
+
+### Vehicle bench
+
+The vehicles' models are worked on on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --models
+```
+
+- Put any of the game's vehicles on show on its own, drawn exactly as the game draws it (the game's
+  own `World`, of a world with nothing else in it, `Course.of`): the roadster, the van, the
+  pickup, the truck, the scooter, the sport bike, the cruiser, the boxer, the boxer with its
+  sidecar as the game has it, the boxer with its ice cream cart, or the boxer with the sidecar the
+  bench shapes.
+- Look round it: drag to turn round it, right-drag (or Shift-drag) to move across it, scroll to
+  come nearer or go further off.
+- Shape what is built of rods (`Frame`): anything of rigid rods joined at their ends, as a graph.
+  Its nodes are where rods meet, each named, and welded, bolted to what carries it (a mount), or a
+  pivot (a hinge, held as a weld for now); its rods each run straight from one node to another,
+  each a round tube, its own or the frame's. From these come its length of tube, its mass and
+  where its mass is, whether it is one piece, what is wrong with it (a rod to nowhere, two rods
+  alike, a node no rod meets), and how much it leans on its welds to keep its shape (`slack`, by
+  Maxwell's count of how it could move were its welds pins). `FrameModel` draws any frame, a tube
+  for each rod, a bead at each weld, a clamp at each mount, a boss at each pivot.
+  - **The boxer's own frame** (`Frames.BOXER`), as a real motorcycle's is built: a double cradle of
+    28 mm steel tube, its head tube raked on the forks' line, a twin backbone under the tank out to
+    the seat rails and the tail, two down tubes in front of the cylinders into a cradle under the
+    engine, rising to the swing arm's pivot; struts and stays to brace the back; a tube across at
+    each pair; and the swing arm, its right arm the shaft's heavier housing. 18 nodes, 28 rods,
+    about 11 m of tube and 18 kg. The game draws the boxer on it.
+  - **The sidecar's chassis** (`Sidecar`): a few 38 mm tubes welded into one frame, clamped to the
+    boxer's own tubes at four points, two low struts and two high, so it cannot twist; a flat
+    frame beside the motorcycle, an inner rail and an outer one with a cross tube at each end and
+    a brace across; and its wheel on a stub axle off the rear part of the outer rail, about 1.3 m
+    out and 15 cm ahead of the boxer's back wheel, as a sidecar is set up. Mount it on the right,
+    or on the left (as where traffic keeps left): the same frame, mirrored. Set its wheel along the
+    outer rail, as far as the rail reaches, how far out, and how big: its stub axle and the node
+    it starts from on the rail go with it.
+- Pick a node and move it across (out, for the sidecar), along and up by its sliders; the rods
+  follow. Pick a rod and size its tube, split it in two at a new node, or take it away; or join the
+  node picked to another with a new rod. Its figures are read out as it changes, and anything
+  wrong with it.
+- Test-ride the boxer with its sidecar (`Outfit`): how hard it can be turned before it tips. Its
+  weight is a few masses (the motorcycle and its rider, the sidecar's tubes where its frame has
+  its mass, the sidecar's body and wheel, a passenger if any), together out toward the sidecar
+  and some way up. It stands on a triangle, its three wheels; going round, the turn pulls its
+  weight outward, and it tips when that pull, against gravity, carries its weight's line past an
+  edge: as far as its weight is from that edge, over how high it is, times gravity. Turning toward
+  the sidecar, it goes over the motorcycle's own wheels, and soon: solo, at about 0.22 g, the chair
+  lifting first ("flying the chair"); turning away, over the line from the motorcycle's front wheel
+  to the sidecar's, at more than a g, all but never. A table worked out once from that gives, for
+  every 10 km/h, the sharpest it may be steered either way (under two degrees toward the sidecar at
+  40 km/h); as it goes, the steer is held against the table: steady; past 85% of it, a wheel
+  lifting (the chair, or the motorcycle's back wheel); past it for a moment, over on its side,
+  until it is righted. A passenger in the sidecar, as weight out over it, lets it be turned toward
+  the sidecar nearly twice as hard. Speed, steer (finer near the middle, where at speed it
+  matters) and passenger sliders; the outfit shown lifting and going over, about the edge it goes
+  over; the table and the figures read out.
+- Keep it: save what is being shaped as text, a line a node and a line a rod, rods by their nodes'
+  names, to read and edit by hand, and open it again (`Frame.text`, `Frame.read`; a sidecar's
+  adds its side, what it carries and its wheel).
+
+`-Dmodel.pick=van` (or the start of any vehicle's name, or `sidecar`) picks what is on show to start
+with, `-Dmodel.side=left` mounts the sidecar on the left, `-Dmodel.shape=frame` shapes the
+motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where it is seen from;
+`-Dmodel.asgame=true` has the game draw even the frames being shaped, as it has them;
+`-Dride.speed=60` (km/h), `-Dride.steer=2` (degrees, right when positive) and `-Dride.passenger=80`
+(kg) where the test ride starts; `-Dmodel.over=true` lays the game's outfit over on its side.
 
 ## Unattended runs
 

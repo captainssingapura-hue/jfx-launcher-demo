@@ -15,6 +15,7 @@ import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sound.Clip;
 import com.example.fxsuite.avatar.sound.Cues;
 import com.example.fxsuite.avatar.sound.Engine;
+import com.example.fxsuite.avatar.sound.GunStyle;
 import com.example.fxsuite.avatar.sound.Profiles;
 import com.example.fxsuite.avatar.sound.Sound;
 import com.example.fxsuite.avatar.view.Chase;
@@ -285,5 +286,59 @@ class HearingTest {
         assertEquals(1, speakers.streams.size(), "the Arcade makes no engine so");
         assertTrue(looping("engine-v8") > 0, "it loops its chip's V8");
         assertEquals(0, looping("engine-v6"));
+    }
+
+    private static final Vec3 MUZZLE = new Vec3(0, -120, 80);
+
+    /** Standing still, {@code time} seconds in: how long has passed is what lets a gun ring out. */
+    private static Avatar at(final double time) {
+        return new Avatar(new Body(Vec3.ZERO, 0, 0, 0, 0, 0, 0, false, true, 0, time), false);
+    }
+
+    private void gunning(final double time, final Cues.Gunner gunner) {
+        hearing.hear(at(time), List.of(), chase, List.of(), gunner);
+    }
+
+    @Test
+    void aGunMannedIsMadeAsItFiresFromItsMuzzleAndRingsOutOnceLetGo() {
+        final Cues.Gunner firing = new Cues.Gunner(1, true, MUZZLE, 1, Weapon.HEAVY_GATLING);
+        gunning(0, firing);
+        gunning(0.1, firing);
+        assertEquals(1, speakers.streams.size(), "one gun, one stream, kept");
+        final Notebook.Streamed stream = speakers.streams.getFirst();
+        assertEquals(MUZZLE, stream.at);
+        assertTrue(stream.gain > 0.5);
+        final float[] made = new float[Clip.RATE / 2];
+        stream.source.fill(made, made.length);
+        double sum = 0;
+        for (final float s : made) {
+            sum += s * s;
+        }
+        assertTrue(Math.sqrt(sum / made.length) > 0.02, "firing, heard");
+        assertEquals(0, looping("gatling"), "not its loops as well");
+        // let go, it runs down and rings out before it stops
+        gunning(1, null);
+        assertFalse(stream.stopped, "still ringing out");
+        gunning(6, null);
+        assertTrue(stream.stopped, "rung out, stopped");
+        // another gun, another stream
+        gunning(6.1, new Cues.Gunner(1, true, MUZZLE, 0.55, Weapon.GIANT_GATLING));
+        assertEquals(2, speakers.streams.size());
+    }
+
+    @Test
+    void theGunsMixIsChosenAndTheGunFiringTakesItAtOnce() {
+        hearing.gunStyle(GunStyle.REALISTIC);
+        assertEquals(GunStyle.REALISTIC, hearing.gunStyle());
+        gunning(0, new Cues.Gunner(1, true, MUZZLE, 1, Weapon.HEAVY_GATLING));
+        hearing.gunStyle(GunStyle.CINEMATIC);
+        assertEquals(GunStyle.CINEMATIC, hearing.gunStyle());
+        assertTrue(hearing.gunHeard());
+        // and the Arcade loops its gun, as ever
+        hearing.nextProfile();
+        assertTrue(speakers.streams.getFirst().stopped);
+        gunning(0.1, new Cues.Gunner(1, true, MUZZLE, 1, Weapon.HEAVY_GATLING));
+        assertFalse(hearing.gunHeard());
+        assertTrue(looping("gatling") > 0, "its chip's gun");
     }
 }

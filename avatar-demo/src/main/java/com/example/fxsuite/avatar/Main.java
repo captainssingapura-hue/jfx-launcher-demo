@@ -1,6 +1,8 @@
 package com.example.fxsuite.avatar;
 
 import com.example.fxsuite.avatar.bench.EngineBench;
+import com.example.fxsuite.avatar.bench.GunBench;
+import com.example.fxsuite.avatar.bench.ModelBench;
 import com.example.fxsuite.avatar.bench.Render;
 import com.example.fxsuite.avatar.bench.SoundBench;
 
@@ -11,7 +13,7 @@ import java.util.Arrays;
  * fails with "JavaFX runtime components are missing", so the jar starts here.
  *
  * <p>With no arguments, the demo. {@code --bench} opens the sound bench instead,
- * {@code --engine} the engine bench, and
+ * {@code --engine} the engine bench, {@code --guns} the gun bench, {@code --models} the vehicle bench, and
  * {@code --sounds [folder]} writes every sound to WAV files, with no window at all.
  */
 public final class Main {
@@ -22,6 +24,10 @@ public final class Main {
             javafx.application.Application.launch(SoundBench.class, rest);
         } else if (args.length > 0 && args[0].equals("--engine")) {
             javafx.application.Application.launch(EngineBench.class, rest);
+        } else if (args.length > 0 && args[0].equals("--guns")) {
+            javafx.application.Application.launch(GunBench.class, rest);
+        } else if (args.length > 0 && args[0].equals("--models")) {
+            javafx.application.Application.launch(ModelBench.class, rest);
         } else if (args.length > 0 && args[0].equals("--sounds")) {
             Render.main(rest);
         } else {

@@ -75,7 +75,7 @@ class TrackTest {
                 "and all of it within the world");
         // every land vehicle on pit road, heading north, the way they race
         final List<Lift> lifts = Play.start(Demo.TRACK, false).lifts();
-        assertEquals(7, lifts.size());
+        assertEquals(Course.CHASSES.size() + 1, lifts.size(), "each kind, the car twice (roadster, van)");
         for (final Lift lift : lifts) {
             assertTrue(lift.craft() instanceof Course.Chassis);
             assertEquals(0, lift.place().yaw(), 1e-9);

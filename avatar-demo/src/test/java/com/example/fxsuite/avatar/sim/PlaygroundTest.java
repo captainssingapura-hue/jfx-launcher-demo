@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The playground, with everything in it: besides the course, its targets, airships, stall and
- * flyovers, the four vehicles parked either side of the street, the bunker and the gunship, and an
+ * flyovers, the four vehicles parked either side of the street, the bunker, a mounted gun on each pillar, and an
  * airship moored to be flown. Each in the open, clear of everything else, and each to be used.
  */
 class PlaygroundTest {
@@ -22,17 +22,20 @@ class PlaygroundTest {
             .mapToObj(i -> start.damage().piece(i)).toList();
 
     @Test
-    void theVehiclesTheBunkerTheGunshipAndAnAirshipToFlyAreAllThere() {
+    void theVehiclesTheBunkerTheMountedGunsAndAnAirshipToFlyAreAllThere() {
         // the cars by their bodies, the two-wheelers by their chassis
         final Set<String> vehicles = start.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis)
                 .map(l -> pieces.get(l.piece()).body() != null ? pieces.get(l.piece()).body().name()
                         : ((Course.Chassis) l.craft()).name())
                 .collect(Collectors.toSet());
-        assertEquals(Set.of("roadster", "van", "pickup", "truck", "scooter", "sport bike", "cruiser"), vehicles);
+        assertEquals(Set.of("roadster", "van", "pickup", "truck", "scooter", "sport bike", "cruiser", "boxer",
+                        "boxer with sidecar", "boxer with ice cream cart"),
+                vehicles);
         assertEquals(1, pieces.stream().filter(p -> p.kind() == Course.Kind.BUNKER).count());
-        assertTrue(start.lifts().stream().anyMatch(l -> Course.GUNSHIP.equals(l.deck())), "the gunship");
+        assertEquals(pieces.stream().filter(p -> p.kind() == Course.Kind.PILLAR).count(),
+                start.turrets().stream().filter(t -> t.mount() == Course.MOUNTED_GUN).count(), "one on each pillar");
         assertTrue(start.lifts().stream().anyMatch(l -> l.craft() instanceof Course.Ship), "an airship to fly");
-        assertEquals(Set.of(Course.BUNKER_GUN, Course.GUNSHIP_GUN, Course.CAR_GUN, Course.REAR_GUN),
+        assertEquals(Set.of(Course.BUNKER_GUN, Course.MOUNTED_GUN, Course.CAR_GUN, Course.REAR_GUN, Course.AIRSHIP_GUN),
                 start.turrets().stream().map(Turret::mount).collect(Collectors.toSet()), "a gun on each that has one");
     }
 

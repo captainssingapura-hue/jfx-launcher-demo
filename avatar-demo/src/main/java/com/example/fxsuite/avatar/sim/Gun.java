@@ -47,6 +47,17 @@ public record Gun(Weapon by, double interval, double spread, double spinUp, doub
      * speed, which takes twice as long; nearly steady on its mount; and reaching further.
      */
     public static final Gun HEAVY_GATLING = new Gun(Weapon.HEAVY_GATLING, 60.0 / 1800, 0.35, 1.2, 2.5, false, 40_000);
+    /**
+     * The giant Gatling gun, under an airship: 1200 rounds a minute, its great barrels slower still
+     * to spin up and to run down; steady in its turret; and reaching from high over the ground.
+     */
+    public static final Gun GIANT_GATLING = new Gun(Weapon.GIANT_GATLING, 60.0 / 1200, 0.3, 1.8, 3.5, false, 60_000);
+    /**
+     * The rapid giant Gatling gun, under the airship: the giant one's shells, 3900 rounds a minute,
+     * its seven barrels spun up in little more than half a second and run down in a second and a
+     * half; a little less steady for it.
+     */
+    public static final Gun RAPID_GATLING = new Gun(Weapon.RAPID_GATLING, 60.0 / 3900, 0.4, 0.55, 1.6, false, 60_000);
 
     /** Whether its barrels spin up before it fires. */
     public boolean spins() {

@@ -16,7 +16,7 @@ public enum Demo {
             + " the bunker, the gunship, and an airship to fly.",
             Course.START_YAW),
     /** A flying platform, open: the avatar rides it, on its deck at the console. */
-    PLATFORM("Flying platform", "A platform to fly like a magic carpet, among a few pillars and gates.", 0),
+    PLATFORM("Flying platform", "A platform to fly like a magic carpet, among a few pillars and gates; and a stand-up on another.", 0),
     /** An airship, closed: the avatar goes aboard at the gondola, and is seen no more until it steps out. */
     AIRSHIP("Airship", "An airship moored by the start, to board, fly, and bomb a yard of crates with.", 0),
     /** Ramps: a flyover across the way ahead, to run up, over and under; and a ramp to leap off. */

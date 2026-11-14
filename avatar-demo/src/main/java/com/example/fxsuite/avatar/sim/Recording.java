@@ -24,9 +24,10 @@ import java.util.TreeMap;
  * rules 1                         the rules the world was stepped by ({@link Play#RULES})
  * start pack=false demo=AIRSHIP   where it started ({@link Play#start}): with the pack on or not, in
  *                                 which demo (the playground if it does not say)
- * 61 1.0 0.0 0.0 0.0 true false 0.0 JUMP DRAW:RIFLES
+ * 61 1.0 0.0 0.0 0.0 true false 0.0 false JUMP DRAW:RIFLES
  *                                 from step 61: ahead, sideways, turn, lift, run, trigger, aim,
- *                                 and what was done once, in that step only
+ *                                 the other button (which a line kept before there was one leaves
+ *                                 out), and what was done once, in that step only
  * check 120 8c1f03d2a5b6e7f9      the world after step 120, as its {@link Play#checksum}
  * end 678                         the last step
  * </pre>
@@ -267,7 +268,7 @@ public final class Recording {
         // Double.toString reads back to the same bits
         line.append(c.forward()).append(' ').append(c.sideways()).append(' ').append(c.turn()).append(' ')
                 .append(c.lift()).append(' ').append(c.run()).append(' ').append(c.trigger()).append(' ')
-                .append(c.aim());
+                .append(c.aim()).append(' ').append(c.bomb());
         for (final Action action : c.actions()) {
             line.append(' ').append(name(action));
         }
@@ -278,12 +279,15 @@ public final class Recording {
         if (words.length < 8) {
             throw new IllegalArgumentException("a step's line has its seven inputs");
         }
+        // the other button comes after the seven; a recording made before there was one has none
+        final boolean other = words.length > 8 && (words[8].equals("true") || words[8].equals("false"));
         final List<Action> actions = new ArrayList<>();
-        for (int i = 8; i < words.length; i++) {
+        for (int i = other ? 9 : 8; i < words.length; i++) {
             actions.add(action(words[i]));
         }
         return new Controls(Double.parseDouble(words[1]), Double.parseDouble(words[2]), Double.parseDouble(words[3]),
-                Double.parseDouble(words[4]), bool(words[5]), bool(words[6]), Double.parseDouble(words[7]), actions);
+                Double.parseDouble(words[4]), bool(words[5]), bool(words[6]), Double.parseDouble(words[7]), actions,
+                other && bool(words[8]));
     }
 
     private static boolean bool(final String word) {
@@ -300,6 +304,7 @@ public final class Recording {
             case Action.Fly f -> "FLY";
             case Action.Pack p -> "PACK";
             case Action.Take t -> "TAKE";
+            case Action.Gun g -> "GUN";
             case Action.Draw d -> "DRAW:" + d.weapon().name();
         };
     }
@@ -310,6 +315,7 @@ public final class Recording {
             case "FLY" -> Action.FLY;
             case "PACK" -> Action.PACK;
             case "TAKE" -> Action.TAKE;
+            case "GUN" -> Action.GUN;
             default -> {
                 if (!name.startsWith("DRAW:")) {
                     throw new IllegalArgumentException("no such action: " + name);

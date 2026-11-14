@@ -38,6 +38,12 @@ public final class Robot implements Profile {
         return true;
     }
 
+    /** So are its Gatling guns, as they turn and fire. */
+    @Override
+    public boolean gunsAsTheyFire() {
+        return true;
+    }
+
     @Override
     public String title() {
         return "Robot";

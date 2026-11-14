@@ -126,7 +126,7 @@ public record Avatar(Body body, boolean wearingPack, double sweep, Arms arms) {
                 yield new Stepped(new Avatar(body, wearingPack, sweep, Arms.holding(now)), List.of(new Event.Drew(now)));
             }
             // the controls are the world's to hand over ({@link Play}), not the avatar's own
-            case Action.Take _ -> Stepped.still(this);
+            case Action.Take _, Action.Gun _ -> Stepped.still(this);
         };
     }
 

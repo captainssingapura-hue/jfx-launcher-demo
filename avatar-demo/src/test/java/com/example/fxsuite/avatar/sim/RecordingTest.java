@@ -94,6 +94,19 @@ class RecordingTest {
     }
 
     @Test
+    void theOtherButtonIsKeptAndALineKeptBeforeThereWasOneStillReads() throws IOException {
+        final Controls bombing = new Controls(0, 0, 0, 0, true, false, 0, List.of(Action.JUMP, Action.GUN), true);
+        final StringWriter out = new StringWriter();
+        final Recording.Recorder recorder = new Recording.Recorder(out, false);
+        recorder.step(1, bombing, Play.start(false));
+        recorder.close();
+        assertEquals(bombing, read(out.toString()).controls(1));
+        // written before there was another button: straight from the aim to what was done once
+        final Recording old = read("avatar-inputs 1\nrules 1\nstart pack=false\n1 1.0 0.0 0.0 0.0 true false 0.0 JUMP\n");
+        assertEquals(new Controls(1, 0, 0, 0, true, false, 0, List.of(Action.JUMP)), old.controls(1));
+    }
+
+    @Test
     void aReplayThatGoesAstrayIsCaughtAtTheNextChecksum() throws IOException {
         // the first line says the avatar walked from step 1, which it did not
         final String text = keep(BUSY).text().replaceFirst("\n1 0\\.0 ", "\n1 1.0 ");

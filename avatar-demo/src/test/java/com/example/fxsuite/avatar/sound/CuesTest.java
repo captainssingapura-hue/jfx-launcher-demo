@@ -179,13 +179,31 @@ class CuesTest {
             assertTrue(played(gun).stream().noneMatch(s -> s == Sound.RIFLE_SHOT), "no shot a round");
         }
         gun = of(gun.avatar().step(new Controls(0, 0, 0, 0, false, true), 1.0 / 60, Obstacles.NONE));
-        final Cues.Heard heard = of(gun, PROFILE);
-        for (final Cues.Hum hum : heard.hums()) {
+        // a profile that loops it: its spin and its roar
+        final Cues.Heard looped = of(gun, Profiles.ARCADE);
+        assertEquals(null, looped.gun());
+        for (final Cues.Hum hum : looped.hums()) {
             if (hum.loop() == Sound.GATLING_SPIN || hum.loop() == Sound.GATLING_FIRE) {
                 assertTrue(hum.level().gain() > 0, hum.loop() + " sounding, a second in");
                 assertEquals(Arms.gatlingMuzzle(gun.avatar().body()), hum.at(), "from the gun");
             }
         }
+        // one that makes it as it fires: the gun itself, firing, from its muzzle, in place of its loops
+        final Cues.Heard made = of(gun, PROFILE);
+        assertEquals(new Cues.Gunfire(Gatling.HAND, 1, true, Arms.gatlingMuzzle(gun.avatar().body())), made.gun());
+        assertTrue(made.hums().stream().filter(h -> h.loop() == Sound.GATLING_SPIN || h.loop() == Sound.GATLING_FIRE)
+                .allMatch(h -> h.level().gain() == 0), "its loops quiet");
+    }
+
+    @Test
+    void aGunOnAMountIsMadeAsItFiresTheGunItIs() {
+        final Vec3 muzzle = new Vec3(0, -4000, 300);
+        final Cues.Heard heard = Cues.of(new Avatar(Body.standing(Vec3.ZERO, 0), false), List.of(), PROFILE, List.of(),
+                new Cues.Gunner(0.5, false, muzzle, 0.55, Weapon.GIANT_GATLING));
+        assertEquals(new Cues.Gunfire(Gatling.GIANT, 0.5, false, muzzle), heard.gun());
+        assertEquals(40, heard.gun().height(), 1e-9, "forty metres over the ground");
+        assertEquals(null, Cues.of(new Avatar(Body.standing(Vec3.ZERO, 0), false), List.of(), PROFILE).gun(),
+                "no gun in hand or manned, none heard");
     }
 
     @Test

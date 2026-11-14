@@ -158,4 +158,25 @@ class EngineVoiceTest {
         assertEquals(Engine.THUMPER, Engine.called("thumper", null));
         assertEquals(Engine.V8, Engine.called("no such", Engine.V8));
     }
+
+    @Test
+    void theBoxerFiresEvenlyATurnApartIntoAPipeEachSideDeepAndLazy() {
+        final Engine boxer = Engine.BOXER;
+        assertEquals(2, boxer.cylinders());
+        assertTrue(boxer.twoBanks(), "a pipe down each side");
+        assertEquals(50, boxer.firingRate(3000), 1e-9, "a turn apart: as often as the crank turns");
+        assertTrue(boxer.pipes()[0] < Engine.PARALLEL_TWIN.pipes()[0], "deeper than the classic twin");
+        assertTrue(boxer.redline() < Engine.V_TWIN.redline() + 500 && boxer.climb() < Engine.V_TWIN.climb(),
+                "low-revving, and lazier to rev than the V-twin");
+        assertEquals(boxer, Engine.called("boxer", null));
+        assertEquals(Vehicle.BOXER_CRUISER, Vehicle.of(com.example.fxsuite.avatar.sim.Course.BOXER));
+        // and it sounds: settled at 3,000, within full scale, and heard
+        final float[] made = settled(boxer, 3000, 0.5, 0.3, 1);
+        double sum = 0;
+        for (final float s : made) {
+            assertTrue(Math.abs(s) <= 1);
+            sum += s * s;
+        }
+        assertTrue(Math.sqrt(sum / made.length) > 0.02);
+    }
 }

@@ -40,7 +40,7 @@ class StallTest {
         final Play start = Play.start(false);
         final double deck = start.lifts().get(1).place().height();
         // the stall's: not the crates, loose about the course
-        final List<Prop> props = start.props().stream().filter(p -> !(p.thing() instanceof Crate)).toList();
+        final List<Prop> props = start.props().stream().filter(p -> !(p.thing() instanceof Crate) && p.thing() != Furniture.BOARD).toList();
         assertEquals(28, props.size(), "a table, a stool, a scooter, 22 watermelons and 3 pineapples");
         assertEquals(1, props.stream().filter(p -> p.thing() == Furniture.STOOL).count());
         assertEquals(1, props.stream().filter(p -> p.thing() == Furniture.SCOOTER).count());
@@ -87,8 +87,8 @@ class StallTest {
         final Place now = play.lifts().get(1).place();
         assertTrue(now.height() > barge.place().height() + 300, "it climbed");
         for (int k = 0; k < start.props().size(); k++) {
-            if (start.props().get(k).thing() instanceof Crate) {
-                continue;  // the crates stand about the course, not on the barge
+            if (start.props().get(k).thing() instanceof Crate || start.props().get(k).thing() == Furniture.BOARD) {
+                continue;  // the crates stand about the course, and the board on its own platform, not on the barge
             }
             final Place was = start.props().get(k).place();
             final Vec3 expected = barge.place().carry(new Vec3(was.x(), -was.height(), was.z()), now);

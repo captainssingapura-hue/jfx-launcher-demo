@@ -26,6 +26,7 @@ public final class Keys {
             case "F" -> Action.FLY;
             case "J" -> Action.PACK;
             case "T" -> Action.TAKE;
+            case "G" -> Action.GUN;
             case "DIGIT1" -> new Action.Draw(Weapon.RIFLES);
             case "DIGIT2" -> new Action.Draw(Weapon.GLAIVE);
             case "DIGIT3" -> new Action.Draw(Weapon.GATLING);
@@ -39,6 +40,12 @@ public final class Keys {
      */
     public static Controls controls(final Set<String> held, final List<String> pressed, final double turn,
                                     final boolean trigger, final double aim) {
+        return controls(held, pressed, turn, trigger, aim, false);
+    }
+
+    /** As {@link #controls(Set, List, double, boolean, double)}, the other button held ({@code bomb}), or not. */
+    public static Controls controls(final Set<String> held, final List<String> pressed, final double turn,
+                                    final boolean trigger, final double aim, final boolean bomb) {
         return new Controls(
                 axis(held, "W") - axis(held, "S"),
                 axis(held, "D") - axis(held, "A"),
@@ -48,7 +55,8 @@ public final class Keys {
                 !held.contains("SHIFT"),
                 trigger,
                 aim,
-                pressed.stream().map(Keys::action).flatMap(Optional::stream).toList());
+                pressed.stream().map(Keys::action).flatMap(Optional::stream).toList(),
+                bomb);
     }
 
     private static double axis(final Set<String> held, final String key) {

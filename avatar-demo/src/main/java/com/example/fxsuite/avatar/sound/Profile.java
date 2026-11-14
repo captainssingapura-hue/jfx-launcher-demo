@@ -67,6 +67,15 @@ public interface Profile {
         return false;
     }
 
+    /**
+     * Whether it makes the Gatling gun being fired as it turns and fires ({@link GatlingVoice}),
+     * each shot as the gun fires it, rather than looping its spin and its roar. Off, for a profile
+     * whose guns keep a character of their own: the Arcade's chip.
+     */
+    default boolean gunsAsTheyFire() {
+        return false;
+    }
+
     /** Speed as a share of full boost, from 0, capped at 1.5: what the wind follows. */
     static double pace(final double speed) {
         return Num.clamp(speed / Body.BOOST, 0, 1.5);

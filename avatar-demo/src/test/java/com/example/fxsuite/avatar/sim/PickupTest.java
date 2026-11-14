@@ -41,8 +41,8 @@ class PickupTest {
         final Lift pickup = pickup(start);
         final Play at = new Play(new Avatar(Body.standing(pickup.pilot(), 0), false), start.damage(), start.sky(),
                 start.lifts(), start.people(), start.props(), start.turrets());
-        assertTrue(at.gunWithinReach().isPresent(), "its gun is taken at its wheel");
-        assertTrue(at.withinReach().isEmpty(), "and its wheel with it, not on its own");
+        assertTrue(at.withinReach().isPresent(), "taken at its wheel, as any vehicle is");
+        assertTrue(at.gunWithinReach().isEmpty(), "and its gun with it, not on its own");
         return run(at, TAKE, Clock.STEP, events);
     }
 
@@ -118,13 +118,35 @@ class PickupTest {
     }
 
     @Test
+    void itsGunGivenUpItIsDrivenAsAnyCarAndTakenBackItIsAimedAgain() {
+        final List<Event> events = new ArrayList<>();
+        Play play = atTheWheel(events);
+        play = run(play, Controls.doing(Action.GUN), Clock.STEP, events);
+        assertFalse(gun(play).held(), "given up");
+        assertTrue(pickup(play).held(), "still driven");
+        // the mouse leaves the gun be, and the trigger fires nothing
+        final double gunYaw = gun(play).yaw();
+        events.clear();
+        play = run(play, new Controls(0, 0, 1, 0, true, true, 0), 1, events);
+        assertEquals(gunYaw, gun(play).yaw(), 1e-9);
+        assertTrue(events.stream().noneMatch(e -> e instanceof Event.Fired));
+        // taken back, the mouse aims it
+        play = run(play, Controls.doing(Action.GUN), Clock.STEP, events);
+        assertTrue(gun(play).held());
+        play = run(play, new Controls(0, 0, 1, 0, true, false, 0), 1, events);
+        assertTrue(Math.abs(gun(play).yaw() - gunYaw) > 60, "swung round");
+    }
+
+    @Test
     void letGoItRollsToAStop() {
         final List<Event> events = new ArrayList<>();
         Play play = atTheWheel(events);
         play = run(play, new Controls(1, 0, 0, 0, true, false, 0), 1.5, events);
         events.clear();
         play = run(play, TAKE, Clock.STEP, events);
-        assertEquals(List.of(new Event.LetGo(pickup(play).piece())), events);
+        // out beside its door, as from any vehicle, stepping down to the ground
+        assertEquals(List.of(new Event.LetGo(pickup(play).piece())),
+                events.stream().filter(e -> !(e instanceof Event.Landed)).toList());
         assertFalse(gun(play).held());
         assertFalse(pickup(play).held());
         play = run(play, Controls.NONE, 8, events);

@@ -22,7 +22,8 @@ class VehicleTest {
     private static final Controls ENGINE = Controls.doing(Action.FLY);
     private static final Controls UP = new Controls(0, 0, 0, 1, true, false, 0);
     private static final Controls AHEAD = new Controls(1, 0, 0, 0, true, false, 0);
-    private static final Controls DROP = new Controls(0, 0, 0, 0, true, true, 0);
+    /** The other button: aboard the airship, whose trigger is its gun's, it lets the bombs go. */
+    private static final Controls DROP = new Controls(0, 0, 0, 0, true, false, 0).bombing(true);
 
     private static Play run(Play play, final Controls controls, final double seconds, final List<Event> events) {
         for (long step = Math.round(seconds / Clock.STEP); step > 0; step--) {
@@ -55,7 +56,7 @@ class VehicleTest {
             assertEquals(demo.startYaw(), play.avatar().body().yaw(), 1e-9);
         }
         final List<Lift> platform = Play.start(Demo.PLATFORM, false).lifts();
-        assertEquals(1, platform.size());
+        assertEquals(List.of(Course.CARPET, Course.MEETING), platform.stream().map(Lift::deck).toList(), "and the stand-up's");
         assertFalse(platform.getFirst().craft().closed(), "a platform is open");
         final List<Lift> airship = Play.start(Demo.AIRSHIP, false).lifts();
         assertEquals(1, airship.size());
@@ -70,6 +71,7 @@ class VehicleTest {
         final Course.Piece ship = play.damage().piece(play.lifts().getFirst().piece());
         assertTrue(ship.block().bottom() > Body.TALL, "the gondola clears the avatar's head");
         assertTrue(play.withinReach().isPresent());
+        assertTrue(play.gunWithinReach().isEmpty(), "its gun taken with it, not on its own");
         assertFalse(Play.start(Demo.AIRSHIP, false).withinReach().isPresent(), "not from the start");
     }
 
@@ -127,18 +129,19 @@ class VehicleTest {
         }
         final Damage broken = play.damage().took(blows).damage();
         assertTrue(broken.broken(piece));
-        play = new Play(play.avatar(), broken, play.sky(), play.lifts(), play.people(), play.props());
+        play = new Play(play.avatar(), broken, play.sky(), play.lifts(), play.people(), play.props(), play.turrets());
         events.clear();
         play = once(play, Controls.NONE, events);
         assertTrue(events.contains(new Event.LetGo(piece)));
         assertFalse(play.aboard().isPresent());
         assertFalse(play.withinReach().isPresent(), "a wreck is not to be flown");
+        assertFalse(play.gunWithinReach().isPresent(), "nor its gun manned");
         play = run(play, Controls.NONE, 3, events);
         assertTrue(play.avatar().body().grounded(), "fallen to the ground");
     }
 
     @Test
-    void aloftTheTriggerDropsItsBombsOneARackApartUntilTheBayIsEmpty() {
+    void aloftTheOtherButtonDropsItsBombsOneARackApartUntilTheBayIsEmpty() {
         final List<Event> events = new ArrayList<>();
         Play play = once(underTheHatch(), TAKE, events);
         assertEquals(Course.SHIP.bombs(), play.lifts().getFirst().bombs(), "a full bay");
@@ -217,7 +220,10 @@ class VehicleTest {
         final Lift centred = new Lift(ship.piece(), Course.SHIP,
                 new Place(2 * box.x() - bay.x(), 2 * box.z() - bay.z(), box.top() + 1000, 0), 0, 0, 0, true, true);
         Play play = new Play(new Avatar(Body.standing(centred.at(Course.SHIP.cabin()), 0), false), start.damage(),
-                start.sky(), List.of(centred), start.people(), start.props());
+                start.sky(), List.of(centred), start.people(), start.props(),
+                // its gun manned, as it is from inside: the airship is flown by its gunner
+                start.turrets().stream().map(t -> t.host() == ship.piece() ? t.carried(centred.place()).held(true) : t)
+                        .toList());
         final List<Event> events = new ArrayList<>();
         play = run(play, DROP, 3, events);
         play = run(play, Controls.NONE, 3, events);

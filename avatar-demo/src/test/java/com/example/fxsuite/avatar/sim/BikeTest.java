@@ -96,7 +96,7 @@ class BikeTest {
         for (final Demo demo : new Demo[] {Demo.FLYOVER, Demo.PLAYGROUND}) {
             final List<Course.Chassis> found = new ArrayList<>();
             for (final Lift lift : Play.start(demo, false).lifts()) {
-                if (lift.craft() instanceof Course.Chassis chassis && chassis.twoWheels()) {
+                if (lift.craft() instanceof Course.Chassis chassis && chassis.leans()) {
                     found.add(chassis);
                 }
             }

@@ -36,7 +36,7 @@ import java.util.List;
 public record Person(int id, Role role, Body body, double health, boolean sitting) {
 
     /** Who someone is: how they look and how they sit, for the graphics. */
-    public enum Role { STALLHOLDER, CUSTOMER, RIDER }
+    public enum Role { STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER }
 
     /** How much anyone can take: six rifle rounds, or a stroke of the glaive. */
     public static final double TOUGHNESS = 60;

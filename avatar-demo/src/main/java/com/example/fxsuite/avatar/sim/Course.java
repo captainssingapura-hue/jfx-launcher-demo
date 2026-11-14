@@ -482,10 +482,15 @@ public final class Course {
      * two axles, in line, under a narrow frame; {@code width} the width of its handlebars, which
      * stand where a steering wheel would; ridden astride, at {@code driverAcross} 0. It drives as a
      * car does, and is shown leaning into its turns as a two-wheeler must ({@link Lift#lean}).
+     *
+     * <p>And a two-wheeler may have a {@code sidecar} (null for none): then it is a sidecar outfit,
+     * on three wheels. It does not lean; going round too hard toward its sidecar, it tips
+     * ({@link Outfit}). It takes the sidecar's room as well as its own, out on that side, and is got
+     * onto from the other.
      */
     public record Chassis(String name, double width, double length, double ride, double wheelRadius,
                           double wheelWidth, List<Double> axles, double driverAcross, double driverAlong, Drive drive,
-                          boolean twoWheels)
+                          boolean twoWheels, Sidecar sidecar)
             implements Craft {
 
         /** How thick the bed is, and how high the steering wheel stands over it: within reach of a seated driver. */
@@ -500,6 +505,9 @@ public final class Course {
             if (twoWheels && (axles.size() != 2 || driverAcross != 0)) {
                 throw new IllegalArgumentException(name + ": two wheels in line, ridden astride");
             }
+            if (sidecar != null && !twoWheels) {
+                throw new IllegalArgumentException(name + ": a sidecar goes on a motorcycle");
+            }
         }
 
         /** A car's or a truck's: a wheel either side of each axle. */
@@ -508,6 +516,49 @@ public final class Course {
                        final double driverAcross, final double driverAlong, final Drive drive) {
             this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, false);
         }
+
+        /** A car's or a truck's, or a two-wheeler's ({@code twoWheels}), with no sidecar. */
+        public Chassis(final String name, final double width, final double length, final double ride,
+                       final double wheelRadius, final double wheelWidth, final List<Double> axles,
+                       final double driverAcross, final double driverAlong, final Drive drive,
+                       final boolean twoWheels) {
+            this(name, width, length, ride, wheelRadius, wheelWidth, axles, driverAcross, driverAlong, drive, twoWheels,
+                    null);
+        }
+
+        /** Whether it leans into its turns: a two-wheeler does; a sidecar outfit, on three, does not. */
+        public boolean leans() {
+            return twoWheels && sidecar == null;
+        }
+
+        /** How far it reaches to its left (negative) and its right, all told: its sidecar too, out on its side. */
+        public double[] reach() {
+            if (sidecar == null) {
+                return new double[] {-half(), half()};
+            }
+            final double out = sidecar.track() + sidecar.width() / 2;
+            return sidecar.side() == Sidecar.Side.RIGHT ? new double[] {-half(), out} : new double[] {-out, half()};
+        }
+
+        /**
+         * Its sidecar's solid parts, if it has one: its tub, out over its frame, and its wheel; in
+         * its own frame, as its other parts are (up from where it is, its bed's top).
+         */
+        public List<Section> sidecarParts() {
+            if (sidecar == null) {
+                return List.of();
+            }
+            final double side = sidecar.side().sign();
+            final Section body = sidecar.body().solid();
+            return List.of(
+                    new Section(side * body.across(), body.along(), body.up() - ride, body.halfAcross(), body.halfAlong(),
+                            body.halfUp()),
+                    new Section(side * sidecar.track(), sidecar.along(), sidecar.radius() - ride, sidecar.width() / 2,
+                            sidecar.radius(), sidecar.radius()));
+        }
+
+        /** A sidecar's tub, its body, out over its frame (as if on the right; up from the ground). */
+        public static final Section TUB = Sidecar.Body.TUB.solid();
 
         /** The bed, a slab, its top where the vehicle is: a two-wheeler's, its narrow frame. */
         public Section bed() {
@@ -556,13 +607,14 @@ public final class Course {
             return axles.stream().skip(1).mapToDouble(Double::doubleValue).average().orElseThrow();
         }
 
-        /** All of it, and its parts: the bed first, then the steering column, then the wheels. */
+        /** All of it, and its parts: the bed first, then the steering column, then the wheels; then any sidecar's. */
         public Shape shape() {
             final List<Section> parts = new ArrayList<>(List.of(bed(), column()));
             parts.addAll(wheels());
-            final double out = half();
-            return new Shape(new Section(0, 0, (bars() - ride) / 2, out, length / 2, (bars() + ride) / 2),
-                    parts);
+            parts.addAll(sidecarParts());
+            final double[] reach = reach();
+            return new Shape(new Section((reach[0] + reach[1]) / 2, 0, (bars() - ride) / 2, (reach[1] - reach[0]) / 2,
+                    length / 2, (bars() + ride) / 2), parts);
         }
 
         /**
@@ -586,19 +638,32 @@ public final class Course {
             return new Shape(new Section(0, 0, (top - ride) / 2, out, front, (top + ride) / 2), parts);
         }
 
-        /** The chassis a shape was made from ({@link #shape}), with whatever body: known by its bed. */
+        /**
+         * The chassis a shape was made from ({@link #shape}), with whatever body: the one whose own
+         * parts it begins with, the most of them (a motorcycle's are the start of its outfit's).
+         */
         public static Chassis of(final Shape shape) {
-            final Section bed = shape.parts().getFirst();
-            return CHASSES.stream().filter(c -> c.bed().equals(bed)).findFirst().orElseThrow();
+            Chassis best = null;
+            for (final Chassis c : CHASSES) {
+                final List<Section> own = c.shape().parts();
+                if (shape.parts().size() >= own.size() && shape.parts().subList(0, own.size()).equals(own)
+                        && (best == null || own.size() > best.shape().parts().size())) {
+                    best = c;
+                }
+            }
+            if (best == null) {
+                throw new IllegalArgumentException("no chassis made that shape");
+            }
+            return best;
         }
 
         /**
          * Where whoever drives it gets in from, and is let out at: on the ground, beside the
-         * driver's seat, clear of any body it wears.
+         * driver's seat, clear of any body it wears; on an outfit, on the side away from the sidecar.
          */
         @Override
         public Section door() {
-            final double side = driverAcross < 0 ? -1 : 1;
+            final double side = sidecar != null ? -sidecar.side().sign() : driverAcross < 0 ? -1 : 1;
             return new Section(side * (half() + 60), driverAlong, -ride, 0, 0, 0);
         }
 
@@ -606,13 +671,16 @@ public final class Course {
         @Override
         public Section room() {
             final double top = Body.TALL + 30;
-            return new Section(0, 0, (top - ride) / 2, half(), length / 2, (top + ride) / 2);
+            final double[] reach = reach();
+            return new Section((reach[0] + reach[1]) / 2, 0, (top - ride) / 2, (reach[1] - reach[0]) / 2, length / 2,
+                    (top + ride) / 2);
         }
 
         /** It stands on its wheels: the bottom of them. */
         @Override
         public Section footing() {
-            return new Section(0, 0, 1 - ride, half(), length / 2, 1);
+            final double[] reach = reach();
+            return new Section((reach[0] + reach[1]) / 2, 0, 1 - ride, (reach[1] - reach[0]) / 2, length / 2, 1);
         }
 
         /** As fast as it drives; not flown, and its engine is not cut. */
@@ -665,8 +733,29 @@ public final class Course {
      */
     public static final Chassis CRUISER = new Chassis("cruiser", 90, 240, 40, 32, 16, List.of(88.0, -82.0), 0, -30,
             new Drive(5056, 300, 581, 2200, 300, 20, 90, 395), true);
+    /**
+     * A big boxer cruiser's: 2.44 m long, nearly a metre across its cylinders, which stand out to
+     * either side, low and long, its rider sat upright, feet forward; heavy and steady, slow to turn.
+     */
+    public static final Chassis BOXER = new Chassis("boxer", 96, 244, 40, 32, 18, List.of(88.0, -85.0), 0, -32,
+            new Drive(5040, 300, 598, 2200, 300, 20, 90, 425), true);
+    /**
+     * The boxer with its sidecar, as an outfit: the boxer's chassis, its sidecar ({@link Sidecar#BOXER})
+     * clamped to it on its right; on three wheels, so it does not lean, but tips going round too hard
+     * toward the sidecar ({@link Outfit}). Heavier and slower than the boxer alone.
+     */
+    public static final Chassis BOXER_SIDECAR = new Chassis("boxer with sidecar", 96, 244, 40, 32, 18,
+            List.of(88.0, -85.0), 0, -32, new Drive(4470, 300, 589, 2000, 300, 20, 90, 496), true, Sidecar.BOXER);
+    /**
+     * The boxer with an ice cream cart on its sidecar's frame in place of the tub: a freezer, under a
+     * striped umbrella, to sell from. Heavier, and its weight higher, than with the tub: it goes over
+     * otherwise ({@link Outfit}); and slower.
+     */
+    public static final Chassis BOXER_ICE_CREAM = new Chassis("boxer with ice cream cart", 96, 244, 40, 32, 18,
+            List.of(88.0, -85.0), 0, -32, new Drive(4090, 300, 542, 2000, 300, 20, 90, 556), true,
+            Sidecar.BOXER.carrying(Sidecar.Body.ICE_CREAM_CART));
     /** The two-wheelers. */
-    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER);
+    public static final List<Chassis> BIKES = List.of(SCOOTER, SPORT_BIKE, CRUISER, BOXER);
     /**
      * A vehicle's body: the panels on its chassis, which are only seen (the look layer draws them
      * from its {@code name}); to the world, the vehicle is still its chassis, as a whole. What the
@@ -709,7 +798,7 @@ public final class Course {
 
     /** Every chassis there is, to know one by its shape. */
     public static final List<Chassis> CHASSES = List.of(CAR_CHASSIS, TRUCK_CHASSIS, PICKUP_CHASSIS, SCOOTER, SPORT_BIKE,
-            CRUISER);
+            CRUISER, BOXER, BOXER_SIDECAR, BOXER_ICE_CREAM);
 
     /**
      * The car's gun: a heavy Gatling gun, fixed to the right of the driver's seat on a short post,
@@ -731,18 +820,43 @@ public final class Course {
             PICKUP_CHASSIS.door(), PICKUP_CHASSIS.station(), false);
 
     /**
+     * The airship's gun: a rapid giant Gatling gun in a turret slung under the back of its gondola, aft of
+     * the bomb bay so the bombs fall clear of it; all round, 80° down and 10° up, turning 70° a
+     * second at most, and holding its aim on the world as the airship turns. Whoever goes aboard at
+     * the hatch takes it and the airship as one, as the pickup's driver does: the keys fly it, A and D
+     * turning it, the mouse aims the gun, a click fires it, and the other button lets the bombs go.
+     */
+    public static final Mount AIRSHIP_GUN = new Mount(Gun.RAPID_GATLING,
+            new Section(0, GONDOLA.along() - GONDOLA.halfAlong() + 70, GONDOLA.up() - GONDOLA.halfUp() - 45, 0, 0, 0),
+            360, 180, 80, 10, 70, true, true, SHIP.station(), SHIP.cabin(), false);
+
+    /**
      * A gun on a mount ({@link Turret}): which gun ({@link Gun}), where it turns about on what
      * carries it ({@code pivot}, in that's frame, as for a vehicle's parts), how far its muzzle is
      * out from there ({@code barrel}), how far it turns either way ({@code traverse}, degrees; 180
      * for all round), down ({@code depression}) and up ({@code elevation}), how fast it turns at
      * most ({@code slew}, degrees a second), whether it holds its aim on the world as what carries it
      * turns ({@code stabilized}), whether whoever mans it is inside, out of sight ({@code closed}),
-     * where they stand to man it ({@code station}), where they are while they do ({@code seat}), and
-     * whether, held down too long, it gets too hot to fire until it has cooled ({@code overheats}).
+     * where they stand to man it ({@code station}), where they are while they do ({@code seat}),
+     * whether, held down too long, it gets too hot to fire until it has cooled ({@code overheats});
+     * whether the seat turns with the gun, carrying whoever mans it round with it as it aims
+     * ({@code rides}); and how it is raised and lowered: as fast as it turns, as a motor drives it
+     * ({@code ease} 0), or by hand with hydraulics to help, easing smoothly to where it is asked to
+     * point, most of the way there in {@code ease} seconds; and whether it is aimed by the keys
+     * alone ({@code keyed}): A and D turning it round at its slew, W and S raising and lowering
+     * it at {@link Turret#RAISE}, rather than by the mouse.
      */
     public record Mount(Gun gun, Section pivot, double barrel, double traverse, double depression, double elevation,
                         double slew, boolean stabilized, boolean closed, Section station, Section seat,
-                        boolean overheats) {
+                        boolean overheats, boolean rides, double ease, boolean keyed) {
+
+        /** One whose seat stays put, raised and lowered as fast as it turns, aimed by the mouse. */
+        public Mount(final Gun gun, final Section pivot, final double barrel, final double traverse,
+                     final double depression, final double elevation, final double slew, final boolean stabilized,
+                     final boolean closed, final Section station, final Section seat, final boolean overheats) {
+            this(gun, pivot, barrel, traverse, depression, elevation, slew, stabilized, closed, station, seat,
+                    overheats, false, 0, false);
+        }
 
         /**
          * Whether it is fixed: turning neither round nor up and down on what carries it, so it fires
@@ -777,27 +891,28 @@ public final class Course {
             55, 8, 25, 70, false, true, new Section(0, -330, 0, 0, 0, 0), new Section(0, 60, 1, 0, 0, 0), false);
 
     /**
-     * A gunship: a platform a little bigger than the carpet, a heavy Gatling gun on its console.
-     * Whoever mans the gun flies it too ({@link #GUNSHIP_GUN}).
+     * A mounted gun: a heavy Gatling gun on a pedestal, a seat behind it, bolted to the top of
+     * anything solid (the top of each pillar, to begin with). Whoever mans it sits behind it, and
+     * the seat turns with it as it aims, carrying them round. Aimed by the keys alone: A and D, an
+     * electric motor turns it all round, without stops, 60° a second; W and S, it is raised and
+     * lowered by hand, 30° down and 75° up, hydraulics helping, so it eases smoothly to where it is
+     * asked to point. Manned from behind it.
      */
-    public static final Deck GUNSHIP = new Deck(360, 300);
-    /**
-     * The gunship's gun: on a post through its console, firing over its front, all round, 30° down
-     * and 40° up, turning 90° a second at most; and holding its aim on the world as the gunship
-     * turns under it. Manned from behind the console, where the gunner stands in plain sight.
-     */
-    public static final Mount GUNSHIP_GUN = new Mount(Gun.HEAVY_GATLING,
-            new Section(0, GUNSHIP.console().along(), 135, 0, 0, 0), 240, 180, 30, 40, 90, true, false,
-            GUNSHIP.station(), GUNSHIP.station(), false);
+    public static final Mount MOUNTED_GUN = new Mount(Gun.HEAVY_GATLING, new Section(0, 30, 110, 0, 0, 0), 240,
+            180, 30, 75, 60, false, false, new Section(0, -55, 0, 0, 0, 0), new Section(0, -45, 0, 0, 0, 0), false,
+            true, 0.22, true);
 
     /** A small platform for one, to fly about on like a magic carpet; and a broad one, a barge, room for a stall. */
     public static final Deck CARPET = new Deck(300, 240);
     public static final Deck BARGE = new Deck(1000, 600);
+    /** A middling one, a meeting room in the air: room for a team stood round, their board, and whoever flies it. */
+    public static final Deck MEETING = new Deck(640, 520);
     /** Where a platform stands at the start, in open air: heading from the start, and how far; and its deck. */
     private record Berth(double heading, double out, Deck deck) {
     }
 
-    private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE));
+    private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE),
+            new Berth(-100, 2000, MEETING));
     /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
     public static final double LIFT_LOW = 60;
     public static final double LIFT_HIGH = 4500;
@@ -824,13 +939,37 @@ public final class Course {
     }
 
     /**
-     * The people at the fruit stall on the barge: the stallholder on a stool behind the table,
-     * facing the start; a customer before it; and another sat on a scooter parked to one side.
+     * The scrum board on the meeting platform, in its frame: at the back, facing ahead, across the
+     * deck's middle.
      */
-    public static final List<Cast> CAST = List.of(
-            new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, Furniture.STOOL),
-            new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, null),
-            new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, Furniture.SCOOTER));
+    public static final double BOARD_ALONG = -MEETING.depth() / 2 + 40;
+    /** The stand-up on the meeting platform: stood in a ring this big, round this far along the deck. */
+    private static final double RING = 120;
+    private static final double RING_ALONG = -35;
+    /** Where round the ring the developers stand, from ahead; the scrum master at its back, before the board. */
+    private static final double[] DEVELOPERS = {-112, -56, 0, 56, 112};
+    /** Everyone put in the world at the start ({@link #cast}). */
+    public static final List<Cast> CAST = cast();
+
+    /**
+     * The people at the fruit stall on the barge: the stallholder on a stool behind the table,
+     * facing the start; a customer before it; and another sat on a scooter parked to one side. And
+     * on the meeting platform, a stand-up: five developers in a ring, each facing its middle, and
+     * the scrum master at its back, before the board.
+     */
+    private static List<Cast> cast() {
+        final List<Cast> all = new ArrayList<>(List.of(
+                new Cast(Person.Role.STALLHOLDER, BARGE, -30, TABLE.along() + TABLE.halfAlong() + 45, 180, Furniture.STOOL),
+                new Cast(Person.Role.CUSTOMER, BARGE, 45, TABLE.along() - TABLE.halfAlong() - 55, 0, null),
+                new Cast(Person.Role.RIDER, BARGE, -314, TABLE.along() - TABLE.halfAlong() - 82, 30, Furniture.SCOOTER),
+                new Cast(Person.Role.SCRUM_MASTER, MEETING, 0, RING_ALONG - RING, 0, null)));
+        for (final double round : DEVELOPERS) {
+            final Vec3 spot = Num.heading(round).multiply(RING);
+            all.add(new Cast(Person.Role.DEVELOPER, MEETING, spot.x(), RING_ALONG + spot.z(), Num.wrap(round + 180), null));
+        }
+        return List.copyOf(all);
+    }
+
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
@@ -865,6 +1004,15 @@ public final class Course {
         this(Demo.PLAYGROUND);
     }
 
+    /** A world of only {@code these} pieces: a showroom, as the vehicle bench has one vehicle on show. */
+    public static Course of(final List<Piece> these) {
+        return new Course(these);
+    }
+
+    private Course(final List<Piece> these) {
+        pieces.addAll(these);
+    }
+
     /** The world of {@code demo}: the playground, or a simple one round a single vehicle. */
     public Course(final Demo demo) {
         switch (demo) {
@@ -879,11 +1027,15 @@ public final class Course {
 
     /**
      * The flying platform's demo: open ground, a ring of pillars to fly between, a few gates high
-     * up, and the small platform standing just ahead of the start.
+     * up, the small platform standing just ahead of the start, and the meeting platform, its stand-up
+     * under way, off to the left.
      */
     private void platformDemo() {
         scenery(11);
         pieces.add(Piece.moving(CARPET.shape(), new Place(0, 500, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        // and off to the left, the meeting platform, its stand-up under way
+        pieces.add(Piece.moving(MEETING.shape(), new Place(-750, 700, LIFT_LOW, 0), Kind.PLATFORM, 1, null));
+        meeting(pieces.size() - 1);
     }
 
     /**
@@ -921,15 +1073,12 @@ public final class Course {
      */
     /**
      * The guns' demo: a bunker just ahead of the start, its door toward it and its gun facing away,
-     * and a gunship off to the right, a platform with a gun on its console;
-     * over open ground with something to shoot at: rows of crates and of dummies out in front.
-     * Pillars about, as in the vehicles' demos.
+     * and over open ground with something to shoot at: rows of crates and of dummies out in front.
+     * Pillars about, as in the vehicles' demos, a mounted gun on top of each ({@link #MOUNTED_GUN}).
      */
     private void gunsDemo() {
         scenery(23);
         pieces.add(Piece.moving(BUNKER, new Place(0, 700, 0, 0), Kind.BUNKER, 0, null));
-        // and the gunship, off to the right of the start, at its lowest, heading the way the bunker faces
-        pieces.add(Piece.moving(GUNSHIP.shape(), new Place(900, 250, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
         final Random random = new Random(29);
         for (int i = 0; i < 14; i++) {
             final double heading = -45 + 90.0 * i / 13;
@@ -1017,7 +1166,8 @@ public final class Course {
         pieces.add(new Piece(new Block(pit, 0, PIT / 2, half * 0.8, 0, 0, SURFACE), Kind.TRACK, 1));
         final Object[][] parked = {
                 {CAR_CHASSIS, ROADSTER}, {CAR_CHASSIS, VAN}, {PICKUP_CHASSIS, PICKUP_BODY}, {TRUCK_CHASSIS, TRUCK_CAB},
-                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}};
+                {SCOOTER, null}, {SPORT_BIKE, null}, {CRUISER, null}, {BOXER, null}, {BOXER_SIDECAR, null},
+                {BOXER_ICE_CREAM, null}};
         double along = 2400;
         for (int k = 0; k < parked.length; k++) {
             final Chassis chassis = (Chassis) parked[k][0];
@@ -1042,11 +1192,16 @@ public final class Course {
         pieces.add(Piece.vehicle(CAR_CHASSIS, VAN, new Place(-950, 250, CAR_CHASSIS.ride(), 0), 3));
         // and a pickup's, its gun on the back, behind the start
         pieces.add(Piece.vehicle(PICKUP_CHASSIS, PICKUP_BODY, new Place(0, -700, PICKUP_CHASSIS.ride(), 0), 2));
-        // and the two-wheelers beside it: the scooter, the sport bike and the cruiser, each with a clear
+        // and the two-wheelers beside it: the scooter, the sport bike, the cruiser and the boxer, each with a clear
         // way ahead between the cars
         pieces.add(Piece.vehicle(SCOOTER, null, new Place(-700, -700, SCOOTER.ride(), 0), 0));
         pieces.add(Piece.vehicle(SPORT_BIKE, null, new Place(320, -700, SPORT_BIKE.ride(), 0), 0));
         pieces.add(Piece.vehicle(CRUISER, null, new Place(1000, -700, CRUISER.ride(), 0), 0));
+        pieces.add(Piece.vehicle(BOXER, null, new Place(1700, -700, BOXER.ride(), 0), 0));
+        // and the boxer with its sidecar, out on its right
+        pieces.add(Piece.vehicle(BOXER_SIDECAR, null, new Place(2500, -700, BOXER_SIDECAR.ride(), 0), 0));
+        // and the boxer with an ice cream cart for its sidecar, beyond it
+        pieces.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(3300, -700, BOXER_ICE_CREAM.ride(), 0), 0));
         // and crates to shoot, out on the open ground either side of the road
         final Random random = new Random(31);
         for (int i = 0; i < 16; i++) {
@@ -1115,7 +1270,7 @@ public final class Course {
     /**
      * What the playground has of the rest: parked beside the street that runs out behind the start,
      * a roadster and a van on the left of it, a pickup and a truck on the right, all facing the
-     * start; off to the west, a bunker looking out over the field, and a gunship beside it; and off
+     * start; off to the west, a bunker looking out over the field; and off
      * to the east, an airship moored broadside on, to walk in under and fly.
      */
     private static List<Piece> playgroundExtras() {
@@ -1127,8 +1282,10 @@ public final class Course {
         extras.add(Piece.vehicle(SCOOTER, null, new Place(-650, -1500, SCOOTER.ride(), 0), 0));
         extras.add(Piece.vehicle(SPORT_BIKE, null, new Place(650, -1500, SPORT_BIKE.ride(), 0), 0));
         extras.add(Piece.vehicle(CRUISER, null, new Place(-1150, -1500, CRUISER.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER, null, new Place(1150, -1500, BOXER.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER_SIDECAR, null, new Place(1700, -1500, BOXER_SIDECAR.ride(), 0), 0));
+        extras.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(2300, -1500, BOXER_ICE_CREAM.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
-        extras.add(Piece.moving(GUNSHIP.shape(), new Place(-2600, -300, LIFT_LOW, -90), Kind.PLATFORM, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
         return extras;
     }
@@ -1213,7 +1370,7 @@ public final class Course {
 
         // the roads have the ground they run over to themselves: what was scattered there is cleared
         final List<Block> roads = playgroundRoads();
-        // and so do the vehicles parked about it, the bunker and the gunship, and the airship moored to fly
+        // and so do the vehicles parked about it, the bunker, and the airship moored to fly
         final List<Piece> extras = playgroundExtras();
         final List<Block> clear = new ArrayList<>(roads);
         extras.forEach(p -> clear.add(p.block()));
@@ -1249,6 +1406,9 @@ public final class Course {
         for (int i = 0; i < pieces.size(); i++) {
             if (pieces.get(i).kind() == Kind.PLATFORM && Deck.of(pieces.get(i).shape()).equals(BARGE)) {
                 stall(i);
+            }
+            if (pieces.get(i).kind() == Kind.PLATFORM && Deck.of(pieces.get(i).shape()).equals(MEETING)) {
+                meeting(i);
             }
         }
 
@@ -1292,6 +1452,11 @@ public final class Course {
                         new Place(seat.x(), seat.z(), seat.height(), Num.wrap(deck.yaw() + cast.facing())), 0));
             }
         }
+    }
+
+    /** The stand-up's scrum board, on platform {@code meeting}, at its back, facing ahead: loose, going where it goes. */
+    private void meeting(final int meeting) {
+        pieces.add(Piece.loose(Furniture.BOARD, Kind.FURNITURE, on(pieces.get(meeting).place(), 0, BOARD_ALONG, 0), 0));
     }
 
     /** A place {@code across}, {@code along} and {@code up} in the frame of {@code at}, heading as it heads. */

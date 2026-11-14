@@ -71,16 +71,16 @@ class LiftTest {
     }
 
     @Test
-    void thereAreTwoPlatformsAndTheGunshipTheirOwnSizesEachInOpenAir() {
+    void thereAreThreePlatformsTheirOwnSizesEachInOpenAir() {
         final Play start = Play.start(false);
         final List<Lift> decks = start.lifts().stream().filter(l -> l.deck() != null).toList();
-        assertEquals(List.of(Course.CARPET, Course.BARGE, Course.GUNSHIP), decks.stream().map(Lift::deck).toList());
+        assertEquals(List.of(Course.CARPET, Course.BARGE, Course.MEETING), decks.stream().map(Lift::deck).toList());
         for (final Lift lift : decks) {
             assertEquals(Course.LIFT_LOW, lift.place().height());
             assertFalse(lift.held());
-            // what it carries: what rides on it, and the loose things on its deck (all of them are, on the barge)
+            // what it carries: what rides on it, and the loose things on its deck (on the barge and the meeting platform)
             final List<Integer> aboard = new ArrayList<>(start.damage().riding(lift.piece()));
-            if (lift.deck().equals(Course.BARGE)) {
+            if (!lift.deck().equals(Course.CARPET)) {
                 start.props().forEach(p -> aboard.add(p.piece()));
             }
             assertTrue(lift.clear(lift.place(), start.obstacles(), aboard), "nothing in the way where it stands");

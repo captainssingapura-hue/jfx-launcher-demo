@@ -8,6 +8,7 @@ import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sound.Clip;
 import com.example.fxsuite.avatar.sound.Cues;
+import com.example.fxsuite.avatar.sound.GunStyle;
 import com.example.fxsuite.avatar.sound.Profile;
 import com.example.fxsuite.avatar.sound.Profiles;
 import com.example.fxsuite.avatar.sound.Sound;
@@ -41,6 +42,9 @@ public final class Hearing implements AutoCloseable {
     private static final double DUCK_BACK = 0.45;
     /** How loud an engine made as it runs is played. */
     private static final double ENGINE = 1;
+    /** How loud a gun made as it fires is played; and how long it is kept once let go, to run down and ring out. */
+    private static final double GUN = 1;
+    private static final double GUN_LINGER = 4;
 
     private record Key(String profile, Sound sound, int strength, int take) {
     }
@@ -53,6 +57,11 @@ public final class Hearing implements AutoCloseable {
     /** The engine of the vehicle being driven, made as it runs, and its stream; none, null. */
     private EngineStream engine;
     private Speakers.Stream engineOut;
+    /** The Gatling gun in hand or manned, made as it fires, and its stream; none, null. How it is mixed; how long since it was let go. */
+    private GunStream gun;
+    private Speakers.Stream gunOut;
+    private GunStyle gunStyle = GunStyle.fromSettings();
+    private double gunGone;
     private Profile profile;
     private boolean muted;
     /** How far down the loops are pushed, by the latest explosion ({@link Sound#duck}); and when last heard. */
@@ -129,6 +138,63 @@ public final class Hearing implements AutoCloseable {
             loop.place(hum.at());
         }
         running(heard.running());
+        firing(heard.gun(), seconds);
+    }
+
+    /**
+     * The Gatling gun in hand or manned, made as it turns and fires, if the profile makes it so:
+     * started when one is first taken up, another started if another gun is; told each frame what
+     * it is doing, and heard from its muzzle. Put away or let go, it runs down and rings out where
+     * it was, and only then stops.
+     */
+    private void firing(final Cues.Gunfire fire, final double seconds) {
+        if (fire == null) {
+            if (gun != null) {
+                gun.letGo();
+                gunGone += seconds;
+                if (gunGone > GUN_LINGER) {
+                    stopGun();
+                }
+            }
+            return;
+        }
+        gunGone = 0;
+        if (gun == null || !gun.gatling().equals(fire.gatling())) {
+            stopGun();
+            gun = new GunStream(fire.gatling(), gunStyle);
+            gunOut = speakers.stream(gun);
+        }
+        gun.set(fire.spin(), fire.firing(), fire.height());
+        // the gun's own blasts are what push the rest down, not it
+        gunOut.set(GUN * (1 - 0.5 * ducked));
+        gunOut.place(fire.at());
+    }
+
+    private void stopGun() {
+        if (gunOut != null) {
+            gunOut.stop();
+        }
+        gun = null;
+        gunOut = null;
+        gunGone = 0;
+    }
+
+    /** How the Gatling guns made as they fire are mixed. */
+    public GunStyle gunStyle() {
+        return gunStyle;
+    }
+
+    /** Mixed so from here, the gun firing now as well. */
+    public void gunStyle(final GunStyle style) {
+        gunStyle = style;
+        if (gun != null) {
+            gun.style(style);
+        }
+    }
+
+    /** Whether a gun is being made as it fires now: in hand or manned, or still running down. */
+    boolean gunHeard() {
+        return gun != null;
     }
 
     /**
@@ -178,6 +244,7 @@ public final class Hearing implements AutoCloseable {
         loops.values().forEach(Speakers.Loop::stop);
         loops.clear();
         stopEngine();
+        stopGun();
     }
 
     public Profile profile() {
@@ -202,6 +269,7 @@ public final class Hearing implements AutoCloseable {
         loops.values().forEach(Speakers.Loop::stop);
         loops.clear();
         stopEngine();
+        stopGun();
         speakers.close();
     }
 
