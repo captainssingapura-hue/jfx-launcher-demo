@@ -120,6 +120,15 @@ public record Curve(Kind kind, Vec3 control, double fullness, Vec3 from, Vec3 to
         return from == null ? this : new Curve(kind, control, fullness, from.add(by), to.add(by), t0, t1);
     }
 
+    /**
+     * The same, {@code k} times as big about the origin: its points as far again from it, its bow or
+     * rise as deep again; as full, and the same part of its whole.
+     */
+    public Curve scaled(final double k) {
+        return new Curve(kind, control.multiply(k), fullness, from == null ? null : from.multiply(k),
+                to == null ? null : to.multiply(k), t0, t1);
+    }
+
     /** The same, turned {@code degrees} about the upright through the origin, anticlockwise seen from above. */
     public Curve turned(final double degrees) {
         return new Curve(kind, turn(control, degrees), fullness, from == null ? null : turn(from, degrees),

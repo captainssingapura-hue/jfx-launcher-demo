@@ -69,10 +69,22 @@ class TownTest {
     }
 
     @Test
-    void theTownDemoIsItsBuildingsAndTheMotorcycle() {
+    void theTownDemoIsItsBuildingsTheMotorcycleTheStallAndTheStandUp() {
         Course.town(Town::pieces);
         final Play play = Play.start(Demo.TOWN, false);
-        assertEquals(Town.SITES.size() + 1, play.damage().size());
+        final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
+        assertEquals(Town.pieces(), pieces.subList(0, Town.SITES.size() + 1), "the buildings and the motorcycle first");
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft() == Course.BOXER), "the boxer, to ride");
+        assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.BARGE)), "the barge");
+        assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.MEETING)), "the meeting platform");
+        assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.FRUIT), "melons on the stall");
+        assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.FURNITURE), "the table, the stool, the scooter, the scrum board");
+        assertEquals(Course.CAST.size(), play.people().size(), "the stallholder, their customers and the stand-up");
+        // the platforms and their stall clear of every building
+        for (final Course.Piece piece : pieces.subList(Town.SITES.size() + 1, pieces.size())) {
+            for (int k = 0; k < Town.SITES.size(); k++) {
+                assertFalse(pieces.get(k).block().overlaps(piece.block()), piece + " on " + Town.SITES.get(k).name());
+            }
+        }
     }
 }

@@ -1024,8 +1024,21 @@ public final class Course {
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
             case TRACK -> trackDemo();
-            case TOWN -> pieces.addAll(town.get());
+            case TOWN -> townDemo();
         }
+    }
+
+    /**
+     * The town's demo: its buildings and the motorcycle ({@link #town}); and, on the open ground
+     * between the start and the first row, the melon stall on its barge off to one side, and the
+     * meeting platform, its stand-up under way, off to the other, turned so its board faces the start.
+     */
+    private void townDemo() {
+        pieces.addAll(town.get());
+        pieces.add(Piece.moving(BARGE.shape(), new Place(1100, 2600, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        stall(pieces.size() - 1);
+        pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
+        meeting(pieces.size() - 1);
     }
 
     /**

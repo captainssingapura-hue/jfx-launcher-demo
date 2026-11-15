@@ -123,6 +123,23 @@ public record Form(String name, List<Vertex> vertices, List<Edge> edges) {
         }
     }
 
+    /**
+     * The same shape {@code k} times as big every way, about its origin (on the ground, so it still
+     * stands there): every vertex as far again from it, every curve as deep again; named and joined
+     * as it is.
+     */
+    public Form scaled(final double k) {
+        if (!(k > 0) || Double.isInfinite(k)) {
+            throw new IllegalArgumentException("scaled by " + k + ": a building is scaled by something more than nothing");
+        }
+        if (k == 1) {
+            return this;
+        }
+        return new Form(name, vertices.stream().map(v -> new Vertex(v.name(), v.across() * k, v.along() * k, v.up() * k))
+                .toList(), edges.stream().map(e -> new Edge(e.from(), e.to(), e.curve() == null ? null : e.curve().scaled(k)))
+                .toList());
+    }
+
     /** The vertex named {@code named}'s index; -1 if there is none. */
     public int vertex(final String named) {
         for (int v = 0; v < vertices.size(); v++) {

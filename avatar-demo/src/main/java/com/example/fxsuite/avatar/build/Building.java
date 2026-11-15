@@ -206,6 +206,20 @@ public record Building(String name, Form skeleton, List<Surface> surfaces, List<
         return dressed(together(options), palette);
     }
 
+    /**
+     * Dressed as {@code options} say, built in {@code palette}, and then {@code scale} times as big
+     * every way about its origin: the whole of it, its doors, windows and floors with it, as a model
+     * is (to make it bigger and keep its doors a person's height, give it more floors or bays).
+     */
+    public List<Solid> dressed(final List<Option> options, final Palette palette, final double scale) {
+        return Solid.scaled(dressed(options, palette), scale);
+    }
+
+    /** Its skeleton, {@code scale} times as big every way about its origin, as it is dressed so. */
+    public Form skeleton(final double scale) {
+        return skeleton.scaled(scale);
+    }
+
     /** Dressed as {@code option} says, built in {@code palette}: its structure, and each surface's solids. */
     public List<Solid> dressed(final Option option, final Palette asked) {
         final Palette palette = asked.with(option.materials());

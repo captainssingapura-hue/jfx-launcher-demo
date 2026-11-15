@@ -19,19 +19,32 @@ import java.util.function.Supplier;
  * dressed in its own way and its first palette; its solid blocks its parts' boxes (its nave, its
  * tower, its roof; its podium, its shaft), so it is solid where it stands and open between;
  * broken as a whole.
+ *
+ * <p>All of it can be scaled ({@link #scale(double)}): every building so many times as big every
+ * way, its doors and windows with it, and the streets wider, enough to keep them apart and no
+ * nearer the start, but not as much wider: a town built bigger looks it.
  */
 public final class Town {
 
     private Town() {
     }
 
-    /** A site: which building, where, and how it is dressed. */
-    public record Site(String name, Supplier<Building> building, Palette palette, Place place) {
+    /** A site: which building, how it is dressed, and where on the grid (its column, 0 to 2, and its row from the start). */
+    public record Site(String name, Supplier<Building> building, Palette palette, int column, int row) {
     }
 
-    /** Its streets' grid: so far apart, the first row so far ahead. */
+    /** Its streets' grid: so far apart, the first row so far ahead, at its own scale. */
     private static final double APART = 12_000;
     private static final double AHEAD = 8_000;
+    /** How much it may be scaled: from a quarter as big, to twice as big. */
+    public static final double SMALLEST = 0.25;
+    public static final double LARGEST = 2;
+    /**
+     * How much wider the streets are for each time bigger the buildings: less than as much, so a
+     * town built bigger looks it, its buildings no further off for their size; enough to keep them
+     * apart, even twice as big.
+     */
+    private static final double STREETS = 0.75;
 
     /** Its sites, row by row from the start. */
     public static final List<Site> SITES = sites();
@@ -54,24 +67,48 @@ public final class Town {
             final Object[] b = buildings.get(k);
             @SuppressWarnings("unchecked")
             final Supplier<Building> make = (Supplier<Building>) b[1];
-            final double x = (k % 3 - 1) * APART;
-            final double z = AHEAD + (k / 3) * APART;
-            // each turned to face back toward the start, its front to the street
-            sites.add(new Site((String) b[0], make, (Palette) b[2], new Place(x, z, 0, 180)));
+            sites.add(new Site((String) b[0], make, (Palette) b[2], k % 3, k / 3));
         }
         return List.copyOf(sites);
     }
 
-    /** Each site's building, dressed: worked out once, when first wanted. */
+    /** How big it is built: 1, life size; set before it is first wanted. */
+    private static volatile double scale = 1;
+
+    /** Each site's building, dressed at its life size: worked out once, when first wanted. */
     private static final Map<Integer, List<Solid>> DRESSED = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** Site {@code k}'s building, dressed as it is: its own way, in its palette. */
+    /** How big it is built: 1, life size. */
+    public static double scale() {
+        return scale;
+    }
+
+    /**
+     * Builds it {@code k} times as big every way: every building; and the streets between them
+     * wider by three quarters as much (never narrower than at life size, so nothing smaller comes
+     * nearer the start).
+     */
+    public static void scale(final double k) {
+        if (!(k >= SMALLEST && k <= LARGEST)) {
+            throw new IllegalArgumentException("the town scaled by " + k + ": from " + SMALLEST + " to " + LARGEST);
+        }
+        scale = k;
+    }
+
+    /** Where site {@code k} is, at the town's scale: turned to face back toward the start, its front to the street. */
+    public static Place place(final int k) {
+        final Site site = SITES.get(k);
+        final double streets = Math.max(1, STREETS * scale);
+        return new Place((site.column() - 1) * APART * streets, (AHEAD + site.row() * APART) * streets, 0, 180);
+    }
+
+    /** Site {@code k}'s building, dressed as it is: its own way, in its palette, at the town's scale. */
     public static List<Solid> solids(final int k) {
-        return DRESSED.computeIfAbsent(k, i -> {
+        return Solid.scaled(DRESSED.computeIfAbsent(k, i -> {
             final Site site = SITES.get(i);
             final Building building = site.building().get();
             return building.dressed(building.own(), site.palette());
-        });
+        }), scale);
     }
 
     /** What stands in the town: each building, one piece, and the boxer motorcycle by the start. */
@@ -90,8 +127,7 @@ public final class Town {
      * columns, all of them together each), turned and placed as it is.
      */
     static Course.Piece piece(final int k) {
-        final Site site = SITES.get(k);
-        final Place at = site.place();
+        final Place at = place(k);
         final Map<String, double[]> parts = new LinkedHashMap<>();
         final double[] whole = {0, 0, 0};
         for (final Solid solid : solids(k)) {

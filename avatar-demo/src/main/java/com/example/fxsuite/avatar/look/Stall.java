@@ -79,6 +79,18 @@ public final class Stall {
         return root;
     }
 
+    /** How tall a person is, drawn: the top of their hair over the soles of their shoes. */
+    public static final double PERSON = 183.5;
+
+    /**
+     * Someone standing still, arms at their sides, as the people at the stall are drawn: a person of
+     * ordinary height ({@link #PERSON}), to stand by something and tell how big it is. Their feet at
+     * the origin, facing its z.
+     */
+    public static Node person() {
+        return new Figure("#2f6fb3", "#3a3f45", "#3b2a1f", false).root;
+    }
+
     /**
      * Shows the people as they are, {@code now}, part way ({@code share}) from as they were a step
      * before ({@code before}), reacting to this frame's {@code events}, {@code seconds} on.

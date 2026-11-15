@@ -97,7 +97,8 @@ import java.util.Set;
  * at full speed, a run (or full boost), unless Shift is held, which walks (or flies at cruising
  * speed), as in most shooters. Space jumps (or climbs while flying), Ctrl descends. J puts the
  * {@link JetPack} on or takes it off; wearing it, F takes off and flies as a drone does, or stops flying. It
- * starts without the pack; {@code -Davatar.pack=true} starts with it on.
+ * starts without the pack; {@code -Davatar.pack=true} starts with it on. {@code -Dtown.scale=1.5} builds
+ * the town's buildings half as big again (from 0.25 to 2).
  * The mouse turns it, with no button held ({@link MouseLook}); clicks are kept for actions.
  * Esc frees the mouse or takes it back. Hold Q or E to swing the camera round the avatar; C
  * puts it back behind. Scroll to zoom.
@@ -114,8 +115,10 @@ import java.util.Set;
  */
 public final class Game {
 
-    // the town's buildings are designed outside the simulation: it is told what stands there
+    // the town's buildings are designed outside the simulation: it is told what stands there, and how big
     static {
+        com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
+                com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
     }
 

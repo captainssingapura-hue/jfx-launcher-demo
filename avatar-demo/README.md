@@ -330,8 +330,8 @@ single vehicle, open and simple, so the vehicle is all there is to look at: the 
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
 with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
-oval to take every land vehicle round flat out; and the **town**, every building put up along streets, nothing else
-but the boxer motorcycle to ride between them (`Demo`).
+oval to take every land vehicle round flat out; and the **town**, every building put up along streets, the boxer
+motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
@@ -759,9 +759,20 @@ through, and one loaded until a pillar gives and it falls.
   piece in the world (`Course.Kind.BUILDING`): its solid blocks a box round each of its parts as its
   solids name them (the nave, the tower, the spire; a tower's podium and shaft; the roof, the
   columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
-  ten bunkers. Nothing else stands there but the boxer motorcycle by the start. The simulation knows
+  ten bunkers. Besides them, the boxer motorcycle by the start, and on the open ground before the first
+  row the barge with its melon stall off to one side and the meeting platform with its stand-up off
+  to the other, their people with them. The simulation knows
   nothing of how a building is designed: the game tells it what stands in the town
-  (`Course.town`).
+  (`Course.town`). `-Dtown.scale=1.5` builds the town half as big again (from 0.25 to 2): every
+  building, and the streets three quarters as much wider, enough to keep them apart, so a town built
+  bigger looks it. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
+- **Scaled** (`Building.dressed(options, palette, scale)`, `Form.scaled`, `Solid.scaled`): a building
+  made so many times as big every way about its origin, still on the ground, its skeleton, its curves
+  and its solids alike: its doors, windows and floors with it, as a model is. (To make one bigger and
+  keep its doors a person's height, give it more floors or bays instead.) On the bench, a scale to
+  build it at, and a person of ordinary height (1.84 m, as the people at the stall are drawn) stood
+  a couple of metres before its front, life size whatever its scale, to tell how big it is; a
+  button to stand by them, the building rising behind.
 - **Faces of any shape** (`Sheet`): a flat face with holes (a wall and its arched windows, a doorway
   cut into its foot), cut into triangles by clipping ears, each hole first slit to the outline; or a
   curved one filled in from the curves round its edge (a Coons patch: four, a roof's slope between
@@ -809,7 +820,8 @@ through, and one loaded until a pillar gives and it falls.
 `-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
 apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice` their dressings,
 `-Dbuilding.materials=brick` (the start of a palette's name) what in;
-`-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from.
+`-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from;
+`-Dbuilding.scale=1.5` how big it is built, and `-Dbuilding.look=person` starts by the person.
 `-Dbuilding.tab=plan` opens on the plan tab; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 (the start of a shape's name), `-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
