@@ -32,6 +32,8 @@ class LayersTest {
                 BASE + "audio", BASE + "bench");
         forbid(wrong, "audio", "javafx.", BASE + "look", BASE + "view", BASE + "bench");
         forbid(wrong, "hear", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "bench");
+        forbid(wrong, "air", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "view", BASE + "sound",
+                BASE + "audio", BASE + "bench", BASE + "hear", BASE + "sim");
         forbid(wrong, "look", "javax.sound", "org.lwjgl", BASE + "sound", BASE + "audio", BASE + "hear",
                 BASE + "bench");
         assertEquals(List.of(), wrong);

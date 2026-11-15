@@ -44,7 +44,7 @@ final class MeshBuilder {
         faces[at] = a;
         faces[at + 2] = b;
         faces[at + 4] = c;
-        groups[faceCount] = 1 << (quads % 6);
+        groups[faceCount] = smooth ? SKIN : 1 << (quads % 6);
         faceCount++;
     }
 
@@ -52,6 +52,36 @@ final class MeshBuilder {
         triangle(a, b, c);
         triangle(a, c, d);
         quads++;
+    }
+
+    /** A skin's smoothing group: one of its own, apart from a box's faces' six. */
+    private static final int SKIN = 1 << 8;
+    /** Whether the triangles being added are a skin's, shaded smooth across it. */
+    private boolean smooth;
+
+    /**
+     * A skin through {@code rings}, each closed round and each as many points, ring to ring, shaded
+     * smooth across it: its points shared between the quads round each, a ring all at one point (a
+     * nose, a tail) one point, so it is shaded smooth there too.
+     */
+    void skin(final java.util.List<Point3D[]> rings) {
+        smooth = true;
+        int[] last = null;
+        for (final Point3D[] ring : rings) {
+            final int[] at = new int[ring.length];
+            final boolean apex = java.util.Arrays.stream(ring).allMatch(p -> p.distance(ring[0]) < 1e-6);
+            for (int k = 0; k < ring.length; k++) {
+                at[k] = apex && k > 0 ? at[0] : point(ring[k]);
+            }
+            if (last != null) {
+                for (int k = 0; k < ring.length; k++) {
+                    final int next = (k + 1) % ring.length;
+                    quad(last[k], last[next], at[next], at[k]);
+                }
+            }
+            last = at;
+        }
+        smooth = false;
     }
 
     /** A square rod {@code width} across from {@code a} to {@code b}. */

@@ -342,7 +342,7 @@ left to the game.
 `-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PAVILION`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, the aircraft bench with `--aircraft`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -985,6 +985,65 @@ at that section; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
 plan tab to start with.
 
+### Aircraft bench
+
+Aircraft are shaped on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --aircraft
+```
+
+An aircraft (`air.Craft`) is two layers: its bodies, and the solid parts fixed to them. A body is
+one of two kinds, each made in a frame of its own (across to the right, along to its nose, up) and
+mounted (`Mount`: rolled, pitched, yawed, put in place):
+
+- **A fuselage** (`Fuselage`): lofted through its sections, tail to nose, each a superellipse as
+  wide and as deep as it says, raised or lowered, round, oval or near enough square; a section of no
+  size a point. Its skin goes smooth from each to the next. So one model is an airship's envelope
+  (a full round nose, a parallel middle, a long tail drawn to a point), an aeroplane's fuselage (a
+  rounded nose, a long cabin, a tail cone swept up and flattened), a helicopter's pod and boom, an
+  engine's nacelle (an open intake, an exhaust), a propeller's spinner.
+- **A box body** (`BoxBody`): a box with every edge and corner rounded (a box rolled round a ball:
+  its faces flat), drawn in toward its nose and its tail: a drone's body, a boxy helicopter, a
+  gondola, an engine's housing.
+
+Either says where a point on its skin is, so many degrees round it at so far along it
+(`Body.surface`): where a part is fixed to it. The parts (`Parts`) are pieces (`Piece`), eight
+cornered as a building's are, drawn flat face by face: a wing (tapered, swept and raised, an
+aerofoil in section: a fin is a wing on its side), a rotor (its blades twisted, drooping; a
+propeller is a rotor turned to face ahead), a ring (a duct, a rim), a wheel, a bar (a strut, an arm,
+a skid), and a patch lying on a body's skin as it curves (a window, a stripe, an insignia; all the
+way round, a frame's band). What turns (`Spinner`) turns about its own axis. A livery (`Livery`)
+says what colour each paint (`Paint`: its skin, its frames, its car, glass, metal, its rotors, its
+wings, its trim) is.
+
+An engine (`Engine`) is made whole in a frame of its own, its thrust ahead, and fixed on an
+aircraft as one: a radial piston engine (a short cowling, its lip banded, the ring of its nine
+cylinders dark through its open front, exhaust stubs, a three-bladed propeller on a spinner), a
+turboprop (a long slim nacelle, a chin intake, exhaust stubs, four blades on a long pointed
+spinner), a ducted fan (a duct swept round from an aerofoil section, smooth, its lip banded; a fan
+of seven blades on a hub drawn to a cone either end, five stators behind it) and a turboshaft (a
+housing, a dark intake, grilles, panel lines, two exhaust nozzles splayed out of its back; it turns
+a rotor, not a propeller of its own). A propeller's blades are shaped as one's are: a narrow shank,
+broadest a third of the way out, a rounded tip, thin in section and twisted. Pylons and struts are
+streamlined, aerofoils in section (`Parts.strut`).
+
+Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
+fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an
+outrigger), a heavy bomber airship (a fatter, dark envelope, red bands round its nose, a long
+armoured gondola with a bomb bay, six radial engines on pylons down its flanks, gun blisters), a
+quadcopter drone, a helicopter (a pod and boom, its turboshaft behind the rotor mast, a fin, a
+tailplane and a tail rotor, skids), a tandem-rotor helicopter (a box body, a pylon and rotor at
+either end, a turboshaft either side of the rear one, wheels) and a light aeroplane (a low wing, a tail, a propeller and spinner, three
+wheels); and each of the four engines on its own. On the bench, each to any size it may be made, in any livery, its rotors turning as
+fast as its power says; a person stood by it, on a floor ruled every 10 m (every metre, for a
+drone). Drawn as `look.CraftModel`: skins smooth, pieces flat, a mesh to each paint.
+
+`-Daircraft.pick=heli` (the start of any word of a kind's name) picks what is on show to start
+with, `-Daircraft.livery=bomber` its livery, `-Daircraft.size=30` its size in metres;
+`-Daircraft.yaw`, `-Daircraft.pitch` and `-Daircraft.distance` (m) where it is seen from;
+`-Daircraft.turning=false` holds its rotors still.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the
@@ -1051,11 +1110,12 @@ of steps, and lets the rest go rather than falling ever further behind.
 |---|---|
 | `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
+| `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
-| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`) and the WAV renderer (`Render`) |
+| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`), the aircraft bench (`AircraftBench`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
 All but the drawing, the devices and the app is unit-tested, and a test (`LayersTest`) keeps

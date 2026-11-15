@@ -1,0 +1,119 @@
+package com.example.fxsuite.avatar.look;
+
+import com.example.fxsuite.avatar.air.Craft;
+import com.example.fxsuite.avatar.air.Livery;
+import com.example.fxsuite.avatar.air.Paint;
+import com.example.fxsuite.avatar.air.Piece;
+import com.example.fxsuite.avatar.air.Skin;
+import com.example.fxsuite.avatar.air.Spinner;
+import com.example.fxsuite.avatar.build.Point;
+
+import javafx.geometry.Point3D;
+import javafx.scene.Group;
+import javafx.scene.Node;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.PhongMaterial;
+import javafx.scene.transform.Rotate;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * An aircraft ({@link Craft}) as drawn, in a livery ({@link Livery}): its skins smooth, its
+ * pieces flat face by face, each paint one mesh; what turns ({@link Spinner}) apart, each turning
+ * about its own axis ({@link #turn}). Its frame as the aircraft's: across to x, up to -y, along to z.
+ */
+public final class CraftModel {
+
+    private final Group root = new Group();
+    private final List<Rotate> turns = new ArrayList<>();
+    private final List<Double> rates = new ArrayList<>();
+    private int triangles;
+
+    public CraftModel(final Craft craft, final Livery livery) {
+        root.getChildren().add(meshes(craft.skins(), craft.pieces(), livery));
+        for (final Spinner spinner : craft.spinners()) {
+            final Group turning = meshes(spinner.skins(), spinner.pieces(), livery);
+            final Point3D hub = fx(spinner.hub());
+            final Point axis = spinner.axis();
+            final Rotate turn = new Rotate(0, hub.getX(), hub.getY(), hub.getZ(),
+                    new Point3D(axis.across(), -axis.up(), axis.along()));
+            turning.getTransforms().add(turn);
+            turns.add(turn);
+            rates.add(spinner.rate());
+            root.getChildren().add(turning);
+        }
+    }
+
+    public Node node() {
+        return root;
+    }
+
+    /** How many triangles it is drawn in. */
+    public int triangles() {
+        return triangles;
+    }
+
+    /** Turns what turns {@code seconds} on, at {@code power} (0 to 1) of its full rate. */
+    public void turn(final double seconds, final double power) {
+        for (int k = 0; k < turns.size(); k++) {
+            final Rotate turn = turns.get(k);
+            turn.setAngle((turn.getAngle() + rates.get(k) * 360 * seconds * power) % 360);
+        }
+    }
+
+    private Group meshes(final List<Skin> skins, final List<Piece> pieces, final Livery livery) {
+        final Map<Paint, MeshBuilder> meshes = new EnumMap<>(Paint.class);
+        for (final Skin skin : skins) {
+            meshes.computeIfAbsent(skin.paint(), p -> new MeshBuilder())
+                    .skin(skin.rings().stream().map(r -> r.stream().map(CraftModel::fx).toArray(Point3D[]::new)).toList());
+        }
+        for (final Piece piece : pieces) {
+            meshes.computeIfAbsent(piece.paint(), p -> new MeshBuilder())
+                    .box(piece.corners().stream().map(CraftModel::fx).toArray(Point3D[]::new));
+        }
+        final Group drawn = new Group();
+        // glass last, so it is drawn over what is behind it
+        for (final Paint paint : Paint.values()) {
+            if (paint != Paint.GLASS && meshes.containsKey(paint)) {
+                add(drawn, meshes.get(paint), paint, livery);
+            }
+        }
+        if (meshes.containsKey(Paint.GLASS)) {
+            add(drawn, meshes.get(Paint.GLASS), Paint.GLASS, livery);
+        }
+        return drawn;
+    }
+
+    private void add(final Group drawn, final MeshBuilder mesh, final Paint paint, final Livery livery) {
+        final javafx.scene.shape.MeshView view = mesh.view(material(paint, livery.colour(paint)));
+        triangles += ((javafx.scene.shape.TriangleMesh) view.getMesh()).getFaces().size() / 6;
+        drawn.getChildren().add(view);
+    }
+
+    /** A paint's colour, with a sheen: glass and metal shine, fabric and paint less so. */
+    private static PhongMaterial material(final Paint paint, final String colour) {
+        final PhongMaterial material = new PhongMaterial(Color.web(colour));
+        switch (paint) {
+            case GLASS -> {
+                material.setSpecularColor(Color.web("#e8f2ff"));
+                material.setSpecularPower(60);
+            }
+            case METAL, TRIM -> {
+                material.setSpecularColor(Color.web("#9aa3ad"));
+                material.setSpecularPower(28);
+            }
+            default -> {
+                material.setSpecularColor(Color.web("#4a4f56"));
+                material.setSpecularPower(18);
+            }
+        }
+        return material;
+    }
+
+    private static Point3D fx(final Point p) {
+        return new Point3D(p.across(), -p.up(), p.along());
+    }
+}
