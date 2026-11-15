@@ -107,6 +107,20 @@ class RecordingTest {
     }
 
     @Test
+    void qOrEIsKeptAndALineKeptWithoutStillReads() throws IOException {
+        final Controls sliding = new Controls(0, 1, 0, 0, true, false, 0, List.of(Action.JUMP), false).strafing(-1);
+        final StringWriter out = new StringWriter();
+        final Recording.Recorder recorder = new Recording.Recorder(out, false);
+        recorder.step(1, sliding, Play.start(false));
+        recorder.close();
+        assertEquals(sliding, read(out.toString()).controls(1));
+        // neither held: not written, and a line without it, from before, reads as neither
+        final Recording old = read("avatar-inputs 1\nrules 1\nstart pack=false\n1 1.0 0.0 0.0 0.0 true false 0.0 false JUMP\n");
+        assertEquals(0, old.controls(1).strafe(), 1e-9);
+        assertEquals(List.of(Action.JUMP), old.controls(1).actions());
+    }
+
+    @Test
     void aReplayThatGoesAstrayIsCaughtAtTheNextChecksum() throws IOException {
         // the first line says the avatar walked from step 1, which it did not
         final String text = keep(BUSY).text().replaceFirst("\n1 0\\.0 ", "\n1 1.0 ");

@@ -540,7 +540,7 @@ public final class Course {
             new Section(-210, 430, -208.5, 0, 0, 0),
             new Section(0, 470, 0, 0, 0, 0),
             new Section(0, 470, 150, 0, 0, 0),
-            new Flight(1.6, 5000, 800, 1000, 1200, 1.33e-4, 8, 10, 3800, 70, 30, 20, 35, 45, 1200, 3600, 85, 25));
+            new Flight(1.6, 5000, 800, 1000, 1200, 1.33e-4, 8, 10, 3800, 60, 30, 20, 35, 45, 1200, 3600, 85, 25));
 
     /** The aircraft there are to fly. */
     public static final List<Aircraft> AIRCRAFT = List.of(GUNSHIP);

@@ -176,6 +176,10 @@ public final class Game {
      */
     private boolean firstPerson;
     private double headYaw;
+    /** Flying an aircraft, how much longer the view is held where the mouse turned it, before it swings back behind. */
+    private double lookHeld;
+    /** How long that is, seconds. */
+    private static final double LOOK_HOLD = 1.5;
     /** How far round a driver's head turns, either way. */
     private static final double HEAD_TURN = 120;
     /** Behind a gun, in first person: how far back of where it turns, and how far up. */
@@ -272,8 +276,9 @@ public final class Game {
             + "Click fire: held, it spins up, then fires\n" + VIEW_KEYS;
     private static final String AIRCRAFT_HELP = "The gunship: F start or stop its engine · Space lift off, climb ·"
             + " Ctrl descend, land · W/S ahead and back (its nose dips, its rotors tilt forward as it speeds up) ·"
-            + " A/D slide aside · mouse turns · Shift carefully · T step out\n"
-            + "Let go of the keys and it slows and hovers where it is\n" + VIEW_KEYS;
+            + " A/D turn (banking round, going fast) · Q/E slide aside (hovering) · Shift carefully · T step out\n"
+            + "The mouse looks round it (in first person, turns your head) · let go of the keys and it slows and"
+            + " hovers where it is\n" + VIEW_KEYS.replace("Q/E look round · ", "");
     private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
@@ -582,9 +587,15 @@ public final class Game {
         final Avatar avatar = seen;
         final Body body = avatar.body();
         final double tilt = look.takeTilt();
-        final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
-        if (tilt != 0 || circling != 0) {
-            chase = chase.turned(circling * CIRCLE * seconds, tilt);
+        // at an aircraft's controls Q and E slide it aside, so the mouse looks round it instead, the
+        // view swinging back behind it a while after the mouse is let be; in first person, the head turns
+        final boolean aircraft = lifts.stream().anyMatch(l -> l.held() && l.craft() instanceof Course.Aircraft);
+        final double circling = aircraft ? 0 : axis(KeyCode.E) - axis(KeyCode.Q);
+        final double lookRound = aircraft && !firstPerson ? mouse : 0;
+        lookHeld = lookRound != 0 ? LOOK_HOLD : aircraft ? Math.max(0, lookHeld - seconds) : 0;
+        final boolean holding = circling != 0 || lookHeld > 0;
+        if (tilt != 0 || circling != 0 || lookRound != 0) {
+            chase = chase.turned(circling * CIRCLE * seconds + lookRound, tilt);
         }
         // at a vehicle's controls, the view is the vehicle's: behind it, as far back as it is big
         final Map<Integer, Block> shownAt = between(movedBefore, movedNow, ticked.blend());
@@ -617,12 +628,12 @@ public final class Game {
         chase = alone.isPresent()
                 ? chase.follow(alone.get().pivot().add(0, alone.get().mount().closed() ? -GUN_EYE : -OPEN_GUN_EYE, 0),
                 alone.get().heading(), 1, seconds,
-                circling != 0)
+                holding)
                 : craft != null
                 ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2 - overBody(flying.get()), craft.z()),
                 craft.yaw(), 1,
-                seconds, circling != 0)
-                : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
+                seconds, holding)
+                : chase.follow(eyeOf(body), body.yaw(), 1, seconds, holding);
         // a gun aimed by the keys: the view tilts with it, so its sight stays in view
         if (alone.filter(gun -> gun.mount().keyed()).isPresent()) {
             chase = chase.turned(0, restPitch() + alone.get().pitch() - chase.pitch());
@@ -631,8 +642,8 @@ public final class Game {
         // in first person, the view is from the avatar's own eyes; at a vehicle's controls, from where its
         // driver's eyes are: the seat, the console, the front of the gondola, or behind a gun; in a land
         // vehicle the mouse, which does not steer it, turns the head
-        final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
-                && gunned.isEmpty();
+        final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis
+                || lift.craft() instanceof Course.Aircraft).isPresent() && gunned.isEmpty();
         headYaw = firstPerson && seated ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
         final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt, body,
                 Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH)) : null;
@@ -1253,7 +1264,8 @@ public final class Game {
                 final double pitch = Math.toRadians(lift.tilt());
                 final Course.Section eye = aircraft.eye();
                 yield new View(spot(drawn, eye.across(), eye.along() * Math.cos(pitch) - eye.up() * Math.sin(pitch),
-                        eye.along() * Math.sin(pitch) + eye.up() * Math.cos(pitch)), block.yaw(), look + lift.tilt());
+                        eye.along() * Math.sin(pitch) + eye.up() * Math.cos(pitch)), Num.wrap(block.yaw() + headYaw),
+                        look + lift.tilt());
             }
         };
     }

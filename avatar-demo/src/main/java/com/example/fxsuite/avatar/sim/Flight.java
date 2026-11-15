@@ -11,8 +11,9 @@ package com.example.fxsuite.avatar.sim;
  * fly fast, as a tilt-rotor's do, its wings then carrying its weight.
  *
  * <p>Its keys are not its controls themselves but what is wanted of it, as a fly-by-wire
- * aircraft's are ({@link #step}): W and S a speed ahead or back, A and D a speed aside, Space and
- * Ctrl a rate of climb, the mouse its heading. Its assist works out the attitude and the thrust
+ * aircraft's are ({@link #step}): W and S a speed ahead or back, A and D a rate of turn, as a land
+ * vehicle's are, Q and E a speed aside (hovering: less and less as it speeds up, none once it flies
+ * as an aeroplane does), Space and Ctrl a rate of climb. Its assist works out the attitude and the thrust
  * that would get it there, and tips it toward that attitude no faster than it can turn; what it
  * then does is what its thrust, lift, drag and weight make it do. So it takes time to get going and
  * to stop, overshoots a little, and cannot climb faster than its thrust allows. Let go, it is
@@ -25,14 +26,14 @@ package com.example.fxsuite.avatar.sim;
  * @param power      its thrust at most, a share of its weight
  * @param ahead      the most it is wanted going ahead (W held)
  * @param back       and back (S held)
- * @param aside      and aside (A or D held)
+ * @param aside      and aside (Q or E held), hovering; none by {@link #SLIDES}
  * @param climb      the most it is wanted climbing or coming down (Space or Ctrl held)
  * @param drag       how hard the air drags it going ahead, per speed squared: its top speed is
  *                   {@code sqrt(power * g / drag)}, its weight on its wings
  * @param broadside  how much harder going aside than ahead
  * @param edgeways   and going up or down
  * @param carried    how fast it goes ahead for its wings to carry all its weight
- * @param turn       how fast it turns at most, degrees a second, hovering
+ * @param turn       how fast it turns at most (A or D held), degrees a second, hovering
  * @param cruiseTurn and going fast, its rotors forward
  * @param nose       how far it pitches at most, nose down or up, degrees
  * @param bank       how far it banks at most
@@ -61,24 +62,30 @@ public record Flight(double power, double ahead, double back, double aside, doub
     /** How fast it comes down at most onto the ground, and how much faster for each centimetre higher over it. */
     public static final double SETTLE = 120;
     public static final double FLARE = 0.5;
+    /** How fast ahead it no longer slides aside at all: it flies as an aeroplane does, not as a helicopter. */
+    public static final double SLIDES = 2500;
+    /** How quickly its turning builds up or dies away, degrees a second, a second: a tap turns it a little. */
+    public static final double YAW_SWING = 150;
 
     /**
      * Where it is and how it is going: {@code yaw} its heading; {@code ahead}, {@code aside} and
      * {@code climb} its velocity in the world, along its heading, to its right and up;
      * {@code pitch} its nose up, {@code roll} its right wing down, and {@code nacelle} its rotors
      * tilted forward from upright, all in degrees; {@code height} where it is; {@code thrust} how
-     * hard its rotors push, a share of its most; {@code grounded} on its wheels.
+     * hard its rotors push, a share of its most; {@code grounded} on its wheels; {@code turning} how fast
+     * it turns, degrees a second, right when positive.
      */
     public record State(double height, double yaw, double ahead, double aside, double climb, double pitch,
-                        double roll, double nacelle, double thrust, boolean grounded) {
+                        double roll, double nacelle, double thrust, boolean grounded, double turning) {
     }
 
     /**
-     * What it is asked, for a step: {@code forward}, {@code sideways} and {@code lift} from -1 to 1
-     * as the keys give them, {@code turn} degrees to turn by (right when positive), {@code pace} 1 or
-     * less to go carefully; nothing if it is not {@code held}; and its {@code engine} running or not.
+     * What it is asked, for a step: {@code forward} (W, S), {@code aside} (Q, E), {@code lift} (Space,
+     * Ctrl) and {@code turn} (A, D) from -1 to 1 as the keys give them, right and up when positive;
+     * {@code pace} 1 or less to go carefully; nothing if it is not {@code held}; and its
+     * {@code engine} running or not.
      */
-    public record Input(double forward, double sideways, double lift, double turn, double pace, boolean held,
+    public record Input(double forward, double aside, double lift, double turn, double pace, boolean held,
                         boolean engine) {
 
         /** Let go: no one at its controls, its engine running or not. */
@@ -116,8 +123,12 @@ public record Flight(double power, double ahead, double back, double aside, doub
         // its bank can swing its way round with it, so it turns as an aeroplane does, not skidding
         final double rate = turn + (cruiseTurn - turn) * state.nacelle() / Math.max(1, forward);
         final double banked = Math.toDegrees(g * Math.tan(Math.toRadians(bank)) / Math.max(Math.abs(state.ahead()), 1));
-        final double most = Math.min(rate, banked) * seconds;
-        final double turned = held ? Num.clamp(input.turn(), -most, most) : 0;
+        final double pace = Num.clamp(input.pace(), 0, 1);
+        final double wantTurning = held && !state.grounded() ? Num.clamp(input.turn(), -1, 1) * Math.min(rate, banked) * pace : 0;
+        // (on its wheels it does not turn: it has to be flying to)
+        // its turning built up, or dying away, no faster than it swings
+        final double turning = toward(state.turning(), wantTurning, YAW_SWING * seconds);
+        final double turned = (state.turning() + turning) / 2 * seconds;
         final double yaw = Num.wrap(state.yaw() + turned);
         // its velocity is the world's: seen from its new heading
         final double r = Math.toRadians(turned);
@@ -126,10 +137,11 @@ public record Flight(double power, double ahead, double back, double aside, doub
         final double c0 = state.climb();
 
         // what is wanted of it, and so what it asks of itself, as its assist reckons it
-        final double pace = Num.clamp(input.pace(), 0, 1);
         final double forward = held ? Num.clamp(input.forward(), -1, 1) : 0;
         final double wantAhead = forward * (forward > 0 ? ahead : back) * pace;
-        final double wantAside = held ? Num.clamp(input.sideways(), -1, 1) * aside * pace : 0;
+        // aside, hovering; less and less as it speeds up and its wings take over
+        final double slides = 1 - Num.clamp((Math.abs(a0) - converts) / (SLIDES - converts), 0, 1);
+        final double wantAside = held ? Num.clamp(input.aside(), -1, 1) * aside * pace * slides : 0;
         // and coming down, no faster near the ground than lets it settle gently onto its wheels
         final double wantClimb = held ? Math.max(Num.clamp(input.lift(), -1, 1) * climb,
                 -(SETTLE + FLARE * Math.max(0, state.height() - floor))) : 0;
@@ -209,7 +221,8 @@ public record Flight(double power, double ahead, double back, double aside, doub
             }
         }
         return new State(height, yaw, a1, s1, c1, grounded ? toward(pitch, 0, step) : pitch,
-                grounded ? toward(roll, 0, step) : roll, nacelle, thrust / (power * g), grounded);
+                grounded ? toward(roll, 0, step) : roll, nacelle, thrust / (power * g), grounded,
+                grounded ? 0 : turning);
     }
 
     /** {@code value} moved toward {@code target} by {@code most} at most. */

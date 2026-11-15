@@ -11,7 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The gunship in the playground: parked on its wheels, its engine off; boarded from beside its
- * door; started (F), lifted off (Space), flown (the avatar's keys and mouse), brought down onto its
+ * door; started (F), lifted off (Space), flown (W and S ahead and back, A and D turning it, Q and E
+ * sliding it aside), brought down onto its
  * wheels (Ctrl) and stepped out of (T).
  */
 class GunshipTest {
@@ -78,14 +79,18 @@ class GunshipTest {
         assertTrue(gone > 3000, "well on its way: " + gone);
         assertTrue(going.steer() > 10, "its rotors tilting forward: " + going.steer());
 
-        // the mouse turns it; A and D slide it aside, not turning it
+        // A and D turn it, as a land vehicle's do; the mouse does not: it looks round
         play = run(play, new Controls(0, 0, 0, 0, true), 8, events);
         final double yaw = gunship(play).place().yaw();
         play = run(play, new Controls(0, 0, 0.5, 0, true), 1, events);
-        assertTrue(Num.wrap(gunship(play).place().yaw() - yaw) > 30, "turned right by the mouse");
+        assertEquals(yaw, gunship(play).place().yaw(), 1e-9, "the mouse does not turn it");
+        play = run(play, new Controls(0, 1, 0, 0, true), 1, events);
+        assertTrue(Num.wrap(gunship(play).place().yaw() - yaw) > 30, "turned right by D");
+        // Q and E slide it aside, hovering, banking that way
+        play = run(play, new Controls(0, 0, 0, 0, true), 2, events);
         final double turned = gunship(play).place().yaw();
-        play = run(play, new Controls(0, 1, 0, 0, true), 2, events);
-        assertEquals(turned, gunship(play).place().yaw(), 1e-9, "D does not turn it");
+        play = run(play, new Controls(0, 0, 0, 0, true).strafing(1), 2, events);
+        assertEquals(turned, gunship(play).place().yaw(), 1e-9, "E does not turn it");
         assertTrue(gunship(play).aside() > 300 && gunship(play).roll() > 5, "it slides and banks right");
 
         // brought down onto its wheels, and stepped out of, onto the ground beside its door

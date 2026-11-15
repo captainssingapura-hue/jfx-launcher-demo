@@ -36,7 +36,14 @@ import java.util.List;
  */
 public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
                    boolean held, boolean engine, int bombs, double ready, double steer, double tilt, double roll,
-                   int bumped, double tipped) {
+                   int bumped, double tipped, double turning) {
+
+    /** Not turning of itself: as all but an aircraft, whose turning builds up and dies away ({@link #turning}), are. */
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
+                final double climb, final boolean held, final boolean engine, final int bombs, final double ready,
+                final double steer, final double tilt, final double roll, final int bumped, final double tipped) {
+        this(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, bumped, tipped, 0);
+    }
 
     /** Upright: not tipping, as all but a sidecar outfit going round too hard are. */
     public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
@@ -61,7 +68,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, having run into piece {@code what} ({@link #bumped}); -1 nothing, -2 the avatar. */
     public Lift bumped(final int what) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what, tipped, turning);
     }
 
     /**
@@ -71,7 +78,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     public Lift going(final double nowAhead, final double nowAside) {
         return new Lift(piece, craft, place, nowAhead, nowAside, climb, held, engine, bombs, ready, steer, tilt, roll,
-                bumped, tipped);
+                bumped, tipped, turning);
     }
 
     /** Over on its side: a sidecar outfit, past its limit for long enough ({@link Outfit#TIPS}). */
@@ -197,19 +204,19 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
         return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
-                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, -1, tipped);
+                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** How fast it is going, all told: across the ground and up or down. */
@@ -248,7 +255,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             now = drops ? bombs - 1 : bombs;
             next = drops ? RACK : wait;
         }
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
@@ -745,8 +752,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     /**
      * An aircraft, {@code seconds} on, as it flies ({@link Flight}): flown by {@code controls} if
      * held, hovering where it is if not, and dropping with its engine cut; on its wheels on whatever
-     * is under it. Its pitch is kept as {@link #tilt}, its bank as {@link #roll}, and how far its
-     * rotors are tilted forward as {@link #steer}. It stops short of whatever is in its way as a
+     * is under it. Its pitch is kept as {@link #tilt}, its bank as {@link #roll}, how far its rotors are
+     * tilted forward as {@link #steer}, and how fast it turns as {@link #turning}. A and D turn it, Q and E
+     * slide it aside; the mouse is not its (it looks round). It stops short of whatever is in its way as a
      * platform does: the whole move if it is clear, else turning only, going across only, climbing
      * only, else none; going no further the way it is stopped.
      */
@@ -755,9 +763,10 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final Flight flight = aircraft.flight();
         final double floor = support(world, aboard, also).top() + below();
         final Flight.State was = new Flight.State(place.height(), place.yaw(), ahead, aside, climb, tilt, roll, steer,
-                0, place.height() <= floor + 0.5 && climb <= 0);
+                0, place.height() <= floor + 0.5 && climb <= 0, turning);
         final Flight.Input input = held
-                ? new Flight.Input(controls.forward(), controls.sideways(), controls.lift(), controls.turn(),
+                // its keys: A and D turn it, Q and E slide it aside; the mouse is not its
+                ? new Flight.Input(controls.forward(), controls.strafe(), controls.lift(), controls.sideways(),
                 controls.run() ? 1 : CAREFUL, true, engine)
                 : Flight.Input.none(engine);
         final Flight.State now = flight.step(was, input, seconds, floor);
@@ -784,7 +793,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 final boolean goesAcross = k == 0 || k == 2;
                 final boolean goesUp = k == 0 || k == 3;
                 return new Lift(piece, craft, tries[k], goesAcross ? now.ahead() : 0, goesAcross ? now.aside() : 0,
-                        goesUp ? rising : 0, held, engine, bombs, ready, now.nacelle(), now.pitch(), now.roll(), -1, 0);
+                        goesUp ? rising : 0, held, engine, bombs, ready, now.nacelle(), now.pitch(), now.roll(), -1, 0, now.turning());
             }
         }
         return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, now.nacelle(), now.pitch(),

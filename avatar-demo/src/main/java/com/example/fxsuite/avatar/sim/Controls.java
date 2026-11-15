@@ -10,19 +10,28 @@ import java.util.List;
  * avatar, the mouse turns it. {@code trigger} is held to fire, or to swing. {@code aim} is how far
  * up (down when negative) to shoot, in degrees, 0 level: the weapons always shoot straight ahead
  * of the body, tilted only by this. {@code bomb} is the other button, held: aboard an airship
- * with a gun, the trigger is the gun's, and this lets its bombs go.
+ * with a gun, the trigger is the gun's, and this lets its bombs go. {@code strafe} is Q and E, from -1 to 1 (right
+ * when positive): at an aircraft's controls, where A and D turn it, these slide it aside; elsewhere
+ * nothing (the camera's own, to look round).
  *
  * <p>{@code actions} are what the player did once, rather than holds (a jump, a take-off, the
  * pack, a weapon drawn), applied at the start of this step, in order, before it moves. So
  * nothing reaches the world between steps: everything the player does comes in with one.
  */
 public record Controls(double forward, double sideways, double turn, double lift, boolean run, boolean trigger,
-                       double aim, List<Action> actions, boolean bomb) {
+                       double aim, List<Action> actions, boolean bomb, double strafe) {
 
     public static final Controls NONE = new Controls(0, 0, 0, 0, false, false, 0);
 
     public Controls {
         actions = List.copyOf(actions);
+    }
+
+    /** Q and E left alone. */
+    public Controls(final double forward, final double sideways, final double turn, final double lift,
+                    final boolean run, final boolean trigger, final double aim, final List<Action> actions,
+                    final boolean bomb) {
+        this(forward, sideways, turn, lift, run, trigger, aim, actions, bomb, 0);
     }
 
     /** With the other button left alone. */
@@ -33,7 +42,12 @@ public record Controls(double forward, double sideways, double turn, double lift
 
     /** The same, the other button held, or not. */
     public Controls bombing(final boolean held) {
-        return new Controls(forward, sideways, turn, lift, run, trigger, aim, actions, held);
+        return new Controls(forward, sideways, turn, lift, run, trigger, aim, actions, held, strafe);
+    }
+
+    /** The same, Q or E held ({@code toward}, -1 to 1, right when positive), or neither. */
+    public Controls strafing(final double toward) {
+        return new Controls(forward, sideways, turn, lift, run, trigger, aim, actions, bomb, toward);
     }
 
     /** Held keys, the turn and the aim, with nothing done once. */
@@ -61,6 +75,6 @@ public record Controls(double forward, double sideways, double turn, double lift
 
     /** The same held keys, turn and aim, with {@code actions} done as well. */
     public Controls with(final List<Action> done) {
-        return new Controls(forward, sideways, turn, lift, run, trigger, aim, done);
+        return new Controls(forward, sideways, turn, lift, run, trigger, aim, done, false, strafe);
     }
 }

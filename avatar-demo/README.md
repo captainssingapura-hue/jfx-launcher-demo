@@ -362,7 +362,7 @@ the window, so clicks stay free for actions.
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
 | T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, board the gunship, beside its cockpit door, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine, or the gunship's | |
 | F | Take off (wearing the pack) | Stop flying |
-| Q / E (held) | Swing the camera round | Swing the camera round |
+| Q / E (held) | Swing the camera round (at the gunship's controls, slide it aside; the mouse looks round instead) | Swing the camera round |
 | C | Camera behind | Camera behind |
 | Scroll | Zoom | Zoom |
 | M | Mute or unmute | Mute or unmute |
@@ -383,9 +383,12 @@ anywhere. It is parked on its wheels in the playground, beside the moored airshi
 T beside its door boards it, F starts its engine, Space lifts it off. The keys are what is wanted
 of it, and its assist works out how to get there, as a fly-by-wire aircraft's does: W and S a speed
 ahead or back (its nose dips to get going; as it speeds up its rotors tilt forward, up to 85°, and
-its wings take its weight, to 50 m/s), A and D a speed aside (banking that way), Space and Ctrl a
-rate of climb (settling gently onto its wheels near the ground), the mouse its heading (going
-fast, banked round as an aeroplane turns, no faster than its bank allows). Let go, it pitches up,
+its wings take its weight, to 50 m/s), A and D a rate of turn, as a land vehicle's are (up to 60° a
+second hovering, building up so a tap turns it a little; going fast, banked round as an aeroplane
+turns, no faster than its bank allows), Q and E a speed aside (banking that way; hovering only,
+less and less as it speeds up, none by 25 m/s), Space and Ctrl a rate of climb (settling gently
+onto its wheels near the ground). The mouse looks round it, the view swinging back behind a
+moment after (in first person, it turns the head). Let go, it pitches up,
 tilts its rotors back to brake, and hovers where it is. With its engine cut it has no thrust and
 drops. Its pitch, bank and rotor tilt are drawn as they are, and shown in the status line. It has
 no weapons yet, and no sound of its own.

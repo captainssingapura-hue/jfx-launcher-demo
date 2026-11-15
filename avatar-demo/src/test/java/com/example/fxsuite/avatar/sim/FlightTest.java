@@ -18,10 +18,17 @@ class FlightTest {
     private static final double G = Body.GRAVITY;
 
     /** On its wheels, still, level, its rotors upright. */
-    private static final Flight.State PARKED = new Flight.State(FLOOR, 0, 0, 0, 0, 0, 0, 0, 0, true);
+    private static final Flight.State PARKED = new Flight.State(FLOOR, 0, 0, 0, 0, 0, 0, 0, 0, true, 0);
 
-    private static Flight.Input keys(final double forward, final double sideways, final double lift) {
-        return new Flight.Input(forward, sideways, lift, 0, 1, true, true);
+    /** W/S, Q/E and Space/Ctrl, as given: -1 to 1. */
+    private static Flight.Input keys(final double forward, final double aside, final double lift) {
+        return turning(forward, aside, lift, 0);
+    }
+
+    /** And A/D: turning, -1 to 1, right when positive. */
+    private static Flight.Input turning(final double forward, final double aside, final double lift,
+                                        final double turn) {
+        return new Flight.Input(forward, aside, lift, turn, 1, true, true);
     }
 
     private static Flight.State fly(final Flight.State from, final Flight.Input input, final double seconds) {
@@ -110,16 +117,40 @@ class FlightTest {
     }
 
     @Test
-    void itTurnsAsFastAsItCanHoveringAndGoingFastBankedRoundWithoutSkidding() {
+    void aOrDTurnsItItsTurningBuildingUpSoATapTurnsItALittle() {
         final Flight.State hover = hovering();
-        final Flight.State turned = fly(hover, new Flight.Input(0, 0, 0, 10, 1, true, true), 1);
-        assertEquals(GUNSHIP.turn(), turned.yaw() - hover.yaw(), 2, "as fast as it turns, however hard asked");
-        final Flight.State cruising = fly(hover, keys(1, 0, 0), 15);
-        final Flight.State round = fly(cruising, new Flight.Input(1, 0, 0, 30 * Clock.STEP, 1, true, true), 4);
+        final Flight.State tapped = fly(fly(hover, turning(0, 0, 0, 1), 0.1), keys(0, 0, 0), 1);
+        final double little = Num.wrap(tapped.yaw() - hover.yaw());
+        assertTrue(little > 0 && little < 3, "a tap of D, a little right: " + little);
+        assertEquals(0, tapped.turning(), 1e-9, "and no more");
+        final Flight.State turning = fly(hover, turning(0, 0, 0, 1), 1);
+        assertEquals(GUNSHIP.turn(), turning.turning(), 1e-9, "held, as fast as it turns, hovering");
+        final Flight.State on = fly(turning, turning(0, 0, 0, 1), 1);
+        assertEquals(GUNSHIP.turn(), Num.wrap(on.yaw() - turning.yaw()), 0.5);
+        final Flight.State left = fly(hover, turning(0, 0, 0, -1), 1);
+        assertEquals(-GUNSHIP.turn(), left.turning(), 1e-9, "A, left");
+        assertEquals(0, left.ahead(), 1, "turning on the spot");
+        // on its wheels it does not turn
+        assertEquals(0, fly(PARKED, turning(0, 0, 0, 1), 1).yaw(), 1e-9);
+    }
+
+    @Test
+    void goingFastATurnBanksItRoundWithoutSkiddingNoFasterThanItsBankAllows() {
+        final Flight.State cruising = fly(hovering(), keys(1, 0, 0), 15);
+        final Flight.State round = fly(cruising, turning(1, 0, 0, 1), 4);
         assertTrue(round.roll() > 25, "banked into the turn: " + round.roll());
         assertTrue(Math.abs(round.aside()) < 0.05 * round.ahead(), "going the way it heads: " + round.aside());
         final double banked = Math.toDegrees(G * Math.tan(Math.toRadians(GUNSHIP.bank())) / cruising.ahead());
         assertTrue(Num.wrap(round.yaw() - cruising.yaw()) <= 4 * banked * 1.1, "no faster than its bank allows");
+        assertTrue(round.turning() < GUNSHIP.turn(), "slower than hovering: " + round.turning());
+    }
+
+    @Test
+    void goingFastQOrESlidesItAsideNoMore() {
+        final Flight.State cruising = fly(hovering(), keys(1, 0, 0), 15);
+        final Flight.State slid = fly(cruising, keys(1, 1, 0), 3);
+        assertEquals(0, slid.aside(), 20, "an aeroplane, now: it does not slide");
+        assertEquals(0, slid.yaw(), 1e-9);
     }
 
     @Test

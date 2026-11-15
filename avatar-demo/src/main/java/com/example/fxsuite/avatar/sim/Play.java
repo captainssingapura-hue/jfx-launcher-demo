@@ -171,7 +171,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // turn it, as a car's wheel would
         final int steered = gunship >= 0 ? gunship : inside >= 0 && handed.get(inside).craft().closed() ? inside : -1;
         // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it);
-        // an aircraft takes them as the avatar does: the mouse turns it, A and D slide it aside
+        // an aircraft takes them as it flies: A and D turn it, Q and E slide it aside, the mouse looks round
         final Controls steering = steered >= 0 && !(handed.get(steered).craft() instanceof Course.Chassis)
                 && !(handed.get(steered).craft() instanceof Course.Aircraft)
                 ? gunshipControls(controls, seconds) : controls;

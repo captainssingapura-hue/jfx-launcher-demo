@@ -269,6 +269,10 @@ public final class Recording {
         line.append(c.forward()).append(' ').append(c.sideways()).append(' ').append(c.turn()).append(' ')
                 .append(c.lift()).append(' ').append(c.run()).append(' ').append(c.trigger()).append(' ')
                 .append(c.aim()).append(' ').append(c.bomb());
+        // Q or E, only when held: a line without them reads as before there were any
+        if (c.strafe() != 0) {
+            line.append(' ').append(c.strafe());
+        }
         for (final Action action : c.actions()) {
             line.append(' ').append(name(action));
         }
@@ -281,13 +285,25 @@ public final class Recording {
         }
         // the other button comes after the seven; a recording made before there was one has none
         final boolean other = words.length > 8 && (words[8].equals("true") || words[8].equals("false"));
+        // then Q or E, if either was held: a number, where an action is a name
+        final boolean strafing = other && words.length > 9 && number(words[9]);
         final List<Action> actions = new ArrayList<>();
-        for (int i = other ? 9 : 8; i < words.length; i++) {
+        for (int i = other ? strafing ? 10 : 9 : 8; i < words.length; i++) {
             actions.add(action(words[i]));
         }
         return new Controls(Double.parseDouble(words[1]), Double.parseDouble(words[2]), Double.parseDouble(words[3]),
                 Double.parseDouble(words[4]), bool(words[5]), bool(words[6]), Double.parseDouble(words[7]), actions,
-                other && bool(words[8]));
+                other && bool(words[8]), strafing ? Double.parseDouble(words[9]) : 0);
+    }
+
+    /** Whether {@code word} is a number, as {@link Double#toString} writes one. */
+    private static boolean number(final String word) {
+        try {
+            Double.parseDouble(word);
+            return true;
+        } catch (final NumberFormatException e) {
+            return false;
+        }
     }
 
     private static boolean bool(final String word) {
