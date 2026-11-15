@@ -153,7 +153,7 @@ class LiftTest {
         assertTrue(where(play).height() > Course.LIFT_LOW + 700, "up: " + where(play).height());
         assertEquals(where(play).height(), play.avatar().body().height(), 1e-6, "the pilot up with it");
         assertTrue(events.stream().noneMatch(e -> e instanceof Event.Jumped), "space flew it, not the avatar");
-        play = run(play, UP, 20, events);
+        play = run(play, UP, Course.LIFT_HIGH / Course.PLATFORM_HANDLING.climb() + 5, events);
         assertEquals(Course.LIFT_HIGH, where(play).height(), "and no higher than its highest");
         assertEquals(0, play.lifts().getFirst().climb());
     }

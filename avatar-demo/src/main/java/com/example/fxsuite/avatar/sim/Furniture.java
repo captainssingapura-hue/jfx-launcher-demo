@@ -22,7 +22,11 @@ public enum Furniture implements Loose {
     /** A little scooter, its front along its frame, solid as far as its seat: fifteen rifle rounds; heavy-ish. */
     SCOOTER("scooter", 34, 100, 57, 150, 0.6, 1200, 8),
     /** A scrum board on legs, its cards stuck on its front: eight rifle rounds; light, for its size. */
-    BOARD("scrum board", 220, 50, 180, 80, 0.8, 1300, 0);
+    BOARD("scrum board", 220, 50, 180, 80, 0.8, 1300, 0),
+    /** A bar's counter, its bottles and glasses on it and its back shelf with it: twenty-five rifle rounds; very heavy to push. */
+    BAR("bar", 240, 70, 110, 250, 0.3, 1500, 0),
+    /** A tall stool at a bar, a round seat on one leg: four rifle rounds; light. */
+    BAR_STOOL("bar stool", 36, 36, 75, 40, 0.9, 1400, 0);
 
     private final String title;
     private final double length;
@@ -75,7 +79,10 @@ public enum Furniture implements Loose {
         return give;
     }
 
-    /** How heavy: the table of planks and pallets sixty kilograms, a stool four, the little scooter ninety, the board twenty-five. */
+    /**
+     * How heavy: the table of planks and pallets sixty kilograms, a stool four, the little scooter
+     * ninety, the board twenty-five; the bar's counter a hundred and twenty, a bar stool six.
+     */
     @Override
     public double mass() {
         return switch (this) {
@@ -83,6 +90,8 @@ public enum Furniture implements Loose {
             case STOOL -> 4;
             case SCOOTER -> 90;
             case BOARD -> 25;
+            case BAR -> 120;
+            case BAR_STOOL -> 6;
         };
     }
 

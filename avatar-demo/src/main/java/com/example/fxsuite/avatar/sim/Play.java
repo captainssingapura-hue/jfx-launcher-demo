@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 32;
+    public static final int RULES = 33;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -1151,7 +1151,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             blocks.add(person.box());
             pieces.add(person.piece());
         }
-        return new Obstacles(blocks, world.gates(), pieces);
+        return new Obstacles(blocks, world.gates(), pieces, world.volumes(), world.volumePieces());
     }
 
     /**
@@ -1291,6 +1291,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 blocks.add(now.get(k));
             }
         }
-        return new Obstacles(blocks, built.gates(), built.pieces());
+        return new Obstacles(blocks, built.gates(), built.pieces(), built.volumes(), built.volumePieces());
     }
 }

@@ -57,9 +57,12 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
     public static final double LIFT = 800;
     public static final double GRAVITY = 2600;
     public static final double JUMP = 950;
-    /** The world is a square this far from the centre each way, and this tall. */
+    /**
+     * The world is a square this far from the centre each way, and this tall: well over the tallest
+     * tower, even in a town built twice as big.
+     */
     public static final double EDGE = 45000;
-    public static final double CEILING = 5000;
+    public static final double CEILING = 40_000;
 
     /** The avatar's size against obstacles: an upright cylinder. */
     public static final double RADIUS = 32;

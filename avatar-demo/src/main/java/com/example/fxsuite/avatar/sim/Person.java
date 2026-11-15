@@ -36,7 +36,11 @@ import java.util.List;
 public record Person(int id, Role role, Body body, double health, boolean sitting) {
 
     /** Who someone is: how they look and how they sit, for the graphics. */
-    public enum Role { STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER }
+    public enum Role {
+        STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER, SMALL_MONK, TALL_MONK, STOUT_MONK,
+        /** Behind a bar; and those at it. */
+        BARTENDER, DRINKER
+    }
 
     /** How much anyone can take: six rifle rounds, or a stroke of the glaive. */
     public static final double TOUGHNESS = 60;
@@ -59,7 +63,10 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
         }
     }
 
-    /** The cast, put where {@link Course#CAST} says, on the platform it says, as that platform now is ({@code lifts}). */
+    /**
+     * The cast, put where {@link Course#CAST} says, on the platform it says, as that platform now is
+     * ({@code lifts}); and those the course put on the ground ({@link Damage#ground}).
+     */
     public static List<Person> of(final Damage damage, final List<Lift> lifts) {
         final List<Person> people = new ArrayList<>();
         for (final Course.Cast cast : Course.CAST) {
@@ -75,6 +82,12 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
                             Body.standing(spot, Num.wrap(at.yaw() + cast.facing())), TOUGHNESS, cast.sitting()));
                 }
             }
+        }
+        // and those on the ground, or on a building's floor, where they were put
+        for (final Course.Cast cast : damage.ground()) {
+            final double up = cast.up() + (cast.sitting() ? cast.seat().height() : 0);
+            people.add(new Person(people.size(), cast.role(), Body.standing(new Vec3(cast.across(), -up, cast.along()),
+                    cast.facing()), TOUGHNESS, cast.sitting()));
         }
         return people;
     }

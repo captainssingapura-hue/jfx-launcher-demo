@@ -25,7 +25,20 @@ public enum Demo {
     GUNS("Guns", "A bunker and a gunship, each with a heavy Gatling gun, to turn on crates and dummies.", 0),
     /** A race track: a NASCAR-style oval, banked in its turns, and every land vehicle on pit road to take round it. */
     TRACK("Track", "A NASCAR-style oval, a mile round, banked 24° in its turns; the cars, the truck and the bikes on"
-            + " pit road, to take round it flat out.", 105);
+            + " pit road, to take round it flat out.", 105),
+    /** The buildings, put up along streets; the boxer motorcycle to ride between them; the melon stall and the stand-up. */
+    TOWN("Town", "The buildings: the brutalist apartments, the towers, the church and the temple hall, along streets;"
+            + " the boxer motorcycle to ride between them; and before them, the melon stall and the stand-up, each on"
+            + " its platform.", 0),
+    /** A temple's courtyard: its great hall at the back, a smaller hall each side, three monks at their stand-up. */
+    TEMPLE("Temple", "A temple's courtyard: its great hall at the back, a smaller hall facing in from each side, and"
+            + " three monks at their stand-up in the middle. (Its gate is to come.)", 0),
+    /** Pyramids, each in the way as it is shaped: a great smooth one, a low one to walk up, a stepped one with a stairway. */
+    PYRAMID("Pyramids", "A great smooth pyramid, too steep to climb; a low one, turned, to walk up to its point; and a"
+            + " stepped one with a stairway up to the shrine on its top. Each is in the way as it is shaped.", 0),
+    /** Pavilions round a lawn, one of each kind: open but for their pillars and roofs, to walk into and stand under. */
+    PAVILION("Pavilions", "Pavilions round a lawn, one of each kind: square, hexagonal, octagonal and round ones to a point,"
+            + " a long gallery, a gable, a modern one with a flat roof. Open but for their pillars and roofs: walk in.", 0);
 
     private final String title;
     private final String description;

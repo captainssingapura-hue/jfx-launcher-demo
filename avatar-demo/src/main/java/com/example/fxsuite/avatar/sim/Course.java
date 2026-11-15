@@ -28,7 +28,11 @@ public final class Course {
 
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
-        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false);
+        FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
+        /** A building: one piece, its solid blocks its parts' boxes, broken as a whole. */
+        BUILDING(true),
+        /** A unit of a wall: one of a wall's many, each standing, worn down and broken on its own. */
+        WALL_UNIT(true);
 
         private final boolean breakable;
 
@@ -67,10 +71,26 @@ public final class Course {
      * from there is its {@link Prop}'s.
      */
     public record Piece(Block block, Kind kind, int tint, List<Block> solid, Shape shape, Place place,
-                        Route route, int carrier, Loose loose, Bodywork body) {
+                        Route route, int carrier, Loose loose, Bodywork body, List<Volume> volumes) {
 
         public Piece {
             solid = List.copyOf(solid);
+            volumes = List.copyOf(volumes);
+        }
+
+        /** As given, in the way only as its blocks are. */
+        public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid, final Shape shape,
+                     final Place place, final Route route, final int carrier, final Loose loose, final Bodywork body) {
+            this(block, kind, tint, solid, shape, place, route, carrier, loose, body, List.of());
+        }
+
+        /**
+         * A piece that stays where it is, at {@code place}, in the way as {@code solid} blocks and
+         * {@code volumes} shaped more closely ({@link Volume}): a pyramid, a wall's curved unit.
+         */
+        public static Piece shaped(final Block block, final Kind kind, final int tint, final List<Block> solid,
+                                   final List<Volume> volumes, final Place place) {
+            return new Piece(block, kind, tint, solid, null, place, null, -1, null, null, volumes);
         }
 
         /** As given, with no body on it. */
@@ -378,8 +398,9 @@ public final class Course {
                            boolean cuts) {
     }
 
-    /** A platform: quick, sideways too, turning as fast as the mouse, and its engine can be cut. */
-    public static final Handling PLATFORM_HANDLING = new Handling(700, 0.6, 350, 0, 60, 4500, true);
+    /** A platform: quick, sideways too, climbing briskly to well over the towers, turning as fast as the mouse; its engine can be cut. */
+    public static final Handling PLATFORM_HANDLING = new Handling(700, 0.6, 700, 0, Course.LIFT_LOW, Course.LIFT_HIGH,
+            true);
     /** An airship: stately, no sideways, turning slowly; it never comes down below its moorings. */
     public static final Handling SHIP_HANDLING = new Handling(900, 0, 250, 22, Course.MOORED, 4500, false);
 
@@ -913,9 +934,9 @@ public final class Course {
 
     private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE),
             new Berth(-100, 2000, MEETING));
-    /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
+    /** How low and high a platform's deck goes: just off the ground, and well over the tallest tower, under the ceiling. */
     public static final double LIFT_LOW = 60;
-    public static final double LIFT_HIGH = 4500;
+    public static final double LIFT_HIGH = 35_000;
     /** How high a moored airship is: its gondola and lower fin just over the avatar's head, to walk in under and board. */
     public static final double MOORED = 600;
     /**
@@ -926,11 +947,28 @@ public final class Course {
 
     /**
      * Someone put in the world at the start ({@link Person}): who, on which platform's deck (as
-     * big as {@code deck}), where on it in its frame ({@code across}, {@code along}), which way they
+     * big as {@code deck}), or on the ground (no deck: then {@code across} and {@code along}
+     * the world's x and z, and {@code facing} their heading), where on it in its frame ({@code across}, {@code along}), which way they
      * face from the way it heads, and what they sit on ({@code seat}, put there with them; null for
-     * standing).
+     * standing); and off a platform, how high what they stand on is ({@code up}: 0, the ground).
      */
-    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, Furniture seat) {
+    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, Furniture seat,
+                       double up) {
+
+        /** On a platform's deck, or on the ground itself. */
+        public Cast(final Person.Role role, final Deck deck, final double across, final double along, final double facing,
+                    final Furniture seat) {
+            this(role, deck, across, along, facing, seat, 0);
+        }
+
+        /**
+         * Put on no platform, but on what stands {@code up} high where they are (a building's floor: a
+         * tower's void deck), at the world's {@code x} and {@code z}, heading {@code facing}.
+         */
+        public static Cast standing(final Person.Role role, final double x, final double z, final double up,
+                                    final double facing, final Furniture seat) {
+            return new Cast(role, null, x, z, facing, seat, up);
+        }
 
         /** Whether they sit. */
         public boolean sitting() {
@@ -998,6 +1036,8 @@ public final class Course {
 
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Gate> gates = new ArrayList<>();
+    /** Who stands on the ground at the start, not on a platform. */
+    private final List<Cast> ground = new ArrayList<>();
 
     /** The playground: everything at once. */
     public Course() {
@@ -1022,7 +1062,121 @@ public final class Course {
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
             case TRACK -> trackDemo();
+            case TOWN -> townDemo();
+            case TEMPLE -> templeDemo();
+            case PYRAMID -> pieces.addAll(pyramids.get());
+            case PAVILION -> pieces.addAll(built(Demo.PAVILION));
         }
+    }
+
+    /**
+     * The town's demo: its buildings and the motorcycle ({@link #town}); on its towers' void decks,
+     * their bars and stalls and the people at them; and, on the open ground
+     * between the start and the first row, the melon stall on its barge off to one side, and the
+     * meeting platform, its stand-up under way, off to the other, turned so its board faces the start.
+     */
+    private void townDemo() {
+        pieces.addAll(town.get());
+        // and its towers' void decks' bars and stalls, and the people at them
+        pieces.addAll(townThings.get());
+        ground.addAll(townPeople.get());
+        pieces.add(Piece.moving(BARGE.shape(), new Place(1100, 2600, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        stall(pieces.size() - 1);
+        pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
+        meeting(pieces.size() - 1);
+    }
+
+    /**
+     * The temple's demo: its halls ({@link #temple}), and in the courtyard before the great hall,
+     * three monks at their stand-up ({@link #MONKS}), standing on the ground.
+     */
+    private void templeDemo() {
+        pieces.addAll(temple.get());
+        ground.addAll(MONKS);
+    }
+
+    /**
+     * What stands in the temple's courtyard: its halls, each one piece ({@link Kind#BUILDING}), put
+     * together outside the simulation, as the town's are; until it is told, nothing.
+     */
+    private static java.util.function.Supplier<List<Piece>> temple = List::of;
+
+    /** What stands among the pyramids: put together outside the simulation, as the town's are; until it is told, nothing. */
+    private static java.util.function.Supplier<List<Piece>> pyramids = List::of;
+
+    /** Says what stands among the pyramids. */
+    public static void pyramids(final java.util.function.Supplier<List<Piece>> what) {
+        pyramids = what;
+    }
+
+    /**
+     * What is built in each demo whose buildings are put together outside the simulation, as it
+     * knows nothing of how a building is designed: told it ({@link #built(Demo, java.util.function.Supplier)}).
+     */
+    private static final java.util.Map<Demo, java.util.function.Supplier<List<Piece>>> BUILT =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Says what is built in {@code demo}. */
+    public static void built(final Demo demo, final java.util.function.Supplier<List<Piece>> what) {
+        BUILT.put(demo, what);
+    }
+
+    /** What is built in {@code demo}: nothing, until it is told. */
+    private static List<Piece> built(final Demo demo) {
+        return BUILT.getOrDefault(demo, List::of).get();
+    }
+
+    /** Says what stands in the temple's courtyard: its halls. */
+    public static void temple(final java.util.function.Supplier<List<Piece>> what) {
+        temple = what;
+    }
+
+    /** Where the monks meet: in the courtyard, this far ahead of the start; how far round, each from its middle. */
+    public static final double MONKS_AHEAD = 2600;
+    private static final double MONK_RING = 110;
+
+    /**
+     * The monks at their stand-up, on the ground in the temple's courtyard (across and along the
+     * world's x and z): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
+     * each facing its middle: the stout one on its far side, facing the start; the other two either
+     * side nearer it.
+     */
+    public static final List<Cast> MONKS = List.of(
+            monk(Person.Role.STOUT_MONK, 0), monk(Person.Role.SMALL_MONK, -120), monk(Person.Role.TALL_MONK, 120));
+
+    private static Cast monk(final Person.Role role, final double round) {
+        final Vec3 spot = Num.heading(round).multiply(MONK_RING);
+        return new Cast(role, null, spot.x(), MONKS_AHEAD + spot.z(), Num.wrap(round + 180), null);
+    }
+
+    /**
+     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), and a
+     * motorcycle to ride between them. The buildings are put together outside the simulation, as it
+     * knows nothing of how a building is designed: whoever does says what stands there
+     * ({@link #town}); until then, the motorcycle alone.
+     */
+    private static java.util.function.Supplier<List<Piece>> town = () -> List.of(
+            Piece.vehicle(BOXER, null, new Place(300, 600, BOXER.ride(), 0), 0));
+
+    /** Says what stands in the town: its buildings, and the motorcycle; nothing set out on its decks, no one there. */
+    public static void town(final java.util.function.Supplier<List<Piece>> what) {
+        town(what, List::of, List::of);
+    }
+
+    /** What is set out on the town's towers' void decks, loose ({@link Piece#loose}); and who is there: until told, none. */
+    private static java.util.function.Supplier<List<Piece>> townThings = List::of;
+    private static java.util.function.Supplier<List<Cast>> townPeople = List::of;
+
+    /**
+     * Says what stands in the town ({@link #town(java.util.function.Supplier)}); and what is set out
+     * on its towers' decks, {@code things}, and who is there, {@code people}.
+     */
+    public static void town(final java.util.function.Supplier<List<Piece>> what,
+                            final java.util.function.Supplier<List<Piece>> things,
+                            final java.util.function.Supplier<List<Cast>> people) {
+        town = what;
+        townThings = things;
+        townPeople = people;
     }
 
     /**
@@ -1494,6 +1648,11 @@ public final class Course {
         return List.copyOf(pieces);
     }
 
+    /** Who stands on the ground at the start ({@link Cast} with no deck), as it is laid out. */
+    public List<Cast> ground() {
+        return List.copyOf(ground);
+    }
+
     /** The gates' openings, to fly through. */
     public List<Gate> gates() {
         return List.copyOf(gates);
@@ -1509,7 +1668,16 @@ public final class Course {
                 numbers.add(i);
             }
         }
-        return new Obstacles(blocks, gates, numbers);
+        // and what is shaped more closely, numbered the same way
+        final List<Volume> volumes = new ArrayList<>();
+        final List<Integer> each = new ArrayList<>();
+        for (int i = 0; i < pieces.size(); i++) {
+            for (final Volume volume : pieces.get(i).volumes()) {
+                volumes.add(volume);
+                each.add(i);
+            }
+        }
+        return new Obstacles(blocks, gates, numbers, volumes, each);
     }
 
     /**

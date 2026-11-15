@@ -12,7 +12,8 @@ import java.util.List;
  *
  * <ul>
  *   <li><b>It stands on whatever is under it</b> ({@link #support}): the ground, a block, a
- *       platform's deck, another loose thing. Resting on something that moves, it goes where
+ *       platform's deck, another loose thing, a building's floor shaped more closely (a tower's
+ *       void deck). Resting on something that moves, it goes where
  *       that goes, turned as it turns ({@link #carried}): the fruit on the table, the table on
  *       the barge.</li>
  *   <li><b>Pushed</b>, it slides along the ground ({@link #pushed}) and comes to a stop; it stops
@@ -79,12 +80,37 @@ public record Prop(int piece, Loose thing, Place place, double vx, double vz, do
         final double underside = place.height();
         final Block below = new Block(box.x(), box.z(), box.halfWidth(), box.halfDepth(), box.yaw(), -1, underside + 0.5);
         Lift.Support best = new Lift.Support(-1, 0);
+        final double reach = Math.hypot(box.halfWidth(), box.halfDepth());
         for (int i = 0; i < world.blocks().size(); i++) {
-            final int other = world.pieces().get(i);
             final Block block = world.blocks().get(i);
-            if (other != piece && !ignore.contains(other) && block.top() > best.top()
-                    && block.top() <= underside + 0.5 && below.overlaps(block)) {
+            if (block.top() <= best.top() || block.top() > underside + 0.5) {
+                continue;
+            }
+            // nowhere near it, by the circles round them both: most are not, and that is quickly said
+            final double dx = block.x() - box.x();
+            final double dz = block.z() - box.z();
+            final double apart = reach + Math.hypot(block.halfWidth(), block.halfDepth());
+            if (dx * dx + dz * dz > apart * apart) {
+                continue;
+            }
+            // what is ignored asked last: it is a list
+            final int other = world.pieces().get(i);
+            if (other != piece && below.overlaps(block) && !ignore.contains(other)) {
                 best = new Lift.Support(other, block.top());
+            }
+        }
+        // what is shaped more closely: its highest top no higher than its underside anywhere under the
+        // circle round it (a loose thing is small: felt for once, not all over as a lift's deck is)
+        // only those near it: there may be a town of them
+        for (final int i : world.volumesNear(box.x(), box.z(), reach)) {
+            final int other = world.volumePieces().get(i);
+            final Volume volume = world.volumes().get(i);
+            if (other == piece || volume.low() > underside + 0.5) {
+                continue;
+            }
+            final double top = volume.topAt(box.x(), box.z(), reach, underside + 0.5);
+            if (top > best.top() && !ignore.contains(other)) {
+                best = new Lift.Support(other, top);
             }
         }
         return best;
@@ -164,6 +190,12 @@ public record Prop(int piece, Loose thing, Place place, double vx, double vz, do
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
             if (other != piece && !ignore.contains(other) && box.overlaps(world.blocks().get(i))) {
+                return false;
+            }
+        }
+        for (int i = 0; i < world.volumes().size(); i++) {
+            final int other = world.volumePieces().get(i);
+            if (other != piece && !ignore.contains(other) && world.volumes().get(i).overlaps(box)) {
                 return false;
             }
         }

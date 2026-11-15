@@ -234,7 +234,7 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   the left, and a meeting platform, 6.4 m by 5.2 m, further round to the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
   one and stand behind its console, and the HUD offers the controls (T). At them, the keys that
   would move the robot fly the platform: W and S ahead and back, A and D sideways, the mouse
-  turns it, Space climbs and Ctrl descends, from just off the ground to 45 m up, Shift to go
+  turns it, Space climbs and Ctrl descends, from just off the ground to 350 m up, well over the tallest tower, climbing at 7 m/s, Shift to go
   carefully. It eases up to speed and to a stop, and stops short of anything in its way, with
   room over the deck for whoever rides it. The robot stands at the console and is carried and
   turned with it, and can still draw a weapon and fire. T again lets go, and it hangs where it
@@ -329,16 +329,20 @@ airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and 
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; and the **track**, a NASCAR-style
-oval to take every land vehicle round flat out (`Demo`).
+with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
+oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
+motorcycle to ride between them, a void deck part way up each tower with a bar and a melon stall on it, and before
+them the melon stall and the stand-up, each on its platform; and the
+**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
+**pyramids**, each in the way as it is shaped; and the **pavilions**, round a lawn, to walk into (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PAVILION`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -630,6 +634,357 @@ motorcycle's frame; `-Dmodel.yaw`, `-Dmodel.pitch` and `-Dmodel.distance` where 
 `-Dride.speed=60` (km/h), `-Dride.steer=2` (degrees, right when positive) and `-Dride.passenger=80`
 (kg) where the test ride starts; `-Dmodel.over=true` lays the game's outfit over on its side.
 
+### Buildings bench
+
+Buildings are shaped on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --buildings
+```
+
+A building's shape is a `Form`: a graph of vertices, each a point with no size, and edges, each a
+line with no thickness, every vertex named. Nothing else: what it is made of, how thick its walls
+are, its faces and what bears what are for whatever uses the shape to lay on it later, each about
+its parts by their names. So one shape can serve a building drawn and broken as a whole, one walked
+through, and one loaded until a pillar gives and it falls.
+
+- Three typical buildings (`Buildings`), each made by a generator:
+  - **Brutalist apartments**: a concrete slab of flats 36 m by 12 m, five storeys on a 6 m grid of
+    columns, its tall ground storey open on pilotis; a parapet round its roof and the stair tower
+    on it. Its skeleton is its structure only: how it is dressed is its surfaces' designs' to say.
+  - **Skyscraper**: a two-storey podium 48 m square; on it a tower 32 m square, 36 floors of 4 m,
+    mullions every 4 m, set back to 24 m square for its top eight floors; a core 12 m square up its
+    middle; a screen round its roof plant; and a spire on the core to 200 m.
+  - **Town church**: composed of parts (below).
+- Shown as its skeleton: every edge a thin rod, all of them in a few meshes (`FormModel`), so even
+  the skyscraper's 2,800 edges draw at once: upright ones blue (columns, piers, mullions), level
+  ones dark (floors, eaves, sills), sloped ones orange (roofs, arches, spires); its vertices too,
+  if asked; on a floor ruled every 10 m.
+- Its figures: how many vertices and edges, its edges' length all told, how wide, deep and high it
+  is, how many of its edges are upright, level and sloped, how many pieces it is in (a window's
+  outline stands apart from the wall round it, until a face holds it as a hole), and what is wrong
+  with it: two vertices one point, an edge twice, a vertex nothing joins.
+- Saved as text (`Form.text`, `Form.read`): a line for each vertex, one for each edge by its
+  vertices' names, to read and edit by hand.
+- **Composed, and dressed many ways** (`build`): a building (`Building`) is its skeleton, its
+  high-level surfaces (`Surface`: a front, an end, the roof, a floor's underside, each a rectangle
+  with its own frame, u along it, v up it, w out of it, and the lines of its structure across it:
+  its bays and storeys), and the structure that shows of itself, worked out from its skeleton (the
+  pilotis: the skeleton's upright edges in the open ground storey, as concrete columns). How each
+  surface is dressed is a design's (`Design`), and a way of dressing the whole building (an
+  `Option`) is a design for each kind of surface it names. A building's options come in choices,
+  each about some of its surfaces, one option taken from each and put together (`Option.and`). A wall's design (`Facade`) is a wall of a
+  material and a thickness, cut into its bays and storeys, each cell filled as a pattern says
+  (`Infills`: blank, a window, a ribbon window, glazing, a balcony and its door, deep punched
+  windows; `Pattern`: all alike, or chessboard-wise), the wall cut round each fill's openings, and
+  trims laid over it all (`Trims`: bands at its floors, fins, a coping), carried round its corners
+  by half its thickness. Everything comes out as solids, each a named box (`Solid`), drawn a mesh
+  a material (`BuildingModel`).
+- **Built in any palette** (`Palette`): a design never names a material, only what each part does
+  (`Role`: wall, base, dressing, structure, roof, glazing, frame), and a palette says what each
+  role is made of, and how thick walls and base are. Four: board-marked concrete, all of it (the
+  apartments' own); precast panels, 40 cm, on a cast base; brick, 35 cm, with stone dressings, on a
+  50 cm stone base; and ashlar stone, 50 cm, on a 60 cm base. So the same facade in stone has its
+  windows set deeper, its surrounds and coping in stone, and its base stands out under it as a
+  plinth. A stone base is rusticated: laid in courses, 40 or 45 cm, each 2 cm proud of the joints
+  between. The structure that shows (the pilotis), the glass, the frames and the roof are the same
+  in every palette.
+- **What is doubtful, said** (`Design.doubts`): each material spans so wide an opening with
+  nothing to carry what is over it (concrete any, brick 3 m, stone 2.5 m), and a facade whose
+  openings are wider is marked on the bench with a ? and why: ribbon windows in brick, 5.6 m
+  openings; shopfronts in a stone base. Allowed, not forbidden: the designer's to weigh.
+- **Dressings added, whatever the facade** (`Dressings`, `Building.Addition`): an option can add
+  to surfaces once they are dressed, not only dress them, and is given what their design made, so
+  it can keep clear of their windows. Two such choices, each its own: **corners**, plain or with
+  corner stones (quoins) up each corner of the walls, in even courses of about 30 cm, long (60 cm)
+  and short (30) by turns, wrapping the corner, a long stone on one face meeting a short one on the
+  other, left out where they would come over a window; and **top**, the plain coping or a cornice,
+  four steps standing further out the higher, the corona deepest, over the coping and round the
+  corners. Both in the palette's dressings: stone on brick, concrete on concrete.
+  - The apartments have five facades, the same building each time: balconies on a chessboard in
+    front and ribbon windows behind; ribbon windows all round; an egg-crate of concrete fins and
+    floor bands over full-height glazing; deep punched windows in precast concrete, their
+    surrounds standing proud; and balconies both sides. Ends blank, a gravel roof, the lobby a
+    glass box among the pilotis unless the ground floor is closed in, in all of them. An option changed one surface at a time
+    (`Option.with`) makes another.
+  - Its ground floor is a choice of its own, whatever its facade above: open, on its pilotis, the
+    glass box of its lobby among them; closed in with shopfronts all round, its entrance in the
+    middle of its front under concrete canopies; or closed in with solid concrete, a band of high
+    windows, a pair in each bay (narrow enough for stone), the same entrance. Its ground storey's four walls are surfaces of the
+    building either way; open, no option dresses them.
+  - On the bench, pick a facade, a ground floor, its corners, its top and what to build it in, and
+    show the building dressed, its skeleton, or both.
+
+- **Floor plans, composed** (`Plan`, `Grid`, `Corner`, `Plans`): the first step to building
+  towers from their plans. A plan is rectangles of structural grid, each a bay pattern of its own,
+  added or cut out in turn; its outline traced round the filled cells, its outside anticlockwise and
+  any courtyard clockwise. A later grid's lines within 1.5 m of an earlier one's are moved onto it,
+  so grids put together share one set of column lines. Any outside corner can be shaped (`Corner`):
+  cut back along each edge and joined by a quarter superellipse, its squareness 1 a straight chamfer,
+  2 a quarter ellipse or circle, more fuller; the structure's grid stays square under it, and only
+  the outline follows the curve, in straight pieces no wider than a facade panel (1.5 m). From it:
+  its floor area, its outline's length, its columns (where its lines cross within it), the beams
+  between them, and its graph (`Form`, level). What is wrong with one is said: corners cut further
+  than their edges run, an inside corner shaped, parts touching at a corner only, grids whose
+  columns no beam ties together. The common shapes (`Plans`): a square, a rectangle, a rounded
+  rectangle, a circle, an oval as round or as square as asked, an L (one grid, its corner cut out
+  along its own lines), a rectangle with one end round, a rectangle with a round bow out of its
+  front. Where a curve stands clear of the grid, a ring of columns follows it, no more than 6 m apart,
+  each tied in to the nearest column of the grid by a beam.
+- **Curved edges** (`Curve`): an edge of a form can curve between its vertices instead of running
+  straight: a circular arc (a pointed arch's halves, a half circle), a bow as full as asked (a
+  spire's flare), or part of a plan's shaped corner, so a curved plan's skeleton is smooth, not in
+  facade-wide pieces (`Plan.Layout.graph(true)`, `Tower.skeleton(true)`). Measured, bounded, kept as
+  text and drawn along its curve.
+- **Buildings composed of parts** (`Assembly`): each part made as it is easiest to make it (a plan
+  stacked, or a 3D graph drawn), placed (moved, turned about the upright), and put together into
+  one skeleton: parts' vertices falling on one another made one, a straight edge split where
+  another part's vertex falls on it; each part says where it means to join another, and a joint
+  meeting nothing is said. The **town church** (`Church`) is so composed: from plans, its nave (24 m
+  by 10 m, six bays, 9 m high), its apse (a half circle, its walls' curve a curved edge) and its
+  tower in four stages to 22 m; drawn in 3D, the nave's roof (a rafter each side at every bay, its
+  gables the end ones, the front one running through the tower's back corners), the apse's roof (ribs
+  up to an apex on the back gable), the spire (its edges flared, bowed in near its foot), the cross,
+  and the pointed arches of its windows, its belfry's openings and its doorway, each two circular
+  arcs. Its plan tab shows its stacked parts' plans. Built to any size (`Church.Size`, `Church.of`):
+  its nave's bays, how long each, how wide, its walls and ridge how high, its tower how square, its
+  belfry and spire how high; the rest follows (the apse as wide as the nave, the tower's stages to
+  its eaves and to where the gable crosses it, the windows as tall as the walls allow). As first
+  drawn, `Church.Size.STANDARD`; a size it cannot stand at (a tower as wide as the nave, a belfry
+  under its roof) is refused, and said why.
+- The **temple hall** (`Temple`), a Chinese temple's main hall as the Qing laid one out, composed the
+  same way: from plans, its platform (1.2 m, reaching 2.4 m beyond its columns) and its hall, five
+  bays across, widest in the middle (4.4, 5.6, 6.4, 5.6, 4.4 m), three deep, its columns 4.5 m; drawn
+  in 3D, a bracket set on every column round its edge and in the middle of every bay between, arms
+  stepping out and in three tiers, turned to the diagonal at the corners, their tips carrying the
+  eave purlin; on that a hip roof, its eaves swept (each side one bow between its corners, turned up
+  and out, cut where its rafters start: a bow can be cut into parts along its length), its rafters
+  and hips bowed down, steeper toward the ridge, ornaments curled up on the ridge's ends; and steps
+  down before the middle bay. Its plan tab shows its platform's and hall's plans. Built to any size
+  (`Temple.Size`, `Temple.of`): an odd number of bays across, the middle one so wide and each
+  further out narrower as a Qing hall's are; so many deep, an aisle each side half the middle bay;
+  its columns and platform so high. The bracket sets and eaves as they are, the roof as steep, its
+  ridge lengthened as a Qing roof's is; as many steps as the platform is high.
+- On the bench, the church's and the hall's **sizes** are set beside their options; each change
+  builds it again, every joint checked, its plan tab with it; a size it cannot stand at said, and
+  the building left as it was.
+- **The temple** (`TempleYard`, a demo of its own): a courtyard as a Chinese temple is laid out round
+  one. At its back, on its middle line, the great hall, built to a size of its own (nine bays across,
+  the middle 7.2 m, five deep, its columns 6 m on a 2.4 m platform), facing down the courtyard to the
+  start; before it, a smaller hall each side (five bays, 4 m columns), facing in across it, their roofs
+  green where the great hall's are yellow. Each is one piece, as the town's buildings are. In the
+  middle, on the ground, three monks at their stand-up: a small one in red, a tall one in blue and a
+  stout one in yellow, robed, their heads shaved, each having the floor in turn while the other two
+  turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
+  Round it all, its wall (below): red on a stone plinth, its coping green-tiled, open on its middle
+  line at the front for the main entrance (9 m) and at the back for a small door (1.8 m) behind the
+  great hall, its back corners rounded. In the entrance its main gate: a gatehouse 11 m wide and 7 m
+  high, red, its hip roof yellow-tiled, an arched passage 3.6 m wide through it (its crown at 5.2 m)
+  to walk in and out by; its piers either side stop a body as the wall does.
+- **Shaped more closely than boxes** (`Volume`): what is in the way can be an outline stood straight up
+  (`Prism`: any outline, notches and curves and all, its top flat), or an outline laid on its side and
+  drawn along (`Extrusion`: a gable, a coping, a vault; its profile convex), or the part two of those
+  share (`Crossing`: two gables crossed are a hip roof, two triangles a pyramid). A body meets each as
+  it meets a block, its own way: between its feet and its head, what of it is there stops it; where
+  it slopes, what is under a body's feet rises as a ramp's top does; too steep to stand on (over
+  about 51°, as a ramp) and it is no footing, so nothing creeps up it a step at a time, and what lands
+  on it slides down to its foot. Rounds meet each where it truly is. A piece is in the way as its
+  blocks and its volumes (`Course.Piece.shaped`), in one list each (`Obstacles`): a world with no
+  volumes goes exactly as it did. Platforms know of them too: one will not move into a round tower's
+  curve (but will into its box's empty corner), and settles on a shaped top; a land vehicle is stopped
+  by what of them stands over a kerb in its way.
+  An extrusion may have passages through it (`holes`: each convex, drawn all along it): a gateway's
+  arch. A body fits through where the passage is open from its feet to its head; in it, the
+  passage's floor is under it and its soffit over it; a round down the passage flies on through,
+  and one fired across it from inside meets its side. So a building can be passed through.
+  A building can say how it is shaped, in its own frame (`Volume.placed`: put where it stands,
+  turned and scaled with it): the town church (its nave, its roof a gable, its apse a half circle
+  and its half cone of a roof in slices, its tower, its spire two triangles crossed) and the temple
+  halls (platform, hall, a hip roof of two gables crossed, its steps), open under their eaves, are in
+  the way so; and the towers (`TowerBuildings.shape`): each section its plan's outline, corners shaped
+  and curves as drawn, stood up from its floor to its roof, and round each roof nothing stands on a
+  parapet strip. So a round tower is round (fly at it off its middle and slide round its curve), an
+  L block is open in its corner down to its podium, a setback's terrace is stood on behind its
+  parapet. The apartments still as their parts' boxes.
+- **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
+  to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
+  and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
+  front (a ramp): closely shaped and boxes in one piece.
+- **Pavilions** (`Pavilion`, and a demo of their own, `Pavilions`): buildings that are open, hollow but
+  for what holds them up, each part of its own and in the way as it is shaped: a platform, its steps
+  up at its front (each rise under a body's step); a ring of pillars on it; beams tying their heads;
+  a roof on those. Between them is open space: walked into up the steps, stood in under the roof
+  (its underside overhead), stopped by the pillars, flown through. Made to order (`Pavilion.Spec`):
+  its footprint (square, hexagonal, octagonal, round, or a rectangle of an odd number of bays, its
+  middle one its way in), how big; its pillars round or square, how thick and how tall; its roof to
+  a point (round over a round one), a hip roof or a gable over a rectangle, or flat, how steep and
+  how far out, and how far its eaves turn up at their corners (0, straight); its platform how high.
+  Turned up, its eaves sweep as the temple hall's do: each a bow between its corners, its middle where
+  a straight eave's is, its ends up and out; its hips sag; each face filled in between them. A round
+  one's rim is turned up all round, its rafters sagging: a flare. Its roof's tiles and its pillars' material are choices, on the
+  bench too. A roof to a point over a polygon is in the way as the part so many triangles drawn
+  across it share (`Crossing`, of any number: three for a hexagon, four for an octagon). The
+  garden has one of each: square, hexagonal and octagonal ones, a round one, a long gallery under
+  a hip roof, one under a gable, and a modern one with a flat roof on steel posts. The parts are
+  what will be composed into larger structures: a temple's entrance, a tower's void deck.
+- **Roof gardens** (`RoofGarden`): a building put on another, composed. Each of the town's towers has a
+  garden on its roof: a lawn; on it, where there is most room (the point furthest from the roof's
+  edge), a pavilion about half as wide as the roof (smaller if it would not fit there), proportioned
+  to its size, facing the tower's front: a square one on the setback, a round one on the round
+  tower, an octagonal one on the oval, a hip-roofed gallery on the rounded one, a hexagonal one where
+  the L's arms meet, a modern flat-roofed one on the bow-front. Beside it, a swimming pool sunk into
+  the roof: about two fifths of the roof long and a fifth wide, 1.4 m deep, its water 25 cm under a
+  stone rim, tiled; the pavilion and the pool each clear of the roof's edge and of each other, both a
+  little smaller together until they fit. Round them, trees, pines and shrubs, as many as there is
+  room for, clear of the pavilion, its steps, the pool and the roof's edge, the same for the same
+  tower every time. The pool is cut down into the tower: its basin a hole in the tower's top (an
+  upright prism may have holes, `Prism.holes`: a pool, a courtyard, a light well), its opening out
+  of the tower's roof as drawn, the tower's columns stopping short of it. For now it is scenery:
+  walked into, its floor under the water; swimming is to come. Composed by placing: the pavilion's solids and shapes put in the
+  tower's frame on its roof (`Volume.placed` raises them as high as they stand), the plants too;
+  the tower's piece carries all of it, placed and scaled with it. Walk up into the pavilion, stand
+  under its roof, walk round the trees on the lawn; the trunks and shrubs are in the way, the
+  crowns are flown through.
+- **Void decks** (`Tower.Section.open`, `Towers.voidDeck`): a tower's section can be open, a void deck
+  between the solid sections under and over it: no walls round it, its columns the whole grid's
+  standing in the open (slim, 56 cm there, each bay 8 m clear), a railing along its open edges (glass
+  under a metal rail), its floor the section under's top, its soffit the one over's underside. Part
+  of it can stay enclosed, a plan of its own on its grid, walled as the tower is (composed
+  horizontally): a wing at one end. Its columns and core are the tower's frame's (`Frame`), the same
+  ones as in the floors under and over it, so they read as one structure through the glass. In the
+  way as it is shaped: its columns, its core, its enclosed part, its railing; walked about between
+  them. On the bench (the void deck tower, 48 m by 32 m,
+  30 floors), its deck's floor, height and enclosed wing (in bays; none, open all through) are set
+  live. On it, a garden (`DeckGarden`): the roof garden's parts but its pavilion: a pool sunk into
+  the section under it, in a bay as near the open part's middle as it fits; plants in planters,
+  sparing, no taller than the deck lets them be; all clear of the columns, the wing, the railing and
+  each other; and two spots kept open on it, square to its sides, each turned with its front to the
+  deck: one by the pool for a bar, one for a melon stall. What is set out there is not built in: in
+  the game, it is game objects (`DeckScene`). Any tower can have one (`Towers.withDeck`): a section
+  split over one of its floors, the deck between, on the same plan and frame; open all round, or but
+  for a part of the grid enclosed (`Towers.enclosed`).
+- **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
+  alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
+  meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where
+  its left face meets the next unit's face, in to the point they meet at (an inner vertex), and out
+  to where its right face meets the other's: in a line they run on as one, at a corner they are
+  mitred, at a junction each takes a slice. A free end is cut square; an opening is where no unit
+  is. Runs and arcs are cut into units no longer than asked (`Wall.run`, `Wall.arc`). In the world
+  each unit is a piece of its own (`Course.Kind.WALL_UNIT`), as tough as it is big: struck, only it
+  wears down and breaks, its neighbours standing. Each is in the way as it is shaped: its plinth and
+  its wall each its cut footprint stood up, corners and all; its coping, on a straight unit, its
+  section drawn along it (land on it and stand on its ridge, or slide off its slope), on a curved
+  one, its footprint stood up to its ridge.
+  People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
+  each team holds its own stand-up.
+- **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
+  three 120 m apart ahead of the start, each facing back down the street to it: the church, the
+  temple hall, the brutalist apartments, and the six towers, each dressed its own way. Each is one
+  piece in the world (`Course.Kind.BUILDING`): its solid blocks a box round each of its parts as its
+  solids name them (the nave, the tower, the spire; a tower's podium and shaft; the roof, the
+  columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
+  ten bunkers. Besides them, the boxer motorcycle by the start, and on the open ground before the first
+  row the barge with its melon stall off to one side and the meeting platform with its stand-up off
+  to the other, their people with them. Each tower has a void deck part way up (`Town.tower`): the
+  round, oval and rounded towers' open all round; the setback tower's (in its shaft), the L block's
+  (its north arm enclosed) and the bow-front tower's (a wing at its west end enclosed) partial; each
+  with its garden, a pool sunk in it and plants. On each deck a bar and a melon stall are set out as
+  game objects (`DeckScene`, `Town.things`, `Town.people`), loose, standing on the deck's floor, to
+  push about, knock off and shoot: the bar's counter (`Furniture.BAR`), its back shelf of bottles
+  with it, the bartender behind it and two of its three tall stools (`Furniture.BAR_STOOL`) taken,
+  those sat there leaning on it; the stall's table under its awning, watermelons on it and at its
+  ends, two pineapples, the stallholder sat behind it and a customer before it. Loose things rest on
+  a building's floors as they do on blocks (`Prop.support`), finding what is near through a grid of
+  the world's volumes (`VolumeGrid`), and people stand on them. Life size: on a town built smaller
+  than life, none. The simulation knows
+  nothing of how a building is designed: the game tells it what stands in the town
+  (`Course.town`). `-Dtown.scale=1.5` builds the town half as big again (from 0.25 to 2): every
+  building, and the streets three quarters as much wider, enough to keep them apart, so a town built
+  bigger looks it. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
+- **Scaled** (`Building.dressed(options, palette, scale)`, `Form.scaled`, `Solid.scaled`): a building
+  made so many times as big every way about its origin, still on the ground, its skeleton, its curves
+  and its solids alike: its doors, windows and floors with it, as a model is. (To make one bigger and
+  keep its doors a person's height, give it more floors or bays instead.) On the bench, a scale to
+  build it at, and a person of ordinary height (1.84 m, as the people at the stall are drawn) stood
+  a couple of metres before its front, life size whatever its scale, to tell how big it is; a
+  button to stand by them, the building rising behind.
+- **Faces of any shape** (`Sheet`): a flat face with holes (a wall and its arched windows, a doorway
+  cut into its foot), cut into triangles by clipping ears, each hole first slit to the outline; or a
+  curved one filled in from the curves round its edge (a Coons patch: four, a roof's slope between
+  its eave, hips and ridge; or three, a hip's end, a spire's flared face, the apse's half cone).
+  Either laid as a slab along its normals, so a curved slab has no cracks. An option can choose
+  materials too, over the palette (`Option.choosing`), so a roof's covering is chosen apart from the
+  walls'. **The church dressed**: its walls ashlar stone or brick (the palette), arched windows cut
+  out and glazed, the doorway cut into the tower's foot, the belfry's openings; the apse's curved
+  wall; its roofs slate, clay tile or copper; its flared spire copper or slate; the cross. **The
+  temple hall dressed**: its platform and steps stone; red walls; lacquered doors in its front bays;
+  its 24 columns red lacquer, its bracket sets painted; its roof's two long slopes and two hip ends
+  filled in between its swept eaves, its hips and its ridge, in yellow or green glazed or grey tiles,
+  its ridge, hips and ornaments standing proud; or all in dark timber and grey brick. Each box's
+  faces are shaded flat, so long thin triangles do not streak.
+- **Towers stacked from plans** (`Tower`, `Towers`): a tower is sections, bottom to top, each one
+  plan stacked so many floors so high (a podium, a shaft, a set-back top). Its skeleton is generated
+  from them: at every floor level its plan's graph (columns, beams, the slab's edge), its columns up
+  from level to level, and where one section stands on another the level between shared, a column
+  above standing on the column below. What is wrong with one is said: its plans' faults, a section
+  whose columns stand on no column below (they need a transfer structure), one reaching beyond the
+  one under it. Six on an 8 m grid, each section's lines the one below's: a tower set back twice
+  from a podium (154 m), a round one, an oval one, a rounded one, an L-shaped block on a podium, one
+  with a bow front; and a tower from the plan tab, stacked as many floors as asked, made afresh as
+  its plan is changed.
+- **Towers dressed** (`TowerBuildings`): a tower is assembled into a building like the apartments,
+  its surfaces made from its stack apart from its skeleton, then checked against it: every wall's
+  line of columns must meet a column of the skeleton, foot and head, and where one does not it is
+  said. For each section, a wall on each straight run of its outline and on each straight piece of
+  each curve (so a round tower is faceted, as a real curtain wall is), over all its floors, its
+  column lines where its plan's columns stand along it, and a parapet on it only where nothing
+  stands on it above; floors at each level between and its roof, as level surfaces of any shape
+  (`Plate`), laid as slabs in triangles. Each section is a choice of its own (a curtain wall, glass
+  over dark spandrels; the same with fins; ribbon windows; a base of shopfronts; a podium's own its
+  base), so different designs stack: a stone podium under a glass shaft under a finned top. The
+  columns standing clear of its outline show through its glass. Built in any palette, its doubts
+  said as the apartments' are.
+- **Tower frames** (`Frame`): what holds a tower up, laid out in 2D once and shared by all its
+  sections, so a shaft's columns and core are its podium's, carried on up. Its cores are outlines of
+  any shape (`Frame.rectangle`, `octagon`, `cross`, `circle`, or any list of points): one in the
+  middle, two side by side, one in an L's inside corner. Its columns are points, round or square, a
+  size at the tower's foot: on a plan's grid with those in or on a core left out (`Frame.grid`,
+  `Frame.with`), in a ring (`Frame.ring`), or a few placed (`Frame.at`, mega columns). A column on
+  the outline is set in behind the curtain wall (30 cm off the glass); it tapers to 60% of its size
+  at the top; it stands in every section whose outline it is in and stops at a setback's roof. A
+  core runs from the ground through every section and 4 m on over the roof. The six towers each
+  have their own: the setback tower a bay-square core and its podium's grid; the round one a 12 m
+  core and a ring of sixteen round columns, nothing between them; the oval one an octagonal core;
+  the rounded one twin cores; the L block its core in the bay where its arms meet; the bow-front and
+  void deck towers a 16 m by 8 m core. A tower that says none (the church's, the hall's) has no core
+  and its foot's grid. What is wrong is said: a core reaching out of a section, a column standing
+  on nothing below, a void deck's enclosed part off its grid. Only seen, for now: the same frame is
+  what forces would be worked through. A tuned mass damper, concealed at the top of the tallest, is
+  for later.
+- On the bench, each tower's **Plan (2D)** tab shows its sections' plans flat, a section at a time,
+  north up, to scale: the floor, the outline as it was square (dashed) and as shaped, the points on
+  its curves, its columns and beams, the ring round its curves; with its figures and what is wrong
+  with the tower. Over it, the tower's frame as it stands in that section: its cores, filled and
+  hatched, its columns drawn at their size there (those walled into a void deck's wing too), its
+  enclosed part outlined; the plan's own grid faint beneath; and the frame's figures read out. The tower from the plan tab's own tab is where its plan is worked: its shape
+  picked, its width, depth, bays, one more setting, floors and floor height by sliders. The other
+  buildings' plan tabs are empty, as yet.
+
+`-Dbuilding.pick=church` (or the start of any building's name) picks what is on show to start with;
+`-Dbuilding.facade=egg` and `-Dbuilding.ground=shop` (the start of an option's name) how the
+apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice` their dressings,
+`-Dbuilding.materials=brick` (the start of a palette's name) what in;
+`-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from;
+`-Dbuilding.scale=1.5` how big it is built, and `-Dbuilding.look=person` starts by the person.
+`-Dbuilding.size=bays=9,width=14` (counts, or metres) sizes the church (`bays`, `bay`, `width`,
+`walls`, `ridge`, `tower`, `belfry`, `spire`) or the hall (`across`, `middle`, `deep`, `columns`,
+`platform`) to start with.
+`-Dbuilding.tab=plan` opens on the plan tab, `-Dbuilding.section=shaft` (the start of a section's name)
+at that section; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
+(the start of a shape's name), `-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in
+metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
+plan tab to start with.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the
@@ -667,6 +1022,9 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
   recording keeps the demo it was made in, and its replay plays there.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
   `-Davatar.settle=<ms>` picks the moment instead, counted in the world's time.
+- **`-Davatar.at=0,215,84.6,0`** stands the avatar there to start (x, z and how high, in metres;
+  which way it faces), not at the start: to look at something far off, a tower's void deck say.
+  With `-Davatar.pack=true` and a script starting `F`, it hovers there. Not for a recording.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
   would have played, kept in time with the game. It is for hearing a run afterwards, or
   checking it without speakers:

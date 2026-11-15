@@ -36,6 +36,10 @@ public final class Damage {
     public static final double PLATFORM = 600;
     /** How tough a bunker is: concrete, most of a minute of the hand-held Gatling gun. */
     public static final double BUNKER = 2500;
+    /** A building, broken as a whole: ten bunkers' worth. */
+    public static final double BUILDING = 25_000;
+    /** A unit of a wall: so much for each cubic metre of its box, a brick wall's worth; no less than a crate's. */
+    public static final double WALL_UNIT = 60;
     /** How tough a land vehicle is, bare as it is. */
     public static final double CAR = 800;
     public static final double CRATE = 80;
@@ -46,9 +50,12 @@ public final class Damage {
     private final double[] toughness;
     private final double[] health;
     private final Obstacles obstacles;
+    /** Who stands on the ground at the start, as the course was laid out. */
+    private final List<Course.Cast> ground;
 
     private Damage(final List<Course.Piece> pieces, final double[] toughness, final double[] health,
-                   final Obstacles obstacles) {
+                   final Obstacles obstacles, final List<Course.Cast> ground) {
+        this.ground = ground;
         this.pieces = pieces;
         this.toughness = toughness;
         this.health = health;
@@ -62,7 +69,12 @@ public final class Damage {
         for (int i = 0; i < toughness.length; i++) {
             toughness[i] = toughness(pieces.get(i));
         }
-        return new Damage(pieces, toughness, toughness.clone(), course.obstacles());
+        return new Damage(pieces, toughness, toughness.clone(), course.obstacles(), course.ground());
+    }
+
+    /** Who stood on the ground at the start, as the course was laid out: not on a platform. */
+    public List<Course.Cast> ground() {
+        return ground;
     }
 
     /** How much a piece can take before it breaks; infinite for what cannot break. */
@@ -73,6 +85,9 @@ public final class Damage {
             case DRONE -> DRONE;
             case AIRSHIP -> AIRSHIP;
             case BUNKER -> BUNKER;
+            case BUILDING -> BUILDING;
+            case WALL_UNIT -> Math.max(CRATE, Math.round(WALL_UNIT * 4 * block.halfWidth() * block.halfDepth()
+                    * (block.top() - block.bottom()) / 1e6));
             // a land vehicle's body makes it the tougher by its armour
             case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
             case PLATFORM -> PLATFORM;
@@ -139,7 +154,7 @@ public final class Damage {
             }
         }
         return left == null ? new Taken(this, happened)
-                : new Taken(new Damage(pieces, toughness, left, standing), happened);
+                : new Taken(new Damage(pieces, toughness, left, standing, ground), happened);
     }
 
     /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */

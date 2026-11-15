@@ -321,6 +321,37 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 best = new Support(-1, block.top());
             }
         }
+        // what is shaped more closely: its highest top under the footing, felt for a metre or less apart over it
+        for (int i = 0; i < world.volumes().size(); i++) {
+            final int other = world.volumePieces().get(i);
+            final Volume volume = world.volumes().get(i);
+            if (other == piece || aboard.contains(other) || volume.low() > underside + 0.5 || !volume.overlaps(below)) {
+                continue;
+            }
+            final double top = highest(volume, below, underside + 0.5);
+            if (top > best.top()) {
+                best = new Support(other, top);
+            }
+        }
+        return best;
+    }
+
+    /** The highest top of {@code volume} no higher than {@code limit} anywhere under {@code footprint}, felt for at points over it. */
+    private static double highest(final Volume volume, final Block footprint, final double limit) {
+        final Vec3 right = Num.right(footprint.yaw());
+        final Vec3 ahead = Num.heading(footprint.yaw());
+        final int across = (int) Math.ceil(2 * footprint.halfWidth() / 100) + 1;
+        final int along = (int) Math.ceil(2 * footprint.halfDepth() / 100) + 1;
+        double best = Double.NEGATIVE_INFINITY;
+        for (int a = 0; a < across; a++) {
+            for (int b = 0; b < along; b++) {
+                final double u = -footprint.halfWidth() + 2 * footprint.halfWidth() * a / Math.max(1, across - 1);
+                final double v = -footprint.halfDepth() + 2 * footprint.halfDepth() * b / Math.max(1, along - 1);
+                final double x = footprint.x() + right.x() * u + ahead.x() * v;
+                final double z = footprint.z() + right.z() * u + ahead.z() * v;
+                best = Math.max(best, volume.topAt(x, z, 50, limit));
+            }
+        }
         return best;
     }
 
@@ -583,6 +614,12 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 if (there >= 0) {
                     return others.pieces().get(there);
                 }
+                // what is shaped more closely, solid there between a kerb over the ground and its top
+                for (int i = 0; i < others.volumes().size(); i++) {
+                    if (others.volumes().get(i).push(x, z, 1, ground + KERB, over) != null) {
+                        return others.volumePieces().get(i);
+                    }
+                }
                 if (standsIn(also, x, z, ground, over) >= 0) {
                     return -2;
                 }
@@ -669,6 +706,13 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
             if (other != piece && !aboard.contains(other) && room.overlaps(world.blocks().get(i))) {
+                return false;
+            }
+        }
+        // and of what is shaped more closely: a tower's curve, a pyramid's slope, a wall
+        for (int i = 0; i < world.volumes().size(); i++) {
+            final int other = world.volumePieces().get(i);
+            if (other != piece && !aboard.contains(other) && world.volumes().get(i).overlaps(room)) {
                 return false;
             }
         }
