@@ -120,6 +120,7 @@ public final class Game {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
+        com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
     }
 
     private static final double FIELD_OF_VIEW = 48;

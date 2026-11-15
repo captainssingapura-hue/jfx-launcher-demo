@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -17,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ChurchTest {
 
-    private static final Assembly.Result CHURCH = Church.assembled();
+    private static final Assembly.Result CHURCH = Church.standard().assembled();
     private static final Form FORM = CHURCH.form();
 
     private static int at(final double x, final double y, final double z) {
@@ -37,7 +38,7 @@ class ChurchTest {
     void itsPartsMeetWhereTheyMeanToAndItIsSound() {
         assertEquals(List.of(), CHURCH.problems());
         assertEquals(List.of(), FORM.problems());
-        for (final Tower stack : Church.stacks()) {
+        for (final Tower stack : Church.standard().stacks()) {
             assertEquals(List.of(), stack.problems(), stack.name());
         }
         // one piece, but for the windows and the belfry's openings, each standing apart in its wall
@@ -113,10 +114,48 @@ class ChurchTest {
 
     @Test
     void itsStackedPartsPlans() {
-        assertEquals(List.of("nave", "apse", "tower"), List.copyOf(Church.plans().keySet()));
-        final Plan.Layout apse = Church.plans().get("apse").layout();
+        assertEquals(List.of("nave", "apse", "tower"), List.copyOf(Church.standard().plans().keySet()));
+        final Plan.Layout apse = Church.standard().plans().get("apse").layout();
         assertEquals(List.of(), apse.problems());
         assertEquals(Math.PI * 500 * 500 / 2, apse.area(), apse.area() * 0.015,
                 "a half circle, a little less: its plan's area its outline's straight pieces'");
+    }
+
+    @Test
+    void builtAnySizeItsPartsStillMeetAndItIsAsBigAsAsked() {
+        final List<Church.Size> sizes = List.of(Church.Size.STANDARD,
+                new Church.Size(3, 300, 700, 600, 900, 400, 1800, 2400),
+                new Church.Size(10, 600, 1600, 1400, 2400, 1000, 3000, 5500));
+        for (final Church.Size size : sizes) {
+            final Church church = Church.of(size);
+            final Assembly.Result built = church.assembled();
+            assertEquals(List.of(), built.problems(), size.toString());
+            assertEquals(List.of(), built.form().problems(), size.toString());
+            church.stacks().forEach(stack -> assertEquals(List.of(), stack.problems(), stack.name() + " " + size));
+            assertEquals(1 + 2 * size.bays() + 4, built.form().pieces(), "its frame, and its windows standing apart");
+            final Form.Bounds box = built.form().bounds();
+            assertEquals(size.width(), box.width(), 1e-6, "as wide as its nave");
+            assertEquals(size.length() / 2 + size.tower(), box.front(), 1e-6, "its tower out in front");
+            assertEquals(-size.length() / 2 - size.width() / 2, box.back(), 1e-6, "its apse out behind");
+            assertEquals(size.tip() + 200, box.high(), 1e-6, "its cross's head the highest of it");
+            final Building building = church.building();
+            final List<Solid> solids = building.dressed(building.own(), Palette.STONE);
+            for (final Sheet sheet : building.sheets()) {
+                assertTrue(solids.stream().anyMatch(s -> s.name().startsWith(sheet.name() + ", ")), sheet.name());
+            }
+        }
+    }
+
+    @Test
+    void notBuiltASizeItCannotStandAt() {
+        assertThrows(IllegalArgumentException.class, () -> new Church.Size(2, 400, 1000, 900, 1500, 500, 2200, 3700));
+        assertThrows(IllegalArgumentException.class, () -> new Church.Size(6, 400, 1000, 900, 1000, 500, 2200, 3700),
+                "its ridge hardly over its walls");
+        assertThrows(IllegalArgumentException.class, () -> new Church.Size(6, 400, 1000, 900, 1500, 900, 2200, 3700),
+                "its tower as wide as its nave");
+        assertThrows(IllegalArgumentException.class, () -> new Church.Size(6, 400, 1000, 900, 1500, 500, 1600, 3700),
+                "its belfry under its roof");
+        assertThrows(IllegalArgumentException.class, () -> new Church.Size(6, 400, 1000, 900, 1500, 500, 2200, 2400),
+                "its spire a stub");
     }
 }

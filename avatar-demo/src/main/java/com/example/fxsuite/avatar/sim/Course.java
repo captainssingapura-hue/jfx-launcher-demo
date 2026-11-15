@@ -928,7 +928,8 @@ public final class Course {
 
     /**
      * Someone put in the world at the start ({@link Person}): who, on which platform's deck (as
-     * big as {@code deck}), where on it in its frame ({@code across}, {@code along}), which way they
+     * big as {@code deck}), or on the ground (no deck: then {@code across} and {@code along}
+     * the world's x and z, and {@code facing} their heading), where on it in its frame ({@code across}, {@code along}), which way they
      * face from the way it heads, and what they sit on ({@code seat}, put there with them; null for
      * standing).
      */
@@ -1000,6 +1001,8 @@ public final class Course {
 
     private final List<Piece> pieces = new ArrayList<>();
     private final List<Gate> gates = new ArrayList<>();
+    /** Who stands on the ground at the start, not on a platform. */
+    private final List<Cast> ground = new ArrayList<>();
 
     /** The playground: everything at once. */
     public Course() {
@@ -1025,6 +1028,7 @@ public final class Course {
             case GUNS -> gunsDemo();
             case TRACK -> trackDemo();
             case TOWN -> townDemo();
+            case TEMPLE -> templeDemo();
         }
     }
 
@@ -1039,6 +1043,44 @@ public final class Course {
         stall(pieces.size() - 1);
         pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
+    }
+
+    /**
+     * The temple's demo: its halls ({@link #temple}), and in the courtyard before the great hall,
+     * three monks at their stand-up ({@link #MONKS}), standing on the ground.
+     */
+    private void templeDemo() {
+        pieces.addAll(temple.get());
+        ground.addAll(MONKS);
+    }
+
+    /**
+     * What stands in the temple's courtyard: its halls, each one piece ({@link Kind#BUILDING}), put
+     * together outside the simulation, as the town's are; until it is told, nothing.
+     */
+    private static java.util.function.Supplier<List<Piece>> temple = List::of;
+
+    /** Says what stands in the temple's courtyard: its halls. */
+    public static void temple(final java.util.function.Supplier<List<Piece>> what) {
+        temple = what;
+    }
+
+    /** Where the monks meet: in the courtyard, this far ahead of the start; how far round, each from its middle. */
+    public static final double MONKS_AHEAD = 2600;
+    private static final double MONK_RING = 110;
+
+    /**
+     * The monks at their stand-up, on the ground in the temple's courtyard (across and along the
+     * world's x and z): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
+     * each facing its middle: the stout one on its far side, facing the start; the other two either
+     * side nearer it.
+     */
+    public static final List<Cast> MONKS = List.of(
+            monk(Person.Role.STOUT_MONK, 0), monk(Person.Role.SMALL_MONK, -120), monk(Person.Role.TALL_MONK, 120));
+
+    private static Cast monk(final Person.Role role, final double round) {
+        final Vec3 spot = Num.heading(round).multiply(MONK_RING);
+        return new Cast(role, null, spot.x(), MONKS_AHEAD + spot.z(), Num.wrap(round + 180), null);
     }
 
     /**
@@ -1522,6 +1564,11 @@ public final class Course {
 
     public List<Piece> pieces() {
         return List.copyOf(pieces);
+    }
+
+    /** Who stands on the ground at the start ({@link Cast} with no deck), as it is laid out. */
+    public List<Cast> ground() {
+        return List.copyOf(ground);
     }
 
     /** The gates' openings, to fly through. */

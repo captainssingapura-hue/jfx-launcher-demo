@@ -28,53 +28,155 @@ import java.util.Map;
  *       middle bay.</li>
  * </ul>
  *
+ * <p>So it is as first drawn ({@link Size#STANDARD}); built to any size it can stand at
+ * ({@link #of(Size)}): its bays across and deep, its middle bay, its columns and platform.
+ *
  * <p>In centimetres: across x, along y (its front +y), up from the ground.
  */
 public final class Temple {
 
-    private Temple() {
+    /**
+     * How big it is built, in centimetres: {@code bays} bays across (an odd number, so one is in the
+     * middle), the middle one {@code middle} wide and each further out narrower, as a Qing hall's are
+     * (seven eighths as wide, then eleven sixteenths, then a sixteenth less again, to half); {@code deep}
+     * bays deep, the outer two each half the middle bay (its front and back aisles), those between as
+     * wide as it; its columns {@code column} high, on a platform {@code platform} high. The bracket sets
+     * as they are; the eaves as far out; the roof as steep, its ridge as much shorter than the hall
+     * is wide as a Qing roof's (lengthened, so its hips are steeper than its slopes).
+     */
+    public record Size(int bays, double middle, int deep, double column, double platform) {
+
+        /** The hall as it was first drawn: five bays across, the middle 6.4 m, three deep, its columns 4.5 m on a 1.2 m platform. */
+        public static final Size STANDARD = new Size(5, 640, 3, 450, 120);
+
+        public Size {
+            final List<String> wrong = new ArrayList<>();
+            if (bays < 3 || bays > 11 || bays % 2 == 0) {
+                wrong.add("an odd number of bays across, from 3 to 11, not " + bays);
+            }
+            if (middle < 400 || middle > 900) {
+                wrong.add("its middle bay from 4 m to 9 m wide, not " + middle / 100);
+            }
+            if (deep < 3 || deep > 5) {
+                wrong.add("from 3 to 5 bays deep, not " + deep);
+            }
+            if (deep > bays) {
+                wrong.add("no deeper in bays than it is wide");
+            }
+            if (column < 300 || column > 800) {
+                wrong.add("its columns from 3 m to 8 m high, not " + column / 100);
+            }
+            if (platform < 30 || platform > 300) {
+                wrong.add("its platform from 0.3 m to 3 m high, not " + platform / 100);
+            }
+            if (!wrong.isEmpty()) {
+                throw new IllegalArgumentException("a temple hall " + String.join("; ", wrong));
+            }
+        }
+
+        /** Its bays across, west to east: the middle one widest. */
+        public double[] across() {
+            final double[] widths = new double[bays];
+            for (int b = 0; b < bays; b++) {
+                final int out = Math.abs(b - bays / 2);
+                final double share = out == 0 ? 1 : out == 1 ? 0.875 : Math.max(0.5, 0.6875 - 0.0625 * (out - 2));
+                widths[b] = middle * share;
+            }
+            return widths;
+        }
+
+        /** Its bays deep, back to front: an aisle each side, half the middle bay, and as wide as it between. */
+        public double[] depths() {
+            final double[] depths = new double[deep];
+            java.util.Arrays.fill(depths, middle);
+            depths[0] = middle / 2;
+            depths[deep - 1] = middle / 2;
+            return depths;
+        }
     }
 
-    /** Its bays across, the middle one widest; and deep. */
-    private static final double[] ACROSS = {440, 560, 640, 560, 440};
-    private static final double[] DEEP = {320, 640, 320};
-    private static final double HALF_WIDE = sum(ACROSS) / 2;
-    private static final double HALF_DEEP = sum(DEEP) / 2;
-    private static final double PLATFORM = 120;
-    private static final double MARGIN = 240;
-    private static final double COLUMN = 450;
-    private static final double HEAD = PLATFORM + COLUMN;
     /** A bracket set: how high it stands, how far out (and in) its arms reach. */
     private static final double BRACKET = 90;
     private static final double REACH = 90;
-    private static final double PURLIN = HEAD + BRACKET;
-    /** Its eaves: how far out beyond its columns, how high at their middle; its corners turned up and out. */
+    /** Its eaves: how far out beyond its columns; its corners turned up and out. */
     private static final double OVERHANG = 270;
-    private static final double EAVE = 600;
     private static final double UPTURN = 70;
     private static final double FLARE = 50;
     private static final double SWEEP = 3;
-    /** Its ridge: how high, how far each way from the middle; how far its rafters and hips bow down. */
-    private static final double RIDGE = 1375;
-    private static final double RIDGE_HALF = 900;
+    /** How far its rafters and hips bow down. */
     private static final double SAG = 60;
     private static final double HIP_SAG = 70;
+    /** Its steps: how far each goes out, and about how high each rises. */
+    private static final double GOING = 35;
+    private static final double STEP = 30;
 
-    private static double sum(final double[] bays) {
+    private final Size size;
+    /** Its bays across, the middle one widest; and deep. */
+    private final double[] bayWidths;
+    private final double[] bayDepths;
+    private final double halfWide;
+    private final double halfDeep;
+    private final double platformHeight;
+    private final double marginWidth;
+    private final double headHeight;
+    private final double purlinHeight;
+    /** Its eaves: how high at their middle. */
+    private final double eaveHeight;
+    /** Its ridge: how high, how far each way from the middle. */
+    private final double ridgeHeight;
+    private final double ridgeHalf;
+    /** How many steps up to its platform. */
+    private final int stepCount;
+
+    private Temple(final Size size) {
+        this.size = size;
+        bayWidths = size.across();
+        bayDepths = size.depths();
+        halfWide = sum(bayWidths) / 2;
+        halfDeep = sum(bayDepths) / 2;
+        platformHeight = size.platform();
+        // its platform reaching out beyond its columns three eighths of its middle bay
+        marginWidth = size.middle() * 3 / 8;
+        headHeight = platformHeight + size.column();
+        purlinHeight = headHeight + BRACKET;
+        eaveHeight = purlinHeight - 60;
+        // as steep as the first: 7.75 m up from its eaves over 9.1 m in from them to the ridge
+        ridgeHeight = eaveHeight + 775 * (halfDeep + OVERHANG) / 910;
+        // lengthened, as a Qing roof's is: its ridge's ends drawn out beyond where its hips would meet at 45
+        ridgeHalf = Math.max(halfWide - halfDeep * 21 / 32, halfWide / 4);
+        stepCount = Math.max(2, (int) Math.round(platformHeight / STEP));
+    }
+
+    /** The hall built {@code size}. */
+    public static Temple of(final Size size) {
+        return new Temple(size);
+    }
+
+    /** The hall as it was first drawn ({@link Size#STANDARD}). */
+    public static Temple standard() {
+        return new Temple(Size.STANDARD);
+    }
+
+    /** How big it is built. */
+    public Size size() {
+        return size;
+    }
+
+    private double sum(final double[] bays) {
         return java.util.Arrays.stream(bays).sum();
     }
 
     /** The plans its stacked parts are made from: its platform, its hall. */
-    public static Map<String, Plan> plans() {
+    public Map<String, Plan> plans() {
         final Map<String, Plan> plans = new LinkedHashMap<>();
-        plans.put("platform", Plan.of("platform", new Grid("platform", -HALF_WIDE - MARGIN, -HALF_DEEP - MARGIN,
-                with(MARGIN, ACROSS), with(MARGIN, DEEP), Map.of())));
-        plans.put("hall", Plan.of("hall", new Grid("hall", -HALF_WIDE, -HALF_DEEP, ACROSS, DEEP, Map.of())));
+        plans.put("platform", Plan.of("platform", new Grid("platform", -halfWide - marginWidth, -halfDeep - marginWidth,
+                with(marginWidth, bayWidths), with(marginWidth, bayDepths), Map.of())));
+        plans.put("hall", Plan.of("hall", new Grid("hall", -halfWide, -halfDeep, bayWidths, bayDepths, Map.of())));
         return plans;
     }
 
     /** {@code bays}, a bay {@code margin} wide added at each end. */
-    private static double[] with(final double margin, final double[] bays) {
+    private double[] with(final double margin, final double[] bays) {
         final double[] all = new double[bays.length + 2];
         all[0] = margin;
         System.arraycopy(bays, 0, all, 1, bays.length);
@@ -83,31 +185,31 @@ public final class Temple {
     }
 
     /** Its stacked parts: its platform, its hall. */
-    public static List<Tower> stacks() {
-        return List.of(Tower.of("platform", plans().get("platform"), 1, PLATFORM),
-                Tower.of("hall", plans().get("hall"), 1, COLUMN));
+    public List<Tower> stacks() {
+        return List.of(Tower.of("platform", plans().get("platform"), 1, platformHeight),
+                Tower.of("hall", plans().get("hall"), 1, size.column()));
     }
 
     /** Its parts, placed. */
-    public static List<Placed> parts() {
+    public List<Placed> parts() {
         final List<Tower> stacks = stacks();
         return List.of(
                 new Placed("platform", stacks.get(0).skeleton(true), Vec3.ZERO, 0, List.of()),
-                new Placed("hall", stacks.get(1).skeleton(true), new Vec3(0, 0, PLATFORM), 0, List.of()),
+                new Placed("hall", stacks.get(1).skeleton(true), new Vec3(0, 0, platformHeight), 0, List.of()),
                 brackets(), roof(), steps());
     }
 
     /** It all, put together. */
-    public static Assembly.Result assembled() {
+    public Assembly.Result assembled() {
         return Assembly.of("temple hall", parts());
     }
 
-    public static Form skeleton() {
+    public Form skeleton() {
         return assembled().form();
     }
 
     /** The lines of its columns across, west to east; and along, back to front. */
-    private static double[] lines(final double[] bays, final double half) {
+    private double[] lines(final double[] bays, final double half) {
         final double[] at = new double[bays.length + 1];
         at[0] = -half;
         for (int k = 0; k < bays.length; k++) {
@@ -120,41 +222,41 @@ public final class Temple {
      * Its bracket sets: on every column round its edge (turned to the diagonal at its corners, reaching
      * as far again, so its tip meets the purlin's corner), and in the middle of every bay between.
      */
-    private static Placed brackets() {
+    private Placed brackets() {
         final Form.Builder form = new Form.Builder("brackets");
         final List<String> joints = new ArrayList<>();
-        final double[] xs = lines(ACROSS, HALF_WIDE);
-        final double[] ys = lines(DEEP, HALF_DEEP);
+        final double[] xs = lines(bayWidths, halfWide);
+        final double[] ys = lines(bayDepths, halfDeep);
         // round its edge, anticlockwise from its back left corner: each column, then the middle of the bay after it
         final List<double[]> round = new ArrayList<>();
         for (int i = 0; i < xs.length - 1; i++) {
-            round.add(new double[] {xs[i], -HALF_DEEP});
+            round.add(new double[] {xs[i], -halfDeep});
         }
         for (int j = 0; j < ys.length - 1; j++) {
-            round.add(new double[] {HALF_WIDE, ys[j]});
+            round.add(new double[] {halfWide, ys[j]});
         }
         for (int i = xs.length - 1; i > 0; i--) {
-            round.add(new double[] {xs[i], HALF_DEEP});
+            round.add(new double[] {xs[i], halfDeep});
         }
         for (int j = ys.length - 1; j > 0; j--) {
-            round.add(new double[] {-HALF_WIDE, ys[j]});
+            round.add(new double[] {-halfWide, ys[j]});
         }
         for (int k = 0; k < round.size(); k++) {
             final double[] at = round.get(k);
             final double[] next = round.get((k + 1) % round.size());
-            final boolean corner = Math.abs(at[0]) == HALF_WIDE && Math.abs(at[1]) == HALF_DEEP;
+            final boolean corner = Math.abs(at[0]) == halfWide && Math.abs(at[1]) == halfDeep;
             final Vec3 out = corner ? new Vec3(Math.signum(at[0]), Math.signum(at[1]), 0).normalize() : outward(at);
-            set(form, "column set " + k, new Vec3(at[0], at[1], HEAD), out, corner ? REACH * Math.sqrt(2) : REACH, joints);
+            set(form, "column set " + k, new Vec3(at[0], at[1], headHeight), out, corner ? REACH * Math.sqrt(2) : REACH, joints);
             // and one in the middle of the bay on to the next column
             final double[] middle = {(at[0] + next[0]) / 2, (at[1] + next[1]) / 2};
-            set(form, "bay set " + k, new Vec3(middle[0], middle[1], HEAD), outward(middle), REACH, joints);
+            set(form, "bay set " + k, new Vec3(middle[0], middle[1], headHeight), outward(middle), REACH, joints);
         }
         return new Placed("brackets", form.build(), Vec3.ZERO, 0, joints);
     }
 
     /** Out from the side of the hall {@code at} is on. */
-    private static Vec3 outward(final double[] at) {
-        return Math.abs(Math.abs(at[1]) - HALF_DEEP) < 1e-6 ? new Vec3(0, Math.signum(at[1]), 0)
+    private Vec3 outward(final double[] at) {
+        return Math.abs(Math.abs(at[1]) - halfDeep) < 1e-6 ? new Vec3(0, Math.signum(at[1]), 0)
                 : new Vec3(Math.signum(at[0]), 0, 0);
     }
 
@@ -164,7 +266,7 @@ public final class Temple {
      * of the outer climb. Its base and its outer tip are where it joins: the column (or the beam) under
      * it, the purlin on it.
      */
-    private static void set(final Form.Builder form, final String name, final Vec3 base, final Vec3 out,
+    private void set(final Form.Builder form, final String name, final Vec3 base, final Vec3 out,
                             final double reach, final List<String> joints) {
         final Vec3 up = new Vec3(0, 0, 1);
         final Vec3 across = new Vec3(-out.y(), out.x(), 0);
@@ -201,40 +303,40 @@ public final class Temple {
      * from the middles of the short sides' to the ridge's ends; its hips bowed down from the ridge's ends
      * to the eaves' corners; ornaments curled up on the ridge's ends.
      */
-    private static Placed roof() {
+    private Placed roof() {
         final Form.Builder form = new Form.Builder("roof");
         final List<String> joints = new ArrayList<>();
         // the eave purlin, on the bracket sets' tips, and its corners, where the corner sets' tips meet it
-        final double px = HALF_WIDE + REACH;
-        final double py = HALF_DEEP + REACH;
+        final double px = halfWide + REACH;
+        final double py = halfDeep + REACH;
         final int[] purlin = new int[4];
         final double[][] signs = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
         final int[] eaves = new int[4];
         final Vec3[] corner = new Vec3[4];
         for (int c = 0; c < 4; c++) {
             final String name = "purlin corner " + c;
-            purlin[c] = form.vertex(name, signs[c][0] * px, signs[c][1] * py, PURLIN);
+            purlin[c] = form.vertex(name, signs[c][0] * px, signs[c][1] * py, purlinHeight);
             joints.add(name);
-            corner[c] = new Vec3(signs[c][0] * (HALF_WIDE + OVERHANG + FLARE), signs[c][1] * (HALF_DEEP + OVERHANG + FLARE),
-                    EAVE + UPTURN);
+            corner[c] = new Vec3(signs[c][0] * (halfWide + OVERHANG + FLARE), signs[c][1] * (halfDeep + OVERHANG + FLARE),
+                    eaveHeight + UPTURN);
             eaves[c] = vertex(form, "eave corner " + c, corner[c]);
             form.edge(purlin[c], eaves[c]);
         }
         form.loop(purlin);
         // the ridge, cut where its rafters meet it
-        final double[] xs = lines(ACROSS, HALF_WIDE);
+        final double[] xs = lines(bayWidths, halfWide);
         final List<Double> under = new ArrayList<>();
         for (final double x : xs) {
-            if (Math.abs(x) < RIDGE_HALF) {
+            if (Math.abs(x) < ridgeHalf) {
                 under.add(x);
             }
         }
-        final List<Double> ridgeAt = new ArrayList<>(List.of(-RIDGE_HALF));
+        final List<Double> ridgeAt = new ArrayList<>(List.of(-ridgeHalf));
         ridgeAt.addAll(under);
-        ridgeAt.add(RIDGE_HALF);
+        ridgeAt.add(ridgeHalf);
         final List<Integer> ridge = new ArrayList<>();
         for (final double x : ridgeAt) {
-            ridge.add(form.vertex("ridge at " + Math.round(x), x, 0, RIDGE));
+            ridge.add(form.vertex("ridge at " + Math.round(x), x, 0, ridgeHeight));
         }
         for (int k = 0; k + 1 < ridge.size(); k++) {
             form.edge(ridge.get(k), ridge.get(k + 1));
@@ -280,38 +382,38 @@ public final class Temple {
         }
         // the ornaments on the ridge's ends: up, then curled in over the ridge
         for (final int end : new int[] {west, east}) {
-            final double x = end == west ? -RIDGE_HALF : RIDGE_HALF;
-            final int top = form.vertex("ornament top at " + Math.round(x), x, 0, RIDGE + 110);
-            final int curl = form.vertex("ornament curl at " + Math.round(x), x - Math.signum(x) * 60, 0, RIDGE + 80);
+            final double x = end == west ? -ridgeHalf : ridgeHalf;
+            final int top = form.vertex("ornament top at " + Math.round(x), x, 0, ridgeHeight + 110);
+            final int curl = form.vertex("ornament curl at " + Math.round(x), x - Math.signum(x) * 60, 0, ridgeHeight + 80);
             form.edge(end, top).edge(top, curl, Curve.arc(new Vec3(0, 0, 25)));
         }
         return new Placed("roof", form.build(), Vec3.ZERO, 0, joints);
     }
 
     /** Which of {@code at} {@code x} is (as near as a rounding allows). */
-    private static double roundTo(final double x, final List<Double> at) {
+    private double roundTo(final double x, final List<Double> at) {
         return at.stream().min((a, b) -> Double.compare(Math.abs(a - x), Math.abs(b - x))).orElseThrow();
     }
 
     /** The steps down from the platform before the middle bay: their sides, and the nosing of each step across. */
-    private static Placed steps() {
+    private Placed steps() {
         final Form.Builder form = new Form.Builder("steps");
         final List<String> joints = new ArrayList<>();
-        final double edge = HALF_DEEP + MARGIN;
-        final double half = ACROSS[ACROSS.length / 2] / 2;
-        final int count = 4;
-        final double rise = PLATFORM / count;
-        final double going = 35;
+        final double edge = halfDeep + marginWidth;
+        final double half = bayWidths[bayWidths.length / 2] / 2;
+        final int count = stepCount;
+        final double rise = platformHeight / count;
+        final double going = GOING;
         final int[][] nosing = new int[count + 1][2];
         for (int s = 0; s < 2; s++) {
             final double x = s == 0 ? -half : half;
-            int last = form.vertex("top " + s, x, edge, PLATFORM);
+            int last = form.vertex("top " + s, x, edge, platformHeight);
             joints.add("top " + s);
             nosing[0][s] = last;
             for (int k = 0; k < count; k++) {
                 // down the riser, then out along the tread
-                final int riser = form.vertex("riser " + k + ", " + s, x, edge + going * k, PLATFORM - rise * (k + 1));
-                final int tread = form.vertex("tread " + k + ", " + s, x, edge + going * (k + 1), PLATFORM - rise * (k + 1));
+                final int riser = form.vertex("riser " + k + ", " + s, x, edge + going * k, platformHeight - rise * (k + 1));
+                final int tread = form.vertex("tread " + k + ", " + s, x, edge + going * (k + 1), platformHeight - rise * (k + 1));
                 form.edge(last, riser).edge(riser, tread);
                 nosing[k + 1][s] = tread;
                 last = tread;
@@ -324,7 +426,7 @@ public final class Temple {
     }
 
     /** The eave from corner {@code from} to corner {@code to}: one bow, turned up and out at its ends, as points. */
-    private static List<Vec3> eave(final Vec3 from, final Vec3 to) {
+    private List<Vec3> eave(final Vec3 from, final Vec3 to) {
         final boolean longSide = Math.abs(from.y() - to.y()) < 1e-6;
         final Vec3 inward = longSide ? new Vec3(0, -Math.signum(from.y()), 0) : new Vec3(-Math.signum(from.x()), 0, 0);
         final Vec3 bow = inward.multiply(FLARE).add(new Vec3(0, 0, -UPTURN));
@@ -336,7 +438,7 @@ public final class Temple {
     }
 
     /** A hip, from the eave's corner {@code corner} up to the ridge's end {@code end}, bowed down, as points. */
-    private static List<Vec3> hip(final Vec3 corner, final Vec3 end) {
+    private List<Vec3> hip(final Vec3 corner, final Vec3 end) {
         final Curve bow = Curve.bow(new Vec3(0, 0, -HIP_SAG), 2);
         final List<Vec3> points = new ArrayList<>();
         for (int k = 0; k <= 24; k++) {
@@ -345,7 +447,7 @@ public final class Temple {
         return points;
     }
 
-    private static Sheet rect(final String name, final String kind, final Vec3 a, final Vec3 b, final Vec3 c,
+    private Sheet rect(final String name, final String kind, final Vec3 a, final Vec3 b, final Vec3 c,
                               final Vec3 d, final Vec3 out) {
         return Sheet.flat(name, kind, List.of(a, b, c, d), List.of(), out);
     }
@@ -355,57 +457,57 @@ public final class Temple {
      * front's bays; its roof's two long slopes (each filled in between its eave, its two hips and its
      * ridge) and its two hip ends (each between its eave and its two hips, up to the ridge's end).
      */
-    public static List<Sheet> sheets() {
+    public List<Sheet> sheets() {
         final List<Sheet> sheets = new ArrayList<>();
-        final double pw = HALF_WIDE + MARGIN;
-        final double pd = HALF_DEEP + MARGIN;
+        final double pw = halfWide + marginWidth;
+        final double pd = halfDeep + marginWidth;
         // the platform: its four sides, and its top
-        sheets.add(rect("platform, front", "platform", new Vec3(-pw, pd, 0), new Vec3(pw, pd, 0), new Vec3(pw, pd, PLATFORM),
-                new Vec3(-pw, pd, PLATFORM), new Vec3(0, 1, 0)));
+        sheets.add(rect("platform, front", "platform", new Vec3(-pw, pd, 0), new Vec3(pw, pd, 0), new Vec3(pw, pd, platformHeight),
+                new Vec3(-pw, pd, platformHeight), new Vec3(0, 1, 0)));
         sheets.add(rect("platform, back", "platform", new Vec3(-pw, -pd, 0), new Vec3(pw, -pd, 0),
-                new Vec3(pw, -pd, PLATFORM), new Vec3(-pw, -pd, PLATFORM), new Vec3(0, -1, 0)));
+                new Vec3(pw, -pd, platformHeight), new Vec3(-pw, -pd, platformHeight), new Vec3(0, -1, 0)));
         for (final double side : new double[] {-pw, pw}) {
             sheets.add(rect("platform, " + (side < 0 ? "left" : "right"), "platform", new Vec3(side, -pd, 0),
-                    new Vec3(side, pd, 0), new Vec3(side, pd, PLATFORM), new Vec3(side, -pd, PLATFORM),
+                    new Vec3(side, pd, 0), new Vec3(side, pd, platformHeight), new Vec3(side, -pd, platformHeight),
                     new Vec3(Math.signum(side), 0, 0)));
         }
-        sheets.add(rect("platform, top", "platform", new Vec3(-pw, -pd, PLATFORM), new Vec3(pw, -pd, PLATFORM),
-                new Vec3(pw, pd, PLATFORM), new Vec3(-pw, pd, PLATFORM), new Vec3(0, 0, 1)));
+        sheets.add(rect("platform, top", "platform", new Vec3(-pw, -pd, platformHeight), new Vec3(pw, -pd, platformHeight),
+                new Vec3(pw, pd, platformHeight), new Vec3(-pw, pd, platformHeight), new Vec3(0, 0, 1)));
         // its steps: each riser, and each tread
-        final double half = ACROSS[ACROSS.length / 2] / 2;
-        final double rise = PLATFORM / 4;
-        for (int k = 0; k < 4; k++) {
-            final double y = pd + 35 * k;
-            final double z = PLATFORM - rise * (k + 1);
+        final double half = bayWidths[bayWidths.length / 2] / 2;
+        final double rise = platformHeight / stepCount;
+        for (int k = 0; k < stepCount; k++) {
+            final double y = pd + GOING * k;
+            final double z = platformHeight - rise * (k + 1);
             sheets.add(rect("steps, riser " + k, "platform", new Vec3(-half, y, z), new Vec3(half, y, z),
                     new Vec3(half, y, z + rise), new Vec3(-half, y, z + rise), new Vec3(0, 1, 0)));
             sheets.add(rect("steps, tread " + k, "platform", new Vec3(-half, y, z), new Vec3(half, y, z),
-                    new Vec3(half, y + 35, z), new Vec3(-half, y + 35, z), new Vec3(0, 0, 1)));
+                    new Vec3(half, y + GOING, z), new Vec3(-half, y + GOING, z), new Vec3(0, 0, 1)));
         }
         // its back and side walls, on its lines of columns, from the platform to the columns' heads
-        sheets.add(rect("back wall", "walls", new Vec3(-HALF_WIDE, -HALF_DEEP, PLATFORM), new Vec3(HALF_WIDE, -HALF_DEEP, PLATFORM),
-                new Vec3(HALF_WIDE, -HALF_DEEP, HEAD), new Vec3(-HALF_WIDE, -HALF_DEEP, HEAD), new Vec3(0, -1, 0)));
-        for (final double side : new double[] {-HALF_WIDE, HALF_WIDE}) {
-            sheets.add(rect((side < 0 ? "left" : "right") + " wall", "walls", new Vec3(side, -HALF_DEEP, PLATFORM),
-                    new Vec3(side, HALF_DEEP, PLATFORM), new Vec3(side, HALF_DEEP, HEAD), new Vec3(side, -HALF_DEEP, HEAD),
+        sheets.add(rect("back wall", "walls", new Vec3(-halfWide, -halfDeep, platformHeight), new Vec3(halfWide, -halfDeep, platformHeight),
+                new Vec3(halfWide, -halfDeep, headHeight), new Vec3(-halfWide, -halfDeep, headHeight), new Vec3(0, -1, 0)));
+        for (final double side : new double[] {-halfWide, halfWide}) {
+            sheets.add(rect((side < 0 ? "left" : "right") + " wall", "walls", new Vec3(side, -halfDeep, platformHeight),
+                    new Vec3(side, halfDeep, platformHeight), new Vec3(side, halfDeep, headHeight), new Vec3(side, -halfDeep, headHeight),
                     new Vec3(Math.signum(side), 0, 0)));
         }
         // the doors in its front's bays
-        final double[] xs = lines(ACROSS, HALF_WIDE);
+        final double[] xs = lines(bayWidths, halfWide);
         for (int b = 0; b + 1 < xs.length; b++) {
-            sheets.add(rect("doors, bay " + b, "doors", new Vec3(xs[b], HALF_DEEP, PLATFORM), new Vec3(xs[b + 1], HALF_DEEP, PLATFORM),
-                    new Vec3(xs[b + 1], HALF_DEEP, HEAD), new Vec3(xs[b], HALF_DEEP, HEAD), new Vec3(0, 1, 0)));
+            sheets.add(rect("doors, bay " + b, "doors", new Vec3(xs[b], halfDeep, platformHeight), new Vec3(xs[b + 1], halfDeep, platformHeight),
+                    new Vec3(xs[b + 1], halfDeep, headHeight), new Vec3(xs[b], halfDeep, headHeight), new Vec3(0, 1, 0)));
         }
         // its roof: the eaves' corners, the ridge's ends
         final Vec3[] corner = new Vec3[4];
         final double[][] signs = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}};
         for (int c = 0; c < 4; c++) {
-            corner[c] = new Vec3(signs[c][0] * (HALF_WIDE + OVERHANG + FLARE), signs[c][1] * (HALF_DEEP + OVERHANG + FLARE),
-                    EAVE + UPTURN);
+            corner[c] = new Vec3(signs[c][0] * (halfWide + OVERHANG + FLARE), signs[c][1] * (halfDeep + OVERHANG + FLARE),
+                    eaveHeight + UPTURN);
         }
-        final Vec3 west = new Vec3(-RIDGE_HALF, 0, RIDGE);
-        final Vec3 east = new Vec3(RIDGE_HALF, 0, RIDGE);
-        final Vec3 inside = new Vec3(0, 0, EAVE);
+        final Vec3 west = new Vec3(-ridgeHalf, 0, ridgeHeight);
+        final Vec3 east = new Vec3(ridgeHalf, 0, ridgeHeight);
+        final Vec3 inside = new Vec3(0, 0, eaveHeight);
         // its long slopes: front (its eave from the front left corner to the front right), and back
         sheets.add(Sheet.patch("roof, front slope", "roof", eave(corner[3], corner[2]), hip(corner[2], east),
                 List.of(west, east), hip(corner[3], west), 32, 12, inside));
@@ -434,7 +536,7 @@ public final class Temple {
      * bracket sets and its roof's ridge, hips and ornaments as members; its roof's tiles a choice
      * (yellow glazed, green glazed, grey), the rest as its palette says.
      */
-    public static Building building() {
+    public Building building() {
         final Map<String, Design> faces = Map.of(
                 "platform", Design.slab(Role.BASE, -30, 0),
                 "walls", Design.slab(Role.WALL, -15, 15),
@@ -468,18 +570,18 @@ public final class Temple {
     }
 
     /** {@code form}, lifted onto the platform. */
-    private static Form lifted(final Form form) {
+    private Form lifted(final Form form) {
         final Form.Builder up = new Form.Builder(form.name());
         for (final Form.Vertex v : form.vertices()) {
-            up.vertex(v.name(), v.across(), v.along(), v.up() + PLATFORM);
+            up.vertex(v.name(), v.across(), v.along(), v.up() + platformHeight);
         }
         for (final Form.Edge e : form.edges()) {
-            up.edge(e.from(), e.to(), e.curved() ? e.curve().moved(new Vec3(0, 0, PLATFORM)) : null);
+            up.edge(e.from(), e.to(), e.curved() ? e.curve().moved(new Vec3(0, 0, platformHeight)) : null);
         }
         return up.build();
     }
 
-    private static int vertex(final Form.Builder form, final String name, final Vec3 at) {
+    private int vertex(final Form.Builder form, final String name, final Vec3 at) {
         return form.vertex(name, at.x(), at.y(), at.z());
     }
 }

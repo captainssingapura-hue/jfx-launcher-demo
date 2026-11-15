@@ -25,7 +25,7 @@ class ScaleTest {
 
     @Test
     void aSkeletonScaledIsAsBigAgainEveryWayItsCurvesWithIt() {
-        final Form church = Church.skeleton();
+        final Form church = Church.standard().skeleton();
         final Form big = church.scaled(1.5);
         assertEquals(church.vertices().size(), big.vertices().size());
         assertEquals(church.edges().size(), big.edges().size());
@@ -54,7 +54,7 @@ class ScaleTest {
 
     @Test
     void aBuildingDressedAndScaledIsTheSameSolidsAsBigAgain() {
-        final Building temple = Temple.building();
+        final Building temple = Temple.standard().building();
         final List<Solid> life = temple.dressed(temple.own(), Temple.LACQUERED);
         final List<Solid> half = temple.dressed(temple.own(), Temple.LACQUERED, 0.5);
         assertEquals(life.size(), half.size());

@@ -52,8 +52,8 @@ public final class Town {
     private static List<Site> sites() {
         final List<Site> sites = new ArrayList<>();
         final List<Object[]> buildings = List.of(
-                new Object[] {"town church", (Supplier<Building>) Church::building, Palette.STONE},
-                new Object[] {"temple hall", (Supplier<Building>) Temple::building, Temple.LACQUERED},
+                new Object[] {"town church", (Supplier<Building>) () -> Church.standard().building(), Palette.STONE},
+                new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED},
                 new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE},
                 new Object[] {"setback tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.setback()), Palette.STONE},
                 new Object[] {"round tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.round()), Palette.CONCRETE},
@@ -127,10 +127,18 @@ public final class Town {
      * columns, all of them together each), turned and placed as it is.
      */
     static Course.Piece piece(final int k) {
-        final Place at = place(k);
+        return building(solids(k), place(k), k);
+    }
+
+    /**
+     * A building dressed as {@code solids}, standing at {@code at}, one piece: its box about its
+     * middle, as high as it stands; its solid blocks a box round each of its parts, as its solids name
+     * them, turned and placed as it is. Drawn by its {@code key} ({@link Course.Piece#tint}).
+     */
+    public static Course.Piece building(final List<Solid> solids, final Place at, final int key) {
         final Map<String, double[]> parts = new LinkedHashMap<>();
         final double[] whole = {0, 0, 0};
-        for (final Solid solid : solids(k)) {
+        for (final Solid solid : solids) {
             final double[] box = parts.computeIfAbsent(part(solid.name()), n -> new double[] {
                     Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY,
                     Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY});
@@ -153,7 +161,7 @@ public final class Town {
                     Math.max(1, (box[3] - box[2]) / 2), at.yaw(), Math.max(0, box[4]), Math.max(box[4] + 1, box[5])));
         }
         final Block block = new Block(at.x(), at.z(), whole[0], whole[1], at.yaw(), 0, whole[2]);
-        return new Course.Piece(block, Course.Kind.BUILDING, k, solid, null, at, null, -1, null);
+        return new Course.Piece(block, Course.Kind.BUILDING, key, solid, null, at, null, -1, null);
     }
 
     /** Which part a solid is of, by its name: up to its first comma, any number at its end left off. */

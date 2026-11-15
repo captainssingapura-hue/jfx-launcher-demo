@@ -48,9 +48,12 @@ public final class Damage {
     private final double[] toughness;
     private final double[] health;
     private final Obstacles obstacles;
+    /** Who stands on the ground at the start, as the course was laid out. */
+    private final List<Course.Cast> ground;
 
     private Damage(final List<Course.Piece> pieces, final double[] toughness, final double[] health,
-                   final Obstacles obstacles) {
+                   final Obstacles obstacles, final List<Course.Cast> ground) {
+        this.ground = ground;
         this.pieces = pieces;
         this.toughness = toughness;
         this.health = health;
@@ -64,7 +67,12 @@ public final class Damage {
         for (int i = 0; i < toughness.length; i++) {
             toughness[i] = toughness(pieces.get(i));
         }
-        return new Damage(pieces, toughness, toughness.clone(), course.obstacles());
+        return new Damage(pieces, toughness, toughness.clone(), course.obstacles(), course.ground());
+    }
+
+    /** Who stood on the ground at the start, as the course was laid out: not on a platform. */
+    public List<Course.Cast> ground() {
+        return ground;
     }
 
     /** How much a piece can take before it breaks; infinite for what cannot break. */
@@ -142,7 +150,7 @@ public final class Damage {
             }
         }
         return left == null ? new Taken(this, happened)
-                : new Taken(new Damage(pieces, toughness, left, standing), happened);
+                : new Taken(new Damage(pieces, toughness, left, standing, ground), happened);
     }
 
     /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */

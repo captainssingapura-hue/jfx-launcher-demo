@@ -432,7 +432,7 @@ public final class World {
      * ({@link BuildingModel}), standing on the ground at the foot of its box.
      */
     private static Shape3D building(final Group part, final Block block, final int site) {
-        final Group dressed = BuildingModel.of(com.example.fxsuite.avatar.build.Town.solids(site));
+        final Group dressed = BuildingModel.of(com.example.fxsuite.avatar.build.TempleYard.drawn(site));
         dressed.setTranslateY((block.top() - block.bottom()) / 2);
         part.getChildren().add(dressed);
         return (Shape3D) dressed.getChildren().getFirst();

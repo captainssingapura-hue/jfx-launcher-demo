@@ -330,13 +330,14 @@ single vehicle, open and simple, so the vehicle is all there is to look at: the 
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
 with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
-oval to take every land vehicle round flat out; and the **town**, every building put up along streets, the boxer
-motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform (`Demo`).
+oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
+motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform; and the
+**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
@@ -743,7 +744,12 @@ through, and one loaded until a pillar gives and it falls.
   gables the end ones, the front one running through the tower's back corners), the apse's roof (ribs
   up to an apex on the back gable), the spire (its edges flared, bowed in near its foot), the cross,
   and the pointed arches of its windows, its belfry's openings and its doorway, each two circular
-  arcs. Its plan tab shows its stacked parts' plans.
+  arcs. Its plan tab shows its stacked parts' plans. Built to any size (`Church.Size`, `Church.of`):
+  its nave's bays, how long each, how wide, its walls and ridge how high, its tower how square, its
+  belfry and spire how high; the rest follows (the apse as wide as the nave, the tower's stages to
+  its eaves and to where the gable crosses it, the windows as tall as the walls allow). As first
+  drawn, `Church.Size.STANDARD`; a size it cannot stand at (a tower as wide as the nave, a belfry
+  under its roof) is refused, and said why.
 - The **temple hall** (`Temple`), a Chinese temple's main hall as the Qing laid one out, composed the
   same way: from plans, its platform (1.2 m, reaching 2.4 m beyond its columns) and its hall, five
   bays across, widest in the middle (4.4, 5.6, 6.4, 5.6, 4.4 m), three deep, its columns 4.5 m; drawn
@@ -752,7 +758,24 @@ through, and one loaded until a pillar gives and it falls.
   eave purlin; on that a hip roof, its eaves swept (each side one bow between its corners, turned up
   and out, cut where its rafters start: a bow can be cut into parts along its length), its rafters
   and hips bowed down, steeper toward the ridge, ornaments curled up on the ridge's ends; and steps
-  down before the middle bay. Its plan tab shows its platform's and hall's plans.
+  down before the middle bay. Its plan tab shows its platform's and hall's plans. Built to any size
+  (`Temple.Size`, `Temple.of`): an odd number of bays across, the middle one so wide and each
+  further out narrower as a Qing hall's are; so many deep, an aisle each side half the middle bay;
+  its columns and platform so high. The bracket sets and eaves as they are, the roof as steep, its
+  ridge lengthened as a Qing roof's is; as many steps as the platform is high.
+- On the bench, the church's and the hall's **sizes** are set beside their options; each change
+  builds it again, every joint checked, its plan tab with it; a size it cannot stand at said, and
+  the building left as it was.
+- **The temple** (`TempleYard`, a demo of its own): a courtyard as a Chinese temple is laid out round
+  one. At its back, on its middle line, the great hall, built to a size of its own (nine bays across,
+  the middle 7.2 m, five deep, its columns 6 m on a 2.4 m platform), facing down the courtyard to the
+  start; before it, a smaller hall each side (five bays, 4 m columns), facing in across it, their roofs
+  green where the great hall's are yellow. Each is one piece, as the town's buildings are. In the
+  middle, on the ground, three monks at their stand-up: a small one in red, a tall one in blue and a
+  stout one in yellow, robed, their heads shaved, each having the floor in turn while the other two
+  turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
+  People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
+  each team holds its own stand-up.
 - **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
   three 120 m apart ahead of the start, each facing back down the street to it: the church, the
   temple hall, the brutalist apartments, and the six towers, each dressed its own way. Each is one
@@ -822,6 +845,9 @@ apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice`
 `-Dbuilding.materials=brick` (the start of a palette's name) what in;
 `-Dbuilding.yaw`, `-Dbuilding.pitch` and `-Dbuilding.distance` where it is seen from;
 `-Dbuilding.scale=1.5` how big it is built, and `-Dbuilding.look=person` starts by the person.
+`-Dbuilding.size=bays=9,width=14` (counts, or metres) sizes the church (`bays`, `bay`, `width`,
+`walls`, `ridge`, `tower`, `belfry`, `spire`) or the hall (`across`, `middle`, `deep`, `columns`,
+`platform`) to start with.
 `-Dbuilding.tab=plan` opens on the plan tab; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 (the start of a shape's name), `-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the

@@ -16,7 +16,9 @@ import javafx.scene.transform.Rotate;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -29,7 +31,8 @@ import java.util.Set;
  * stallholder shakes a fist; one bursting and everyone still up jumps, hands in the air; anyone
  * hit or shoved staggers, arms out.
  *
- * <p>On the meeting platform, a stand-up runs: each developer has the floor in turn, talking with
+ * <p>On the meeting platform, a stand-up runs (and another among the monks in the temple's courtyard,
+ * small in red, tall in blue, stout in yellow, robed and shaved): each has the floor in turn, talking with
  * their hands, and the others turn to them, the scrum master (orange hoodie, red cap, a badge on
  * a lanyard, a clipboard) most of all.
  */
@@ -72,6 +75,9 @@ public final class Stall {
             case RIDER -> new Figure("#5a3d2b", "#2f4560", "#2a1d14", true);
             case SCRUM_MASTER -> new Figure("#f07a1a", "#2b3a55", "#3b2a1f", false).master();
             case DEVELOPER -> new Figure(HOODIES[nth % HOODIES.length], "#2e3440", HAIR[nth % HAIR.length], false);
+            case SMALL_MONK -> Figure.monk("#a3242b", 0.82, 1);
+            case TALL_MONK -> Figure.monk("#2e5a9e", 1.12, 1);
+            case STOUT_MONK -> Figure.monk("#d9a521", 1, 1.55);
         };
     }
 
@@ -137,42 +143,60 @@ public final class Stall {
     }
 
     /**
-     * The stand-up, wherever there is a team: each developer still up has the floor in turn, for
+     * The stand-ups, wherever there is a team: the developers on the meeting platform, and the monks in
+     * the temple's courtyard, each team apart. In each, each one still up has the floor in turn, for
      * {@link #TURN} seconds, talking with their hands; the others, and the scrum master most of all,
      * turn to whoever is talking.
      */
     private void standUp(final List<Person> now, final List<Person> before, final double share, final double seconds) {
-        final List<Integer> team = new ArrayList<>();
-        final List<Integer> listening = new ArrayList<>();
+        final Map<String, List<Integer>> speakers = new LinkedHashMap<>();
+        final Map<String, List<Integer>> listening = new LinkedHashMap<>();
         for (int k = 0; k < Math.min(figures.size(), now.size()); k++) {
             final Person person = now.get(k);
-            if (person.down()) {
+            final String team = team(person.role());
+            if (person.down() || team == null) {
                 continue;
             }
-            if (person.role() == Person.Role.DEVELOPER) {
-                team.add(k);
-                listening.add(k);
-            } else if (person.role() == Person.Role.SCRUM_MASTER) {
-                listening.add(k);
+            listening.computeIfAbsent(team, t -> new ArrayList<>()).add(k);
+            if (person.role() != Person.Role.SCRUM_MASTER) {
+                speakers.computeIfAbsent(team, t -> new ArrayList<>()).add(k);
             }
         }
-        if (team.isEmpty()) {
-            listening.forEach(k -> figures.get(k).listen(null, 0, seconds));
-            return;
-        }
-        final int speaker = team.get((int) (time / TURN) % team.size());
-        final Body talking = figures.get(speaker).seen;
-        for (final int k : listening) {
-            final Figure figure = figures.get(k);
-            figure.speaking = k == speaker;
-            figure.listen(k == speaker ? null : talking.position(), figure.master ? 85 : 45, seconds);
-        }
+        listening.forEach((team, ears) -> {
+            final List<Integer> talkers = speakers.getOrDefault(team, List.of());
+            if (talkers.isEmpty()) {
+                ears.forEach(k -> figures.get(k).listen(null, 0, seconds));
+                return;
+            }
+            final int speaker = talkers.get((int) (time / TURN) % talkers.size());
+            final Body talking = figures.get(speaker).seen;
+            for (final int k : ears) {
+                final Figure figure = figures.get(k);
+                figure.speaking = k == speaker;
+                figure.listen(k == speaker ? null : talking.position(), figure.master ? 85 : 45, seconds);
+            }
+        });
+    }
+
+    /** Which stand-up someone is at, by who they are: the developers' and their scrum master's, or the monks'; none. */
+    private static String team(final Person.Role role) {
+        return switch (role) {
+            case DEVELOPER, SCRUM_MASTER -> "developers";
+            case SMALL_MONK, TALL_MONK, STOUT_MONK -> "monks";
+            default -> null;
+        };
     }
 
     private void staggers(final int person) {
         if (person >= 0 && person < figures.size()) {
             figures.get(person).staggering = STAGGER;
         }
+    }
+
+    /** {@code colour}, darker by a third. */
+    private static String darker(final String colour) {
+        final javafx.scene.paint.Color c = javafx.scene.paint.Color.web(colour);
+        return String.format("#%02x%02x%02x", (int) (c.getRed() * 170), (int) (c.getGreen() * 170), (int) (c.getBlue() * 170));
     }
 
     private static Box box(final double w, final double h, final double d, final double x, final double y,
@@ -210,40 +234,69 @@ public final class Stall {
 
         /** In these colours, their hands before them when sat if {@code reaches}: on handlebars. */
         Figure(final String jacket, final String trousers, final String hair, final boolean reaches) {
+            this(jacket, trousers, hair, reaches, 1, 1, false);
+        }
+
+        /**
+         * A monk: in a robe of {@code robe} to below their knees, a darker band over one shoulder, their
+         * head shaved; {@code tall} times as tall as most, {@code girth} times as broad and deep in
+         * the body (and a belly before them, if much more).
+         */
+        static Figure monk(final String robe, final double tall, final double girth) {
+            return new Figure(robe, darker(robe), "#e0b48f", false, tall, girth, true);
+        }
+
+        /** In these colours; so tall and so broad; robed, and bald, if {@code robed}. */
+        private Figure(final String jacket, final String trousers, final String hair, final boolean reaches,
+                       final double tall, final double girth, final boolean robed) {
             this.reaches = reaches;
+            final double g = girth;
             final PhongMaterial coat = BoxRig.matte(jacket);
             final PhongMaterial legs = BoxRig.matte(trousers);
             final PhongMaterial skin = BoxRig.matte("#e0b48f");
             final PhongMaterial shoes = BoxRig.matte("#1a1a1a");
             colours = List.of(coat, legs, skin, BoxRig.matte(hair));
             for (int side = 0; side < 2; side++) {
-                final double x = side == 0 ? -10 : 10;
+                final double x = (side == 0 ? -10 : 10) * g;
                 final Group hip = new Group();
                 hip.setTranslateX(x);
                 hip.setTranslateY(-85);
                 hip.getTransforms().add(hips[side]);
-                hip.getChildren().add(box(15, 42, 17, 0, 21, 0, legs));
+                hip.getChildren().add(box(15 * g, 42, 17 * g, 0, 21, 0, legs));
                 final Group knee = new Group();
                 knee.setTranslateY(42);
                 knee.getTransforms().add(knees[side]);
-                knee.getChildren().addAll(box(14, 40, 15, 0, 20, 0, legs), box(15, 6, 24, 0, 41, 4, shoes));
+                knee.getChildren().addAll(box(14 * g, 40, 15 * g, 0, 20, 0, legs), box(15 * g, 6, 24, 0, 41, 4, shoes));
                 hip.getChildren().add(knee);
                 body.getChildren().add(hip);
             }
-            body.getChildren().add(box(42, 62, 24, 0, -116, 0, coat));
+            body.getChildren().add(box(42 * g, 62, 24 * g, 0, -116, 0, coat));
             body.getChildren().add(box(12, 8, 12, 0, -150, 0, skin));
             body.getChildren().add(box(22, 25, 22, 0, -166, 0, skin));
-            body.getChildren().add(box(23, 7, 23, 0, -180, -1, BoxRig.matte(hair)));
+            if (robed) {
+                // the robe's skirt, from the waist to below the knees; a band over the left shoulder; a
+                // belly before them, if broad
+                body.getChildren().add(box(46 * g, 66, 28 * g, 0, -55, 0, coat));
+                final Box band = box(9, 74, 1.2, 0, -116, 12 * g + 0.8, legs);
+                band.setRotationAxis(Rotate.Z_AXIS);
+                band.setRotate(32);
+                body.getChildren().add(band);
+                if (g > 1.2) {
+                    body.getChildren().add(box(32 * g, 34, 14, 0, -98, 12 * g + 5, coat));
+                }
+            } else {
+                body.getChildren().add(box(23, 7, 23, 0, -180, -1, BoxRig.matte(hair)));
+            }
             for (int side = 0; side < 2; side++) {
                 final Group shoulder = new Group();
-                shoulder.setTranslateX(side == 0 ? -27 : 27);
+                shoulder.setTranslateX((side == 0 ? -1 : 1) * (21 * g + 6));
                 shoulder.setTranslateY(-142);
                 shoulder.getTransforms().add(side == 0 ? leftShoulder : rightShoulder);
                 shoulder.getChildren().addAll(box(11, 50, 11, 0, 25, 0, coat), box(9, 10, 9, 0, 54, 0, skin));
                 body.getChildren().add(shoulder);
             }
             // turned to face its way; and from the waist up, to whoever they listen to
-            root.getTransforms().add(yaw);
+            root.getTransforms().addAll(yaw, new javafx.scene.transform.Scale(tall, tall, tall));
             body.getTransforms().add(look);
             root.getChildren().add(body);
         }

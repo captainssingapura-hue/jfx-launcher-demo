@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TempleTest {
 
-    private static final Assembly.Result TEMPLE = Temple.assembled();
+    private static final Assembly.Result TEMPLE = Temple.standard().assembled();
     private static final Form FORM = TEMPLE.form();
 
     private static int at(final double x, final double y, final double z) {
@@ -38,7 +39,7 @@ class TempleTest {
     void itsPartsAllMeetItIsSoundAndOnePiece() {
         assertEquals(List.of(), TEMPLE.problems());
         assertEquals(List.of(), FORM.problems());
-        for (final Tower stack : Temple.stacks()) {
+        for (final Tower stack : Temple.standard().stacks()) {
             assertEquals(List.of(), stack.problems(), stack.name());
         }
         assertEquals(1, FORM.pieces(), "platform, hall, brackets, roof and steps all one");
@@ -49,7 +50,7 @@ class TempleTest {
 
     @Test
     void itsBaysWidenTowardTheMiddleItsColumnsOnThePlatform() {
-        final Plan.Layout hall = Temple.plans().get("hall").layout();
+        final Plan.Layout hall = Temple.standard().plans().get("hall").layout();
         assertEquals(List.of(-1320.0, -880.0, -320.0, 320.0, 880.0, 1320.0),
                 java.util.Arrays.stream(hall.xs()).boxed().toList());
         assertEquals(24, hall.columns().size(), "six lines across by four along");
@@ -108,5 +109,43 @@ class TempleTest {
     void stepsDownFromThePlatformBeforeTheMiddleBay() {
         assertTrue(joined(at(-320, 880, 120), at(-320, 880, 90)), "down the first riser from the platform's edge");
         assertTrue(at(320, 880 + 4 * 35, 0) >= 0, "out onto the ground");
+    }
+
+    @Test
+    void builtAnySizeItIsStillOnePieceItsBaysAndBracketsAsMany() {
+        final List<Temple.Size> sizes = List.of(Temple.Size.STANDARD, new Temple.Size(3, 450, 3, 350, 60),
+                new Temple.Size(9, 800, 5, 700, 240), new Temple.Size(11, 400, 3, 300, 300));
+        for (final Temple.Size size : sizes) {
+            final Temple temple = Temple.of(size);
+            final Assembly.Result built = temple.assembled();
+            assertEquals(List.of(), built.problems(), size.toString());
+            assertEquals(List.of(), built.form().problems(), size.toString());
+            temple.stacks().forEach(stack -> assertEquals(List.of(), stack.problems(), stack.name() + " " + size));
+            assertEquals(1, built.form().pieces(), size.toString());
+            final double halfWide = java.util.Arrays.stream(size.across()).sum() / 2;
+            assertEquals(2 * (halfWide + 270 + 50), built.form().bounds().width(), 1e-6, "its eaves' corners the widest");
+            assertEquals(2 * (2 * size.bays() + 2 * size.deep()), built.form().vertices().stream()
+                    .filter(v -> v.name().endsWith(", out 3")).count(), "a set on each column round it, and between");
+            assertEquals((size.bays() + 1) * (size.deep() + 1), temple.plans().get("hall").layout().columns().size());
+            // its widest bay in the middle, narrower out each way, never under half
+            final double[] across = size.across();
+            for (int b = 0; b < across.length; b++) {
+                assertEquals(across[b], across[across.length - 1 - b], 1e-9, "the same each side");
+                assertTrue(across[b] <= size.middle() && across[b] >= size.middle() / 2);
+            }
+            // its steps down to the ground
+            assertTrue(built.form().vertices().stream().anyMatch(v -> v.name().startsWith("steps") && Math.abs(v.up()) < 1e-6),
+                    "down to the ground");
+            final Building building = temple.building();
+            assertEquals((size.bays() + 1) * (size.deep() + 1), building.dressed(building.own(), Temple.LACQUERED).stream()
+                    .filter(s -> s.name().startsWith("column")).count());
+        }
+    }
+
+    @Test
+    void notBuiltASizeItCannotStandAt() {
+        assertThrows(IllegalArgumentException.class, () -> new Temple.Size(4, 640, 3, 450, 120), "no middle bay");
+        assertThrows(IllegalArgumentException.class, () -> new Temple.Size(3, 640, 5, 450, 120), "deeper than wide");
+        assertThrows(IllegalArgumentException.class, () -> new Temple.Size(5, 640, 3, 1000, 120), "columns too tall");
     }
 }

@@ -17,7 +17,7 @@ class FacesTest {
 
     @Test
     void theChurchsFacesAreAllLaidItsRoofsAndSpireAsChosen() {
-        final Building church = Church.building();
+        final Building church = Church.standard().building();
         final List<Solid> solids = church.dressed(church.own(), Palette.STONE);
         for (final Sheet sheet : church.sheets()) {
             assertTrue(solids.stream().anyMatch(s -> s.name().startsWith(sheet.name() + ", ")), sheet.name());
@@ -38,7 +38,7 @@ class FacesTest {
 
     @Test
     void theSpiresFacesAreOnItsFlaredEdgesTheApseOnItsCurve() {
-        final Building church = Church.building();
+        final Building church = Church.standard().building();
         for (final Sheet face : church.sheets().stream().filter(s -> s.kind().equals("spire")).toList()) {
             // each face's points within the tower's square, up to the tip, narrowing as it rises
             for (final Vec3 p : face.points()) {
@@ -54,7 +54,7 @@ class FacesTest {
 
     @Test
     void theTemplesRoofSweepsUpAtItsCornersInItsChosenTiles() {
-        final Building temple = Temple.building();
+        final Building temple = Temple.standard().building();
         final List<Solid> solids = temple.dressed(temple.own(), Temple.LACQUERED);
         for (final Sheet sheet : temple.sheets()) {
             assertTrue(solids.stream().anyMatch(s -> s.name().startsWith(sheet.name() + ", ")), sheet.name());

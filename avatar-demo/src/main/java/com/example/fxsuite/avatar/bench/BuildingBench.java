@@ -65,6 +65,7 @@ import java.util.Map;
  * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
  * {@code -Dbuilding.scale=1.5} how big it is built (1, life size); {@code -Dbuilding.look=person}
  * starts by the person stood before it, of ordinary height, to tell how big it is;
+ * {@code -Dbuilding.size=bays=9,width=14} sizes the church or the temple hall ({@link SizeControls});
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
 public final class BuildingBench extends Application {
@@ -96,6 +97,8 @@ public final class BuildingBench extends Application {
     private final CheckBox showPerson = new CheckBox(String.format(Locale.ROOT, "A person, %.2f m tall, before its front",
             Stall.PERSON / 100));
     private final Group person = new Group(Stall.person());
+    /** How big the church or the temple hall is built: its bays, its heights. */
+    private final SizeControls sizing = new SizeControls();
     private final Label figures = new Label();
     /** The 3D view, and the floor plan's tab. */
     private final javafx.scene.control.TabPane tabs = new javafx.scene.control.TabPane();
@@ -109,17 +112,18 @@ public final class BuildingBench extends Application {
     private static final Map<String, Building> COMPOSED = new java.util.HashMap<>(
             Map.of("brutalist apartments", Apartments.building()));
     /** The buildings composed of parts, by name: their stacked parts' plans, in their plan tabs; how they were put together. */
-    private static final Map<String, Map<String, com.example.fxsuite.avatar.build.Plan>> PARTS_PLANS = Map.of(
-            "town church", com.example.fxsuite.avatar.build.Church.plans(),
-            "temple hall", com.example.fxsuite.avatar.build.Temple.plans());
+    private static final Map<String, Map<String, com.example.fxsuite.avatar.build.Plan>> PARTS_PLANS =
+            new java.util.HashMap<>(Map.of(
+                    "town church", com.example.fxsuite.avatar.build.Church.standard().plans(),
+                    "temple hall", com.example.fxsuite.avatar.build.Temple.standard().plans()));
     private static final Map<String, com.example.fxsuite.avatar.build.Assembly.Result> ASSEMBLED =
             new java.util.LinkedHashMap<>();
 
     static {
-        ASSEMBLED.put("town church", com.example.fxsuite.avatar.build.Church.assembled());
-        ASSEMBLED.put("temple hall", com.example.fxsuite.avatar.build.Temple.assembled());
-        COMPOSED.put("town church", com.example.fxsuite.avatar.build.Church.building());
-        COMPOSED.put("temple hall", com.example.fxsuite.avatar.build.Temple.building());
+        ASSEMBLED.put("town church", com.example.fxsuite.avatar.build.Church.standard().assembled());
+        ASSEMBLED.put("temple hall", com.example.fxsuite.avatar.build.Temple.standard().assembled());
+        COMPOSED.put("town church", com.example.fxsuite.avatar.build.Church.standard().building());
+        COMPOSED.put("temple hall", com.example.fxsuite.avatar.build.Temple.standard().building());
     }
 
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
@@ -170,6 +174,7 @@ public final class BuildingBench extends Application {
         all.add(fromPlan.skeleton());
         buildings.getItems().setAll(all);
         towerPlan.onChange(this::replan);
+        sizing.onBuilt(this::resized);
         buildings.setConverter(new StringConverter<>() {
             @Override
             public String toString(final Form form) {
@@ -230,7 +235,7 @@ public final class BuildingBench extends Application {
                         + " thin rod. A building composed has surfaces too, each dressed by a design: pick its facade"
                         + " and its ground floor to dress the same building another way, and what to build it in."
                         + " Doubtful choices are marked ? in its figures."),
-                choosing, EngineBench.row("Scale (1 = life size)", scaling),
+                choosing, sizing, EngineBench.row("Scale (1 = life size)", scaling),
                 EngineBench.label("Scaled, it is bigger every way: its doors, windows and floors with it, as a"
                         + " model is. The person stays life size."),
                 showDressed, showSkeleton,
@@ -283,6 +288,7 @@ public final class BuildingBench extends Application {
                 : TOWERS.containsKey(building.name()) ? new TowerPlans(TOWERS.get(building.name()))
                 : PARTS_PLANS.containsKey(building.name()) ? new PartsPlans(PARTS_PLANS.get(building.name())) : new Pane());
         choices();
+        sizing.show(building.name());
         showDressed.setDisable(composed == null);
         showSkeleton.setDisable(composed == null);
         showSkeleton.setSelected(composed == null);
@@ -437,6 +443,38 @@ public final class BuildingBench extends Application {
 
     /** Whether the tower from the plan tab is being made afresh: the picker's value set, not picked. */
     private boolean replanning;
+
+    /**
+     * The church or the temple hall built again to another size: put in place of what it was, its
+     * plans in its plan tab, and shown, if it is on show, seen whole again; dressed as it was.
+     */
+    private void resized(final SizeControls.Built built) {
+        ASSEMBLED.put(built.name(), built.assembled());
+        COMPOSED.put(built.name(), built.building());
+        PARTS_PLANS.put(built.name(), built.plans());
+        final Form made = built.assembled().form();
+        final int k = buildings.getItems().indexOf(buildings.getItems().stream()
+                .filter(f -> f.name().equals(built.name())).findFirst().orElse(null));
+        if (k < 0) {
+            return;
+        }
+        final boolean shown = building != null && built.name().equals(building.name());
+        replanning = true;
+        try {
+            buildings.getItems().set(k, made);
+            buildings.setValue(shown ? made : building);
+        } finally {
+            replanning = false;
+        }
+        if (shown) {
+            building = made;
+            composed = built.building();
+            planTab.setContent(new PartsPlans(built.plans()));
+            fit(false);
+            redraw();
+            describe();
+        }
+    }
 
     /** The plan tab's plan changed: the tower stacked from it made afresh, and shown, if it is on show. */
     private void replan() {

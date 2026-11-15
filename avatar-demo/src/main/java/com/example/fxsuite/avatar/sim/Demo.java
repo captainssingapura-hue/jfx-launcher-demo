@@ -29,7 +29,10 @@ public enum Demo {
     /** The buildings, put up along streets; the boxer motorcycle to ride between them; the melon stall and the stand-up. */
     TOWN("Town", "The buildings: the brutalist apartments, the towers, the church and the temple hall, along streets;"
             + " the boxer motorcycle to ride between them; and before them, the melon stall and the stand-up, each on"
-            + " its platform.", 0);
+            + " its platform.", 0),
+    /** A temple's courtyard: its great hall at the back, a smaller hall each side, three monks at their stand-up. */
+    TEMPLE("Temple", "A temple's courtyard: its great hall at the back, a smaller hall facing in from each side, and"
+            + " three monks at their stand-up in the middle. (Its gate is to come.)", 0);
 
     private final String title;
     private final String description;
