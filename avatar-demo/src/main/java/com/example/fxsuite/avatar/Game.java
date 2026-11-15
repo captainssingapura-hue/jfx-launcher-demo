@@ -170,7 +170,10 @@ public final class Game {
     private static final double GUN_EYE = 30;
     /** How much higher the camera looks from over a vehicle wearing a body. */
     private static final double BODY_OVER = 140;
-    /** Whether the view at a vehicle's controls is first person (V), and how far the head is turned from ahead, in a land vehicle. */
+    /**
+     * Whether the view is first person (V), from the avatar's eyes or a vehicle's controls; and how far
+     * the head is turned from ahead, in a land vehicle.
+     */
     private boolean firstPerson;
     private double headYaw;
     /** How far round a driver's head turns, either way. */
@@ -218,7 +221,7 @@ public final class Game {
     private final Label status = new Label();
     /** The keys, for whatever the avatar is doing: on foot, or at the controls of each kind of vehicle. */
     private final Label help = new Label();
-    private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person, at the controls ·"
+    private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person ·"
             + " scroll to zoom · Esc frees the mouse · "
             + "M mute · P sound profile · Tab: the demos (or the menu bar)";
     private static final String ON_FOOT_HELP = "Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
@@ -621,19 +624,22 @@ public final class Game {
             chase = chase.turned(0, restPitch() + alone.get().pitch() - chase.pitch());
         }
 
-        // in first person at a vehicle's controls, the view is from where its driver's eyes are: the
-        // seat, the console, the front of the gondola, or behind a gun; in a land vehicle the mouse,
-        // which does not steer it, turns the head
+        // in first person, the view is from the avatar's own eyes; at a vehicle's controls, from where its
+        // driver's eyes are: the seat, the console, the front of the gondola, or behind a gun; in a land
+        // vehicle the mouse, which does not steer it, turns the head
         final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
                 && gunned.isEmpty();
         headYaw = firstPerson && seated ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
-        final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt) : null;
+        final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt, body) : null;
+        // on foot, from its own eyes: only its arms and what they hold are drawn, at the bottom of the view
+        final boolean ownEyes = cockpit != null && flying.isEmpty() && alone.isEmpty();
+        rig.fromItsEyes(ownEyes);
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
         final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
         // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
-        rig.node().setVisible(!inside && cockpit == null);
-        rig.effects().setVisible(!inside && cockpit == null);
+        rig.node().setVisible(!inside && (cockpit == null || ownEyes));
+        rig.effects().setVisible(!inside && (cockpit == null || ownEyes));
         reticle.node().setVisible(!inside);
         // at the wheel of a land vehicle, sat in its seat, facing the way it heads, as it is drawn now
         final Pose looking = Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH);
@@ -993,7 +999,7 @@ public final class Game {
         demos.getItems().addAll(new SeparatorMenuItem(), again, choice);
         final Menu views = new Menu("View");
         views.getItems().addAll(
-                item("First person, at the controls   (V)", KeyCode.V),
+                item("First person   (V)", KeyCode.V),
                 item("Camera behind   (C)", KeyCode.C));
         final Menu sounds = new Menu("Sound");
         sounds.getItems().addAll(
@@ -1183,12 +1189,14 @@ public final class Game {
     }
 
     /**
-     * The first-person view at the controls of {@code lift}, or behind {@code gun}, as they are drawn
+     * The first-person view: on foot (no {@code lift} at its controls, no {@code gun} manned), from the
+     * avatar's own eyes as {@code body} is drawn, the way it faces, tilted with its aim; at the
+     * controls of {@code lift}, or behind {@code gun}, as they are drawn
      * ({@code shownAt}): from where its driver's eyes are, looking the way it heads (and the head
      * turned, in a land vehicle), up or down as the view is tilted, and tipped as it is; behind a
-     * gun, looking where it is aimed. Null when there are none.
+     * gun, looking where it is aimed. Null when there is nothing drawn to look from.
      */
-    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt) {
+    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt, final Body body) {
         final double look = chase.pitch() - restPitch();
         if (gun != null) {
             final Block was = movedNow.get(gun.host());
@@ -1200,7 +1208,7 @@ public final class Game {
             return new View(eye, yaw, look);
         }
         if (lift == null) {
-            return null;
+            return new View(body.position().add(0, -BoxRig.EYE, 0), body.yaw(), look);
         }
         final Block block = shownAt.get(lift.piece());
         if (block == null) {

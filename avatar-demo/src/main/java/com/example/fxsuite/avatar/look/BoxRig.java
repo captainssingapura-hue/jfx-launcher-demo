@@ -15,6 +15,8 @@ import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 
+import java.util.List;
+
 /**
  * The avatar as a scene graph: a small courier robot built from boxes, which can wear a
  * {@link JetPack} on its back. It has no mesh and no skin: each limb is a rigid part hung from
@@ -78,21 +80,24 @@ public final class BoxRig {
         final PhongMaterial beacon = glow("#ff6b6b");
 
         final Group body = new Group();
-        body.getTransforms().addAll(raise, bank, lean);
+        body.getTransforms().addAll(inView, raise, bank, lean);
 
-        body.getChildren().addAll(
+        // all of it but its arms and what they hold: out of the way when it is seen from its own eyes
+        beyondView = List.of(
                 limb(-15, -HIP, leftLeg, leftLegOut, leg(shell, joint)),
                 limb(15, -HIP, rightLeg, rightLegOut, leg(shell, joint)),
                 box(56, 16, 30, 0, -84, 0, joint),                        // pelvis
                 box(64, 60, 34, 0, -120, 0, trim),                         // torso
                 box(40, 22, 2, 0, -128, 17.5, shell),                      // chest plate
                 pack.node(),
+                box(18, 10, 18, 0, -152, 0, joint),                        // neck
+                head(shell, joint, visor, beacon));
+        body.getChildren().addAll(beyondView);
+        body.getChildren().addAll(
                 twisted(limb(-41, -SHOULDER, leftArm, leftSpread, arm(shell, joint, leftElbow, arsenal.leftHand())),
                         leftTwist),
                 twisted(limb(41, -SHOULDER, rightArm, rightSpread, arm(shell, joint, rightElbow, arsenal.rightHand())),
-                        rightTwist),
-                box(18, 10, 18, 0, -152, 0, joint),                        // neck
-                head(shell, joint, visor, beacon));
+                        rightTwist));
 
         root.getChildren().add(body);
         root.getTransforms().addAll(at, turn);
@@ -100,6 +105,32 @@ public final class BoxRig {
 
     public Node node() {
         return root;
+    }
+
+    /** How high its eyes are over its soles, standing: its visor's middle. */
+    public static final double EYE = NECK + 24 + SOLE;
+
+    /**
+     * Seen from its own eyes, how much higher its arms are drawn, and how much further ahead, than
+     * they are: held at the hip they are below the view, so they are drawn where a shooter's are seen,
+     * at the bottom of it.
+     */
+    static final double IN_VIEW_UP = 30;
+    static final double IN_VIEW_AHEAD = 30;
+    private final Translate inView = new Translate();
+
+    /** Its legs, body, pack, neck and head: all but its arms and what they hold. */
+    private final List<Node> beyondView;
+
+    /**
+     * Seen from its own eyes ({@code true}): only its arms and what they hold drawn, the rest of it
+     * (its head first of all) out of the way of the view; or ({@code false}) whole.
+     */
+    public void fromItsEyes(final boolean eyes) {
+        beyondView.forEach(part -> part.setVisible(!eyes));
+        // and its arms drawn up into the view, as a shooter's are: the rounds still leave from where its hands are
+        inView.setY(eyes ? -IN_VIEW_UP : 0);
+        inView.setZ(eyes ? IN_VIEW_AHEAD : 0);
     }
 
     /** What the weapons throw off into the world (spent casings), to add to the scene beside the rig. */
