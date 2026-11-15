@@ -107,12 +107,60 @@ class AircraftTest {
     }
 
     @Test
+    void aHingeTurnsItsPartAboutItsAxisAndItsMirrorTurnsAlike() {
+        // a part a metre out to the right, hinged about the along axis through the origin
+        final Craft part = Craft.named("part").part(Piece.box("p", Paint.METAL, new Point(100, 0, 0), 10, 10, 10)).build();
+        final Hinge hinge = part.hinged("tilt", Point.ZERO, new Point(0, 1, 0), -90, 90).hinges().getFirst();
+        // the right-hand way about +along: the right side goes down, as a roll to the right does
+        near(new Point(0, 0, -100), hinge.turned(new Point(100, 0, 0), 90), 1e-9, "turned a quarter");
+        near(new Point(100, 0, 0), hinge.turned(new Point(100, 0, 0), 0), 1e-9, "at rest");
+        // its mirror image, on the left, turns its side down too for the same control: either side alike
+        final Hinge mirror = hinge.mirrored();
+        near(new Point(0, 0, -100), mirror.turned(new Point(-100, 0, 0), 90), 1e-9, "the left side down, alike");
+        // mounted: its pivot put, its axis turned with it
+        final Hinge mounted = hinge.placed(new Mount(new Point(0, 0, 500), 90, 0, 0));
+        near(new Point(0, 0, 500), mounted.pivot(), 1e-9, "its pivot put");
+        near(new Point(1, 0, 0), mounted.axis(), 1e-9, "its axis yawed");
+        // a turret: hinges on hinges, each its control and its range
+        final java.util.Map<String, double[]> controls = Hinge.controls(Weapons.chinTurret(100));
+        assertEquals(List.of("turret traverse", "turret elevation"), List.copyOf(controls.keySet()));
+        assertEquals(-60, controls.get("turret elevation")[0], 1e-9);
+        assertEquals(120, controls.get("turret traverse")[1], 1e-9);
+    }
+
+    @Test
+    void facetedAndChamferedBodiesKeepTheirSizeTheirFacesFlat() {
+        final Fuselage faceted = Fuselage.aircraft("f", Paint.SKIN, 800, 120).faceted(8);
+        assertTrue(faceted.skin().faceted(), "drawn flat");
+        assertEquals(8, faceted.skin().rings().getFirst().size(), "eight sides round");
+        final BoxBody box = BoxBody.of("box", Paint.SKIN, 400, 200, 100, 20).withChamfers();
+        assertTrue(box.skin().faceted());
+        final Extent e = box.extent();
+        assertEquals(400, e.length(), 1e-6);
+        assertEquals(200, e.width(), 1e-6);
+        assertEquals(100, e.height(), 1e-6);
+        // its corner cut straight, from (100, 30) to (80, 50): out through the cut's middle, a point on it
+        final Point cut = box.surface(0, Math.toDegrees(Math.atan2(40, 90)));
+        assertEquals(130, cut.across() + cut.up(), 1e-6, "on the cut across the corner");
+        near(new Point(100, 0, 0), box.surface(0, 0), 1e-6, "its right face, as it was");
+    }
+
+    @Test
+    void aCoaxialDuctTurnsItsTwoRotorsOppositeWays() {
+        final Craft duct = Engine.coaxialDuct(300).build();
+        assertEquals(2, duct.spinners().size());
+        assertEquals(-duct.spinners().get(0).rate(), duct.spinners().get(1).rate(), 1e-9, "opposite ways");
+        // both about its axis, ahead
+        duct.spinners().forEach(s -> near(new Point(0, 1, 0), s.axis(), 1e-9, s.name()));
+    }
+
+    @Test
     void everyAircraftAtAnySizeIsWholeFiniteAndTheSameEitherSide() {
         for (final Crafts.Kind kind : Crafts.Kind.values()) {
             for (final double size : new double[] {kind.least(), kind.usual(), kind.most()}) {
                 final Craft craft = kind.build(size);
                 final String what = kind.title() + " " + size + " m";
-                assertFalse(craft.skins().isEmpty(), what + ": a body");
+                assertFalse(craft.points().isEmpty(), what + ": something to it (a turret's all on its hinges)");
                 assertTrue(craft.points().stream().allMatch(p -> Double.isFinite(p.across() + p.along() + p.up())), what);
                 final Extent e = craft.extent();
                 // the same either side, but for what turns: a three-bladed rotor is not, at any one moment
@@ -123,9 +171,13 @@ class AircraftTest {
                 assertEquals(-still.minAcross(), still.maxAcross(), 1e-6 * size * 100, what + ": the same either side");
                 // as long as it was made, give or take what stands out of it (a drone, as wide, its rotors in it; a
                 // helicopter, its rotors out of it)
-                final double made = kind == Crafts.Kind.QUADCOPTER || kind == Crafts.Kind.DUCTED_FAN ? e.width() : still.length();
-                // an engine, its spinner and its propeller ahead of it
-                assertEquals(size * 100, made, size * 100 * (kind.engine() ? 0.4 : 0.25), what + ": its size");
+                // an aircraft or an engine as long (or as wide) as it was made; a weapon or a body, any size it is
+                if (kind.category() == Crafts.Category.AIRCRAFT || kind.engine()) {
+                    final double made = kind == Crafts.Kind.QUADCOPTER || kind == Crafts.Kind.DUCTED_FAN
+                            || kind == Crafts.Kind.COAXIAL_DUCT ? e.width() : still.length();
+                    final double within = kind == Crafts.Kind.COAXIAL_DUCT ? 0.3 : kind.engine() ? 0.4 : 0.25;
+                    assertEquals(size * 100, made, size * 100 * within, what + ": its size");
+                }
                 for (final Spinner spinner : craft.spinners()) {
                     assertEquals(1, spinner.axis().length(), 1e-9, what + ": " + spinner.name() + "'s axis a unit");
                 }

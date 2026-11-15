@@ -6,14 +6,21 @@ import java.util.List;
 
 /**
  * A body's skin: rings of points round it, one after another along it, each as many points round
- * and each closed round; drawn smooth, ring to ring. Its ends are closed by rings drawn to a point
+ * and each closed round; drawn smooth, ring to ring, or {@code faceted}: each quad flat, an angular
+ * military body, a framed canopy. Its ends are closed by rings drawn to a point
  * (an apex: a nose, a tail, the middle of a flat face), so it is closed all over.
  *
- * @param name  what it is
- * @param paint what it is finished in
- * @param rings its rings, end to end
+ * @param name    what it is
+ * @param paint   what it is finished in
+ * @param rings   its rings, end to end
+ * @param faceted whether it is drawn flat, quad by quad
  */
-public record Skin(String name, Paint paint, List<List<Point>> rings) {
+public record Skin(String name, Paint paint, List<List<Point>> rings, boolean faceted) {
+
+    /** Drawn smooth. */
+    public Skin(final String name, final Paint paint, final List<List<Point>> rings) {
+        this(name, paint, rings, false);
+    }
 
     public Skin {
         rings = rings.stream().map(List::copyOf).toList();
@@ -32,6 +39,12 @@ public record Skin(String name, Paint paint, List<List<Point>> rings) {
      * points round. A duct, a ring with a section of any shape.
      */
     public static Skin revolved(final String name, final Paint paint, final double[][] profile, final int sides) {
+        return revolved(name, paint, profile, sides, false);
+    }
+
+    /** The same, drawn {@code faceted}: flat, quad by quad. */
+    public static Skin revolved(final String name, final Paint paint, final double[][] profile, final int sides,
+                                final boolean faceted) {
         final List<List<Point>> rings = new java.util.ArrayList<>();
         for (int k = 0; k <= profile.length; k++) {
             final double[] p = profile[k % profile.length];
@@ -42,17 +55,17 @@ public record Skin(String name, Paint paint, List<List<Point>> rings) {
             }
             rings.add(ring);
         }
-        return new Skin(name, paint, rings);
+        return new Skin(name, paint, rings, faceted);
     }
 
     /** The same skin, mounted ({@link Mount}). */
     public Skin placed(final Mount mount) {
-        return new Skin(name, paint, rings.stream().map(r -> r.stream().map(mount::place).toList()).toList());
+        return new Skin(name, paint, rings.stream().map(r -> r.stream().map(mount::place).toList()).toList(), faceted);
     }
 
     /** The same skin on the other side: across turned to the left. */
     public Skin mirrored() {
-        return new Skin(name, paint, rings.stream().map(r -> r.stream().map(Skin::mirror).toList()).toList());
+        return new Skin(name, paint, rings.stream().map(r -> r.stream().map(Skin::mirror).toList()).toList(), faceted);
     }
 
     static Point mirror(final Point p) {

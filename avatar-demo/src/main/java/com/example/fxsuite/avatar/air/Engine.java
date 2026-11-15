@@ -19,6 +19,9 @@ import java.util.List;
  *       propeller on a long pointed spinner.</li>
  *   <li><b>A ducted fan</b>: a deep ring, its lip banded; in it a fan of seven blades on a hub drawn
  *       to a cone either end, held by five stators behind it.</li>
+ *   <li><b>A coaxial ducted rotor</b>: a deep, faceted duct, its lip banded; two three-bladed rotors
+ *       in it turning opposite ways; a hub with a nose cone and a tail cone, held by four stators; three
+ *       vanes across its exit, to steer its thrust; a trunnion either side, to tilt it on.</li>
  *   <li><b>A turboshaft</b>: no propeller of its own (it turns a rotor): a housing with its edges
  *       rounded, a dark intake in its face, grilles in its flanks, panel lines round it, and two
  *       exhaust nozzles splayed out of its back.</li>
@@ -32,7 +35,7 @@ import java.util.List;
 public record Engine(Kind kind, double length, double diameter, int blades) {
 
     /** The kinds of engine. */
-    public enum Kind { RADIAL, TURBOPROP, DUCTED_FAN, TURBOSHAFT }
+    public enum Kind { RADIAL, TURBOPROP, DUCTED_FAN, TURBOSHAFT, COAXIAL_DUCT }
 
     /** How fast what turns turns, at full power, turns a second. */
     public static final double PROPELLER_RATE = 12;
@@ -59,6 +62,11 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
         return new Engine(Kind.DUCTED_FAN, across, across, 7);
     }
 
+    /** A coaxial ducted rotor {@code across} across its duct, a little over half as deep. */
+    public static Engine coaxialDuct(final double across) {
+        return new Engine(Kind.COAXIAL_DUCT, across, across, 3);
+    }
+
     /** A turboshaft {@code length} long, its housing a little over a third as wide. */
     public static Engine turboshaft(final double length) {
         return new Engine(Kind.TURBOSHAFT, length, 0.36 * length, 0);
@@ -71,12 +79,14 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
             case TURBOPROP -> "Turboprop engine";
             case DUCTED_FAN -> "Ducted fan";
             case TURBOSHAFT -> "Turboshaft engine";
+            case COAXIAL_DUCT -> "Coaxial ducted rotor";
         });
         switch (kind) {
             case RADIAL -> radial(engine);
             case TURBOPROP -> turboprop(engine);
             case DUCTED_FAN -> ductedFan(engine);
             case TURBOSHAFT -> turboshaft(engine);
+            case COAXIAL_DUCT -> coaxialDuct(engine);
         }
         return engine.build();
     }
@@ -86,7 +96,7 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
         return switch (kind) {
             case RADIAL -> 1.15 * diameter;
             case TURBOPROP -> 1.35 * diameter;
-            case DUCTED_FAN, TURBOSHAFT -> diameter / 2;
+            case DUCTED_FAN, TURBOSHAFT, COAXIAL_DUCT -> diameter / 2;
         };
     }
 
@@ -193,6 +203,52 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
         }
         engine.spinner("fan", Parts.propeller("fan", Paint.DARK, Paint.METAL, blades, 0.97 * inner, 0.42 * outer, 38),
                 List.of(), new Mount(new Point(0, fan, 0), 0, -90, 0), FAN_RATE);
+    }
+
+    private void coaxialDuct(final Craft.Builder engine) {
+        final double outer = diameter / 2;
+        final double inner = 0.88 * outer;
+        final double depth = 0.56 * diameter;
+        final double h = depth / 2;
+        final double thick = outer - inner;
+        // the duct: deep, blunt at its lip, faceted
+        engine.skin(Skin.revolved("duct", Paint.CAR, new double[][] {
+                {h, inner + 0.5 * thick}, {0.9 * h, outer - 0.05 * thick}, {0.5 * h, outer}, {-0.6 * h, outer},
+                {-h, outer - 0.3 * thick}, {-h, inner + 0.2 * thick}, {-0.6 * h, inner}, {0.6 * h, inner},
+                {0.9 * h, inner + 0.08 * thick}}, 16, true), Mount.at(Point.ZERO));
+        final double over = 0.012 * outer;
+        engine.skin(Skin.revolved("lip", Paint.TRIM, new double[][] {
+                {0.68 * h, outer + over}, {0.9 * h, outer - 0.05 * thick + over}, {h + over, inner + 0.5 * thick},
+                {0.9 * h, inner + 0.08 * thick - over}, {0.68 * h, inner - over}, {0.68 * h, inner + 0.5 * thick}}, 16, true),
+                Mount.at(Point.ZERO));
+        // two rotors, one over the other, turning opposite ways
+        final double upper = 0.3 * h;
+        final double lower = -0.15 * h;
+        engine.spinner("upper rotor", Parts.rotor("upper rotor", Paint.DARK, Paint.METAL, blades, 0.96 * inner,
+                0.17 * outer, 14, 0), List.of(), new Mount(new Point(0, upper, 0), 0, -90, 0), PROPELLER_RATE);
+        engine.spinner("lower rotor", Parts.rotor("lower rotor", Paint.DARK, Paint.METAL, blades, 0.96 * inner,
+                0.17 * outer, -14, 0), List.of(), new Mount(new Point(0, lower, 0), 0, -90, 0), -PROPELLER_RATE);
+        // the hub: a cone ahead of the rotors, a longer one behind, held by four stators
+        engine.body(Fuselage.spinner("hub", Paint.METAL, 0.3 * depth, 0.3 * outer), Mount.at(0, upper + 0.15 * depth, 0));
+        engine.body(Fuselage.spinner("tail cone", Paint.METAL, 0.65 * depth, 0.3 * outer),
+                new Mount(new Point(0, lower - 0.3 * depth, 0), 180, 0, 0));
+        for (int k = 0; k < 4; k++) {
+            final double a = Math.toRadians(45 + 90 * k);
+            final Point out = new Point(Math.cos(a), 0, Math.sin(a));
+            final Point at = new Point(0, -0.5 * h, 0);
+            engine.part(Parts.strut("stator", Paint.METAL, at.plus(out.times(0.12 * outer)),
+                    at.plus(out.times(inner + 0.02 * outer)), 0.2 * depth));
+        }
+        // three vanes across its exit, level, to steer its thrust
+        for (final double z : new double[] {-0.5 * inner, 0, 0.5 * inner}) {
+            final double half = Math.sqrt(inner * inner - z * z) * 0.98;
+            engine.part(Piece.box("vane", Paint.METAL, new Point(0, -0.85 * h, z), 2 * half, 0.14 * depth, 0.025 * depth));
+        }
+        // a trunnion either side, to tilt it on
+        engine.bodies(new Fuselage("trunnion", Paint.METAL, List.of(Station.round(-0.07 * diameter, 0),
+                Station.round(-0.069 * diameter, 0.07 * diameter), Station.round(0.069 * diameter, 0.07 * diameter),
+                Station.round(0.07 * diameter, 0)), 10).faceted(10), new Mount(new Point(outer + 0.05 * diameter, 0, 0), 90, 0,
+                0));
     }
 
     private void turboshaft(final Craft.Builder engine) {

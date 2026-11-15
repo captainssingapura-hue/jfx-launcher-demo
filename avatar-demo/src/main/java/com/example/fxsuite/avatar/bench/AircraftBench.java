@@ -71,6 +71,8 @@ public final class AircraftBench extends Application {
     private final CheckBox showPerson = new CheckBox(String.format(Locale.ROOT, "A person, %.2f m tall, beside it",
             Stall.PERSON / 100));
     private final Label figures = new Label();
+    /** A slider for each control its hinges turn on (a duct's tilt, a turret's traverse). */
+    private final VBox hinged = new VBox(6);
     private CraftModel model;
     private double whole = 5000;
     private double lastX;
@@ -158,7 +160,7 @@ public final class AircraftBench extends Application {
                         + " nacelle); a box with its edges rounded (a drone's body, a boxy helicopter, a gondola);"
                         + " wings, fins, rotors, wheels and struts as solid pieces. An airship is both."),
                 new HBox(8, new Label("Size (m)"), size),
-                turning, new HBox(8, new Label("Power"), power),
+                turning, new HBox(8, new Label("Power"), power), hinged,
                 showFloor, showPerson,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -214,6 +216,7 @@ public final class AircraftBench extends Application {
         final double metres = Math.clamp(size.getValue(), kind.least(), kind.most());
         final Craft craft = kind.build(metres);
         model = new CraftModel(craft, liveries.getValue());
+        hinges(craft);
         final Extent box = craft.extent();
         // stood on the floor, as it would be parked: its lowest point a hair above it
         final Group placed = new Group(model.node());
@@ -232,8 +235,45 @@ public final class AircraftBench extends Application {
         ruleFloor(box);
         figures.setText(String.format(Locale.ROOT,
                 "%s%n%.1f m long, %.1f m across, %.1f m high%n%d skins, %d pieces, %d turning%n%,d triangles",
-                craft.name(), length / 100, box.width() / 100, box.height() / 100, craft.skins().size(),
-                craft.pieces().size(), craft.spinners().size(), model.triangles()));
+                craft.name(), length / 100, box.width() / 100, box.height() / 100, count(craft, 0), count(craft, 1),
+                count(craft, 2), model.triangles()));
+    }
+
+    /**
+     * A slider for each control {@code craft}'s hinges turn on, from its least to its most, at rest to
+     * start with (or as {@code -Daircraft.set=turret traverse=40,turret elevation=-30} says).
+     */
+    private void hinges(final Craft craft) {
+        final java.util.Map<String, Double> asked = new java.util.HashMap<>();
+        for (final String pair : System.getProperty("aircraft.set", "").split(",")) {
+            final String[] kv = pair.split("=");
+            if (kv.length == 2) {
+                asked.put(kv[0].trim().toLowerCase(Locale.ROOT), Double.parseDouble(kv[1].trim()));
+            }
+        }
+        hinged.getChildren().clear();
+        com.example.fxsuite.avatar.air.Hinge.controls(craft).forEach((control, range) -> {
+            final Slider slider = new Slider(range[0], range[1],
+                    Math.clamp(asked.getOrDefault(control.toLowerCase(Locale.ROOT), 0.0), range[0], range[1]));
+            slider.setPrefWidth(170);
+            slider.valueProperty().addListener((o, was, now) -> model.set(control, now.doubleValue()));
+            model.set(control, slider.getValue());
+            hinged.getChildren().add(new HBox(8, new Label(Character.toUpperCase(control.charAt(0)) + control.substring(1)),
+                    slider));
+        });
+    }
+
+    /** How many skins (0), pieces (1) or things turning (2) {@code craft} has, those on its hinges too. */
+    private static int count(final Craft craft, final int what) {
+        int n = switch (what) {
+            case 0 -> craft.skins().size() + craft.spinners().stream().mapToInt(s -> s.skins().size()).sum();
+            case 1 -> craft.pieces().size() + craft.spinners().stream().mapToInt(s -> s.pieces().size()).sum();
+            default -> craft.spinners().size();
+        };
+        for (final com.example.fxsuite.avatar.air.Hinge hinge : craft.hinges()) {
+            n += count(hinge.part(), what);
+        }
+        return n;
     }
 
     /** The floor under it, well beyond it all round, ruled every 10 m; every metre, for something small. */

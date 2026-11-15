@@ -44,7 +44,7 @@ final class MeshBuilder {
         faces[at] = a;
         faces[at + 2] = b;
         faces[at + 4] = c;
-        groups[faceCount] = smooth ? SKIN : 1 << (quads % 6);
+        groups[faceCount] = smooth ? SKIN : facet != 0 ? facet : 1 << (quads % 6);
         faceCount++;
     }
 
@@ -65,8 +65,17 @@ final class MeshBuilder {
      * nose, a tail) one point, so it is shaded smooth there too.
      */
     void skin(final java.util.List<Point3D[]> rings) {
-        smooth = true;
+        skin(rings, false);
+    }
+
+    /**
+     * The same, or {@code faceted}: each quad shaded flat, its smoothing group unlike each of its
+     * neighbours', round its ring and along to the next.
+     */
+    void skin(final java.util.List<Point3D[]> rings, final boolean faceted) {
+        smooth = !faceted;
         int[] last = null;
+        int band = 0;
         for (final Point3D[] ring : rings) {
             final int[] at = new int[ring.length];
             final boolean apex = java.util.Arrays.stream(ring).allMatch(p -> p.distance(ring[0]) < 1e-6);
@@ -76,13 +85,30 @@ final class MeshBuilder {
             if (last != null) {
                 for (int k = 0; k < ring.length; k++) {
                     final int next = (k + 1) % ring.length;
+                    if (faceted) {
+                        facet = 1 << (3 * (band % 2) + facet(k, ring.length));
+                    }
                     quad(last[k], last[next], at[next], at[k]);
                 }
+                band++;
             }
             last = at;
         }
         smooth = false;
+        facet = 0;
     }
+
+    /** A facet's group round its ring, 0 to 2: unlike the one before it, and the last unlike the first too. */
+    private static int facet(final int k, final int round) {
+        if (k < round - 1 || round % 3 == 0) {
+            return k % 3;
+        }
+        // the last: unlike the one before it and the first (0)
+        return (k - 1) % 3 == 1 ? 2 : 1;
+    }
+
+    /** A faceted skin's quad's smoothing group, while it is being added; none, otherwise. */
+    private int facet;
 
     /** A square rod {@code width} across from {@code a} to {@code b}. */
     void rod(final Point3D a, final Point3D b, final double width) {

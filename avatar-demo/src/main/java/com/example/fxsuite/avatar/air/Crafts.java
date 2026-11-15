@@ -17,28 +17,45 @@ public final class Crafts {
 
     /** The kinds made, each with its usual size and how far it may be made smaller or bigger, in metres. */
     public enum Kind {
-        AIRSHIP("Airship", 24, 12, 60),
-        BOMBER("Heavy bomber airship", 70, 30, 150),
-        QUADCOPTER("Quadcopter drone", 1.2, 0.4, 6),
-        HELICOPTER("Helicopter", 12, 6, 24),
-        TANDEM("Tandem-rotor helicopter", 15, 8, 30),
-        LIGHT_PLANE("Light aeroplane", 8, 5, 20),
-        /** Engines on their own ({@link Engine}): a radial and a turboprop by their length, a ducted fan by its width. */
-        RADIAL_ENGINE("Radial piston engine", 1.6, 0.4, 6),
-        TURBOPROP("Turboprop engine", 4, 1, 10),
-        DUCTED_FAN("Ducted fan", 1.8, 0.3, 8),
-        TURBOSHAFT("Turboshaft engine", 2.4, 0.6, 6);
+        AIRSHIP("Airship", 24, 12, 60, Category.AIRCRAFT),
+        BOMBER("Heavy bomber airship", 70, 30, 150, Category.AIRCRAFT),
+        QUADCOPTER("Quadcopter drone", 1.2, 0.4, 6, Category.AIRCRAFT),
+        HELICOPTER("Helicopter", 12, 6, 24, Category.AIRCRAFT),
+        TANDEM("Tandem-rotor helicopter", 15, 8, 30, Category.AIRCRAFT),
+        LIGHT_PLANE("Light aeroplane", 8, 5, 20, Category.AIRCRAFT),
+        /** Engines on their own ({@link Engine}): a radial and a turboprop by their length, a duct by its width. */
+        RADIAL_ENGINE("Radial piston engine", 1.6, 0.4, 6, Category.ENGINE),
+        TURBOPROP("Turboprop engine", 4, 1, 10, Category.ENGINE),
+        DUCTED_FAN("Ducted fan", 1.8, 0.3, 8, Category.ENGINE),
+        TURBOSHAFT("Turboshaft engine", 2.4, 0.6, 6, Category.ENGINE),
+        COAXIAL_DUCT("Coaxial ducted rotor", 3, 1, 8, Category.ENGINE),
+        /** Weapons on their own ({@link Weapons}), by their length; a turret by its ball. */
+        ROCKET_POD("Rocket pod", 1.8, 0.6, 4, Category.WEAPON),
+        ROTARY_CANNON("Rotary cannon", 1.6, 0.5, 4, Category.WEAPON),
+        MISSILE("Missile on its rail", 1.8, 0.6, 5, Category.WEAPON),
+        CHIN_TURRET("Chin turret", 1, 0.4, 3, Category.WEAPON),
+        /** Bodies on their own, angular, by their length. */
+        FACETED_FUSELAGE("Faceted fuselage", 12, 4, 30, Category.BODY),
+        CHAMFERED_BOX("Chamfered box body", 4, 1, 20, Category.BODY),
+        CANOPY("Framed canopy", 3, 1, 8, Category.BODY);
 
         private final String title;
         private final double usual;
         private final double least;
         private final double most;
+        private final Category category;
 
-        Kind(final String title, final double usual, final double least, final double most) {
+        Kind(final String title, final double usual, final double least, final double most, final Category category) {
             this.title = title;
             this.usual = usual;
             this.least = least;
             this.most = most;
+            this.category = category;
+        }
+
+        /** What it is: a whole aircraft, or a part of one on its own. */
+        public Category category() {
+            return category;
         }
 
         public String title() {
@@ -60,7 +77,7 @@ public final class Crafts {
 
         /** Whether it is an engine on its own. */
         public boolean engine() {
-            return ordinal() >= RADIAL_ENGINE.ordinal();
+            return category == Category.ENGINE;
         }
 
         /** It, {@code metres} long (a drone, a ducted fan, across). */
@@ -80,8 +97,53 @@ public final class Crafts {
                 case TURBOPROP -> Engine.turboprop(size).build();
                 case DUCTED_FAN -> Engine.ductedFan(size).build();
                 case TURBOSHAFT -> Engine.turboshaft(size).build();
+                case COAXIAL_DUCT -> Engine.coaxialDuct(size).build();
+                case ROCKET_POD -> Weapons.rocketPod(size);
+                case ROTARY_CANNON -> Weapons.rotaryCannon(size);
+                case MISSILE -> Weapons.missile(size);
+                case CHIN_TURRET -> Weapons.chinTurret(size);
+                case FACETED_FUSELAGE -> facetedFuselage(size);
+                case CHAMFERED_BOX -> chamferedBox(size);
+                case CANOPY -> canopy(size);
             };
         }
+    }
+
+    /** What a kind is: a whole aircraft, or one of its parts on its own. */
+    public enum Category { AIRCRAFT, ENGINE, WEAPON, BODY }
+
+    // ---------------------------------------------------------------- bodies on their own
+
+    /** An aeroplane's fuselage {@code length} long, faceted: eight flat sides round, angular. */
+    public static Craft facetedFuselage(final double length) {
+        return Craft.named("Faceted fuselage")
+                .body(Fuselage.aircraft("fuselage", Paint.SKIN, length, 0.15 * length).faceted(8), Mount.at(Point.ZERO))
+                .build();
+    }
+
+    /** A box body {@code length} long, its edges and corners cut flat, drawn in toward its nose. */
+    public static Craft chamferedBox(final double length) {
+        return Craft.named("Chamfered box body").body(new BoxBody("box", Paint.SKIN, length, 0.4 * length, 0.3 * length,
+                0.06 * length, 0.3, 0.1).withChamfers(), Mount.at(Point.ZERO)).build();
+    }
+
+    /**
+     * A canopy {@code length} long, framed: faceted glass, a bow across it at three places and a spine
+     * down its top; in a block up to its sill, as it would sit in a body.
+     */
+    public static Craft canopy(final double length) {
+        final Fuselage glass = Fuselage.canopy("canopy", length, 0.42 * length, 0.3 * length, 10);
+        final Craft.Builder canopy = Craft.named("Framed canopy").body(glass, Mount.at(Point.ZERO));
+        for (final double at : new double[] {-0.15 * length, 0.12 * length, 0.3 * length}) {
+            canopy.parts(Parts.patch("bow", Paint.FRAME, glass, at, at + 0.02 * length, 0, 180, 0.006 * length, 1, 8),
+                    Mount.at(Point.ZERO));
+        }
+        canopy.parts(Parts.patch("spine", Paint.FRAME, glass, -0.45 * length, 0.45 * length, 86, 94, 0.006 * length, 10,
+                1), Mount.at(Point.ZERO));
+        // the body it sits in, up to its sill: hiding its lower half, as a body does
+        canopy.part(Piece.box("sill", Paint.CAR, new Point(0, 0, -0.15 * length), 0.46 * length, 1.04 * length,
+                0.3 * length));
+        return canopy.build();
     }
 
     // ---------------------------------------------------------------- airships

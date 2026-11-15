@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.air.Craft;
+import com.example.fxsuite.avatar.air.Hinge;
 import com.example.fxsuite.avatar.air.Livery;
 import com.example.fxsuite.avatar.air.Paint;
 import com.example.fxsuite.avatar.air.Piece;
@@ -32,18 +33,51 @@ public final class CraftModel {
     private final List<Double> rates = new ArrayList<>();
     private int triangles;
 
+    /** Each control's hinges: how each is turned, and which way. */
+    private final Map<String, List<Rotate>> hinges = new java.util.LinkedHashMap<>();
+    private final Map<Rotate, Double> senses = new java.util.HashMap<>();
+
     public CraftModel(final Craft craft, final Livery livery) {
-        root.getChildren().add(meshes(craft.skins(), craft.pieces(), livery));
+        root.getChildren().add(drawn(craft, livery));
+    }
+
+    /** {@code craft} drawn: its skins and pieces; what turns, each about its axis; what is hinged, each on its hinge, and so on. */
+    private Group drawn(final Craft craft, final Livery livery) {
+        final Group group = new Group(meshes(craft.skins(), craft.pieces(), livery));
         for (final Spinner spinner : craft.spinners()) {
             final Group turning = meshes(spinner.skins(), spinner.pieces(), livery);
-            final Point3D hub = fx(spinner.hub());
-            final Point axis = spinner.axis();
-            final Rotate turn = new Rotate(0, hub.getX(), hub.getY(), hub.getZ(),
-                    new Point3D(axis.across(), -axis.up(), axis.along()));
+            final Rotate turn = about(spinner.hub(), spinner.axis());
             turning.getTransforms().add(turn);
             turns.add(turn);
             rates.add(spinner.rate());
-            root.getChildren().add(turning);
+            group.getChildren().add(turning);
+        }
+        for (final Hinge hinge : craft.hinges()) {
+            final Group hinged = drawn(hinge.part(), livery);
+            final Rotate turn = about(hinge.pivot(), hinge.axis());
+            hinged.getTransforms().add(turn);
+            hinges.computeIfAbsent(hinge.control(), c -> new ArrayList<>()).add(turn);
+            senses.put(turn, hinge.sense());
+            group.getChildren().add(hinged);
+        }
+        return group;
+    }
+
+    /** A turn about {@code axis} through {@code point}, in the drawing's frame: the right-hand way, as the aircraft's. */
+    private static Rotate about(final Point point, final Point axis) {
+        final Point3D at = fx(point);
+        return new Rotate(0, at.getX(), at.getY(), at.getZ(), new Point3D(axis.across(), -axis.up(), axis.along()));
+    }
+
+    /** The controls its hinges are turned by. */
+    public java.util.Set<String> controls() {
+        return hinges.keySet();
+    }
+
+    /** Turns the hinges of {@code control} to {@code degrees}. */
+    public void set(final String control, final double degrees) {
+        for (final Rotate turn : hinges.getOrDefault(control, List.of())) {
+            turn.setAngle(degrees * senses.get(turn));
         }
     }
 
@@ -68,7 +102,8 @@ public final class CraftModel {
         final Map<Paint, MeshBuilder> meshes = new EnumMap<>(Paint.class);
         for (final Skin skin : skins) {
             meshes.computeIfAbsent(skin.paint(), p -> new MeshBuilder())
-                    .skin(skin.rings().stream().map(r -> r.stream().map(CraftModel::fx).toArray(Point3D[]::new)).toList());
+                    .skin(skin.rings().stream().map(r -> r.stream().map(CraftModel::fx).toArray(Point3D[]::new)).toList(),
+                            skin.faceted());
         }
         for (final Piece piece : pieces) {
             meshes.computeIfAbsent(piece.paint(), p -> new MeshBuilder())

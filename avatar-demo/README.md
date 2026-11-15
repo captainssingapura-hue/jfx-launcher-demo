@@ -1028,6 +1028,20 @@ a rotor, not a propeller of its own). A propeller's blades are shaped as one's a
 broadest a third of the way out, a rounded tip, thin in section and twisted. Pylons and struts are
 streamlined, aerofoils in section (`Parts.strut`).
 
+For angular, military machines: a skin can be drawn faceted, flat quad by quad, a fuselage with
+few sides round (`Fuselage.faceted`); a box body's edges and corners cut flat rather than rounded
+(`BoxBody.withChamfers`); a canopy a glass bubble in flat panes, framed by bows and a spine
+(`Fuselage.canopy`). A part can turn on a hinge (`Hinge`) to an angle a named control sets, not
+round and round as a spinner does: a duct tilted, a turret traversed, its gun raised. What is on a
+hinge goes with it, its spinners and the hinges on it too; a hinge's mirror image turns as it does.
+Weapons are made whole as engines are (`Weapons`): a rocket pod (a faceted tube, a warning band,
+seven tubes' mouths in its dark face, a lug to hang it by), a rotary cannon (a housing, six barrels
+turning in their clamps), a missile on its rail (its nose banded, four fins and four canards), and a
+chin turret (a faceted ball that traverses under a plate, a rotary cannon in it raised and lowered:
+hinges on hinges). A coaxial ducted rotor (`Engine.coaxialDuct`) is a deep faceted duct, two rotors
+in it turning opposite ways, a hub held by stators, vanes across its exit, a trunnion either side to
+tilt it on. Liveries for them: olive drab, desert, gunmetal.
+
 Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
 fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an
 outrigger), a heavy bomber airship (a fatter, dark envelope, red bands round its nose, a long
@@ -1035,14 +1049,17 @@ armoured gondola with a bomb bay, six radial engines on pylons down its flanks, 
 quadcopter drone, a helicopter (a pod and boom, its turboshaft behind the rotor mast, a fin, a
 tailplane and a tail rotor, skids), a tandem-rotor helicopter (a box body, a pylon and rotor at
 either end, a turboshaft either side of the rear one, wheels) and a light aeroplane (a low wing, a tail, a propeller and spinner, three
-wheels); and each of the four engines on its own. On the bench, each to any size it may be made, in any livery, its rotors turning as
-fast as its power says; a person stood by it, on a floor ruled every 10 m (every metre, for a
+wheels); each of the five engines, the four weapons and three angular bodies (a faceted fuselage, a
+chamfered box body, a framed canopy) on its own. On the bench, each to any size it may be made, in any livery, its rotors turning as
+fast as its power says; a person stood by it, a slider for each control its hinges turn on, on a floor ruled every 10 m (every metre, for a
 drone). Drawn as `look.CraftModel`: skins smooth, pieces flat, a mesh to each paint.
 
 `-Daircraft.pick=heli` (the start of any word of a kind's name) picks what is on show to start
 with, `-Daircraft.livery=bomber` its livery, `-Daircraft.size=30` its size in metres;
 `-Daircraft.yaw`, `-Daircraft.pitch` and `-Daircraft.distance` (m) where it is seen from;
-`-Daircraft.turning=false` holds its rotors still.
+`-Daircraft.turning=false` holds its rotors still. `-Daircraft.floor=false` and `-Daircraft.person=false` start
+without the floor (to look up at it from under it) and the person;
+`-Daircraft.set=turret traverse=40,turret elevation=-30` sets its hinges' controls to start with.
 
 ## Unattended runs
 

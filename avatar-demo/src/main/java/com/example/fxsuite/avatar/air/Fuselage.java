@@ -20,8 +20,20 @@ import java.util.function.DoubleUnaryOperator;
  * @param paint    what it is finished in
  * @param stations its sections, tail to nose (along increasing)
  * @param sides    how many points round each
+ * @param faceted  whether its skin is drawn flat, facet by facet: angular, as a military body is
  */
-public record Fuselage(String name, Paint paint, List<Station> stations, int sides) implements Body {
+public record Fuselage(String name, Paint paint, List<Station> stations, int sides, boolean faceted)
+        implements Body {
+
+    /** Drawn smooth. */
+    public Fuselage(final String name, final Paint paint, final List<Station> stations, final int sides) {
+        this(name, paint, stations, sides, false);
+    }
+
+    /** The same, drawn flat facet by facet, {@code sides} round: few, for an angular body. */
+    public Fuselage faceted(final int round) {
+        return new Fuselage(name, paint, stations, round, true);
+    }
 
     /**
      * A section of a fuselage: {@code along} its length, {@code halfWidth} and {@code halfHeight} out
@@ -81,7 +93,7 @@ public record Fuselage(String name, Paint paint, List<Station> stations, int sid
             }
             rings.add(ring);
         }
-        return new Skin(name, paint, rings);
+        return new Skin(name, paint, rings, faceted);
     }
 
     @Override
@@ -228,6 +240,24 @@ public record Fuselage(String name, Paint paint, List<Station> stations, int sid
                 Station.round(h * 0.95, 0.88 * r),
                 Station.round(h - 0.001 * length, 0.78 * r),
                 Station.round(h, 0)), 16);
+    }
+
+    /**
+     * A canopy, {@code length} long, {@code width} wide and {@code height} high over its base (the
+     * axis): a bubble, full and rounded at its front, swept down to its back; its lower half sunk into
+     * what it sits on. Glass, framed in flat panes ({@code sides} round).
+     */
+    public static Fuselage canopy(final String name, final double length, final double width, final double height,
+                                  final int sides) {
+        final DoubleUnaryOperator radius = t -> {
+            if (t >= 0.62) {
+                final double u = (t - 0.62) / 0.38;
+                return Math.sqrt(Math.max(0, 1 - u * u * u));
+            }
+            return Math.pow(Math.sin(Math.PI / 2 * t / 0.62), 0.7);
+        };
+        return new Fuselage(name, Paint.GLASS, profile(length, width / 2, 12, radius, t -> 0, t -> 2 * height / width, 2.4),
+                sides, true);
     }
 
     /** A propeller's spinner, {@code length} long and {@code diameter} across its back: a blunt cone. */

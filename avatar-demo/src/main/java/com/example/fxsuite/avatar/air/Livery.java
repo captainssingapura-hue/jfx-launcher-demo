@@ -47,8 +47,18 @@ public record Livery(String name, Map<Paint, String> colours) {
     public static final Livery GREY = of("Grey", "#80868d", "#5d6369", "#4a5056", "#141a20", "#3e4349",
             "#121417", "#6c7278", "#e07b22");
 
+    /** Olive drab, darker panels and frames, yellow markings: a military machine's. */
+    public static final Livery OLIVE = of("Olive drab", "#4b5235", "#3a3f2a", "#3f4430", "#1b2a30", "#4a4d4f",
+            "#16181a", "#454b31", "#c9b04a");
+    /** Sand and tan, dark red markings: a desert machine's. */
+    public static final Livery DESERT = of("Desert", "#b59a6a", "#9a8156", "#a48b5e", "#1d2a33", "#5a5650",
+            "#1b1b1a", "#a8905f", "#6b2f22");
+    /** Dark grey metal all over, orange markings. */
+    public static final Livery GUNMETAL = of("Gunmetal", "#4d545b", "#3a4046", "#3f454b", "#1a2630", "#5a6067",
+            "#141618", "#474e55", "#d48a2a");
+
     /** All of them. */
     public static List<Livery> all() {
-        return List.of(PATROL, BOMBER, RESCUE, GREY);
+        return List.of(PATROL, BOMBER, RESCUE, GREY, OLIVE, DESERT, GUNMETAL);
     }
 }

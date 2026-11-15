@@ -7,7 +7,8 @@ import java.util.List;
 
 /**
  * An aircraft as it is drawn, in its own frame (across to the right, along to its nose, up; its
- * origin its main body's middle): its bodies' skins, the solid parts fixed to them, and what turns.
+ * origin its main body's middle): its bodies' skins, the solid parts fixed to them, what turns, and
+ * what turns on a hinge ({@link Hinge}), at rest.
  * Put together a part at a time ({@link Builder}): a body mounted, the parts on it, a pair of them
  * either side.
  *
@@ -15,13 +16,20 @@ import java.util.List;
  * @param skins    its bodies' skins, mounted
  * @param pieces   its solid parts, mounted
  * @param spinners what turns, mounted
+ * @param hinges   what turns on a hinge, mounted
  */
-public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spinner> spinners) {
+public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spinner> spinners, List<Hinge> hinges) {
 
     public Craft {
         skins = List.copyOf(skins);
         pieces = List.copyOf(pieces);
         spinners = List.copyOf(spinners);
+        hinges = List.copyOf(hinges);
+    }
+
+    /** Nothing on a hinge. */
+    public Craft(final String name, final List<Skin> skins, final List<Piece> pieces, final List<Spinner> spinners) {
+        this(name, skins, pieces, spinners, List.of());
     }
 
     /** All its points, what turns too. */
@@ -33,6 +41,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
             spinner.skins().forEach(s -> all.addAll(s.points()));
             spinner.pieces().forEach(p -> all.addAll(p.corners()));
         }
+        hinges.forEach(h -> all.addAll(h.part().points()));
         return all;
     }
 
@@ -44,13 +53,24 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
     /** All of it, mounted ({@link Mount}): a part made whole in a frame of its own (an engine), fixed on another. */
     public Craft placed(final Mount mount) {
         return new Craft(name, skins.stream().map(s -> s.placed(mount)).toList(),
-                pieces.stream().map(p -> p.placed(mount)).toList(), spinners.stream().map(s -> s.placed(mount)).toList());
+                pieces.stream().map(p -> p.placed(mount)).toList(), spinners.stream().map(s -> s.placed(mount)).toList(),
+                hinges.stream().map(h -> h.placed(mount)).toList());
     }
 
     /** All of it on the other side: across turned to the left, what turns turning the other way. */
     public Craft mirrored() {
         return new Craft(name, skins.stream().map(Skin::mirrored).toList(), pieces.stream().map(Piece::mirrored).toList(),
-                spinners.stream().map(Spinner::mirrored).toList());
+                spinners.stream().map(Spinner::mirrored).toList(), hinges.stream().map(Hinge::mirrored).toList());
+    }
+
+    /**
+     * All of it on one hinge, turned by {@code control} about {@code axis} through {@code pivot}, from
+     * {@code least} to {@code most} degrees: a duct that tilts, a turret that traverses.
+     */
+    public Craft hinged(final String control, final Point pivot, final Point axis, final double least,
+                        final double most) {
+        return new Craft(name, List.of(), List.of(), List.of(), List.of(new Hinge(control, pivot, Piece.unit(axis), 1, least,
+                most, this)));
     }
 
     /** Puts a craft together. */
@@ -64,6 +84,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
         private final List<Skin> skins = new ArrayList<>();
         private final List<Piece> pieces = new ArrayList<>();
         private final List<Spinner> spinners = new ArrayList<>();
+        private final List<Hinge> hinges = new ArrayList<>();
 
         private Builder(final String name) {
             this.name = name;
@@ -95,6 +116,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
             skins.addAll(placed.skins());
             pieces.addAll(placed.pieces());
             spinners.addAll(placed.spinners());
+            hinges.addAll(placed.hinges());
             return this;
         }
 
@@ -105,6 +127,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
                 skins.addAll(side.skins());
                 pieces.addAll(side.pieces());
                 spinners.addAll(side.spinners());
+                hinges.addAll(side.hinges());
             }
             return this;
         }
@@ -165,7 +188,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
         }
 
         public Craft build() {
-            return new Craft(name, skins, pieces, spinners);
+            return new Craft(name, skins, pieces, spinners, hinges);
         }
     }
 }
