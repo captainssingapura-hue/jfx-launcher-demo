@@ -102,6 +102,31 @@ class PavilionTest {
     }
 
     @Test
+    void itsEavesTurnUpAtTheirCornersTheirMiddlesWhereStraightOnesAre() {
+        for (final Pavilion.Spec spec : Pavilions.PRESETS) {
+            final Pavilion pavilion = Pavilion.of(spec);
+            final List<Sheet> roof = pavilion.sheets().stream().filter(s -> s.name().startsWith("roof")).toList();
+            if (roof.isEmpty()) {
+                continue;
+            }
+            final double lowest = roof.stream().flatMap(s -> s.points().stream()).mapToDouble(Vec3::z).min().orElseThrow();
+            final double cornerHigh = pavilion.corners().getFirst().z();
+            assertEquals(pavilion.eaves() + spec.upturn(), cornerHigh, 1e-9, spec.name() + "'s corners");
+            if (spec.upturn() > 0 && spec.footprint() != Pavilion.Footprint.ROUND) {
+                // the eaves' middles down where a straight eave's are, their corners up
+                // (filled in between bowed edges, a face may dip a few centimetres under them)
+                assertEquals(pavilion.eaves(), lowest, 6, spec.name() + "'s eaves' middles");
+                assertTrue(pavilion.skeleton().edges().stream().anyMatch(e -> e.curved()), spec.name() + " curved");
+            } else {
+                assertEquals(cornerHigh, lowest, 1, spec.name() + ": its rim all as high");
+            }
+        }
+        assertThrows(IllegalArgumentException.class, () -> new Pavilion.Spec("x", Pavilion.Footprint.RECTANGLE, 900, 500, 3,
+                Pavilion.Pillar.ROUND, 30, 300, Pavilion.Roof.GABLE, 0.6, 90, 30, Material.GREY_TILE, Material.TIMBER, 50),
+                "no corners on a gable to turn up");
+    }
+
+    @Test
     void madeOnlyToOrdersThatStand() {
         assertThrows(IllegalArgumentException.class, () -> new Pavilion.Spec("x", Pavilion.Footprint.HEXAGON, 600, 600, 1,
                 Pavilion.Pillar.ROUND, 30, 300, Pavilion.Roof.HIP, 0.7, 100, 30, Material.GLAZED, Material.LACQUER),

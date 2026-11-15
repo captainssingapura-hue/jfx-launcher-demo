@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Crossing;
+import com.example.fxsuite.avatar.sim.Curve;
 import com.example.fxsuite.avatar.sim.Extrusion;
 import com.example.fxsuite.avatar.sim.Form;
 import com.example.fxsuite.avatar.sim.Prism;
@@ -60,9 +61,19 @@ public final class Pavilion {
      */
     public record Spec(String name, Footprint footprint, double width, double depth, int bays, Pillar pillar,
                        double thick, double tall, Roof roof, double pitch, double overhang, double platform,
-                       Material tiles, Material columns) {
+                       Material tiles, Material columns, double upturn) {
+
+        /** Its eaves straight. */
+        public Spec(final String name, final Footprint footprint, final double width, final double depth, final int bays,
+                    final Pillar pillar, final double thick, final double tall, final Roof roof, final double pitch,
+                    final double overhang, final double platform, final Material tiles, final Material columns) {
+            this(name, footprint, width, depth, bays, pillar, thick, tall, roof, pitch, overhang, platform, tiles, columns, 0);
+        }
 
         public Spec {
+            if (upturn < 0 || upturn > 0 && (roof == Roof.GABLE || roof == Roof.FLAT)) {
+                throw new IllegalArgumentException(name + ": eaves turned up over a roof to a point, or a hip roof");
+            }
             final boolean rectangle = footprint == Footprint.RECTANGLE;
             if (!rectangle && (roof == Roof.HIP || roof == Roof.GABLE)) {
                 throw new IllegalArgumentException(name + ": a hip roof or a gable is over a rectangle");
@@ -209,16 +220,22 @@ public final class Pavilion {
         }
         form.loop(heads);
         final List<Vec2> eaves = outline(spec.overhang());
+        final List<Vec3> corners = corners();
         final int[] eave = new int[eaves.size()];
         for (int k = 0; k < eaves.size(); k++) {
-            eave[k] = form.vertex("eave " + k, eaves.get(k).x(), eaves.get(k).z(), eaves());
+            eave[k] = form.vertex("eave " + k, corners.get(k).x(), corners.get(k).y(), corners.get(k).z());
         }
-        form.loop(eave);
+        // its eaves, each a bow between its corners, turned up and out at them
+        for (int k = 0; k < eave.length; k++) {
+            final Vec3 a = corners.get(k);
+            final Vec3 b = corners.get((k + 1) % corners.size());
+            form.edge(eave[k], eave[(k + 1) % eave.length], Curve.bow(bow(a, b), SWEEP, a, b, 0, 1));
+        }
         switch (spec.roof()) {
             case PYRAMID -> {
                 final int point = form.vertex("point", 0, 0, ridge());
                 for (final int e : eave) {
-                    form.edge(e, point);
+                    form.edge(e, point, hipBow());
                 }
             }
             case HIP -> {
@@ -226,7 +243,7 @@ public final class Pavilion {
                 final int east = form.vertex("ridge east", ridgeHalf(), 0, ridge());
                 form.edge(west, east);
                 for (int k = 0; k < eave.length; k++) {
-                    form.edge(eave[k], eaves.get(k).x() < 0 ? west : east);
+                    form.edge(eave[k], eaves.get(k).x() < 0 ? west : east, hipBow());
                 }
             }
             case GABLE -> {
@@ -302,25 +319,31 @@ public final class Pavilion {
         final List<Sheet> sheets = new ArrayList<>();
         final List<Vec2> eaves = outline(spec.overhang());
         final double e = eaves();
+        final List<Vec3> corner = corners();
+        final Vec3 inside = new Vec3(0, 0, e - 100);
         switch (spec.roof()) {
             case PYRAMID -> {
+                // each face filled in between its eave, swept up at its corners, and its two hips to the point
                 final Vec3 point = new Vec3(0, 0, ridge());
-                for (int k = 0; k < eaves.size(); k++) {
-                    final Vec2 a = eaves.get(k);
-                    final Vec2 b = eaves.get((k + 1) % eaves.size());
-                    sheets.add(face("roof, face " + k, "roof", List.of(new Vec3(a.x(), a.z(), e), new Vec3(b.x(), b.z(), e),
-                            point)));
+                for (int k = 0; k < corner.size(); k++) {
+                    final Vec3 a = corner.get(k);
+                    final Vec3 b = corner.get((k + 1) % corner.size());
+                    sheets.add(Sheet.patch("roof, face " + k, "roof", eave(a, b), hip(b, point), List.of(point),
+                            hip(a, point), 12, 8, inside));
                 }
             }
             case HIP -> {
-                final double w = spec.width() / 2 + spec.overhang();
-                final double d = spec.depth() / 2 + spec.overhang();
+                // as the temple hall's: its long slopes between their eaves, hips and ridge; its ends up to the ridge's
                 final Vec3 west = new Vec3(-ridgeHalf(), 0, ridge());
                 final Vec3 east = new Vec3(ridgeHalf(), 0, ridge());
-                sheets.add(face("roof, front", "roof", List.of(new Vec3(w, d, e), new Vec3(-w, d, e), west, east)));
-                sheets.add(face("roof, back", "roof", List.of(new Vec3(-w, -d, e), new Vec3(w, -d, e), east, west)));
-                sheets.add(face("roof, east end", "roof", List.of(new Vec3(w, -d, e), new Vec3(w, d, e), east)));
-                sheets.add(face("roof, west end", "roof", List.of(new Vec3(-w, d, e), new Vec3(-w, -d, e), west)));
+                sheets.add(Sheet.patch("roof, front", "roof", eave(corner.get(3), corner.get(2)), hip(corner.get(2), east),
+                        List.of(west, east), hip(corner.get(3), west), 24, 8, inside));
+                sheets.add(Sheet.patch("roof, back", "roof", eave(corner.get(0), corner.get(1)), hip(corner.get(1), east),
+                        List.of(west, east), hip(corner.get(0), west), 24, 8, inside));
+                sheets.add(Sheet.patch("roof, east end", "roof", eave(corner.get(1), corner.get(2)), hip(corner.get(2), east),
+                        List.of(east), hip(corner.get(1), east), 12, 8, inside));
+                sheets.add(Sheet.patch("roof, west end", "roof", eave(corner.get(0), corner.get(3)), hip(corner.get(3), west),
+                        List.of(west), hip(corner.get(0), west), 12, 8, inside));
             }
             case GABLE -> {
                 final double w = spec.width() / 2 + spec.overhang();
@@ -343,6 +366,68 @@ public final class Pavilion {
             }
         }
         return sheets;
+    }
+
+    /** How sharply its eaves sweep up at their corners: as the temple hall's. */
+    private static final double SWEEP = 3;
+
+    /** How far out its eaves' corners turn, as well as up: five sevenths as far. */
+    private double flare() {
+        return spec.upturn() * 5 / 7;
+    }
+
+    /**
+     * Its eaves' corners: round its eaves' outline, each turned up by its upturn and out by its flare;
+     * round a round roof, every point of its rim so, its rafters sagging, a flare all round.
+     */
+    public List<Vec3> corners() {
+        final List<Vec3> corners = new ArrayList<>();
+        for (final Vec2 p : outline(spec.overhang())) {
+            final double r = Math.hypot(p.x(), p.z());
+            final double out = (r + flare()) / r;
+            corners.add(new Vec3(p.x() * out, p.z() * out, eaves() + spec.upturn()));
+        }
+        return corners;
+    }
+
+    /**
+     * The bow of its eave from corner {@code a} to corner {@code b}: down by its upturn and in by its
+     * flare at its middle, so the middle is where a straight eave is and its ends turn up and out. A
+     * round roof's rim does not bow between its points: it is turned up all round.
+     */
+    private Vec3 bow(final Vec3 a, final Vec3 b) {
+        if (spec.footprint() == Footprint.ROUND) {
+            return Vec3.ZERO;
+        }
+        final double mx = (a.x() + b.x()) / 2;
+        final double my = (a.y() + b.y()) / 2;
+        final double length = Math.hypot(mx, my);
+        return new Vec3(-mx / length * flare(), -my / length * flare(), -spec.upturn());
+    }
+
+    /** A hip, from an eave's corner up to the point or a ridge's end, sagging as far as its eaves turn up. */
+    private Curve hipBow() {
+        return Curve.bow(new Vec3(0, 0, -spec.upturn()), 2);
+    }
+
+    /** Its eave from corner {@code a} to corner {@code b}, as points along its bow. */
+    private List<Vec3> eave(final Vec3 a, final Vec3 b) {
+        final Vec3 bow = bow(a, b);
+        final List<Vec3> points = new ArrayList<>();
+        for (int k = 0; k <= 16; k++) {
+            points.add(Curve.bowAt(bow, SWEEP, a, b, k / 16.0));
+        }
+        return points;
+    }
+
+    /** A hip from {@code corner} up to {@code end}, as points along its sag. */
+    private List<Vec3> hip(final Vec3 corner, final Vec3 end) {
+        final Curve sag = hipBow();
+        final List<Vec3> points = new ArrayList<>();
+        for (int k = 0; k <= 12; k++) {
+            points.add(sag.at(corner, end, k / 12.0));
+        }
+        return points;
     }
 
     /** A flat face through {@code points}, its outside up and out. */

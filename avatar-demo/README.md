@@ -817,7 +817,10 @@ through, and one loaded until a pillar gives and it falls.
   its footprint (square, hexagonal, octagonal, round, or a rectangle of an odd number of bays, its
   middle one its way in), how big; its pillars round or square, how thick and how tall; its roof to
   a point (round over a round one), a hip roof or a gable over a rectangle, or flat, how steep and
-  how far out; its platform how high. Its roof's tiles and its pillars' material are choices, on the
+  how far out, and how far its eaves turn up at their corners (0, straight); its platform how high.
+  Turned up, its eaves sweep as the temple hall's do: each a bow between its corners, its middle where
+  a straight eave's is, its ends up and out; its hips sag; each face filled in between them. A round
+  one's rim is turned up all round, its rafters sagging: a flare. Its roof's tiles and its pillars' material are choices, on the
   bench too. A roof to a point over a polygon is in the way as the part so many triangles drawn
   across it share (`Crossing`, of any number: three for a hexagon, four for an octagon). The
   garden has one of each: square, hexagonal and octagonal ones, a round one, a long gallery under
