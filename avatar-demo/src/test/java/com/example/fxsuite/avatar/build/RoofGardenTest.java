@@ -114,13 +114,43 @@ class RoofGardenTest {
     }
 
     @Test
+    void aPoolSunkInTheRoofBesideThePavilionClearOfItAndOfTheEdge() {
+        for (final RoofGarden garden : gardens()) {
+            final List<Vec2> roof = roof(garden.tower());
+            final RoofGarden.Pool pool = garden.pool();
+            final String name = garden.tower().name();
+            for (final Vec2 c : pool.outline(RoofGarden.RIM)) {
+                assertTrue(Outline.inside(roof, c.x(), c.z()), name + ": its rim on the roof");
+                assertTrue(gap(roof, c.x(), c.z()) >= RoofGarden.EDGE - 1e-6, name + ": clear of the edge");
+            }
+            assertTrue(pool.gap(garden.place().x(), garden.place().z())
+                    >= garden.pavilion().reach() + RoofGarden.RIM, name + ": clear of the pavilion and its steps");
+            for (final RoofGarden.Plant plant : garden.plants()) {
+                assertTrue(pool.gap(plant.x(), plant.z()) > RoofGarden.RIM, name + ": no plant in it");
+            }
+            final List<Volume> shape = garden.on(TowerBuildings.shape(garden.tower()));
+            final Obstacles world = new Obstacles(List.of()).with(shape, shape.stream().map(v -> 0).toList());
+            // in it: its floor under, down in the roof; beside it, its rim, and the lawn beyond
+            assertEquals(garden.poolFloor(), world.floor(pool.x(), pool.z(), 16, garden.lawn() + 20), 1e-6,
+                    name + ": on the pool's floor");
+            assertEquals(garden.lawn() + RoofGarden.RIM_HIGH,
+                    world.floor(pool.x() + pool.halfAcross() + RoofGarden.RIM / 2, pool.z(), 5, garden.lawn() + 30), 1e-6,
+                    name + ": on its rim");
+            // a round down into it: through the water, onto its floor
+            final com.example.fxsuite.avatar.sim.Hit hit = world.ray(new com.example.fxsuite.avatar.sim.Vec3(pool.x(),
+                    -(garden.lawn() + 1000), pool.z()), new com.example.fxsuite.avatar.sim.Vec3(0, 1, 0), 5000);
+            assertEquals(garden.poolFloor(), -hit.at().y(), 1e-6, name + ": down to its floor");
+        }
+    }
+
+    @Test
     void theTownsTowersCarryTheirGardens() {
         Course.town(Town::pieces);
         final List<RoofGarden> gardens = gardens();
         for (int k = 3; k < Town.SITES.size(); k++) {
             final Course.Piece tower = Town.pieces().get(k);
             final RoofGarden garden = gardens.get(k - 3);
-            assertEquals(TowerBuildings.shape(garden.tower()).size() + garden.shape().size(), tower.volumes().size(),
+            assertEquals(garden.on(TowerBuildings.shape(garden.tower())).size(), tower.volumes().size(),
                     Town.SITES.get(k).name() + ": in the way as the tower and its garden");
             assertTrue(Town.solids(k).stream().anyMatch(s -> s.name().startsWith("pavilion, ")),
                     Town.SITES.get(k).name() + ": its pavilion drawn");

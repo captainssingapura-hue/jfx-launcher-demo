@@ -50,6 +50,11 @@ public final class BuildingModel {
         glass.setSpecularColor(Color.web("#d8e6f0"));
         glass.setSpecularPower(40);
         LOOKS.put(Material.GLASS, glass);
+        final PhongMaterial water = new PhongMaterial(Color.web("#3f9fd0", 0.6));
+        water.setSpecularColor(Color.web("#e8f4fb"));
+        water.setSpecularPower(60);
+        LOOKS.put(Material.WATER, water);
+        LOOKS.put(Material.POOL_TILE, BoxRig.matte("#8fd0dc"));
     }
 
     private BuildingModel() {
@@ -73,12 +78,15 @@ public final class BuildingModel {
         }
         final Group drawn = new Group();
         for (final Material material : Material.values()) {
-            if (material != Material.GLASS && meshes.containsKey(material)) {
+            if (material != Material.GLASS && material != Material.WATER && meshes.containsKey(material)) {
                 drawn.getChildren().add(meshes.get(material).view(LOOKS.get(material)));
             }
         }
         if (meshes.containsKey(Material.GLASS)) {
             drawn.getChildren().add(meshes.get(Material.GLASS).view(LOOKS.get(Material.GLASS)));
+        }
+        if (meshes.containsKey(Material.WATER)) {
+            drawn.getChildren().add(meshes.get(Material.WATER).view(LOOKS.get(Material.WATER)));
         }
         return drawn;
     }

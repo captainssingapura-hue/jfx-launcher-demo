@@ -62,9 +62,7 @@ public final class Outline {
 
     /** How far a circle at ({@code x}, {@code z}) reaches into it: its radius less its gap from it, or more if inside. */
     public static double depth(final List<Vec2> points, final double x, final double z, final double radius) {
-        final Vec2 near = nearest(points, x, z);
-        final double gap = Math.hypot(near.x() - x, near.z() - z);
-        return inside(points, x, z) ? gap + radius : radius - gap;
+        return depthOf(List.of(points), x, z, radius);
     }
 
     /**
@@ -72,11 +70,67 @@ public final class Outline {
      * does. Straight out from the nearest point of its edge.
      */
     public static Vec2 push(final List<Vec2> points, final double x, final double z, final double radius) {
-        final Vec2 near = nearest(points, x, z);
+        return pushOut(List.of(points), x, z, radius);
+    }
+
+    /**
+     * How far a stroke from ({@code ax}, {@code az}) to ({@code bx}, {@code bz}), {@code radius}
+     * thick, must move to clear it; {@code null} if it already does.
+     */
+    public static Vec2 push(final List<Vec2> points, final double ax, final double az, final double bx, final double bz,
+                            final double radius) {
+        return pushOut(List.of(points), ax, az, bx, bz, radius);
+    }
+
+    /**
+     * Whether ({@code x}, {@code z}) is in the solid of {@code rings}: an outline (the first) with holes
+     * cut out of it (the rest), each apart from the others and inside the outline.
+     */
+    public static boolean solid(final List<List<Vec2>> rings, final double x, final double z) {
+        if (!inside(rings.getFirst(), x, z)) {
+            return false;
+        }
+        for (int h = 1; h < rings.size(); h++) {
+            if (inside(rings.get(h), x, z)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The point on any of {@code rings}' edges nearest ({@code x}, {@code z}). */
+    public static Vec2 nearestOf(final List<List<Vec2>> rings, final double x, final double z) {
+        Vec2 best = null;
+        double least = Double.POSITIVE_INFINITY;
+        for (final List<Vec2> ring : rings) {
+            final Vec2 near = nearest(ring, x, z);
+            final double d = Math.hypot(near.x() - x, near.z() - z);
+            if (d < least) {
+                least = d;
+                best = near;
+            }
+        }
+        return best;
+    }
+
+    /** How far a circle reaches into the solid of {@code rings}: its radius less its gap from it, or more if in it. */
+    public static double depthOf(final List<List<Vec2>> rings, final double x, final double z, final double radius) {
+        final Vec2 near = nearestOf(rings, x, z);
+        final double gap = Math.hypot(near.x() - x, near.z() - z);
+        return solid(rings, x, z) ? gap + radius : radius - gap;
+    }
+
+    /**
+     * How far a circle at ({@code x}, {@code z}) must move to clear the solid of {@code rings}; null if
+     * it already does. Straight out from the nearest point of any of their edges: out of the outline,
+     * or into a hole.
+     */
+    public static Vec2 pushOut(final List<List<Vec2>> rings, final double x, final double z, final double radius) {
+        final Vec2 near = nearestOf(rings, x, z);
         final double dx = near.x() - x;
         final double dz = near.z() - z;
         final double gap = Math.hypot(dx, dz);
-        if (inside(points, x, z)) {
+        if (solid(rings, x, z)) {
             // out through the nearest edge, as far again as the circle is wide
             if (gap < 1e-9) {
                 return null;
@@ -90,46 +144,48 @@ public final class Outline {
     }
 
     /**
-     * How far a stroke from ({@code ax}, {@code az}) to ({@code bx}, {@code bz}), {@code radius}
-     * thick, must move to clear it; {@code null} if it already does. Pushed as its deepest point is:
-     * among its ends, where it comes nearest each corner, and where it crosses each edge.
+     * How far a stroke from a to b, {@code radius} thick, must move to clear the solid of
+     * {@code rings}; null if it already does. Pushed as its deepest point is: among its ends, where it
+     * comes nearest each corner, and where it crosses each edge.
      */
-    public static Vec2 push(final List<Vec2> points, final double ax, final double az, final double bx, final double bz,
-                            final double radius) {
+    public static Vec2 pushOut(final List<List<Vec2>> rings, final double ax, final double az, final double bx,
+                               final double bz, final double radius) {
         final double ex = bx - ax;
         final double ez = bz - az;
         final double length = ex * ex + ez * ez;
         final List<Double> at = new ArrayList<>(List.of(0.0, 1.0));
-        for (int i = 0; i < points.size(); i++) {
-            final Vec2 a = points.get(i);
-            final Vec2 b = points.get((i + 1) % points.size());
-            if (length > 1e-12) {
-                at.add(Num.clamp(((a.x() - ax) * ex + (a.z() - az) * ez) / length, 0, 1));
-            }
-            // where it crosses this edge, if it does
-            final double fx = b.x() - a.x();
-            final double fz = b.z() - a.z();
-            final double det = ex * fz - ez * fx;
-            if (Math.abs(det) > 1e-12) {
-                final double t = ((a.x() - ax) * fz - (a.z() - az) * fx) / det;
-                final double s = ((a.x() - ax) * ez - (a.z() - az) * ex) / det;
-                if (t >= 0 && t <= 1 && s >= 0 && s <= 1) {
-                    // a little either side of it: on the edge itself, which way is out is not known
-                    at.add(Math.max(0, t - 1e-6));
-                    at.add(Math.min(1, t + 1e-6));
+        for (final List<Vec2> points : rings) {
+            for (int i = 0; i < points.size(); i++) {
+                final Vec2 a = points.get(i);
+                final Vec2 b = points.get((i + 1) % points.size());
+                if (length > 1e-12) {
+                    at.add(Num.clamp(((a.x() - ax) * ex + (a.z() - az) * ez) / length, 0, 1));
+                }
+                // where it crosses this edge, if it does
+                final double fx = b.x() - a.x();
+                final double fz = b.z() - a.z();
+                final double det = ex * fz - ez * fx;
+                if (Math.abs(det) > 1e-12) {
+                    final double t = ((a.x() - ax) * fz - (a.z() - az) * fx) / det;
+                    final double s = ((a.x() - ax) * ez - (a.z() - az) * ex) / det;
+                    if (t >= 0 && t <= 1 && s >= 0 && s <= 1) {
+                        // a little either side of it: on the edge itself, which way is out is not known
+                        at.add(Math.max(0, t - 1e-6));
+                        at.add(Math.min(1, t + 1e-6));
+                    }
                 }
             }
         }
         double deepest = 0;
         double best = -1;
         for (final double t : at) {
-            final double d = depth(points, ax + ex * t, az + ez * t, radius);
+            final double d = depthOf(rings, ax + ex * t, az + ez * t, radius);
             if (d > deepest) {
                 deepest = d;
                 best = t;
             }
         }
-        return best < 0 ? null : push(points, ax + ex * best, az + ez * best, radius);
+        return best < 0 ? null : pushOut(rings, ax + ex * best, az + ez * best, radius);
     }
 
     /**

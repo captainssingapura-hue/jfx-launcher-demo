@@ -192,4 +192,28 @@ class VolumeTest {
         assertEquals(500, roof.topAt(0, 0, 1), 1);
         assertEquals(250, roof.topAt(0, 251, 1), 1.5, "its slope now across z");
     }
+
+    @Test
+    void anOutlineStoodUpMayHaveAHoleDownThroughIt() {
+        // 10 m square, 2 m high, a 4 m square hole in its middle: a pool's basin, a light well
+        final Prism well = new Prism(List.of(new Vec2(-500, -500), new Vec2(500, -500), new Vec2(500, 500),
+                new Vec2(-500, 500)), List.of(List.of(new Vec2(-200, -200), new Vec2(200, -200), new Vec2(200, 200),
+                new Vec2(-200, 200))), 0, 200);
+        assertTrue(well.covers(-350, 0, 1), "its solid");
+        assertFalse(well.covers(0, 0, 1), "its hole");
+        assertTrue(well.covers(0, 0, 250), "a wide circle reaching its sides");
+        // in the hole, near its side: pushed back into the hole
+        final Vec2 push = well.push(170, 0, 32, 20, 180);
+        assertEquals(-2, push.x(), 1e-6);
+        // a ray across the hole from inside it meets its far side, facing back into it
+        final Hit side = well.ray(new Vec3(0, -100, 0), new Vec3(1, 0, 0), 5000);
+        assertEquals(200, side.distance(), 1e-6);
+        assertEquals(-1, side.normal().x(), 1e-9);
+        // a ray down into it passes on; a block in it shares no space with it
+        assertNull(well.ray(new Vec3(0, -1000, 0), new Vec3(0, 1, 0), 5000));
+        assertFalse(well.overlaps(new Block(0, 0, 100, 100, 0, 0, 100)), "a block in its hole");
+        assertTrue(well.overlaps(new Block(0, 0, 300, 100, 0, 0, 100)), "a block across its side");
+        assertEquals(0, world(well).floor(0, 0, 16, 300), 1e-9, "the ground, down its hole");
+        assertEquals(200, world(well).floor(-350, 0, 16, 300), 1e-9, "its top, beside it");
+    }
 }

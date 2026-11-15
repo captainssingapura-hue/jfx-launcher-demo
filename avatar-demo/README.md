@@ -831,9 +831,15 @@ through, and one loaded until a pillar gives and it falls.
   edge), a pavilion about half as wide as the roof (smaller if it would not fit there), proportioned
   to its size, facing the tower's front: a square one on the setback, a round one on the round
   tower, an octagonal one on the oval, a hip-roofed gallery on the rounded one, a hexagonal one where
-  the L's arms meet, a modern flat-roofed one on the bow-front. Round it, trees, pines and shrubs,
-  as many as there is room for, clear of the pavilion, its steps and the roof's edge, the same for
-  the same tower every time. Composed by placing: the pavilion's solids and shapes put in the
+  the L's arms meet, a modern flat-roofed one on the bow-front. Beside it, a swimming pool sunk into
+  the roof: about two fifths of the roof long and a fifth wide, 1.4 m deep, its water 25 cm under a
+  stone rim, tiled; the pavilion and the pool each clear of the roof's edge and of each other, both a
+  little smaller together until they fit. Round them, trees, pines and shrubs, as many as there is
+  room for, clear of the pavilion, its steps, the pool and the roof's edge, the same for the same
+  tower every time. The pool is cut down into the tower: its basin a hole in the tower's top (an
+  upright prism may have holes, `Prism.holes`: a pool, a courtyard, a light well), its opening out
+  of the tower's roof as drawn, the tower's columns stopping short of it. For now it is scenery:
+  walked into, its floor under the water; swimming is to come. Composed by placing: the pavilion's solids and shapes put in the
   tower's frame on its roof (`Volume.placed` raises them as high as they stand), the plants too;
   the tower's piece carries all of it, placed and scaled with it. Walk up into the pavilion, stand
   under its roof, walk round the trees on the lawn; the trunks and shrubs are in the way, the

@@ -36,6 +36,9 @@ public enum Material {
     LIMESTONE("white limestone", Double.POSITIVE_INFINITY),
     /** A garden's: its lawn, its trees' and shrubs' leaves, their bark. */
     GRASS("lawn", Double.POSITIVE_INFINITY),
+    /** A pool's water, and the tiles it is lined with. */
+    WATER("water", Double.POSITIVE_INFINITY),
+    POOL_TILE("pool tile", Double.POSITIVE_INFINITY),
     LEAVES("leaves", Double.POSITIVE_INFINITY),
     BARK("bark", Double.POSITIVE_INFINITY);
 

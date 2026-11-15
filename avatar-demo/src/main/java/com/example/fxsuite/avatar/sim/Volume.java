@@ -74,6 +74,9 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
             case Prism p -> new Prism(p.outline().stream().map(v -> new Vec2(
                     at.x() + (right.x() * v.x() + ahead.x() * v.z()) * scale,
                     at.z() + (right.z() * v.x() + ahead.z() * v.z()) * scale)).toList(),
+                    p.holes().stream().map(h -> h.stream().map(v -> new Vec2(
+                            at.x() + (right.x() * v.x() + ahead.x() * v.z()) * scale,
+                            at.z() + (right.z() * v.x() + ahead.z() * v.z()) * scale)).toList()).toList(),
                     p.bottom() * scale + up, p.top() * scale + up);
             case Extrusion e -> new Extrusion(at.x() + (right.x() * e.x() + ahead.x() * e.z()) * scale,
                     at.z() + (right.z() * e.x() + ahead.z() * e.z()) * scale, at.yaw() + e.yaw(), e.half() * scale,
