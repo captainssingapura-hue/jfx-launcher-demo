@@ -853,10 +853,9 @@ through, and one loaded until a pillar gives and it falls.
   part, its railing; walked about between them. On the bench (the void deck tower, 48 m by 32 m,
   30 floors), its deck's floor, height and enclosed wing (in bays; none, open all through) are set
   live. On it, a garden (`DeckGarden`): the roof garden's parts but its pavilion: a pool sunk into
-  the section under it, in a bay as near the open part's middle as it fits; beside it a bar (its
-  counter, shelves of bottles, stools) and a watermelon stall (melons and pineapples under a
-  striped awning); plants in planters, sparing, no taller than the deck lets them be; all clear of
-  the columns, the wing, the railing and each other.
+  the section under it, in a bay as near the open part's middle as it fits; plants in planters,
+  sparing, no taller than the deck lets them be; all clear of the columns, the wing, the railing and
+  each other. A bar, a stall, people: game objects, to be put on it in the game.
 - **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
   alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
   meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where

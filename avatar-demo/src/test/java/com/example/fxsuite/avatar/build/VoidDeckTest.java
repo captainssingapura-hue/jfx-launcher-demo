@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * A tower with a void deck: a storey open but for its columns (the whole grid's) and a wing enclosed
  * at one end, between the solid sections under and over it; a railing round its open edge; on it, a
- * garden, its pool sunk into the section under it, a bar, a stall and plants, all clear of the
+ * garden, its pool sunk into the section under it and plants (no bar or stall: the game's), all clear of the
  * columns and each other, and no taller than the deck.
  */
 class VoidDeckTest {
@@ -89,10 +89,6 @@ class VoidDeckTest {
                     assertTrue(Math.hypot(plant.x() - c.x(), plant.z() - c.y()) > plant.size() * 0.8, "no plant on a column");
                 }
             }
-            assertTrue(Math.hypot(garden.bar().x() - pool.x(), garden.bar().z() - pool.z()) > pool.halfAcross(),
-                    "the bar beside the pool, not in it");
-            assertTrue(Math.hypot(garden.stall().x() - pool.x(), garden.stall().z() - pool.z()) > pool.halfAcross(),
-                    "the stall beside it");
             // every plant's crown under the deck's soffit
             for (final RoofGarden.Plant plant : garden.plants()) {
                 final double tall = plant.kind() == RoofGarden.Kind.TREE ? 2.9 : plant.kind() == RoofGarden.Kind.PINE ? 4 : 1.1;
@@ -104,8 +100,8 @@ class VoidDeckTest {
             assertEquals(garden.poolFloor(), world.floor(pool.x(), pool.z(), 16, garden.floor() + 20), 1e-6);
             final Building dressed = garden.on(TowerBuildings.of(tower));
             final List<Solid> solids = dressed.dressed(dressed.own(), Palette.CONCRETE);
-            assertTrue(solids.stream().anyMatch(s -> s.name().startsWith("bar, ")), "its bar drawn");
-            assertTrue(solids.stream().anyMatch(s -> s.name().startsWith("stall, melon")), "its stall's melons drawn");
+            assertFalse(solids.stream().anyMatch(s -> s.name().startsWith("bar, ") || s.name().startsWith("stall, ")),
+                    "no bar or stall built into it: those are the game's");
             assertTrue(solids.stream().anyMatch(s -> s.material() == Material.WATER), "its pool's water");
             assertFalse(dressed.plates().stream().anyMatch(p -> p.name().equals("lower, roof")),
                     "the deck's floor paved round the pool, not drawn whole over it");

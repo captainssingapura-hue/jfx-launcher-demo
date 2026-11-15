@@ -109,7 +109,7 @@ final class SizeControls extends VBox {
                 EngineBench.label(DECK.equals(name)
                         ? "Its void deck: which floor it is, how high, and how many bays of it at its west end are"
                         + " enclosed (none: open all through). Open, its columns stand on the whole grid; round its"
-                        + " edge a railing; on it, a pool, a bar, a watermelon stall and plants, as tall as it lets."
+                        + " edge a railing; on it, a pool and plants, as tall as it lets."
                         : CHURCH.equals(name)
                         ? "Its nave so many bays long and so wide, its walls and ridge so high; its tower so square,"
                         + " its belfry and spire so high. Its apse as wide as its nave; its windows as tall as its"
