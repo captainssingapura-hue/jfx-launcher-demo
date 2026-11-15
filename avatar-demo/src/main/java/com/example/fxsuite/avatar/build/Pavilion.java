@@ -170,6 +170,22 @@ public final class Pavilion {
         return polygon(spec.width() / 2 + beyond / Math.cos(Math.PI / sides), sides);
     }
 
+    /** How far out from its middle any of it reaches across the ground: its platform, its eaves, its steps. */
+    public double reach() {
+        double reach = 0;
+        for (final List<Vec2> outline : List.of(outline(MARGIN), outline(spec.overhang() + flare()))) {
+            for (final Vec2 p : outline) {
+                reach = Math.max(reach, Math.hypot(p.x(), p.z()));
+            }
+        }
+        for (final Prism step : steps()) {
+            for (final Vec2 p : step.outline()) {
+                reach = Math.max(reach, Math.hypot(p.x(), p.z()));
+            }
+        }
+        return reach;
+    }
+
     /** Its platform's top; its pillars' heads; its eaves; its roof's highest. */
     public double floor() {
         return spec.platform();

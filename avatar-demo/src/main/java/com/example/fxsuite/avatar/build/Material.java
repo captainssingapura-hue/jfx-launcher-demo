@@ -33,7 +33,11 @@ public enum Material {
     /** A wall's plaster, red; a pyramid's stone, sandstone or white limestone. */
     PLASTER("red plaster", 300),
     SANDSTONE("sandstone", Double.POSITIVE_INFINITY),
-    LIMESTONE("white limestone", Double.POSITIVE_INFINITY);
+    LIMESTONE("white limestone", Double.POSITIVE_INFINITY),
+    /** A garden's: its lawn, its trees' and shrubs' leaves, their bark. */
+    GRASS("lawn", Double.POSITIVE_INFINITY),
+    LEAVES("leaves", Double.POSITIVE_INFINITY),
+    BARK("bark", Double.POSITIVE_INFINITY);
 
     private final String title;
     private final double span;

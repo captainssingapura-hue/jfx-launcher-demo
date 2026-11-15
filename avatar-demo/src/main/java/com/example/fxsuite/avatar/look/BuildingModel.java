@@ -28,6 +28,9 @@ public final class BuildingModel {
         LOOKS.put(Material.CONCRETE, BoxRig.matte("#a9a59b"));
         LOOKS.put(Material.SANDSTONE, BoxRig.matte("#d2b07a"));
         LOOKS.put(Material.LIMESTONE, BoxRig.matte("#e6dfcc"));
+        LOOKS.put(Material.GRASS, BoxRig.matte("#6f9a4e"));
+        LOOKS.put(Material.LEAVES, BoxRig.matte("#3d7a3c"));
+        LOOKS.put(Material.BARK, BoxRig.matte("#5b4330"));
         LOOKS.put(Material.PRECAST, BoxRig.matte("#cfcac0"));
         LOOKS.put(Material.METAL, BoxRig.matte("#33373c"));
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));

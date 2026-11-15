@@ -59,14 +59,20 @@ public final class Town {
                 new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED,
                         (Supplier<List<Volume>>) () -> Temple.standard().shape()},
                 new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE},
-                new Object[] {"setback tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.setback()), Palette.STONE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.setback())},
-                new Object[] {"round tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.round()), Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.round())},
-                new Object[] {"oval tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.oval()), Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.oval())},
-                new Object[] {"rounded tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.rounded()), Palette.PRECAST, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.rounded())},
-                new Object[] {"L block on a podium", (Supplier<Building>) () -> TowerBuildings.of(Towers.lBlock()),
-                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.lBlock())},
-                new Object[] {"bow-front tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.bowFront()),
-                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.bowFront())});
+                new Object[] {"setback tower", (Supplier<Building>) () -> RoofGarden.of(Towers.setback(), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.setback())), Palette.STONE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.setback(), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER)
+                        .on(TowerBuildings.shape(Towers.setback()))},
+                new Object[] {"round tower", (Supplier<Building>) () -> RoofGarden.of(Towers.round(), Pavilion.Footprint.ROUND, Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.round())), Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.round(), Pavilion.Footprint.ROUND, Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER)
+                        .on(TowerBuildings.shape(Towers.round()))},
+                new Object[] {"oval tower", (Supplier<Building>) () -> RoofGarden.of(Towers.oval(), Pavilion.Footprint.OCTAGON, Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE).on(TowerBuildings.of(Towers.oval())), Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.oval(), Pavilion.Footprint.OCTAGON, Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE)
+                        .on(TowerBuildings.shape(Towers.oval()))},
+                new Object[] {"rounded tower", (Supplier<Building>) () -> RoofGarden.of(Towers.rounded(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.rounded())), Palette.PRECAST, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.rounded(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER)
+                        .on(TowerBuildings.shape(Towers.rounded()))},
+                new Object[] {"L block on a podium", (Supplier<Building>) () -> RoofGarden.of(Towers.lBlock(), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.lBlock())),
+                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.lBlock(), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER)
+                        .on(TowerBuildings.shape(Towers.lBlock()))},
+                new Object[] {"bow-front tower", (Supplier<Building>) () -> RoofGarden.of(Towers.bowFront(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT, Material.CONCRETE, Material.METAL).on(TowerBuildings.of(Towers.bowFront())),
+                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.bowFront(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT, Material.CONCRETE, Material.METAL)
+                        .on(TowerBuildings.shape(Towers.bowFront()))});
         for (int k = 0; k < buildings.size(); k++) {
             final Object[] b = buildings.get(k);
             @SuppressWarnings("unchecked")

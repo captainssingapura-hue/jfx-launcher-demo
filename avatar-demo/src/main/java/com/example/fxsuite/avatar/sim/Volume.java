@@ -64,24 +64,25 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
     /**
      * {@code shape}, given in a building's own frame (its x across, to the right; its z along,
      * ahead; heights up), {@code scale} times as big about its origin, and put where the building
-     * stands, {@code at}, turned with it.
+     * stands, {@code at}, turned with it; raised as high as {@code at} is (a pavilion on a roof).
      */
     static Volume placed(final Volume shape, final Place at, final double scale) {
         final Vec3 right = Num.right(at.yaw());
         final Vec3 ahead = Num.heading(at.yaw());
+        final double up = at.height();
         return switch (shape) {
             case Prism p -> new Prism(p.outline().stream().map(v -> new Vec2(
                     at.x() + (right.x() * v.x() + ahead.x() * v.z()) * scale,
                     at.z() + (right.z() * v.x() + ahead.z() * v.z()) * scale)).toList(),
-                    p.bottom() * scale, p.top() * scale);
+                    p.bottom() * scale + up, p.top() * scale + up);
             case Extrusion e -> new Extrusion(at.x() + (right.x() * e.x() + ahead.x() * e.z()) * scale,
                     at.z() + (right.z() * e.x() + ahead.z() * e.z()) * scale, at.yaw() + e.yaw(), e.half() * scale,
-                    scaled(e.profile(), scale), e.holes().stream().map(h -> scaled(h, scale)).toList());
+                    scaled(e.profile(), scale, up), e.holes().stream().map(h -> scaled(h, scale, up)).toList());
             case Crossing c -> new Crossing(c.parts().stream().map(p -> (Extrusion) placed(p, at, scale)).toList());
         };
     }
 
-    private static java.util.List<Vec2> scaled(final java.util.List<Vec2> points, final double scale) {
-        return points.stream().map(p -> new Vec2(p.x() * scale, p.z() * scale)).toList();
+    private static java.util.List<Vec2> scaled(final java.util.List<Vec2> points, final double scale, final double up) {
+        return points.stream().map(p -> new Vec2(p.x() * scale, p.z() * scale + up)).toList();
     }
 }

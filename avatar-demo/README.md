@@ -826,6 +826,18 @@ through, and one loaded until a pillar gives and it falls.
   garden has one of each: square, hexagonal and octagonal ones, a round one, a long gallery under
   a hip roof, one under a gable, and a modern one with a flat roof on steel posts. The parts are
   what will be composed into larger structures: a temple's entrance, a tower's void deck.
+- **Roof gardens** (`RoofGarden`): a building put on another, composed. Each of the town's towers has a
+  garden on its roof: a lawn; on it, where there is most room (the point furthest from the roof's
+  edge), a pavilion about half as wide as the roof (smaller if it would not fit there), proportioned
+  to its size, facing the tower's front: a square one on the setback, a round one on the round
+  tower, an octagonal one on the oval, a hip-roofed gallery on the rounded one, a hexagonal one where
+  the L's arms meet, a modern flat-roofed one on the bow-front. Round it, trees, pines and shrubs,
+  as many as there is room for, clear of the pavilion, its steps and the roof's edge, the same for
+  the same tower every time. Composed by placing: the pavilion's solids and shapes put in the
+  tower's frame on its roof (`Volume.placed` raises them as high as they stand), the plants too;
+  the tower's piece carries all of it, placed and scaled with it. Walk up into the pavilion, stand
+  under its roof, walk round the trees on the lawn; the trunks and shrubs are in the way, the
+  crowns are flown through.
 - **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
   alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
   meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where
