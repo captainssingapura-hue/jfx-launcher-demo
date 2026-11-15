@@ -34,7 +34,8 @@ import java.util.function.Consumer;
 final class SizeControls extends VBox {
 
     /** A building built again to a size: put together, to dress, and its plans. */
-    record Built(String name, Assembly.Result assembled, Building building, Map<String, Plan> plans) {
+    record Built(String name, Assembly.Result assembled, Building building, Map<String, Plan> plans,
+                 com.example.fxsuite.avatar.build.Tower tower) {
     }
 
     /** One of its sizes: what it is called, its key, from and to, by how much, as it is first. */
@@ -43,6 +44,7 @@ final class SizeControls extends VBox {
 
     private static final String CHURCH = "town church";
     private static final String TEMPLE = "temple hall";
+    private static final String DECK = "void deck tower";
 
     private final Label problem = new Label();
     private final Map<String, List<Spinner<Double>>> kept = new HashMap<>();
@@ -58,7 +60,7 @@ final class SizeControls extends VBox {
 
     /** Whether {@code name} is built to a size here. */
     static boolean sized(final String name) {
-        return CHURCH.equals(name) || TEMPLE.equals(name);
+        return CHURCH.equals(name) || TEMPLE.equals(name) || DECK.equals(name);
     }
 
     /** Says who to hand each building built again to. */
@@ -81,7 +83,12 @@ final class SizeControls extends VBox {
     }
 
     private VBox panel(final String name) {
-        final List<Measure> measures = CHURCH.equals(name) ? List.of(
+        final List<Measure> measures = DECK.equals(name) ? List.of(
+                new Measure("Deck at floor", "floor", 2, com.example.fxsuite.avatar.build.Towers.DECK_TOWER_FLOORS - 3, 1,
+                        com.example.fxsuite.avatar.build.Towers.DECK_FLOOR),
+                new Measure("Deck high (m)", "deck", 3, 15, 0.2, com.example.fxsuite.avatar.build.Towers.DECK_HEIGHT / 100),
+                new Measure("Wing enclosed (bays)", "wing", 0, 5, 1, com.example.fxsuite.avatar.build.Towers.DECK_WING))
+                : CHURCH.equals(name) ? List.of(
                 new Measure("Bays", "bays", 3, 16, 1, Church.Size.STANDARD.bays()),
                 new Measure("Bay long (m)", "bay", 3, 8, 0.5, Church.Size.STANDARD.bay() / 100),
                 new Measure("Nave wide (m)", "width", 6, 20, 0.5, Church.Size.STANDARD.width() / 100),
@@ -99,7 +106,11 @@ final class SizeControls extends VBox {
         final Map<String, Double> asked = asked();
         final List<Spinner<Double>> spinners = new ArrayList<>();
         final VBox panel = new VBox(6, EngineBench.heading("Its size"),
-                EngineBench.label(CHURCH.equals(name)
+                EngineBench.label(DECK.equals(name)
+                        ? "Its void deck: which floor it is, how high, and how many bays of it at its west end are"
+                        + " enclosed (none: open all through). Open, its columns stand on the whole grid; round its"
+                        + " edge a railing; on it, a pool, a bar, a watermelon stall and plants, as tall as it lets."
+                        : CHURCH.equals(name)
                         ? "Its nave so many bays long and so wide, its walls and ridge so high; its tower so square,"
                         + " its belfry and spire so high. Its apse as wide as its nave; its windows as tall as its"
                         + " walls allow, as wide as ever, and its doorway a person's size, whatever its size."
@@ -144,19 +155,24 @@ final class SizeControls extends VBox {
     private void build(final String name) {
         final List<Double> v = kept.get(name).stream().map(Spinner::getValue).toList();
         try {
-            if (CHURCH.equals(name)) {
+            if (DECK.equals(name)) {
+                final com.example.fxsuite.avatar.build.Tower tower = com.example.fxsuite.avatar.build.Towers.voidDeck(
+                        (int) Math.round(v.get(0)), v.get(1) * 100, (int) Math.round(v.get(2)));
+                problem.setText("");
+                built.accept(new Built(name, null, BuildingBench.dressed(tower), null, tower));
+            } else if (CHURCH.equals(name)) {
                 final Church church = Church.of(new Church.Size((int) Math.round(v.get(0)), v.get(1) * 100, v.get(2) * 100,
                         v.get(3) * 100, v.get(4) * 100, v.get(5) * 100, v.get(6) * 100, v.get(7) * 100));
                 problem.setText("");
-                built.accept(new Built(name, church.assembled(), church.building(), church.plans()));
+                built.accept(new Built(name, church.assembled(), church.building(), church.plans(), null));
             } else {
                 final Temple temple = Temple.of(new Temple.Size((int) Math.round(v.get(0)), v.get(1) * 100,
                         (int) Math.round(v.get(2)), v.get(3) * 100, v.get(4) * 100));
                 problem.setText("");
-                built.accept(new Built(name, temple.assembled(), temple.building(), temple.plans()));
+                built.accept(new Built(name, temple.assembled(), temple.building(), temple.plans(), null));
             }
         } catch (IllegalArgumentException e) {
-            problem.setText("Cannot be built so: " + e.getMessage().replaceFirst("^an? (church|temple hall) ", "")
+            problem.setText("Cannot be built so: " + e.getMessage().replaceFirst("^an? (church|temple hall|void deck) ", "")
                     + ". Shown as it was.");
         }
     }

@@ -64,8 +64,38 @@ public final class Towers {
         return Tower.of("bow-front tower", plan(Shape.BOW, 4800, 3200, 1200), 30, 380);
     }
 
+    /** The void deck tower's floors all told, and its deck's place, height and enclosed wing as first drawn. */
+    public static final int DECK_TOWER_FLOORS = 30;
+    public static final int DECK_FLOOR = 15;
+    public static final double DECK_HEIGHT = 760;
+    public static final int DECK_WING = 2;
+
+    /** A tower with a void deck half way up ({@link #voidDeck(int, double, int)}), as first drawn. */
+    public static Tower voidDeck() {
+        return voidDeck(DECK_FLOOR, DECK_HEIGHT, DECK_WING);
+    }
+
+    /**
+     * A rectangle 48 m by 32 m on the 8 m grid, 30 floors of 3.8 m, but that its floor {@code floor}
+     * is a void deck {@code height} high: open, its columns the whole grid's, but for a wing
+     * {@code wing} bays wide at its west end, enclosed (none: open all through).
+     */
+    public static Tower voidDeck(final int floor, final double height, final int wing) {
+        if (floor < 2 || floor > DECK_TOWER_FLOORS - 3 || height < 300 || height > 1500 || wing < 0 || wing > 5) {
+            throw new IllegalArgumentException("a void deck at floor " + floor + ", " + height + " high, its wing "
+                    + wing + " bays: not one that stands");
+        }
+        final Plan plan = plan(Shape.RECTANGLE, 4800, 3200, 0);
+        final Plan enclosed = wing == 0 ? null
+                : Plan.of("enclosed wing", Grid.of("enclosed wing", -2400, -1600, wing * BAY, 3200, BAY));
+        return new Tower("void deck tower", List.of(
+                new Section("lower", plan, floor, 380),
+                Section.open("void deck", plan, height, enclosed),
+                new Section("upper", plan, DECK_TOWER_FLOORS - floor - 1, 380)));
+    }
+
     /** All of them. */
     public static List<Tower> all() {
-        return List.of(setback(), round(), oval(), rounded(), lBlock(), bowFront());
+        return List.of(setback(), round(), oval(), rounded(), lBlock(), bowFront(), voidDeck());
     }
 }

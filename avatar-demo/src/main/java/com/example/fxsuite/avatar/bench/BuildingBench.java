@@ -135,9 +135,16 @@ public final class BuildingBench extends Application {
     static {
         com.example.fxsuite.avatar.build.Towers.all().forEach(t -> {
             TOWERS.put(t.name(), t);
-            COMPOSED.put(t.name(), com.example.fxsuite.avatar.build.TowerBuildings.of(t));
+            COMPOSED.put(t.name(), dressed(t));
         });
     }
+    /** {@code tower} as a building to dress: with a garden on its void deck, if it has one. */
+    static Building dressed(final com.example.fxsuite.avatar.build.Tower tower) {
+        final Building plain = com.example.fxsuite.avatar.build.TowerBuildings.of(tower);
+        return tower.sections().stream().anyMatch(com.example.fxsuite.avatar.build.Tower.Section::open)
+                ? com.example.fxsuite.avatar.build.DeckGarden.of(tower).on(plain) : plain;
+    }
+
     private Building composed;
     /** How far off it is seen whole: the camera's range is set from it. */
     private double whole = 5000;
@@ -453,10 +460,14 @@ public final class BuildingBench extends Application {
      * plans in its plan tab, and shown, if it is on show, seen whole again; dressed as it was.
      */
     private void resized(final SizeControls.Built built) {
-        ASSEMBLED.put(built.name(), built.assembled());
         COMPOSED.put(built.name(), built.building());
-        PARTS_PLANS.put(built.name(), built.plans());
-        final Form made = built.assembled().form();
+        if (built.tower() != null) {
+            TOWERS.put(built.name(), built.tower());
+        } else {
+            ASSEMBLED.put(built.name(), built.assembled());
+            PARTS_PLANS.put(built.name(), built.plans());
+        }
+        final Form made = built.tower() != null ? built.tower().skeleton() : built.assembled().form();
         final int k = buildings.getItems().indexOf(buildings.getItems().stream()
                 .filter(f -> f.name().equals(built.name())).findFirst().orElse(null));
         if (k < 0) {
@@ -473,7 +484,7 @@ public final class BuildingBench extends Application {
         if (shown) {
             building = made;
             composed = built.building();
-            planTab.setContent(new PartsPlans(built.plans()));
+            planTab.setContent(built.tower() != null ? new TowerPlans(built.tower()) : new PartsPlans(built.plans()));
             fit(false);
             redraw();
             describe();

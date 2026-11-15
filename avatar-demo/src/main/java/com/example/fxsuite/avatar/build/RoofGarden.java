@@ -41,6 +41,11 @@ public final class RoofGarden {
             return List.of(new Vec2(x - a, z - b), new Vec2(x + a, z - b), new Vec2(x + a, z + b), new Vec2(x - a, z + b));
         }
 
+        /** It and its edges grown by {@code by} all round. */
+        public Pool grown(final double by) {
+            return new Pool(x, z, halfAcross + by, halfAlong + by);
+        }
+
         /** How far ({@code px}, {@code pz}) is from it: 0 in it. */
         public double gap(final double px, final double pz) {
             return Math.hypot(Math.max(0, Math.abs(px - x) - halfAcross), Math.max(0, Math.abs(pz - z) - halfAlong));
@@ -324,7 +329,7 @@ public final class RoofGarden {
         final Palette lawn = Palette.STONE.with(Map.of(Role.DRESSING, Material.GRASS));
         solids.addAll(Sheet.flat("lawn", "lawn", ring(roof, tower.height()), List.of(ring(pool.outline(RIM), tower.height())),
                 new Vec3(0, 0, 1)).slab("lawn", lawn, Role.DRESSING, 0, LAWN));
-        solids.addAll(poolSolids());
+        solids.addAll(poolSolids(pool, tower.height()));
         final Building building = pavilion.building();
         for (final Solid s : building.dressed(building.own(), building.palettes().getFirst())) {
             solids.add(new Solid("pavilion, " + s.name(), s.role(), s.material(), s.corners().stream()
@@ -332,15 +337,16 @@ public final class RoofGarden {
         }
         int k = 0;
         for (final Plant plant : plants) {
-            solids.addAll(plant(plant, "plant " + k++));
+            solids.addAll(plantSolids(plant, "plant " + k++, lawn()));
         }
         return solids;
     }
 
-    /** The pool drawn: its rim of stone round it, its tiled floor and sides, its water. */
-    private List<Solid> poolSolids() {
+    /** {@code pool} drawn, sunk into a floor {@code top} high: its rim of stone round it, its tiled floor and sides, its water. */
+    static List<Solid> poolSolids(final Pool pool, final double top) {
         final List<Solid> solids = new ArrayList<>();
-        final double top = tower.height();
+        final double bottom = top - DEEP;
+        final double surface = top - WATER;
         final double ax = pool.halfAcross();
         final double az = pool.halfAlong();
         final double x = pool.x();
@@ -354,18 +360,18 @@ public final class RoofGarden {
         solids.add(box("pool, rim right", Material.LIMESTONE, x + ax, x + ax + RIM, z - az, z + az, top, top + LAWN + RIM_HIGH));
         // its basin: its floor, and its sides lining the cut down into the roof
         final double tile = 6;
-        solids.add(box("pool, floor", Material.POOL_TILE, x - ax, x + ax, z - az, z + az, poolFloor(), poolFloor() + tile));
-        solids.add(box("pool, side front", Material.POOL_TILE, x - ax, x + ax, z + az - tile, z + az, poolFloor(), top));
-        solids.add(box("pool, side back", Material.POOL_TILE, x - ax, x + ax, z - az, z - az + tile, poolFloor(), top));
-        solids.add(box("pool, side left", Material.POOL_TILE, x - ax, x - ax + tile, z - az, z + az, poolFloor(), top));
-        solids.add(box("pool, side right", Material.POOL_TILE, x + ax - tile, x + ax, z - az, z + az, poolFloor(), top));
+        solids.add(box("pool, floor", Material.POOL_TILE, x - ax, x + ax, z - az, z + az, bottom, bottom + tile));
+        solids.add(box("pool, side front", Material.POOL_TILE, x - ax, x + ax, z + az - tile, z + az, bottom, top));
+        solids.add(box("pool, side back", Material.POOL_TILE, x - ax, x + ax, z - az, z - az + tile, bottom, top));
+        solids.add(box("pool, side left", Material.POOL_TILE, x - ax, x - ax + tile, z - az, z + az, bottom, top));
+        solids.add(box("pool, side right", Material.POOL_TILE, x + ax - tile, x + ax, z - az, z + az, bottom, top));
         // its water, under its rim
         solids.add(box("pool, water", Material.WATER, x - ax + tile, x + ax - tile, z - az + tile, z + az - tile,
-                water() - 2, water()));
+                surface - 2, surface));
         return solids;
     }
 
-    private static Solid box(final String name, final Material material, final double x0, final double x1, final double z0,
+    static Solid box(final String name, final Material material, final double x0, final double x1, final double z0,
                              final double z1, final double low, final double high) {
         final List<Point> corners = new ArrayList<>();
         for (int c = 0; c < 8; c++) {
@@ -375,8 +381,7 @@ public final class RoofGarden {
     }
 
     /** A plant drawn: its trunk, and its crown of leaves (a ball for a tree, a cone for a pine, a mound for a shrub). */
-    private List<Solid> plant(final Plant plant, final String name) {
-        final double base = lawn();
+    static List<Solid> plantSolids(final Plant plant, final String name, final double base) {
         final double r = plant.size();
         final List<Solid> solids = new ArrayList<>();
         switch (plant.kind()) {
@@ -400,7 +405,7 @@ public final class RoofGarden {
     }
 
     /** A frustum round the plant, from radius {@code r0} at {@code low} to {@code r1} at {@code high}: wedges from its middle. */
-    private static List<Solid> frustum(final String name, final Material material, final Plant plant, final double r0,
+    static List<Solid> frustum(final String name, final Material material, final Plant plant, final double r0,
                                        final double low, final double r1, final double high) {
         final List<Solid> solids = new ArrayList<>();
         final int sides = 8;

@@ -26,13 +26,31 @@ import java.util.Set;
  */
 public record Tower(String name, List<Section> sections) {
 
-    /** One plan, stacked {@code floors} high, each floor {@code height} high, floor to floor. */
-    public record Section(String name, Plan plan, int floors, double height) {
+    /**
+     * One plan, stacked {@code floors} high, each floor {@code height} high, floor to floor. Solid, its
+     * outline walled; or {@code open}, a void deck: no walls round it, its columns standing in the open
+     * between the section under it and the one over it, but for an {@code enclosed} part (a plan of its
+     * own on the section's grid, walled round; null for none): a core, a wing.
+     */
+    public record Section(String name, Plan plan, int floors, double height, boolean open, Plan enclosed) {
 
         public Section {
             if (floors < 1 || height <= 0) {
                 throw new IllegalArgumentException(name + ": " + floors + " floors " + height + " high");
             }
+            if (enclosed != null && !open) {
+                throw new IllegalArgumentException(name + ": only an open section has a part enclosed in it");
+            }
+        }
+
+        /** Solid all through. */
+        public Section(final String name, final Plan plan, final int floors, final double height) {
+            this(name, plan, floors, height, false, null);
+        }
+
+        /** A void deck: one storey {@code height} high, open but for its columns and {@code enclosed} (null, none). */
+        public static Section open(final String name, final Plan plan, final double height, final Plan enclosed) {
+            return new Section(name, plan, 1, height, true, enclosed);
         }
 
         public double tall() {
@@ -139,6 +157,18 @@ public record Tower(String name, List<Section> sections) {
         for (final Section section : sections) {
             final Plan.Layout layout = section.plan().layout();
             layout.problems().forEach(p -> problems.add(section.name() + ": " + p));
+            if (section.enclosed() != null) {
+                // its enclosed part within it, its columns its own grid's
+                final Plan.Layout part = section.enclosed().layout();
+                if (part.shaped().stream().flatMap(List::stream).anyMatch(p -> !layout.inside(p))) {
+                    problems.add(section.name() + ": its enclosed part reaches beyond it");
+                }
+                final long off = part.allColumns().values().stream().filter(c -> layout.allColumns().values().stream()
+                        .noneMatch(d -> d.distance(c) < Plan.TOLERANCE)).count();
+                if (off > 0) {
+                    problems.add(section.name() + ": " + off + " of its enclosed part's columns are off its grid");
+                }
+            }
             if (below != null) {
                 final Plan.Layout under = below;
                 final long unsupported = layout.allColumns().values().stream()

@@ -844,6 +844,19 @@ through, and one loaded until a pillar gives and it falls.
   the tower's piece carries all of it, placed and scaled with it. Walk up into the pavilion, stand
   under its roof, walk round the trees on the lawn; the trunks and shrubs are in the way, the
   crowns are flown through.
+- **Void decks** (`Tower.Section.open`, `Towers.voidDeck`): a tower's section can be open, a void deck
+  between the solid sections under and over it: no walls round it, its columns the whole grid's
+  standing in the open (slim, 60 cm, each bay 8 m clear), a railing along its open edges (glass
+  under a metal rail), its floor the section under's top, its soffit the one over's underside. Part
+  of it can stay enclosed, a plan of its own on its grid, walled as the tower is (composed
+  horizontally): a wing at one end, a core. In the way as it is shaped: its columns, its enclosed
+  part, its railing; walked about between them. On the bench (the void deck tower, 48 m by 32 m,
+  30 floors), its deck's floor, height and enclosed wing (in bays; none, open all through) are set
+  live. On it, a garden (`DeckGarden`): the roof garden's parts but its pavilion: a pool sunk into
+  the section under it, in a bay as near the open part's middle as it fits; beside it a bar (its
+  counter, shelves of bottles, stools) and a watermelon stall (melons and pineapples under a
+  striped awning); plants in planters, sparing, no taller than the deck lets them be; all clear of
+  the columns, the wing, the railing and each other.
 - **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
   alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
   meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where
