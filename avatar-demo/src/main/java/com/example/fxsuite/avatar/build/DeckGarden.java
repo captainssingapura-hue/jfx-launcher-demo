@@ -16,7 +16,9 @@ import java.util.Random;
  * pavilion, put among the deck's columns. A swimming pool sunk into the deck's floor, in a bay as
  * near the open part's middle as there is room for; round it, plants in planters, sparing, as tall
  * as the deck lets them be. All of it clear of the columns, the enclosed part, the railing and each
- * other. (A bar, a stall, people: game objects, put on it in the game, not built into it.)
+ * other; and of two spots kept open, one for a bar, one for a melon stall ({@link Spot}): what is
+ * set out there, and the people at them, are game objects, put on it in the game ({@link DeckScene}),
+ * not built into it.
  */
 public final class DeckGarden {
 
@@ -30,6 +32,19 @@ public final class DeckGarden {
     /** How high a planter is, and how far under the deck's soffit the plants keep. */
     private static final double PLANTER = 50;
     private static final double HEADROOM = 40;
+    /** The room a bar takes, and a melon stall, each way from its middle: across, along (its front, -z, to the deck). */
+    public static final double BAR_ACROSS = 150;
+    public static final double BAR_ALONG = 130;
+    public static final double STALL_ACROSS = 175;
+    public static final double STALL_ALONG = 150;
+
+    /**
+     * A spot kept open on the deck, in the tower's frame: its middle ({@code x} across, {@code z}
+     * along), and which way it is turned ({@code yaw}, as a place's), its front (its own -z) toward
+     * the deck's middle, where people come from.
+     */
+    public record Spot(double x, double z, double yaw) {
+    }
 
     private final Tower tower;
     private final int deck;
@@ -38,8 +53,13 @@ public final class DeckGarden {
     private final List<Vec2> outline;
     private final RoofGarden.Pool pool;
     private final List<RoofGarden.Plant> plants;
+    private final Spot bar;
+    private final Spot stall;
 
-    private DeckGarden(final Tower tower, final int deck, final RoofGarden.Pool pool, final List<RoofGarden.Plant> plants) {
+    private DeckGarden(final Tower tower, final int deck, final RoofGarden.Pool pool, final List<RoofGarden.Plant> plants,
+                       final Spot bar, final Spot stall) {
+        this.bar = bar;
+        this.stall = stall;
         this.tower = tower;
         this.deck = deck;
         this.floor = tower.base(deck);
@@ -81,7 +101,31 @@ public final class DeckGarden {
                         r.halfAlong() - RoofGarden.RIM)).orElseThrow(() -> new IllegalStateException(
                         tower.name() + ": no room on its void deck for a pool"));
         final List<RoofGarden.Pool> taken = new ArrayList<>(List.of(pool.grown(RoofGarden.RIM)));
-        return new DeckGarden(tower, deck, pool, room.plant(tower, section.tall() - HEADROOM - PLANTER, taken));
+        // the bar by the pool, as near it as there is room; the stall as near the open part's middle; either left out if there is none
+        final RoofGarden.Pool barRoom = room.nearest(new Vec2(pool.x(), pool.z()), BAR_ACROSS, BAR_ALONG, taken).orElse(null);
+        if (barRoom != null) {
+            taken.add(barRoom);
+        }
+        final RoofGarden.Pool stallRoom = room.nearest(middle, STALL_ACROSS, STALL_ALONG, taken).orElse(null);
+        if (stallRoom != null) {
+            taken.add(stallRoom);
+        }
+        return new DeckGarden(tower, deck, pool, room.plant(tower, section.tall() - HEADROOM - PLANTER, taken),
+                spot(barRoom, BAR_ACROSS, middle), spot(stallRoom, STALL_ACROSS, middle));
+    }
+
+    /**
+     * The spot {@code room} is, if any, {@code across} each way across it as it is turned: square to
+     * the deck's sides, its front toward {@code middle}.
+     */
+    private static Spot spot(final RoofGarden.Pool room, final double across, final Vec2 middle) {
+        if (room == null) {
+            return null;
+        }
+        if (Math.abs(room.halfAcross() - across) < 1e-9) {
+            return new Spot(room.x(), room.z(), middle.z() < room.z() ? 0 : 180);
+        }
+        return new Spot(room.x(), room.z(), middle.x() < room.x() ? 90 : 270);
     }
 
     /** The deck's open part: its outline; what is enclosed in it (its enclosed part, its cores); its columns, each x, z and size. */
@@ -220,6 +264,15 @@ public final class DeckGarden {
 
     public List<RoofGarden.Plant> plants() {
         return plants;
+    }
+
+    /** Where its bar is to be set out; its melon stall: empty, if there was no room. */
+    public java.util.Optional<Spot> bar() {
+        return java.util.Optional.ofNullable(bar);
+    }
+
+    public java.util.Optional<Spot> stall() {
+        return java.util.Optional.ofNullable(stall);
     }
 
     /** The deck's floor; its pool's floor. */

@@ -950,9 +950,25 @@ public final class Course {
      * big as {@code deck}), or on the ground (no deck: then {@code across} and {@code along}
      * the world's x and z, and {@code facing} their heading), where on it in its frame ({@code across}, {@code along}), which way they
      * face from the way it heads, and what they sit on ({@code seat}, put there with them; null for
-     * standing).
+     * standing); and off a platform, how high what they stand on is ({@code up}: 0, the ground).
      */
-    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, Furniture seat) {
+    public record Cast(Person.Role role, Deck deck, double across, double along, double facing, Furniture seat,
+                       double up) {
+
+        /** On a platform's deck, or on the ground itself. */
+        public Cast(final Person.Role role, final Deck deck, final double across, final double along, final double facing,
+                    final Furniture seat) {
+            this(role, deck, across, along, facing, seat, 0);
+        }
+
+        /**
+         * Put on no platform, but on what stands {@code up} high where they are (a building's floor: a
+         * tower's void deck), at the world's {@code x} and {@code z}, heading {@code facing}.
+         */
+        public static Cast standing(final Person.Role role, final double x, final double z, final double up,
+                                    final double facing, final Furniture seat) {
+            return new Cast(role, null, x, z, facing, seat, up);
+        }
 
         /** Whether they sit. */
         public boolean sitting() {
@@ -1054,12 +1070,16 @@ public final class Course {
     }
 
     /**
-     * The town's demo: its buildings and the motorcycle ({@link #town}); and, on the open ground
+     * The town's demo: its buildings and the motorcycle ({@link #town}); on its towers' void decks,
+     * their bars and stalls and the people at them; and, on the open ground
      * between the start and the first row, the melon stall on its barge off to one side, and the
      * meeting platform, its stand-up under way, off to the other, turned so its board faces the start.
      */
     private void townDemo() {
         pieces.addAll(town.get());
+        // and its towers' void decks' bars and stalls, and the people at them
+        pieces.addAll(townThings.get());
+        ground.addAll(townPeople.get());
         pieces.add(Piece.moving(BARGE.shape(), new Place(1100, 2600, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
         stall(pieces.size() - 1);
         pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
@@ -1138,9 +1158,25 @@ public final class Course {
     private static java.util.function.Supplier<List<Piece>> town = () -> List.of(
             Piece.vehicle(BOXER, null, new Place(300, 600, BOXER.ride(), 0), 0));
 
-    /** Says what stands in the town: its buildings, and the motorcycle. */
+    /** Says what stands in the town: its buildings, and the motorcycle; nothing set out on its decks, no one there. */
     public static void town(final java.util.function.Supplier<List<Piece>> what) {
+        town(what, List::of, List::of);
+    }
+
+    /** What is set out on the town's towers' void decks, loose ({@link Piece#loose}); and who is there: until told, none. */
+    private static java.util.function.Supplier<List<Piece>> townThings = List::of;
+    private static java.util.function.Supplier<List<Cast>> townPeople = List::of;
+
+    /**
+     * Says what stands in the town ({@link #town(java.util.function.Supplier)}); and what is set out
+     * on its towers' decks, {@code things}, and who is there, {@code people}.
+     */
+    public static void town(final java.util.function.Supplier<List<Piece>> what,
+                            final java.util.function.Supplier<List<Piece>> things,
+                            final java.util.function.Supplier<List<Cast>> people) {
         town = what;
+        townThings = things;
+        townPeople = people;
     }
 
     /**

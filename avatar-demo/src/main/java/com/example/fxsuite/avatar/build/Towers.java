@@ -112,6 +112,35 @@ public final class Towers {
                 Frame.with(plan, 70, List.of(Frame.rectangle(0, 0, 2 * BAY, BAY))));
     }
 
+    /**
+     * {@code tower} with a void deck in its section {@code s}, over that section's floor
+     * {@code floor} (counted from 1): the section split there, its floors under the deck keeping its
+     * name, those over it named so ({@code "... above"}), the deck {@code height} high between them,
+     * on the same plan; open all through ({@code enclosed} null, a full deck) or but for
+     * {@code enclosed}, a plan of its own on the section's grid (a partial one). Its frame the
+     * tower's: the same columns and cores, carried on through the deck.
+     */
+    public static Tower withDeck(final Tower tower, final int s, final int floor, final double height,
+                                 final Plan enclosed) {
+        final Section section = tower.sections().get(s);
+        if (section.open() || floor < 1 || floor > section.floors() - 2) {
+            throw new IllegalArgumentException(tower.name() + ": no void deck over floor " + floor + " of its "
+                    + section.name() + ", " + section.floors() + " floors");
+        }
+        final List<Section> sections = new java.util.ArrayList<>(tower.sections().subList(0, s));
+        sections.add(new Section(section.name(), section.plan(), floor, section.height()));
+        sections.add(Section.open("void deck", section.plan(), height, enclosed));
+        sections.add(new Section(section.name() + " above", section.plan(), section.floors() - floor - 1,
+                section.height()));
+        sections.addAll(tower.sections().subList(s + 1, tower.sections().size()));
+        return new Tower(tower.name(), sections, tower.structure());
+    }
+
+    /** An enclosed part for a void deck: a rectangle of the grid, its corner at ({@code x}, {@code y}), so wide and deep. */
+    public static Plan enclosed(final double x, final double y, final double width, final double depth) {
+        return Plan.of("enclosed part", Grid.of("enclosed part", x, y, width, depth, BAY));
+    }
+
     /** All of them. */
     public static List<Tower> all() {
         return List.of(setback(), round(), oval(), rounded(), lBlock(), bowFront(), voidDeck());

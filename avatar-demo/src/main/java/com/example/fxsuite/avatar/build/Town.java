@@ -48,6 +48,62 @@ public final class Town {
      */
     private static final double STREETS = 0.75;
 
+    /**
+     * One of its towers: which ({@code tower}, with its void deck), the pavilion on its roof (its
+     * footprint, its roof, what each is of), and its palette.
+     */
+    private record TowerSite(String name, Supplier<Tower> tower, Pavilion.Footprint footprint, Pavilion.Roof roof,
+                             Material roofing, Material pillars, Palette palette) {
+    }
+
+    /** Where its towers come in its sites: after the church, the temple hall and the apartments. */
+    public static final int FIRST_TOWER = 3;
+
+    /**
+     * Its towers, each with a void deck part way up: the round, oval and rounded ones open all round
+     * (full); the setback tower's, the L block's and the bow-front tower's with a wing at one end
+     * enclosed (partial), the L block's its north arm.
+     */
+    private static final List<TowerSite> TOWERS = List.of(
+            new TowerSite("setback tower", () -> Towers.withDeck(Towers.setback(), 1, 12, 760,
+                    Towers.enclosed(-2000, -2000, 2 * Towers.BAY, 4000)), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID,
+                    Material.GLAZED, Material.LACQUER, Palette.STONE),
+            new TowerSite("round tower", () -> Towers.withDeck(Towers.round(), 0, 22, 800, null), Pavilion.Footprint.ROUND,
+                    Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER, Palette.CONCRETE),
+            new TowerSite("oval tower", () -> Towers.withDeck(Towers.oval(), 0, 20, 760, null), Pavilion.Footprint.OCTAGON,
+                    Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE, Palette.CONCRETE),
+            new TowerSite("rounded tower", () -> Towers.withDeck(Towers.rounded(), 0, 18, 840, null),
+                    Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER, Palette.PRECAST),
+            new TowerSite("L block on a podium", () -> Towers.withDeck(Towers.lBlock(), 1, 8, 720,
+                    Towers.enclosed(-2400, -400, 2 * Towers.BAY, 2400)), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID,
+                    Material.GLAZED, Material.LACQUER, Palette.CONCRETE),
+            new TowerSite("bow-front tower", () -> Towers.withDeck(Towers.bowFront(), 0, 15, 760,
+                    Towers.enclosed(-2400, -1600, 2 * Towers.BAY, 3200)), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT,
+                    Material.CONCRETE, Material.METAL, Palette.CONCRETE));
+
+    /** Each tower, its roof garden and its deck's garden, by its site: worked out once, when first wanted. */
+    private static final Map<Integer, Tower> TOWER = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<Integer, RoofGarden> ROOF = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<Integer, DeckGarden> DECK = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Site {@code k}'s tower, with its void deck. */
+    public static Tower tower(final int k) {
+        return TOWER.computeIfAbsent(k, i -> TOWERS.get(i - FIRST_TOWER).tower().get());
+    }
+
+    /** Site {@code k}'s tower's roof garden. */
+    public static RoofGarden roofGarden(final int k) {
+        return ROOF.computeIfAbsent(k, i -> {
+            final TowerSite site = TOWERS.get(i - FIRST_TOWER);
+            return RoofGarden.of(tower(i), site.footprint(), site.roof(), site.roofing(), site.pillars());
+        });
+    }
+
+    /** Site {@code k}'s tower's void deck's garden, its bar's and its stall's spots kept. */
+    public static DeckGarden deckGarden(final int k) {
+        return DECK.computeIfAbsent(k, i -> DeckGarden.of(tower(i)));
+    }
+
     /** Its sites, row by row from the start. */
     public static final List<Site> SITES = sites();
 
@@ -58,21 +114,7 @@ public final class Town {
                         (Supplier<List<Volume>>) () -> Church.standard().shape()},
                 new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED,
                         (Supplier<List<Volume>>) () -> Temple.standard().shape()},
-                new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE},
-                new Object[] {"setback tower", (Supplier<Building>) () -> RoofGarden.of(Towers.setback(), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.setback())), Palette.STONE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.setback(), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER)
-                        .on(TowerBuildings.shape(Towers.setback()))},
-                new Object[] {"round tower", (Supplier<Building>) () -> RoofGarden.of(Towers.round(), Pavilion.Footprint.ROUND, Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.round())), Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.round(), Pavilion.Footprint.ROUND, Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER)
-                        .on(TowerBuildings.shape(Towers.round()))},
-                new Object[] {"oval tower", (Supplier<Building>) () -> RoofGarden.of(Towers.oval(), Pavilion.Footprint.OCTAGON, Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE).on(TowerBuildings.of(Towers.oval())), Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.oval(), Pavilion.Footprint.OCTAGON, Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE)
-                        .on(TowerBuildings.shape(Towers.oval()))},
-                new Object[] {"rounded tower", (Supplier<Building>) () -> RoofGarden.of(Towers.rounded(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.rounded())), Palette.PRECAST, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.rounded(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER)
-                        .on(TowerBuildings.shape(Towers.rounded()))},
-                new Object[] {"L block on a podium", (Supplier<Building>) () -> RoofGarden.of(Towers.lBlock(), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER).on(TowerBuildings.of(Towers.lBlock())),
-                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.lBlock(), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID, Material.GLAZED, Material.LACQUER)
-                        .on(TowerBuildings.shape(Towers.lBlock()))},
-                new Object[] {"bow-front tower", (Supplier<Building>) () -> RoofGarden.of(Towers.bowFront(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT, Material.CONCRETE, Material.METAL).on(TowerBuildings.of(Towers.bowFront())),
-                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> RoofGarden.of(Towers.bowFront(), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT, Material.CONCRETE, Material.METAL)
-                        .on(TowerBuildings.shape(Towers.bowFront()))});
+                new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE});
         for (int k = 0; k < buildings.size(); k++) {
             final Object[] b = buildings.get(k);
             @SuppressWarnings("unchecked")
@@ -80,6 +122,14 @@ public final class Town {
             @SuppressWarnings("unchecked")
             final Supplier<List<Volume>> shape = b.length > 3 ? (Supplier<List<Volume>>) b[3] : null;
             sites.add(new Site((String) b[0], make, (Palette) b[2], k % 3, k / 3, shape));
+        }
+        // and the towers, each with its garden on its roof and its void deck, and a garden on that
+        for (int t = 0; t < TOWERS.size(); t++) {
+            final int k = buildings.size() + t;
+            final TowerSite tower = TOWERS.get(t);
+            sites.add(new Site(tower.name(), () -> deckGarden(k).on(roofGarden(k).on(TowerBuildings.of(tower(k)))),
+                    tower.palette(), k % 3, k / 3,
+                    () -> deckGarden(k).on(roofGarden(k).on(TowerBuildings.shape(tower(k))))));
         }
         return List.copyOf(sites);
     }
@@ -121,6 +171,24 @@ public final class Town {
             final Building building = site.building().get();
             return building.dressed(building.own(), site.palette());
         }), scale);
+    }
+
+    /** What is set out on its towers' void decks, at its scale: each one's bar and melon stall, loose ({@link DeckScene}). */
+    public static List<Course.Piece> things() {
+        final List<Course.Piece> things = new ArrayList<>();
+        for (int k = FIRST_TOWER; k < SITES.size(); k++) {
+            things.addAll(DeckScene.at(deckGarden(k), place(k), scale).things());
+        }
+        return things;
+    }
+
+    /** Who is on its towers' void decks: at each bar, its bartender and two sat at it; at each stall, its stallholder and a customer. */
+    public static List<Course.Cast> people() {
+        final List<Course.Cast> people = new ArrayList<>();
+        for (int k = FIRST_TOWER; k < SITES.size(); k++) {
+            people.addAll(DeckScene.at(deckGarden(k), place(k), scale).people());
+        }
+        return people;
     }
 
     /** What stands in the town: each building, one piece, and the boxer motorcycle by the start. */

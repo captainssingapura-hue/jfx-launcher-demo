@@ -38,6 +38,12 @@ public record Crossing(List<Extrusion> parts) implements Volume {
         return parts.stream().mapToDouble(Extrusion::high).min().orElseThrow();
     }
 
+    /** Its box, seen from above: round all its parts. */
+    @Override
+    public Volume.Bounds bounds() {
+        return parts.stream().map(Extrusion::bounds).reduce(Volume.Bounds::and).orElseThrow();
+    }
+
     @Override
     public boolean covers(final double x, final double z, final double radius) {
         return parts.stream().allMatch(p -> p.covers(x, z, radius));

@@ -10,8 +10,10 @@ import java.util.List;
  * through all of it, if it has any (each inside its outline, apart from the others): a pool sunk in
  * a roof, a courtyard, a light well.
  */
-public record Prism(List<Vec2> outline, List<List<Vec2>> holes, double bottom, double top) implements Volume {
+public record Prism(List<Vec2> outline, List<List<Vec2>> holes, double bottom, double top, Volume.Bounds bounds)
+        implements Volume {
 
+    /** Its outline's box ({@code bounds}) worked out once, as it is asked for over and over. */
     public Prism {
         outline = List.copyOf(outline);
         holes = holes.stream().map(List::copyOf).toList();
@@ -23,6 +25,12 @@ public record Prism(List<Vec2> outline, List<List<Vec2>> holes, double bottom, d
                 throw new IllegalArgumentException("not a hole: " + hole);
             }
         }
+        bounds = Volume.Bounds.of(outline);
+    }
+
+    /** Its outline, its holes, from {@code bottom} to {@code top}. */
+    public Prism(final List<Vec2> outline, final List<List<Vec2>> holes, final double bottom, final double top) {
+        this(outline, holes, bottom, top, null);
     }
 
     /** Solid all through: no holes. */
@@ -52,17 +60,8 @@ public record Prism(List<Vec2> outline, List<List<Vec2>> holes, double bottom, d
 
     /** Whether a circle at ({@code x}, {@code z}) is anywhere near it: its outline's box, grown by the radius. */
     private boolean near(final double x, final double z, final double radius) {
-        double minX = Double.POSITIVE_INFINITY;
-        double maxX = Double.NEGATIVE_INFINITY;
-        double minZ = Double.POSITIVE_INFINITY;
-        double maxZ = Double.NEGATIVE_INFINITY;
-        for (final Vec2 p : outline) {
-            minX = Math.min(minX, p.x());
-            maxX = Math.max(maxX, p.x());
-            minZ = Math.min(minZ, p.z());
-            maxZ = Math.max(maxZ, p.z());
-        }
-        return x > minX - radius && x < maxX + radius && z > minZ - radius && z < maxZ + radius;
+        return x > bounds.minX() - radius && x < bounds.maxX() + radius && z > bounds.minZ() - radius
+                && z < bounds.maxZ() + radius;
     }
 
     @Override

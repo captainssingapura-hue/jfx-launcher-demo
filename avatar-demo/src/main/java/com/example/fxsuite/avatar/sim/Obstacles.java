@@ -120,6 +120,26 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
      * The highest surface a circle at ({@code x}, {@code z}) can stand on, no higher than
      * {@code within}: the top of a block under it, or the ground.
      */
+    /**
+     * The last list of volumes asked about, and where they are ({@link VolumeGrid}): kept, as the
+     * same list goes from step to step, the world remade round it, until something in it is broken.
+     */
+    private static volatile Object[] grid;
+
+    /**
+     * Which of its volumes may be under or over a circle at ({@code x}, {@code z}), {@code radius}
+     * round, by their numbers among them, in order: the others are nowhere near.
+     */
+    public int[] volumesNear(final double x, final double z, final double radius) {
+        final Object[] kept = grid;
+        if (kept != null && kept[0] == volumes) {
+            return ((VolumeGrid) kept[1]).near(x, z, radius);
+        }
+        final VolumeGrid made = new VolumeGrid(volumes);
+        grid = new Object[] {volumes, made};
+        return made.near(x, z, radius);
+    }
+
     public Footing footing(final double x, final double z, final double radius, final double within) {
         double floor = 0;
         for (final Block block : blocks) {

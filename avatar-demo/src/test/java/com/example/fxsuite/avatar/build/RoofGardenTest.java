@@ -148,12 +148,12 @@ class RoofGardenTest {
     @Test
     void theTownsTowersCarryTheirGardens() {
         Course.town(Town::pieces);
-        final List<RoofGarden> gardens = gardens();
-        for (int k = 3; k < Town.SITES.size(); k++) {
+        for (int k = Town.FIRST_TOWER; k < Town.SITES.size(); k++) {
             final Course.Piece tower = Town.pieces().get(k);
-            final RoofGarden garden = gardens.get(k - 3);
-            assertEquals(garden.on(TowerBuildings.shape(garden.tower())).size(), tower.volumes().size(),
-                    Town.SITES.get(k).name() + ": in the way as the tower and its garden");
+            // the tower as the town has it, with its void deck: its roof's garden, and its deck's
+            final RoofGarden garden = Town.roofGarden(k);
+            assertEquals(Town.deckGarden(k).on(garden.on(TowerBuildings.shape(Town.tower(k)))).size(),
+                    tower.volumes().size(), Town.SITES.get(k).name() + ": in the way as the tower and its gardens");
             assertTrue(Town.solids(k).stream().anyMatch(s -> s.name().startsWith("pavilion, ")),
                     Town.SITES.get(k).name() + ": its pavilion drawn");
             assertTrue(Town.solids(k).stream().anyMatch(s -> s.material() == Material.LEAVES),

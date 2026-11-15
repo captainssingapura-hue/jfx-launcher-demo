@@ -161,9 +161,10 @@ public final class World {
                 case PLATFORM -> platform(i, part);
                 case FURNITURE -> switch (piece.furniture()) {
                     case TABLE -> table(part, block);
-                    case STOOL -> stool(part, block);
                     case SCOOTER -> scooter(part, block);
                     case BOARD -> board(part, block);
+                    case BAR -> bar(part, block);
+                    case STOOL, BAR_STOOL -> stool(part, block);
                 };
                 case FRUIT -> fruit(part, piece.fruit());
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
@@ -985,6 +986,109 @@ public final class World {
             }
         }
         return panel;
+    }
+
+    /** How far behind a bar's counter its back shelf stands, from the counter's middle to the shelf's: room for whoever serves. */
+    public static final double BAR_SHELF = 130;
+
+    /**
+     * A bar ({@link Furniture#BAR}): a counter of dark wood panels under a top of pale stone that
+     * overhangs its front (its -z, where those at it sit), a brass rail along its foot; on it, a few
+     * bottles and glasses; and behind it, {@link #BAR_SHELF} back, a shelf of bottles in rows under
+     * a lit sign. The counter is what is solid; the shelf comes with it.
+     */
+    private static Shape3D bar(final Group part, final Block block) {
+        final double halfWide = block.halfWidth();
+        final double halfDeep = block.halfDepth();
+        final double half = (block.top() - block.bottom()) / 2;
+        final PhongMaterial wood = BoxRig.matte("#4a2f20");
+        final PhongMaterial brass = BoxRig.matte("#c8a24a");
+        // the counter: its body, panelled, and its top over it
+        final Box body = new Box(halfWide * 2 - 6, half * 2 - 6, halfDeep * 2 - 10);
+        body.setTranslateY(3);
+        body.setTranslateZ(5);
+        body.setMaterial(wood);
+        part.getChildren().add(body);
+        for (int k = 0; k < 4; k++) {
+            final Box panel = new Box(halfWide * 2 / 4 - 16, half * 2 - 40, 1.5);
+            panel.setTranslateX(-halfWide + (k + 0.5) * halfWide * 2 / 4);
+            panel.setTranslateY(8);
+            panel.setTranslateZ(-halfDeep + 4);
+            panel.setMaterial(BoxRig.matte("#5e3d29"));
+            part.getChildren().add(panel);
+        }
+        final Box top = new Box(halfWide * 2, 5, halfDeep * 2 + 10);
+        top.setTranslateY(-half + 2.5);
+        top.setTranslateZ(-5);
+        top.setMaterial(BoxRig.matte("#e6e1d6"));
+        part.getChildren().add(top);
+        final Cylinder rail = new Cylinder(2, halfWide * 2 - 10);
+        rail.setRotate(90);
+        rail.setTranslateY(half - 22);
+        rail.setTranslateZ(-halfDeep - 8);
+        rail.setMaterial(brass);
+        part.getChildren().add(rail);
+        // on it: bottles, and glasses
+        final String[] glass = {"#2f6b3a", "#6b3a1f", "#c9d8e0", "#8a2a2a", "#d9b54a"};
+        for (int k = 0; k < 3; k++) {
+            bottle(part, halfWide - 30 - k * 14, -half, halfDeep - 15, glass[k], 1);
+        }
+        for (int k = 0; k < 4; k++) {
+            final Cylinder cup = new Cylinder(3.5, 12);
+            cup.setTranslateX(-halfWide + 40 + k * 45);
+            cup.setTranslateY(-half - 6);
+            cup.setTranslateZ(-halfDeep + 14);
+            cup.setMaterial(BoxRig.matte(k % 2 == 0 ? "#d8e6ec" : "#e9b44c"));
+            part.getChildren().add(cup);
+        }
+        // behind it, its back shelf: standing on the floor, three rows of bottles, a sign over them
+        final double shelfZ = BAR_SHELF;
+        final double floor = half;
+        final Box back = new Box(halfWide * 2, 200, 4);
+        back.setTranslateY(floor - 100);
+        back.setTranslateZ(shelfZ + 14);
+        back.setMaterial(wood);
+        part.getChildren().add(back);
+        for (int row = 0; row < 3; row++) {
+            final double shelfY = floor - 95 - row * 35;
+            final Box board = new Box(halfWide * 2, 3, 28);
+            board.setTranslateY(shelfY);
+            board.setTranslateZ(shelfZ);
+            board.setMaterial(BoxRig.matte("#6e4a33"));
+            part.getChildren().add(board);
+            for (int k = 0; k < 9; k++) {
+                bottle(part, -halfWide + 16 + k * (halfWide * 2 - 32) / 8, shelfY - 1.5, shelfZ,
+                        glass[(row * 9 + k * 2) % glass.length], 0.9);
+            }
+        }
+        final Box cupboard = new Box(halfWide * 2, 85, 30);
+        cupboard.setTranslateY(floor - 42.5);
+        cupboard.setTranslateZ(shelfZ);
+        cupboard.setMaterial(wood);
+        part.getChildren().add(cupboard);
+        final Box sign = new Box(110, 22, 2);
+        sign.setTranslateY(floor - 215);
+        sign.setTranslateZ(shelfZ + 11);
+        sign.setMaterial(BoxRig.glow("#f2c14e"));
+        part.getChildren().add(sign);
+        return top;
+    }
+
+    /** A bottle standing at ({@code x}, {@code z}) on what is at {@code y} (y down), of {@code colour}, {@code size} times as big. */
+    private static void bottle(final Group part, final double x, final double y, final double z, final String colour,
+                               final double size) {
+        final PhongMaterial glass = BoxRig.matte(colour);
+        final Cylinder body = new Cylinder(3.5 * size, 20 * size);
+        body.setTranslateX(x);
+        body.setTranslateY(y - 10 * size);
+        body.setTranslateZ(z);
+        body.setMaterial(glass);
+        final Cylinder neck = new Cylinder(1.3 * size, 9 * size);
+        neck.setTranslateX(x);
+        neck.setTranslateY(y - 24.5 * size);
+        neck.setTranslateZ(z);
+        neck.setMaterial(glass);
+        part.getChildren().addAll(body, neck);
     }
 
     /** A wooden stool: a round seat on a stout leg, as tall as it is ({@link Furniture#STOOL}). */

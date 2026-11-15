@@ -16,6 +16,34 @@ package com.example.fxsuite.avatar.sim;
  */
 public sealed interface Volume permits Prism, Extrusion, Crossing {
 
+    /** What it takes up seen from above: a box square to the world, round all of it. */
+    record Bounds(double minX, double maxX, double minZ, double maxZ) {
+
+        /** The box round {@code points}. */
+        static Bounds of(final java.util.List<Vec2> points) {
+            double minX = Double.POSITIVE_INFINITY;
+            double maxX = Double.NEGATIVE_INFINITY;
+            double minZ = Double.POSITIVE_INFINITY;
+            double maxZ = Double.NEGATIVE_INFINITY;
+            for (final Vec2 p : points) {
+                minX = Math.min(minX, p.x());
+                maxX = Math.max(maxX, p.x());
+                minZ = Math.min(minZ, p.z());
+                maxZ = Math.max(maxZ, p.z());
+            }
+            return new Bounds(minX, maxX, minZ, maxZ);
+        }
+
+        /** The box round it and {@code other}. */
+        Bounds and(final Bounds other) {
+            return new Bounds(Math.min(minX, other.minX), Math.max(maxX, other.maxX), Math.min(minZ, other.minZ),
+                    Math.max(maxZ, other.maxZ));
+        }
+    }
+
+    /** Its box, seen from above. */
+    Bounds bounds();
+
     /** How low and how high any of it is. */
     double low();
 

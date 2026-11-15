@@ -99,6 +99,9 @@ import java.util.Set;
  * {@link JetPack} on or takes it off; wearing it, F takes off and flies as a drone does, or stops flying. It
  * starts without the pack; {@code -Davatar.pack=true} starts with it on. {@code -Dtown.scale=1.5} builds
  * the town's buildings half as big again (from 0.25 to 2).
+ * {@code -Davatar.at=0,215,84.6,0} stands it there to start (x, z and how high, in metres; which way it
+ * faces), not at the start: to look at something far off, a tower's void deck say. Not for a
+ * recording, which starts where the start is.
  * The mouse turns it, with no button held ({@link MouseLook}); clicks are kept for actions.
  * Esc frees the mouse or takes it back. Hold Q or E to swing the camera round the avatar; C
  * puts it back behind. Scroll to zoom.
@@ -119,7 +122,8 @@ public final class Game {
     static {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
-        com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
+        com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces,
+                com.example.fxsuite.avatar.build.Town::things, com.example.fxsuite.avatar.build.Town::people);
         com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
         com.example.fxsuite.avatar.sim.Course.pyramids(com.example.fxsuite.avatar.build.Pyramids::pieces);
         com.example.fxsuite.avatar.sim.Course.built(com.example.fxsuite.avatar.sim.Demo.PAVILION,
@@ -347,13 +351,24 @@ public final class Game {
         world = new World(course);
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
-        avatar = Play.start(demo, replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")).avatar();
+        avatar = startedAt(Play.start(demo, replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")).avatar());
         before = avatar;
         seen = avatar;
         // the camera: behind, at its usual distance, or -Davatar.zoom times it (0.5 twice as near)
         chase = Chase.behind(eyeOf(avatar.body()), avatar.body().yaw())
                 .zoomed(Double.parseDouble(System.getProperty("avatar.zoom", "1")));
         start(stage);
+    }
+
+    /** {@code avatar}, stood where {@code -Davatar.at} says, if it says, and this is not a replay; as it is, if not. */
+    private Avatar startedAt(final Avatar avatar) {
+        final String at = System.getProperty("avatar.at");
+        if (at == null || replay != null) {
+            return avatar;
+        }
+        final double[] p = java.util.Arrays.stream(at.split(",")).mapToDouble(s -> Double.parseDouble(s.trim())).toArray();
+        return new Avatar(Body.standing(new Vec3(p[0] * 100, -p[2] * 100, p[1] * 100), p.length > 3 ? p[3] : 0),
+                avatar.wearingPack());
     }
 
     /** Plays it in {@code stage}. */

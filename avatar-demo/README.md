@@ -331,7 +331,8 @@ platform**, among a few pillars and gates, and the **airship**, moored by the st
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
 with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
 oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
-motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform; and the
+motorcycle to ride between them, a void deck part way up each tower with a bar and a melon stall on it, and before
+them the melon stall and the stand-up, each on its platform; and the
 **temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
 **pyramids**, each in the way as it is shaped; and the **pavilions**, round a lawn, to walk into (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
@@ -857,7 +858,11 @@ through, and one loaded until a pillar gives and it falls.
   live. On it, a garden (`DeckGarden`): the roof garden's parts but its pavilion: a pool sunk into
   the section under it, in a bay as near the open part's middle as it fits; plants in planters,
   sparing, no taller than the deck lets them be; all clear of the columns, the wing, the railing and
-  each other. A bar, a stall, people: game objects, to be put on it in the game.
+  each other; and two spots kept open on it, square to its sides, each turned with its front to the
+  deck: one by the pool for a bar, one for a melon stall. What is set out there is not built in: in
+  the game, it is game objects (`DeckScene`). Any tower can have one (`Towers.withDeck`): a section
+  split over one of its floors, the deck between, on the same plan and frame; open all round, or but
+  for a part of the grid enclosed (`Towers.enclosed`).
 - **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
   alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
   meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where
@@ -880,7 +885,18 @@ through, and one loaded until a pillar gives and it falls.
   columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
   ten bunkers. Besides them, the boxer motorcycle by the start, and on the open ground before the first
   row the barge with its melon stall off to one side and the meeting platform with its stand-up off
-  to the other, their people with them. The simulation knows
+  to the other, their people with them. Each tower has a void deck part way up (`Town.tower`): the
+  round, oval and rounded towers' open all round; the setback tower's (in its shaft), the L block's
+  (its north arm enclosed) and the bow-front tower's (a wing at its west end enclosed) partial; each
+  with its garden, a pool sunk in it and plants. On each deck a bar and a melon stall are set out as
+  game objects (`DeckScene`, `Town.things`, `Town.people`), loose, standing on the deck's floor, to
+  push about, knock off and shoot: the bar's counter (`Furniture.BAR`), its back shelf of bottles
+  with it, the bartender behind it and two of its three tall stools (`Furniture.BAR_STOOL`) taken,
+  those sat there leaning on it; the stall's table under its awning, watermelons on it and at its
+  ends, two pineapples, the stallholder sat behind it and a customer before it. Loose things rest on
+  a building's floors as they do on blocks (`Prop.support`), finding what is near through a grid of
+  the world's volumes (`VolumeGrid`), and people stand on them. Life size: on a town built smaller
+  than life, none. The simulation knows
   nothing of how a building is designed: the game tells it what stands in the town
   (`Course.town`). `-Dtown.scale=1.5` builds the town half as big again (from 0.25 to 2): every
   building, and the streets three quarters as much wider, enough to keep them apart, so a town built
@@ -1006,6 +1022,9 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
   recording keeps the demo it was made in, and its replay plays there.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
   `-Davatar.settle=<ms>` picks the moment instead, counted in the world's time.
+- **`-Davatar.at=0,215,84.6,0`** stands the avatar there to start (x, z and how high, in metres;
+  which way it faces), not at the start: to look at something far off, a tower's void deck say.
+  With `-Davatar.pack=true` and a script starting `F`, it hovers there. Not for a recording.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
   would have played, kept in time with the game. It is for hearing a run afterwards, or
   checking it without speakers:

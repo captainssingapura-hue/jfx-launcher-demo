@@ -44,6 +44,22 @@ public record Extrusion(double x, double z, double yaw, double half, List<Vec2> 
         return (px - x) * right.x() + (pz - z) * right.z();
     }
 
+    /** Its box, seen from above: round its profile's reach across, the length of it along. */
+    @Override
+    public Volume.Bounds bounds() {
+        final double least = profile.stream().mapToDouble(Vec2::x).min().orElseThrow();
+        final double most = profile.stream().mapToDouble(Vec2::x).max().orElseThrow();
+        final Vec3 right = Num.right(yaw);
+        final Vec3 ahead = Num.heading(yaw);
+        final List<Vec2> corners = new java.util.ArrayList<>();
+        for (final double v : new double[] {least, most}) {
+            for (final double a : new double[] {-half, half}) {
+                corners.add(new Vec2(x + right.x() * v + ahead.x() * a, z + right.z() * v + ahead.z() * a));
+            }
+        }
+        return Volume.Bounds.of(corners);
+    }
+
     /** Along its line, from its middle. */
     private double along(final double px, final double pz) {
         final Vec3 ahead = Num.heading(yaw);

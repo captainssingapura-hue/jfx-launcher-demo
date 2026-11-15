@@ -36,7 +36,11 @@ import java.util.List;
 public record Person(int id, Role role, Body body, double health, boolean sitting) {
 
     /** Who someone is: how they look and how they sit, for the graphics. */
-    public enum Role { STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER, SMALL_MONK, TALL_MONK, STOUT_MONK }
+    public enum Role {
+        STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER, SMALL_MONK, TALL_MONK, STOUT_MONK,
+        /** Behind a bar; and those at it. */
+        BARTENDER, DRINKER
+    }
 
     /** How much anyone can take: six rifle rounds, or a stroke of the glaive. */
     public static final double TOUGHNESS = 60;
@@ -79,9 +83,9 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
                 }
             }
         }
-        // and those on the ground, where they were put
+        // and those on the ground, or on a building's floor, where they were put
         for (final Course.Cast cast : damage.ground()) {
-            final double up = cast.sitting() ? cast.seat().height() : 0;
+            final double up = cast.up() + (cast.sitting() ? cast.seat().height() : 0);
             people.add(new Person(people.size(), cast.role(), Body.standing(new Vec3(cast.across(), -up, cast.along()),
                     cast.facing()), TOUGHNESS, cast.sitting()));
         }
