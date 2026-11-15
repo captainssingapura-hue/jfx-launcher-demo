@@ -170,8 +170,10 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         // and an airship, which cannot go sideways, is steered so always, gun or no gun: A and D
         // turn it, as a car's wheel would
         final int steered = gunship >= 0 ? gunship : inside >= 0 && handed.get(inside).craft().closed() ? inside : -1;
-        // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it)
+        // (a land vehicle takes them as it always does: A and D steer it, and the mouse never turned it);
+        // an aircraft takes them as the avatar does: the mouse turns it, A and D slide it aside
         final Controls steering = steered >= 0 && !(handed.get(steered).craft() instanceof Course.Chassis)
+                && !(handed.get(steered).craft() instanceof Course.Aircraft)
                 ? gunshipControls(controls, seconds) : controls;
         final Avatar self = gunner(boarded, manned);
         final int gunning = gunning(manned);
@@ -906,7 +908,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 continue;
             }
             // out of a closed craft through its hatch; out of a land vehicle, beside its door
-            final Vec3 out = now.craft().closed() ? out(now) : now.at(now.craft().door());
+            final Vec3 out = now.craft().closed() && !(now.craft() instanceof Course.Aircraft) ? out(now)
+                    : now.at(now.craft().door());
             final Body body = now.held()
                     ? Body.standing(now.at(now.craft().cabin()), now.place().yaw())
                     : new Body(out, now.place().yaw(), now.place().yaw(), 0, 0, 0, 0, false, false, 0,

@@ -32,7 +32,9 @@ public final class Course {
         /** A building: one piece, its solid blocks its parts' boxes, broken as a whole. */
         BUILDING(true),
         /** A unit of a wall: one of a wall's many, each standing, worn down and broken on its own. */
-        WALL_UNIT(true);
+        WALL_UNIT(true),
+        /** An aircraft to be flown ({@link Aircraft}): a gunship, say. Not yet to be broken. */
+        AIRCRAFT(false);
 
         private final boolean breakable;
 
@@ -353,7 +355,7 @@ public final class Course {
      * whether it is closed (whoever flies it is out of sight, inside), and where whoever takes it
      * stands ({@link #station}, its middle in the craft's frame).
      */
-    public sealed interface Craft permits Deck, Ship, Chassis {
+    public sealed interface Craft permits Deck, Ship, Chassis, Aircraft {
 
         Shape shape();
 
@@ -463,6 +465,85 @@ public final class Course {
 
     /** The airship to be flown, there being only one kind. */
     public static final Ship SHIP = new Ship();
+
+    /**
+     * An aircraft to be flown, as it flies ({@link Flight}): {@code shape} its solid parts in its own
+     * frame, about its centre of gravity, where it is ({@link Place#height} is its centre's height);
+     * {@code footing} its wheels, what it stands on; {@code door} where it is got into, from the
+     * ground beside its cockpit, and let out of; {@code cabin} where whoever flies it sits, out of
+     * sight; {@code eye} where they look out from. Closed: whoever flies it is inside.
+     */
+    public record Aircraft(String name, Shape shape, Section footing, Section door, Section cabin, Section eye,
+                           Flight flight) implements Craft {
+
+        /** All of it. */
+        @Override
+        public Section room() {
+            return shape.box();
+        }
+
+        @Override
+        public Section footing() {
+            return footing;
+        }
+
+        /** As its flight has it: its top speed, how fast it slides and climbs, turns, and its engine can be cut. */
+        @Override
+        public Handling handling() {
+            return new Handling(flight.ahead(), flight.aside() / flight.ahead(), flight.climb(), flight.turn(), 0,
+                    LIFT_HIGH, true);
+        }
+
+        @Override
+        public boolean closed() {
+            return true;
+        }
+
+        /** Where whoever flies it is, at its controls. */
+        @Override
+        public Section station() {
+            return cabin;
+        }
+
+        @Override
+        public Section door() {
+            return door;
+        }
+
+        /** How high its centre is over the ground under its wheels. */
+        public double standing() {
+            return footing.halfUp() - footing.up();
+        }
+
+        /** The aircraft a shape was made from ({@link #shape}); null if none. */
+        public static Aircraft of(final Shape shape) {
+            return AIRCRAFT.stream().filter(a -> a.shape().equals(shape)).findFirst().orElse(null);
+        }
+    }
+
+    /**
+     * The gunship, lifted by two big coaxial ducted rotors at the ends of short beam wings, which
+     * tilt from hovering to flying; 16 m long, 16.4 m across its ducts, a cockpit for two at its
+     * front. Its parts as it is drawn ({@code air.Gunship}, its lift {@code TWIN_PROPELLERS}):
+     * its cabin and belly, its boom and V-tail, the saddle in its bay with the beams, and a duct
+     * either side, as far as it sweeps tilting. About as nimble as a big helicopter hovering, as fast
+     * as a light aeroplane, its rotors forward.
+     */
+    public static final Aircraft GUNSHIP = new Aircraft("gunship",
+            new Shape(new Section(0, -43, 89.5, 822, 843, 298.5), List.of(
+                    new Section(0, 270, 47, 150, 530, 198),
+                    new Section(0, -573, 205, 150, 313, 148),
+                    new Section(0, 110, 180, 330, 160, 65),
+                    new Section(-564, 110, 180, 258, 220, 208),
+                    new Section(564, 110, 180, 258, 220, 208))),
+            new Section(0, 270, -200, 120, 450, 8.5),
+            new Section(-210, 430, -208.5, 0, 0, 0),
+            new Section(0, 470, 0, 0, 0, 0),
+            new Section(0, 470, 150, 0, 0, 0),
+            new Flight(1.6, 5000, 800, 1000, 1200, 1.33e-4, 8, 10, 3800, 70, 30, 20, 35, 45, 1200, 3600, 85, 25));
+
+    /** The aircraft there are to fly. */
+    public static final List<Aircraft> AIRCRAFT = List.of(GUNSHIP);
 
     /**
      * How a land vehicle drives: how fast at most ahead ({@code top}) and in reverse, how briskly it
@@ -1425,7 +1506,8 @@ public final class Course {
      * What the playground has of the rest: parked beside the street that runs out behind the start,
      * a roadster and a van on the left of it, a pickup and a truck on the right, all facing the
      * start; off to the west, a bunker looking out over the field; and off
-     * to the east, an airship moored broadside on, to walk in under and fly.
+     * to the east, an airship moored broadside on, to walk in under and fly; and nearer the start, a gunship
+     * on its wheels, its nose to the start.
      */
     private static List<Piece> playgroundExtras() {
         final List<Piece> extras = new ArrayList<>();
@@ -1441,6 +1523,8 @@ public final class Course {
         extras.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(2300, -1500, BOXER_ICE_CREAM.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
+        extras.add(Piece.moving(GUNSHIP.shape(), new Place(3400, -400, GUNSHIP.standing(), -90), Kind.AIRCRAFT, 0,
+                null));
         return extras;
     }
 

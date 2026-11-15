@@ -325,7 +325,7 @@ java -jar avatar-demo/target/avatar-demo.jar
 ```
 
 It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
-airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and an airship to fly), or one built round a
+airships, the flyovers, the four vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly), or one built round a
 single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
 platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
 bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
@@ -360,7 +360,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, board the gunship, beside its cockpit door, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine, or the gunship's | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round | Swing the camera round |
 | C | Camera behind | Camera behind |
@@ -376,6 +376,19 @@ the window, so clicks stay free for actions.
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
 | V | First person, or back: on foot, from the avatar's own eyes, exactly where its visor is drawn, so the view goes with its head into a run, a dive or a flight (its arms and what they hold drawn upright and steady at the bottom of the view, however it is tipped, the rounds still leaving from its hands); at a vehicle's controls, from the driver's seat | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
+
+The gunship flies as an aircraft does (`Flight`), not as the platform does: it has momentum,
+the air drags it, and its two big ducted rotors push only the way they point, so it tips to go
+anywhere. It is parked on its wheels in the playground, beside the moored airship, its engine off:
+T beside its door boards it, F starts its engine, Space lifts it off. The keys are what is wanted
+of it, and its assist works out how to get there, as a fly-by-wire aircraft's does: W and S a speed
+ahead or back (its nose dips to get going; as it speeds up its rotors tilt forward, up to 85°, and
+its wings take its weight, to 50 m/s), A and D a speed aside (banking that way), Space and Ctrl a
+rate of climb (settling gently onto its wheels near the ground), the mouse its heading (going
+fast, banked round as an aeroplane turns, no faster than its bank allows). Let go, it pitches up,
+tilts its rotors back to brake, and hovers where it is. With its engine cut it has no thrust and
+drops. Its pitch, bank and rotor tilt are drawn as they are, and shown in the status line. It has
+no weapons yet, and no sound of its own.
 
 As in most shooters, it goes at full speed unless Shift is held. `-Davatar.pack=true` starts
 with the jet-pack on. Clicks fire only while the mouse is captured, so a click to take the

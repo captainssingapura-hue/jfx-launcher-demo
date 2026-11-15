@@ -270,6 +270,10 @@ public final class Game {
     private static final String GUN_HELP = "The heavy Gatling gun: the mouse aims it, 55° either way, 8° down and 25° up;"
             + " it swings round at its own pace · T step out\n"
             + "Click fire: held, it spins up, then fires\n" + VIEW_KEYS;
+    private static final String AIRCRAFT_HELP = "The gunship: F start or stop its engine · Space lift off, climb ·"
+            + " Ctrl descend, land · W/S ahead and back (its nose dips, its rotors tilt forward as it speeds up) ·"
+            + " A/D slide aside · mouse turns · Shift carefully · T step out\n"
+            + "Let go of the keys and it slows and hovers where it is\n" + VIEW_KEYS;
     private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
@@ -693,7 +697,7 @@ public final class Game {
         // and so does one to be flown, while it stands
         final List<Course.Piece> droning = new ArrayList<>(now.airships());
         for (final Lift lift : lifts) {
-            if (lift.craft().closed() && !damage.broken(lift.piece())) {
+            if (lift.craft().closed() && !(lift.craft() instanceof Course.Aircraft) && !damage.broken(lift.piece())) {
                 droning.add(damage.piece(lift.piece()).placed(lift.place()));
             }
         }
@@ -806,6 +810,13 @@ public final class Game {
                             ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
                     gun, left);
         }
+        if (lift.craft() instanceof Course.Aircraft aircraft) {
+            final String state = !lift.engine() ? "engine off: F to start"
+                    : String.format("rotors %.0f° forward · pitch %+.0f° · bank %+.0f°", lift.steer(), lift.tilt(),
+                    lift.roll());
+            return String.format("Flying the %s · %.1f m/s · climbing %+.1f m/s · %.1f m up · %s", aircraft.name(),
+                    lift.speed() / 100, lift.climb() / 100, (lift.place().height() - aircraft.standing()) / 100, state);
+        }
         if (lift.craft().closed()) {
             return String.format("Aboard the airship · %.1f m/s · %.1f m up%s · hull %.0f%% · %s", lift.speed() / 100,
                     lift.place().height() / 100, lift.moored() ? ", moored" : "", left, bay(lift));
@@ -877,7 +888,8 @@ public final class Game {
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts, people, props, turrets);
-        final String reach = here.withinReach().map(lift -> lift.craft().closed() ? " · T: board the airship"
+        final String reach = here.withinReach().map(lift -> lift.craft() instanceof Course.Aircraft aircraft ? " · T: board the " + aircraft.name()
+                        : lift.craft().closed() ? " · T: board the airship"
                         : lift.craft() instanceof Course.Chassis chassis
                                 ? (chassis.twoWheels() ? " · T: get on" : " · T: get in") : " · T: take the controls")
                 .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
@@ -907,6 +919,7 @@ public final class Game {
                 : flown.map(lift -> lift.craft() instanceof Course.Chassis chassis
                         ? (chassis.sidecar() != null ? SIDECAR_HELP : chassis.twoWheels() ? RIDE_HELP
                         : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
+                        : lift.craft() instanceof Course.Aircraft ? AIRCRAFT_HELP
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElseThrow()
                         + (vehicleGun.isPresent() ? GUN_OFF_HELP : "");
         if (!keys.equals(help.getText())) {
@@ -946,6 +959,9 @@ public final class Game {
             final Course.Bodywork body = damage.piece(lift.piece()).body();
             final String name = body != null ? body.name() : chassis.name();
             return "The " + name;
+        }
+        if (lift.craft() instanceof Course.Aircraft aircraft) {
+            return "The " + aircraft.name();
         }
         final boolean armed = turrets.stream().anyMatch(t -> t.host() == lift.piece() && !t.mount().fixed());
         return lift.craft().closed() ? (armed ? "The airship and its giant gun" : "The airship")
@@ -1232,6 +1248,13 @@ public final class Game {
             case Course.Deck deck -> new View(spot(drawn, 0, deck.pilot(), Chase.EYE_HEIGHT), block.yaw(), look);
             case Course.Ship ship -> new View(spot(drawn, 0, Course.GONDOLA.along() + Course.GONDOLA.halfAlong() + 12,
                     Course.GONDOLA.up()), block.yaw(), look);
+            case Course.Aircraft aircraft -> {
+                // from its pilot's seat, pitched with it
+                final double pitch = Math.toRadians(lift.tilt());
+                final Course.Section eye = aircraft.eye();
+                yield new View(spot(drawn, eye.across(), eye.along() * Math.cos(pitch) - eye.up() * Math.sin(pitch),
+                        eye.along() * Math.sin(pitch) + eye.up() * Math.cos(pitch)), block.yaw(), look + lift.tilt());
+            }
         };
     }
 

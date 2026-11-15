@@ -245,6 +245,19 @@ class AircraftTest {
     }
 
     @Test
+    void theGunshipFlownInTheWorldIsAsBigAsItIsDrawnItsWheelsWhereTheyAre() {
+        final Extent drawn = Gunship.of(1600, Gunship.Lift.TWIN_PROPELLERS).extent();
+        final com.example.fxsuite.avatar.sim.Course.Section box = com.example.fxsuite.avatar.sim.Course.GUNSHIP.room();
+        assertEquals(drawn.maxAcross(), box.across() + box.halfAcross(), 2, "out to its ducts");
+        assertEquals(drawn.minAlong(), box.along() - box.halfAlong(), 2, "its tail");
+        assertEquals(drawn.maxAlong(), box.along() + box.halfAlong(), 2, "its nose");
+        assertEquals(drawn.minUp(), box.up() - box.halfUp(), 2, "its wheels");
+        assertTrue(box.up() + box.halfUp() >= drawn.maxUp(), "over its top, and its ducts tilted");
+        assertEquals(-Gunship.hardpoints(1600).ground(), com.example.fxsuite.avatar.sim.Course.GUNSHIP.standing(), 1,
+                "standing on its wheels");
+    }
+
+    @Test
     void everyAircraftAtAnySizeIsWholeFiniteAndTheSameEitherSide() {
         for (final Crafts.Kind kind : Crafts.Kind.values()) {
             for (final double size : new double[] {kind.least(), kind.usual(), kind.most()}) {

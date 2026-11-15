@@ -178,6 +178,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 lifts.add(new Lift(piece, Course.SHIP, what.place()));
             } else if (what.kind() == Course.Kind.CAR) {
                 lifts.add(new Lift(piece, Course.Chassis.of(what.shape()), what.place()));
+            } else if (what.kind() == Course.Kind.AIRCRAFT) {
+                // on its wheels, its engine off until it is started
+                lifts.add(new Lift(piece, Course.Aircraft.of(what.shape()), what.place(), 0, 0, 0, false, false));
             }
         }
         return lifts;
@@ -271,6 +274,12 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         }
         final Vec3 at = body.position();
         final Vec3 station = pilot();
+        if (craft instanceof Course.Aircraft) {
+            // from the ground beside its door
+            final Vec3 door = at(craft.door());
+            return Math.hypot(at.x() - door.x(), at.z() - door.z()) <= REACH * 1.2
+                    && Math.abs(at.y() - door.y()) <= KERB;
+        }
         if (craft.closed()) {
             // under its hatch, the hatch within reach overhead
             final double overhead = at.y() - station.y();
@@ -368,6 +377,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     public Lift step(final Controls controls, final double seconds, final Obstacles world,
                      final Collection<Integer> aboard, final List<Block> also) {
+        if (craft instanceof Course.Aircraft aircraft) {
+            return flown(aircraft, controls, seconds, world, aboard, also);
+        }
         if (craft instanceof Course.Chassis chassis) {
             if (chassis.sidecar() == null) {
                 return drive(chassis, controls, seconds, world, aboard, also);
@@ -702,7 +714,18 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      * itself and what rides on it, {@code aboard}: that goes where it goes.
      */
     public boolean clear(final Place at, final Obstacles world, final Collection<Integer> aboard) {
-        final Block room = craft.room().placed(at);
+        final List<Course.Section> room = craft instanceof Course.Aircraft aircraft ? aircraft.shape().parts()
+                : List.of(craft.room());
+        for (final Course.Section part : room) {
+            if (!clear(part.placed(at), world, aboard)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether {@code room} is clear of everything solid in {@code world} but itself and {@code aboard}. */
+    private boolean clear(final Block room, final Obstacles world, final Collection<Integer> aboard) {
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
             if (other != piece && !aboard.contains(other) && room.overlaps(world.blocks().get(i))) {
@@ -717,6 +740,55 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             }
         }
         return true;
+    }
+
+    /**
+     * An aircraft, {@code seconds} on, as it flies ({@link Flight}): flown by {@code controls} if
+     * held, hovering where it is if not, and dropping with its engine cut; on its wheels on whatever
+     * is under it. Its pitch is kept as {@link #tilt}, its bank as {@link #roll}, and how far its
+     * rotors are tilted forward as {@link #steer}. It stops short of whatever is in its way as a
+     * platform does: the whole move if it is clear, else turning only, going across only, climbing
+     * only, else none; going no further the way it is stopped.
+     */
+    private Lift flown(final Course.Aircraft aircraft, final Controls controls, final double seconds,
+                       final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
+        final Flight flight = aircraft.flight();
+        final double floor = support(world, aboard, also).top() + below();
+        final Flight.State was = new Flight.State(place.height(), place.yaw(), ahead, aside, climb, tilt, roll, steer,
+                0, place.height() <= floor + 0.5 && climb <= 0);
+        final Flight.Input input = held
+                ? new Flight.Input(controls.forward(), controls.sideways(), controls.lift(), controls.turn(),
+                controls.run() ? 1 : CAREFUL, true, engine)
+                : Flight.Input.none(engine);
+        final Flight.State now = flight.step(was, input, seconds, floor);
+        // across the ground, as it went over the step, along the way it heads at the end of it
+        final double a = (was.ahead() * Math.cos(Math.toRadians(now.yaw() - was.yaw()))
+                + was.aside() * Math.sin(Math.toRadians(now.yaw() - was.yaw())) + now.ahead()) / 2 * seconds;
+        final double b = (was.aside() * Math.cos(Math.toRadians(now.yaw() - was.yaw()))
+                - was.ahead() * Math.sin(Math.toRadians(now.yaw() - was.yaw())) + now.aside()) / 2 * seconds;
+        final Vec3 across = Num.heading(now.yaw()).multiply(a).add(Num.right(now.yaw()).multiply(b));
+        final double x = Num.clamp(place.x() + across.x(), -Body.EDGE, Body.EDGE);
+        final double z = Num.clamp(place.z() + across.z(), -Body.EDGE, Body.EDGE);
+        final double high = aircraft.handling().high();
+        final double height = Math.min(now.height(), high);
+        final double rising = height >= high ? Math.min(0, now.climb()) : now.climb();
+        final boolean stuck = !clear(place, world, aboard);
+        final Place[] tries = {
+                new Place(x, z, height, now.yaw()),
+                new Place(place.x(), place.z(), place.height(), now.yaw()),
+                new Place(x, z, place.height(), place.yaw()),
+                new Place(place.x(), place.z(), height, place.yaw()),
+        };
+        for (int k = 0; k < tries.length; k++) {
+            if (stuck || clear(tries[k], world, aboard)) {
+                final boolean goesAcross = k == 0 || k == 2;
+                final boolean goesUp = k == 0 || k == 3;
+                return new Lift(piece, craft, tries[k], goesAcross ? now.ahead() : 0, goesAcross ? now.aside() : 0,
+                        goesUp ? rising : 0, held, engine, bombs, ready, now.nacelle(), now.pitch(), now.roll(), -1, 0);
+            }
+        }
+        return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, now.nacelle(), now.pitch(),
+                now.roll(), -1, 0);
     }
 
     /** Eased toward {@code wanted}; let go, at a crawl, it stops rather than creeping on for ever. */

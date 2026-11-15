@@ -91,6 +91,8 @@ public final class World {
     private final Map<Integer, Rig> rigs = new HashMap<>();
     /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
     private final Map<Integer, Wheels> wheeled = new HashMap<>();
+    /** The aircraft, by piece: their models, pitched, banked, their rotors tilted and turning as they fly. */
+    private final Map<Integer, Flown> flown = new HashMap<>();
     /** Whether the frames of what is built of rods are drawn. */
     private final boolean frames;
     /** Each vehicle's glass, by piece: hidden from inside, when it is looked out of. */
@@ -173,6 +175,7 @@ public final class World {
                 case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
                 case BUILDING, WALL_UNIT -> building(part, block, piece.tint());
+                case AIRCRAFT -> aircraft(i, part);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -243,6 +246,10 @@ public final class World {
             final Wheels wheels = wheeled.get(lift.piece());
             if (wheels != null) {
                 wheels.show(lift, seconds);
+            }
+            final Flown aircraft = flown.get(lift.piece());
+            if (aircraft != null) {
+                aircraft.show(lift, seconds);
             }
         }
         for (final Rotate rotor : rotors) {
@@ -1149,6 +1156,60 @@ public final class World {
      * every one with a spoke across its hub so it is seen to roll. The whole of it tips as the
      * ground under its wheels slopes.
      */
+    /**
+     * An aircraft, drawn as it is designed ({@link CraftModel}): turned about its centre of gravity as it
+     * pitches and banks, its rotors tilting and turning as it flies ({@link Flown}). Hidden from inside,
+     * as a vehicle's glass is, so that from its pilot's seat what is seen is what is outside it.
+     */
+    private Shape3D aircraft(final int piece, final Group part) {
+        final Course.Shape shape = pieces.get(piece).shape();
+        if (Course.Aircraft.of(shape) != Course.GUNSHIP) {
+            throw new IllegalArgumentException("no drawing for an aircraft shaped " + shape);
+        }
+        // the only one there is yet: the gunship on its two big tilting ducts, 16 m long
+        final CraftModel model = new CraftModel(com.example.fxsuite.avatar.air.Gunship.of(1600,
+                com.example.fxsuite.avatar.air.Gunship.Lift.TWIN_PROPELLERS), com.example.fxsuite.avatar.air.Livery.OLIVE);
+        final Rotate pitch = new Rotate(0, Rotate.X_AXIS);
+        final Rotate bank = new Rotate(0, Rotate.Z_AXIS);
+        final Group body = new Group(model.node());
+        // its centre of gravity, where it is: as far below its box's middle as that is over it
+        body.getTransforms().addAll(new Translate(0, shape.box().up(), 0), bank, pitch);
+        part.getChildren().add(body);
+        glass.put(piece, body);
+        flown.put(piece, new Flown(model, pitch, bank));
+        // what is taken for its body, to be coloured as it is worn: a stand-in, out of sight
+        final Box stand = new Box(1, 1, 1);
+        stand.setMaterial(BoxRig.matte("#55603f"));
+        stand.setVisible(false);
+        part.getChildren().add(stand);
+        return stand;
+    }
+
+    /** An aircraft's model, and its pitch and bank, shown as it flies. */
+    private static final class Flown {
+        /** How fast its rotors spool up or down, a second. */
+        private static final double SPOOL = 0.8;
+        private final CraftModel model;
+        private final Rotate pitch;
+        private final Rotate bank;
+        private double spool;
+
+        Flown(final CraftModel model, final Rotate pitch, final Rotate bank) {
+            this.model = model;
+            this.pitch = pitch;
+            this.bank = bank;
+        }
+
+        /** As {@code lift} is: nose up by its tilt, its right wing down by its roll, its rotors forward by its steer. */
+        void show(final Lift lift, final double seconds) {
+            pitch.setAngle(lift.tilt());
+            bank.setAngle(lift.roll());
+            model.set("tilt", lift.steer());
+            spool = Num.clamp(spool + Math.signum((lift.engine() ? 1 : 0) - spool) * SPOOL * seconds, 0, 1);
+            model.turn(seconds, spool);
+        }
+    }
+
     private Shape3D chassis(final int piece, final Group part) {
         final Course.Shape shape = pieces.get(piece).shape();
         final Course.Chassis chassis = Course.Chassis.of(shape);
