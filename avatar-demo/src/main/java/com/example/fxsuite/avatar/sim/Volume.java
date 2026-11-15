@@ -77,8 +77,7 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
             case Extrusion e -> new Extrusion(at.x() + (right.x() * e.x() + ahead.x() * e.z()) * scale,
                     at.z() + (right.z() * e.x() + ahead.z() * e.z()) * scale, at.yaw() + e.yaw(), e.half() * scale,
                     scaled(e.profile(), scale), e.holes().stream().map(h -> scaled(h, scale)).toList());
-            case Crossing c -> new Crossing((Extrusion) placed(c.first(), at, scale),
-                    (Extrusion) placed(c.second(), at, scale));
+            case Crossing c -> new Crossing(c.parts().stream().map(p -> (Extrusion) placed(p, at, scale)).toList());
         };
     }
 

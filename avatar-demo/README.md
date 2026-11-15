@@ -333,12 +333,12 @@ with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dum
 oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
 motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform; and the
 **temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
-**pyramids**, each in the way as it is shaped (`Demo`).
+**pyramids**, each in the way as it is shaped; and the **pavilions**, round a lawn, to walk into (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PAVILION`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
@@ -809,6 +809,20 @@ through, and one loaded until a pillar gives and it falls.
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
   front (a ramp): closely shaped and boxes in one piece.
+- **Pavilions** (`Pavilion`, and a demo of their own, `Pavilions`): buildings that are open, hollow but
+  for what holds them up, each part of its own and in the way as it is shaped: a platform, its steps
+  up at its front (each rise under a body's step); a ring of pillars on it; beams tying their heads;
+  a roof on those. Between them is open space: walked into up the steps, stood in under the roof
+  (its underside overhead), stopped by the pillars, flown through. Made to order (`Pavilion.Spec`):
+  its footprint (square, hexagonal, octagonal, round, or a rectangle of an odd number of bays, its
+  middle one its way in), how big; its pillars round or square, how thick and how tall; its roof to
+  a point (round over a round one), a hip roof or a gable over a rectangle, or flat, how steep and
+  how far out; its platform how high. Its roof's tiles and its pillars' material are choices, on the
+  bench too. A roof to a point over a polygon is in the way as the part so many triangles drawn
+  across it share (`Crossing`, of any number: three for a hexagon, four for an octagon). The
+  garden has one of each: square, hexagonal and octagonal ones, a round one, a long gallery under
+  a hip roof, one under a gable, and a modern one with a flat roof on steel posts. The parts are
+  what will be composed into larger structures: a temple's entrance, a tower's void deck.
 - **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
   alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
   meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where

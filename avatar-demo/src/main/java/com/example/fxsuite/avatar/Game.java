@@ -122,6 +122,8 @@ public final class Game {
         com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
         com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
         com.example.fxsuite.avatar.sim.Course.pyramids(com.example.fxsuite.avatar.build.Pyramids::pieces);
+        com.example.fxsuite.avatar.sim.Course.built(com.example.fxsuite.avatar.sim.Demo.PAVILION,
+                com.example.fxsuite.avatar.build.Pavilions::pieces);
     }
 
     private static final double FIELD_OF_VIEW = 48;

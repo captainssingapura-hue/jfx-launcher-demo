@@ -1049,6 +1049,7 @@ public final class Course {
             case TOWN -> townDemo();
             case TEMPLE -> templeDemo();
             case PYRAMID -> pieces.addAll(pyramids.get());
+            case PAVILION -> pieces.addAll(built(Demo.PAVILION));
         }
     }
 
@@ -1086,6 +1087,23 @@ public final class Course {
     /** Says what stands among the pyramids. */
     public static void pyramids(final java.util.function.Supplier<List<Piece>> what) {
         pyramids = what;
+    }
+
+    /**
+     * What is built in each demo whose buildings are put together outside the simulation, as it
+     * knows nothing of how a building is designed: told it ({@link #built(Demo, java.util.function.Supplier)}).
+     */
+    private static final java.util.Map<Demo, java.util.function.Supplier<List<Piece>>> BUILT =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Says what is built in {@code demo}. */
+    public static void built(final Demo demo, final java.util.function.Supplier<List<Piece>> what) {
+        BUILT.put(demo, what);
+    }
+
+    /** What is built in {@code demo}: nothing, until it is told. */
+    private static List<Piece> built(final Demo demo) {
+        return BUILT.getOrDefault(demo, List::of).get();
     }
 
     /** Says what stands in the temple's courtyard: its halls. */

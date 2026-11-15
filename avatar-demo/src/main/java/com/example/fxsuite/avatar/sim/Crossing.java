@@ -1,70 +1,74 @@
 package com.example.fxsuite.avatar.sim;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * What two extrusions ({@link Extrusion}) share: where both are. Two gables crossed at right angles
- * share a hip roof; two triangles crossed, a pyramid; two barrel vaults, a cross vault. Its top
- * anywhere the lower of theirs, its underside the higher; between a body's feet and its head, it is
- * across the ground where both their stretches are.
+ * What extrusions ({@link Extrusion}) share: where all of them are. Two gables crossed at right
+ * angles share a hip roof; two triangles crossed, a square pyramid; three at 60° to each other, a
+ * hexagonal one; four at 45°, an octagonal one; two barrel vaults, a cross vault. Its top anywhere
+ * the lowest of theirs, its underside the highest; between a body's feet and its head, it is across
+ * the ground where all their stretches are.
  */
-public record Crossing(Extrusion first, Extrusion second) implements Volume {
+public record Crossing(List<Extrusion> parts) implements Volume {
 
     public Crossing {
-        if (!first.holes().isEmpty() || !second.holes().isEmpty()) {
-            throw new IllegalArgumentException("crossed extrusions are solid all through");
+        parts = List.copyOf(parts);
+        if (parts.size() < 2) {
+            throw new IllegalArgumentException("a crossing of " + parts.size() + ": it takes two");
         }
+        for (final Extrusion part : parts) {
+            if (!part.holes().isEmpty()) {
+                throw new IllegalArgumentException("crossed extrusions are solid all through");
+            }
+        }
+    }
+
+    /** Two of them, crossed. */
+    public Crossing(final Extrusion first, final Extrusion second) {
+        this(List.of(first, second));
     }
 
     @Override
     public double low() {
-        return Math.max(first.low(), second.low());
+        return parts.stream().mapToDouble(Extrusion::low).max().orElseThrow();
     }
 
     @Override
     public double high() {
-        return Math.min(first.high(), second.high());
+        return parts.stream().mapToDouble(Extrusion::high).min().orElseThrow();
     }
 
     @Override
     public boolean covers(final double x, final double z, final double radius) {
-        return first.covers(x, z, radius) && second.covers(x, z, radius);
+        return parts.stream().allMatch(p -> p.covers(x, z, radius));
     }
 
     @Override
     public double topAt(final double x, final double z, final double radius, final double below) {
-        final double top = Math.min(first.topAt(x, z, radius), second.topAt(x, z, radius));
+        final double top = parts.stream().mapToDouble(p -> p.topAt(x, z, radius)).min().orElseThrow();
         return top <= below ? top : Double.NEGATIVE_INFINITY;
     }
 
     @Override
     public double undersideAt(final double x, final double z, final double radius, final double above) {
-        final double underside = Math.max(first.undersideAt(x, z, radius), second.undersideAt(x, z, radius));
+        final double underside = parts.stream().mapToDouble(p -> p.undersideAt(x, z, radius)).max().orElseThrow();
         return underside >= above ? underside : Double.POSITIVE_INFINITY;
     }
 
-    /** Across the ground, where both their stretches between {@code feet} and {@code head} are; empty if nowhere. */
+    /** Across the ground, where all their stretches between {@code feet} and {@code head} are; empty if nowhere. */
     private List<Vec2> outline(final double feet, final double head) {
-        final Block a = first.box(feet, head);
-        final Block b = second.box(feet, head);
-        if (a == null || b == null) {
-            return List.of();
+        List<Vec2> shared = null;
+        for (final Extrusion part : parts) {
+            final Block box = part.box(feet, head);
+            if (box == null) {
+                return List.of();
+            }
+            shared = shared == null ? Outline.corners(box) : Outline.within(shared, Outline.corners(box));
+            if (shared.size() < 3) {
+                return List.of();
+            }
         }
-        final List<Vec2> shared = Outline.within(corners(a), corners(b));
-        return shared.size() >= 3 && Math.abs(Outline.twiceArea(shared)) > 1e-6 ? shared : List.of();
-    }
-
-    /** A block's footprint, its four corners anticlockwise. */
-    private static List<Vec2> corners(final Block block) {
-        final Vec3 right = Num.right(block.yaw());
-        final Vec3 ahead = Num.heading(block.yaw());
-        final List<Vec2> corners = new ArrayList<>();
-        for (final double[] c : new double[][] {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}) {
-            corners.add(new Vec2(block.x() + right.x() * c[0] * block.halfWidth() + ahead.x() * c[1] * block.halfDepth(),
-                    block.z() + right.z() * c[0] * block.halfWidth() + ahead.z() * c[1] * block.halfDepth()));
-        }
-        return Outline.twiceArea(corners) < 0 ? corners.reversed() : corners;
+        return Math.abs(Outline.twiceArea(shared)) > 1e-6 ? shared : List.of();
     }
 
     @Override
@@ -80,16 +84,21 @@ public record Crossing(Extrusion first, Extrusion second) implements Volume {
         return shared.isEmpty() ? null : Outline.push(shared, ax, az, bx, bz, radius);
     }
 
-    /** In where it last goes into either, out where it first comes out of either. */
+    /** In where it last goes into any of them, out where it first comes out of any. */
     @Override
     public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
-        final Extrusion.Span a = first.span(from, direction);
-        final Extrusion.Span b = second.span(from, direction);
-        if (a == null || b == null) {
-            return null;
+        Extrusion.Span later = null;
+        double exit = Double.POSITIVE_INFINITY;
+        for (final Extrusion part : parts) {
+            final Extrusion.Span span = part.span(from, direction);
+            if (span == null) {
+                return null;
+            }
+            if (later == null || span.enter() > later.enter()) {
+                later = span;
+            }
+            exit = Math.min(exit, span.exit());
         }
-        final Extrusion.Span later = a.enter() >= b.enter() ? a : b;
-        final double exit = Math.min(a.exit(), b.exit());
         if (later.enter() > exit || later.enter() < 0 || later.enter() > reach) {
             return null;
         }

@@ -124,6 +124,9 @@ public final class BuildingBench extends Application {
         ASSEMBLED.put("temple hall", com.example.fxsuite.avatar.build.Temple.standard().assembled());
         COMPOSED.put("town church", com.example.fxsuite.avatar.build.Church.standard().building());
         COMPOSED.put("temple hall", com.example.fxsuite.avatar.build.Temple.standard().building());
+        // the pavilions, one of each kind
+        com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> COMPOSED.put(p.name(),
+                com.example.fxsuite.avatar.build.Pavilion.of(p).building()));
     }
 
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
@@ -169,6 +172,7 @@ public final class BuildingBench extends Application {
         final List<Form> all = new java.util.ArrayList<>(Buildings.all());
         ASSEMBLED.values().forEach(r -> all.add(r.form()));
         TOWERS.values().forEach(t -> all.add(t.skeleton()));
+        com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> all.add(COMPOSED.get(p.name()).skeleton()));
         final Building fromPlan = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
         COMPOSED.put(PlanPanel.TOWER, fromPlan);
         all.add(fromPlan.skeleton());

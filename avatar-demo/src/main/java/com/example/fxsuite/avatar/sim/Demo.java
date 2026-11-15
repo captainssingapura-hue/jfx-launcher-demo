@@ -35,7 +35,10 @@ public enum Demo {
             + " three monks at their stand-up in the middle. (Its gate is to come.)", 0),
     /** Pyramids, each in the way as it is shaped: a great smooth one, a low one to walk up, a stepped one with a stairway. */
     PYRAMID("Pyramids", "A great smooth pyramid, too steep to climb; a low one, turned, to walk up to its point; and a"
-            + " stepped one with a stairway up to the shrine on its top. Each is in the way as it is shaped.", 0);
+            + " stepped one with a stairway up to the shrine on its top. Each is in the way as it is shaped.", 0),
+    /** Pavilions round a lawn, one of each kind: open but for their pillars and roofs, to walk into and stand under. */
+    PAVILION("Pavilions", "Pavilions round a lawn, one of each kind: square, hexagonal, octagonal and round ones to a point,"
+            + " a long gallery, a gable, a modern one with a flat roof. Open but for their pillars and roofs: walk in.", 0);
 
     private final String title;
     private final String description;
