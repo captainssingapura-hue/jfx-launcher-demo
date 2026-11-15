@@ -55,8 +55,9 @@ public record BodyStyle(double width, double height, double haunch, double haunc
 
     /**
      * {@code plan}'s lines, styled, {@code length} long: each row {t, then across and up where each of
-     * the six longerons (keel, chine, beltline, shoulder, rail, spine) crosses its section}, t from its
-     * tail (0) to its nose (1), all shares of its length; a section all at one point its end.
+     * the six longerons (keel, chine, beltline, shoulder, rail, spine) crosses its section, and, if 1 after
+     * them, its section sharp ({@link Lines.Section#sharp})}, t from its tail (0) to its nose (1), all
+     * shares of its length; a section all at one point its end.
      */
     public Lines lines(final String name, final List<String> longerons, final double[][] plan, final double length,
                        final int steps) {
@@ -76,7 +77,7 @@ public record BodyStyle(double width, double height, double haunch, double haunc
                 for (int i = 0; i < longerons.size(); i++) {
                     points.add(new double[] {row[1] * width * length, row[2] * height * length});
                 }
-                sections.add(new Lines.Section((t - 0.5) * length, points));
+                sections.add(new Lines.Section((t - 0.5) * length, points, row.length > 13 && row[13] != 0));
                 continue;
             }
             // how much its beltline stands out here: not at its ends, which close to a point
@@ -99,7 +100,7 @@ public record BodyStyle(double width, double height, double haunch, double haunc
                 across *= 1 + bluntness * bump(t, 0.95, 0.12);
                 points.add(new double[] {across * length, up * length});
             }
-            sections.add(new Lines.Section((t - 0.5) * length, points));
+            sections.add(new Lines.Section((t - 0.5) * length, points, row.length > 13 && row[13] != 0));
         }
         return new Lines(name, longerons, sections, true, steps);
     }

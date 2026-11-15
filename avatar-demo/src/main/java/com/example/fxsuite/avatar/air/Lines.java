@@ -34,12 +34,18 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
 
     /**
      * Where the longerons cross the body {@code along} its length: each {across, up}, in the order of
-     * its longerons. All one point: the body's end, drawn to a point.
+     * its longerons. All one point: the body's end, drawn to a point. {@code sharp}: its lines turn
+     * there, not curving through it (a step's edge, a bay's wall), straight to it either side.
      */
-    public record Section(double along, List<double[]> points) {
+    public record Section(double along, List<double[]> points, boolean sharp) {
 
         public Section {
             points = points.stream().map(double[]::clone).toList();
+        }
+
+        /** Not sharp: its lines curve smoothly through it. */
+        public Section(final double along, final List<double[]> points) {
+            this(along, points, false);
         }
 
         /** All at one point: a nose, a tail. */
@@ -80,16 +86,19 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
         final List<Section> all = new ArrayList<>();
         final int n = sections.size();
         for (int k = 0; k + 1 < n; k++) {
-            final Section a = sections.get(Math.max(0, k - 1));
             final Section b = sections.get(k);
             final Section c = sections.get(k + 1);
-            final Section d = sections.get(Math.min(n - 1, k + 2));
+            // the curve's neighbours, but not past a sharp section: it is a corner, not a point on a curve
+            final Section before = sections.get(Math.max(0, k - 1));
+            final Section after = sections.get(Math.min(n - 1, k + 2));
+            final Section a = before.sharp() ? b : before;
+            final Section d = after.sharp() ? c : after;
             for (int s = 0; s <= steps; s++) {
                 final double t = (double) s / (steps + 1);
                 final List<double[]> points = new ArrayList<>();
                 for (int i = 0; i < longerons.size(); i++) {
-                    // drawn to a point at an end: straight in to it, not curving past it
-                    final boolean end = b.point() || c.point();
+                    // drawn to a point at an end, or to a sharp section: straight to it, not curving past it
+                    final boolean end = b.point() || c.point() || b.sharp() || c.sharp();
                     points.add(new double[] {
                             end ? lerp(b.points().get(i)[0], c.points().get(i)[0], t)
                                     : curve(a.points().get(i)[0], b.points().get(i)[0], c.points().get(i)[0],

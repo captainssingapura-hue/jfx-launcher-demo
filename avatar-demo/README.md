@@ -1053,13 +1053,16 @@ band painted as its dressing says (a canopy's glass over a cockpit, a darker bel
 its chines are lines it is drawn by, crisp. A wing's lines are an aerofoil's section along its span,
 drawn to a point at its tip. On the bench, its skeleton can be shown, and its dressing.
 
-A gunship is drawn so (`Gunship`): six longerons through thirteen sections, from a thin boom raised
-to its tail, through a deep middle humped over its engine and a cockpit for two under a framed
-canopy, to a chiselled nose; stub wings with a pod at each tip, a V-tail, wheels. It says where
-things are fixed to it, from its lines (`Gunship.Hardpoints`): a mast on its hump, each wing's tip,
-its boom's end, under its nose, pylons under its wings. So it can be lifted several ways, the body
-the same: tilting coaxial ducts at its wing tips (`"tilt"`, hovering to flying), a main rotor and a
-ducted tail fan, or two coaxial rotors.
+A gunship is drawn so (`Gunship`), its side as a sketch has it: six longerons through fifteen
+sections, from a level boom out to a V-tail, down into a deep belly, to a cockpit block, a raked
+windscreen and a blunt nose. A section can be sharp (`Lines.Section.sharp`): drawn straight to its
+neighbours, not curved through them, so a wall stands upright. Over its centre of gravity its back
+is cut down to a bay, walled fore and aft, a flat floor (`Gunship.Bay`, among its
+`Gunship.Hardpoints`): its lift is set into it, the body as it is however it is lifted. A saddle
+fills the bay and carries it: a high wing with a turboprop either side; beam wings out to two big
+coaxial ducts, tilting together (`"tilt"`, hovering to flying); a pylon and a main rotor, with a
+ducted fan at its tail; or a pylon and two coaxial rotors. Its body alone, its bay empty, is on the
+bench too, and its fuselage alone, to be shaped by its style's sliders.
 
 Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
 fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an

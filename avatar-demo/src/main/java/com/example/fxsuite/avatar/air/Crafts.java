@@ -25,7 +25,9 @@ public final class Crafts {
         LIGHT_PLANE("Light aeroplane", 8, 5, 20, Category.AIRCRAFT),
         /** A gunship ({@link Gunship}): its body alone, its hardpoints marked; and lifted three ways. */
         GUNSHIP_BODY("Gunship body: its fuselage alone", 16, 8, 30, Category.BODY),
-        GUNSHIP_DUCTS("Gunship, tilting ducts", 16, 8, 30, Category.AIRCRAFT),
+        GUNSHIP_BARE("Gunship body: its bay empty", 16, 8, 30, Category.BODY),
+        GUNSHIP_WING("Gunship, fixed wing", 16, 8, 30, Category.AIRCRAFT),
+        GUNSHIP_DUCTS("Gunship, two big propellers", 16, 8, 30, Category.AIRCRAFT),
         GUNSHIP_ROTOR("Gunship, main rotor", 16, 8, 30, Category.AIRCRAFT),
         GUNSHIP_COAXIAL("Gunship, coaxial rotors", 16, 8, 30, Category.AIRCRAFT),
         /** Engines on their own ({@link Engine}): a radial and a turboprop by their length, a duct by its width. */
@@ -110,7 +112,9 @@ public final class Crafts {
                 case TANDEM -> tandem(size);
                 case LIGHT_PLANE -> lightPlane(size);
                 case GUNSHIP_BODY -> Gunship.fuselageAlone(size, style);
-                case GUNSHIP_DUCTS -> Gunship.of(size, Gunship.Lift.TILT_DUCTS, style);
+                case GUNSHIP_BARE -> Gunship.of(size, Gunship.Lift.NONE, style);
+                case GUNSHIP_WING -> Gunship.of(size, Gunship.Lift.FIXED_WING, style);
+                case GUNSHIP_DUCTS -> Gunship.of(size, Gunship.Lift.TWIN_PROPELLERS, style);
                 case GUNSHIP_ROTOR -> Gunship.of(size, Gunship.Lift.MAIN_ROTOR, style);
                 case GUNSHIP_COAXIAL -> Gunship.of(size, Gunship.Lift.COAXIAL_ROTORS, style);
                 case RADIAL_ENGINE -> Engine.radial(size).build();

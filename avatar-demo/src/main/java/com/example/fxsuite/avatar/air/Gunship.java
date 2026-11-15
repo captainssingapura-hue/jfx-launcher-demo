@@ -1,58 +1,59 @@
 package com.example.fxsuite.avatar.air;
 
-import com.example.fxsuite.avatar.air.Fuselage.Station;
 import com.example.fxsuite.avatar.build.Point;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A gunship, drawn by its lines first ({@link Lines}), dressed on them, then lifted any of several
- * ways. Its fuselage's lines: six longerons (a keel, a chine, its widest line, a shoulder, a canopy's
- * rail, a spine) through thirteen sections from the tip of its tail to the point of its nose: a
- * thin boom raised to its tail; a deep middle, its spine humped over its engine; a cockpit for two,
- * one behind the other, its canopy the bands over its shoulders there, glazed; a chiselled nose. Its
- * stub wings and its V-tail's fins are lines too: an aerofoil's section along their span, drawn to a
- * point at the tip.
+ * A gunship, drawn by its lines first ({@link Lines}) and dressed on them; its lift a unit of its
+ * own, set into a bay in its back. From the side: a long, slender, level boom to its tail; a deep
+ * body under its middle, its belly long and flat, curving up into the boom behind; ahead, its cockpit
+ * rising as a block, its roof falling forward to a raked windscreen and a blunt, rounded nose. Between
+ * the boom's root and the cockpit's back, over its centre of gravity, the top of it is cut down to a
+ * bay ({@link Bay}): upright walls fore and aft, a flat floor.
  *
- * <p>So that it can be lifted any of several ways, it says where things are fixed to it
- * ({@link Hardpoints}), from its lines: a mast on the hump (a rotor, two), each wing's tip (a duct,
- * a pod), the boom's end (a tail fan), under the nose (a turret), pylons under each wing (weapons).
- * Each kind of lift ({@link Lift}) is fixed to those; the body the same for all.
+ * <p>Whatever lifts it is set into that bay, the body the same for all ({@link Lift}): a unit's
+ * saddle fills the bay and closes its top line, and its lift is built out from that: a fixed high
+ * wing with two turboprops; two big propellers in tilting ducts on short beams; a main rotor on a
+ * pylon, and a fan at its tail; or two coaxial rotors on a pylon.
  */
 public final class Gunship {
 
     private Gunship() {
     }
 
-    /** How it is lifted. */
+    /** What lifts it, set into its bay. */
     public enum Lift {
-        /** None: the body alone, its hardpoints marked. */
+        /** Nothing: its bay empty. */
         NONE,
-        /** A coaxial duct at each wing's tip, tilting together ({@code "tilt"}) from hovering, 0°, to flying, 90°. */
-        TILT_DUCTS,
-        /** A four-bladed main rotor on the mast; a ducted fan at the boom's end, on its right, against its turning. */
+        /** A high wing through its bay, a turboprop under each side of it. */
+        FIXED_WING,
+        /** Two big propellers, in coaxial ducts on short beams out of its bay, tilting together ({@code "tilt"}) from hovering, 0°, to flying, 90°. */
+        TWIN_PROPELLERS,
+        /** A four-bladed main rotor on a pylon in its bay; a ducted fan at the boom's end, on its right. */
         MAIN_ROTOR,
-        /** Two three-bladed rotors on the mast, one over the other, turning opposite ways: no tail rotor needed. */
+        /** Two three-bladed rotors on a pylon in its bay, one over the other, turning opposite ways. */
         COAXIAL_ROTORS
     }
 
     /**
-     * Where things are fixed to the body, each a mount square to it, on the right where there is a
-     * pair (mirrored for the left).
-     *
-     * @param mast    the mast's foot, on the hump
-     * @param wingTip the middle of the right wing's tip
-     * @param tail    the boom's end, on its middle line
-     * @param nose    under its nose
-     * @param pylons  under the right wing, inboard to outboard
-     * @param ground  how high the ground is under its wheels
+     * The bay its lift is set into, over its centre of gravity: {@code floor} its floor's middle;
+     * {@code length} fore and aft between its walls; {@code width} across its floor; {@code depth} from
+     * its floor up to its top line.
      */
-    public record Hardpoints(Mount mast, Mount wingTip, Mount tail, Mount nose, List<Mount> pylons, double ground) {
+    public record Bay(Point floor, double length, double width, double depth) {
+    }
 
-        public Hardpoints {
-            pylons = List.copyOf(pylons);
-        }
+    /**
+     * Where things are fixed to the body.
+     *
+     * @param bay    its lift's bay
+     * @param tail   the boom's end, on its middle line
+     * @param nose   under its nose
+     * @param ground how high the ground is under its wheels
+     */
+    public record Hardpoints(Bay bay, Mount tail, Mount nose, double ground) {
     }
 
     // ---------------------------------------------------------------- its lines
@@ -60,34 +61,54 @@ public final class Gunship {
     /** Its fuselage's longerons, keel up round to spine. */
     public static final List<String> LONGERONS = List.of("keel", "chine", "side", "shoulder", "rail", "spine");
 
-    /**
-     * Its fuselage's sections: each {t, then across and up where each longeron crosses it}, t the way
-     * from the tip of its tail (0) to the point of its nose (1), all shares of its length.
-     */
-    private static final double[][] SECTIONS = {
-            {0, 0, 0.06, 0, 0.06, 0, 0.06, 0, 0.06, 0, 0.06, 0, 0.06},
-            {0.02, 0, 0.036, 0.016, 0.04, 0.022, 0.054, 0.018, 0.068, 0.009, 0.075, 0, 0.077},
-            {0.3, 0, 0.028, 0.022, 0.032, 0.03, 0.05, 0.023, 0.068, 0.012, 0.077, 0, 0.079},
-            {0.4, 0, -0.02, 0.05, -0.012, 0.062, 0.025, 0.05, 0.058, 0.026, 0.074, 0, 0.08},
-            // its hips: broad and low, its beltline a crease standing out over its flanks, its cabin drawn in
-            {0.48, 0, -0.066, 0.07, -0.06, 0.086, -0.004, 0.066, 0.05, 0.04, 0.086, 0, 0.104},
-            {0.56, 0, -0.076, 0.076, -0.07, 0.092, -0.012, 0.07, 0.05, 0.044, 0.094, 0, 0.114},
-            {0.64, 0, -0.078, 0.074, -0.072, 0.086, -0.016, 0.066, 0.044, 0.04, 0.09, 0, 0.106},
-            // its cockpit, over a flat broad belly, its sides upright
-            {0.69, 0, -0.077, 0.072, -0.071, 0.082, -0.018, 0.064, 0.04, 0.044, 0.09, 0, 0.104},
-            {0.78, 0, -0.074, 0.07, -0.069, 0.078, -0.022, 0.062, 0.03, 0.04, 0.078, 0, 0.09},
-            {0.86, 0, -0.07, 0.066, -0.066, 0.072, -0.026, 0.058, 0.018, 0.034, 0.052, 0, 0.062},
-            // a long broad deck ahead of it, to a wide, squared nose
-            {0.9, 0, -0.067, 0.063, -0.064, 0.068, -0.03, 0.055, 0.006, 0.03, 0.022, 0, 0.026},
-            {0.955, 0, -0.061, 0.056, -0.059, 0.06, -0.036, 0.048, -0.012, 0.026, -0.006, 0, -0.004},
-            {0.985, 0, -0.052, 0.04, -0.051, 0.043, -0.038, 0.034, -0.022, 0.018, -0.017, 0, -0.016},
-            {1, 0, -0.035, 0, -0.035, 0, -0.035, 0, -0.035, 0, -0.035, 0, -0.035}};
+    /** How high its centre of gravity is over its belly, a share of its length: its frame's origin is level with it. */
+    private static final double CENTRE = 0.094;
 
-    /** Where its cockpit's glazing runs, t; its engine's cowling; its intakes; the band round its boom. */
-    private static final double[] CANOPY = {0.685, 0.885};
-    private static final double[] COWLING = {0.47, 0.665};
-    private static final double[] INTAKE = {0.585, 0.64};
-    private static final double[] BAND = {0.29, 0.315};
+    /** Where its bay's walls are, t from its tail (0) to its nose (1); its floor's height, and its top line's, over its belly. */
+    private static final double BAY_BACK = 0.4705;
+    private static final double BAY_FRONT = 0.6665;
+    /** Where its centre of gravity is along it, t. */
+    public static final double CENTRE_AT = 0.583;
+
+    /**
+     * Its fuselage's lines plan, from the side as sketched: each {t, then across and up where each
+     * longeron crosses its section, up over its belly; and 1 if the section is sharp}, all shares of its
+     * length. Its tail's end squared off; a straight, level boom; its belly curving down into a long flat
+     * bottom; the bay's walls upright and its floor flat; the cockpit's block, its roof falling to a
+     * raked windscreen; a blunt, rounded nose.
+     */
+    private static final double[][] PLAN = {
+            {0, 0, 0.212, 0, 0.212, 0, 0.212, 0, 0.212, 0, 0.212, 0, 0.212, 1},
+            {0.012, 0, 0.18, 0.018, 0.185, 0.026, 0.205, 0.022, 0.232, 0.012, 0.24, 0, 0.242, 1},
+            {0.3, 0, 0.135, 0.024, 0.14, 0.032, 0.18, 0.026, 0.232, 0.014, 0.242, 0, 0.244},
+            {0.38, 0, 0.05, 0.05, 0.06, 0.062, 0.13, 0.05, 0.225, 0.03, 0.242, 0, 0.245},
+            {0.44, 0, 0.012, 0.062, 0.02, 0.074, 0.1, 0.064, 0.215, 0.04, 0.242, 0, 0.245},
+            // the bay: its back wall's top edge, its foot, its front wall's foot, its top edge
+            {0.469, 0, 0.008, 0.064, 0.016, 0.076, 0.095, 0.066, 0.21, 0.042, 0.24, 0, 0.244, 1},
+            {0.472, 0, 0.006, 0.065, 0.014, 0.077, 0.092, 0.068, 0.155, 0.04, 0.158, 0, 0.16, 1},
+            {0.665, 0, 0.002, 0.066, 0.01, 0.077, 0.092, 0.068, 0.155, 0.04, 0.158, 0, 0.16, 1},
+            {0.668, 0, 0.002, 0.066, 0.01, 0.077, 0.095, 0.066, 0.2, 0.046, 0.238, 0, 0.245, 1},
+            // the cockpit's block, its roof falling forward
+            {0.76, 0, 0.001, 0.064, 0.008, 0.074, 0.09, 0.062, 0.19, 0.044, 0.225, 0, 0.232},
+            {0.86, 0, 0, 0.06, 0.006, 0.068, 0.085, 0.056, 0.165, 0.04, 0.19, 0, 0.196},
+            // where the roof meets the windscreen
+            {0.92, 0, 0, 0.056, 0.006, 0.062, 0.08, 0.05, 0.14, 0.034, 0.158, 0, 0.162, 1},
+            // the windscreen raked down to a blunt, rounded nose
+            {0.975, 0, 0.006, 0.046, 0.012, 0.05, 0.06, 0.04, 0.085, 0.026, 0.095, 0, 0.098},
+            {0.995, 0, 0.014, 0.034, 0.018, 0.037, 0.05, 0.03, 0.07, 0.02, 0.076, 0, 0.078},
+            {1, 0, 0.045, 0, 0.045, 0, 0.045, 0, 0.045, 0, 0.045, 0, 0.045}};
+
+    /** Its lines plan with its heights over its centre of gravity, not its belly. */
+    private static double[][] plan() {
+        final double[][] plan = new double[PLAN.length][];
+        for (int k = 0; k < PLAN.length; k++) {
+            plan[k] = PLAN[k].clone();
+            for (int i = 0; i < LONGERONS.size(); i++) {
+                plan[k][2 + 2 * i] -= CENTRE;
+            }
+        }
+        return plan;
+    }
 
     /** Its fuselage's lines, {@code length} long, as drawn. */
     public static Lines fuselage(final double length) {
@@ -96,27 +117,29 @@ public final class Gunship {
 
     /** Its fuselage's lines, {@code length} long, styled as {@code style} says. */
     public static Lines fuselage(final double length, final BodyStyle style) {
-        return style.lines("fuselage", LONGERONS, SECTIONS, length, 2);
+        return style.lines("fuselage", LONGERONS, plan(), length, 2);
     }
 
     /**
-     * How its fuselage's bands are painted, {@code length} long: glazed over its cockpit, its cowling,
-     * its intakes dark, a band round its boom, its belly darker.
+     * How its fuselage's bands are painted, {@code length} long: its bay's floor and walls a deck to
+     * fix its lift to; its cockpit's side windows and its windscreen glazed, its roof solid; a band
+     * round its boom; its belly darker.
      */
     private static Lines.Dress dress(final double length) {
         return (band, along) -> {
             final double t = along / length + 0.5;
-            final boolean upper = band.equals("shoulder to rail") || band.equals("rail to spine");
-            if (upper && t > CANOPY[0] && t < CANOPY[1]) {
+            final boolean sides = band.equals("shoulder to rail");
+            final boolean top = band.equals("rail to spine");
+            if ((sides || top) && t > BAY_BACK - 0.002 && t < BAY_FRONT + 0.002) {
+                return Paint.FRAME;
+            }
+            if (sides && t > 0.68 && t < 0.99 || top && t > 0.915 && t < 0.995) {
                 return Paint.GLASS;
             }
-            if (band.equals("shoulder to rail") && t > INTAKE[0] && t < INTAKE[1]) {
-                return Paint.DARK;
-            }
-            if (upper && t > COWLING[0] && t < COWLING[1]) {
+            if (top && t > BAY_FRONT) {
                 return Paint.CAR;
             }
-            if (t > BAND[0] && t < BAND[1]) {
+            if (t > 0.29 && t < 0.31) {
                 return Paint.TRIM;
             }
             return band.equals("keel to chine") ? Paint.CAR : Paint.SKIN;
@@ -163,27 +186,6 @@ public final class Gunship {
 
     // ---------------------------------------------------------------- its hardpoints
 
-    private static final double WING_ALONG = 0.05;
-    private static final double WING_SPAN = 0.2;
-    private static final double WING_ROOT = 0.13;
-    private static final double WING_TIP = 0.09;
-    private static final double WING_SWEEP = 6;
-    private static final double WING_ANHEDRAL = -5;
-
-    /** Where the stub wing's root's leading edge is: on its side, a little up, sunk into it. */
-    private static Point wingRoot(final Lines body, final double l) {
-        final Point side = body.on("side", WING_ALONG * l);
-        return new Point(side.across() - 0.012 * l, WING_ALONG * l + WING_ROOT * l / 2, side.up() + 0.018 * l);
-    }
-
-    /** The middle of the stub wing's chord {@code share} of the way out from its root. */
-    private static Point onWing(final Point root, final double l, final double share) {
-        final double out = WING_SPAN * l * share;
-        final double chord = WING_ROOT * l + (WING_TIP - WING_ROOT) * l * share;
-        return new Point(root.across() + out, root.along() - out * Math.tan(Math.toRadians(WING_SWEEP)) - chord / 2,
-                root.up() + out * Math.tan(Math.toRadians(WING_ANHEDRAL)));
-    }
-
     /** Where things are fixed to a body {@code length} long, as drawn. */
     public static Hardpoints hardpoints(final double length) {
         return hardpoints(length, BodyStyle.PLAIN);
@@ -193,16 +195,15 @@ public final class Gunship {
     public static Hardpoints hardpoints(final double length, final BodyStyle style) {
         final double l = length;
         final Lines body = fuselage(l, style);
-        final Point root = wingRoot(body, l);
-        final List<Mount> pylons = new ArrayList<>();
-        for (final double share : new double[] {0.35, 0.72}) {
-            pylons.add(Mount.at(onWing(root, l, share).plus(new Point(0, 0, -0.035 * l))));
-        }
-        final double tailAt = -0.45 * l;
+        final double bayAt = ((BAY_BACK + BAY_FRONT) / 2 - 0.5) * l;
+        final Point floor = new Point(0, bayAt, body.on("spine", bayAt).up());
+        final double top = body.on("spine", (BAY_FRONT - 0.5) * l + 0.004 * l).up();
+        final Bay bay = new Bay(floor, (BAY_FRONT - BAY_BACK) * l, 2 * body.on("shoulder", bayAt).across(),
+                top - floor.up());
+        final double tailAt = -0.48 * l;
         final double tailUp = (body.on("keel", tailAt).up() + body.on("spine", tailAt).up()) / 2;
-        return new Hardpoints(Mount.at(body.on("spine", WING_ALONG * l)), Mount.at(onWing(root, l, 1)),
-                Mount.at(0, tailAt, tailUp), Mount.at(body.on("keel", 0.38 * l).plus(new Point(0, 0, -0.004 * l))),
-                pylons, body.on("keel", WING_ALONG * l).up() - 0.035 * l);
+        return new Hardpoints(bay, Mount.at(0, tailAt, tailUp), Mount.at(body.on("keel", 0.42 * l)),
+                body.on("keel", (CENTRE_AT - 0.5) * l).up() - 0.04 * l);
     }
 
     // ---------------------------------------------------------------- the body, dressed on its lines
@@ -212,70 +213,43 @@ public final class Gunship {
         return Craft.named("Gunship fuselage").lines(fuselage(length, style), dress(length), Mount.at(Point.ZERO)).build();
     }
 
-    /** The body, {@code length} long: all of it but its lift; its hardpoints marked, if {@code marked}. */
-    public static Craft body(final double length, final boolean marked) {
-        return body(length, marked, BodyStyle.PLAIN);
+    /** The body, {@code length} long, as drawn: all of it but its lift, its bay empty. */
+    public static Craft body(final double length) {
+        return body(length, BodyStyle.PLAIN);
     }
 
-    /** The same, styled. */
-    public static Craft body(final double length, final boolean marked, final BodyStyle style) {
+    /** The body, {@code length} long, styled. */
+    public static Craft body(final double length, final BodyStyle style) {
         final double l = length;
         final Lines lines = fuselage(l, style);
         final Hardpoints at = hardpoints(l, style);
         final Craft.Builder gunship = Craft.named("Gunship body").lines(lines, dress(l), Mount.at(Point.ZERO));
-        // the canopy's frames: a bow over it at each of its sections
-        for (final double t : new double[] {0.68, 0.77, 0.85, 0.89}) {
+        // its cockpit's frames: a post between each two side windows, its windscreen's frame
+        for (final double t : new double[] {0.69, 0.79, 0.86, 0.92, 0.99}) {
             final double along = (t - 0.5) * l;
-            final Point shoulder = lines.on("shoulder", along);
-            final Point rail = lines.on("rail", along);
-            final Point spine = lines.on("spine", along);
-            gunship.pair(Piece.bar("bow", Paint.FRAME, shoulder, rail, 0.006 * l, 0.004 * l));
-            gunship.pair(Piece.bar("bow", Paint.FRAME, rail, spine, 0.006 * l, 0.004 * l));
+            gunship.pair(Piece.bar("post", Paint.FRAME, lines.on("shoulder", along), lines.on("rail", along), 0.006 * l,
+                    0.004 * l));
         }
-        // its exhausts, out of the back of the hump, splayed
-        gunship.withPair(Craft.named("exhaust").body(Fuselage.nacelle("exhaust", Paint.METAL, 0.06 * l, 0.026 * l)
-                .faceted(8), Mount.at(Point.ZERO)).build(), new Mount(lines.on("rail", -0.035 * l).plus(new Point(-0.006 * l,
-                0, -0.004 * l)), 160, 12, 0));
-        // the stub wings, from its shoulders, a pod at each tip
-        final Point root = wingRoot(lines, l);
-        gunship.withPair(wing("stub wing", Paint.WING, WING_SPAN * l, WING_ROOT * l, WING_TIP * l, WING_SWEEP,
-                WING_ANHEDRAL, 0.14), Mount.at(root));
-        gunship.bodies(new Fuselage("tip pod", Paint.CAR, List.of(Station.round(-0.06 * l, 0),
-                Station.round(-0.055 * l, 0.018 * l), Station.round(0.04 * l, 0.022 * l), Station.round(0.065 * l, 0)), 8)
-                .faceted(8), at.wingTip());
-        for (final Mount pylon : at.pylons()) {
-            gunship.pair(Piece.box("pylon", Paint.METAL, pylon.at().plus(new Point(0, 0, 0.022 * l)), 0.012 * l, 0.07 * l,
-                    0.03 * l));
-        }
-        // the V-tail on the boom's end, and a strake under it
-        final double finAt = -0.38 * l;
-        final Point top = lines.on("rail", finAt);
-        gunship.withPair(wing("fin", Paint.WING, 0.12 * l, 0.1 * l, 0.045 * l, 38, 0, 0.1),
-                new Mount(top.plus(new Point(-0.004 * l, 0, -0.004 * l)), 0, 0, -50));
-        gunship.with(wing("strake", Paint.WING, 0.05 * l, 0.07 * l, 0.03 * l, 30, 0, 0.1),
+        final double screen = (0.92 - 0.5) * l;
+        gunship.pair(Piece.bar("post", Paint.FRAME, lines.on("rail", screen), lines.on("spine", screen), 0.006 * l,
+                0.004 * l));
+        // a V-tail at the boom's end, a strake under it
+        final double finAt = -0.43 * l;
+        gunship.withPair(wing("fin", Paint.WING, 0.1 * l, 0.08 * l, 0.04 * l, 40, 0, 0.1),
+                new Mount(lines.on("rail", finAt).plus(new Point(-0.004 * l, 0, -0.004 * l)), 0, 0, -50));
+        gunship.with(wing("strake", Paint.WING, 0.045 * l, 0.06 * l, 0.03 * l, 30, 0, 0.1),
                 new Mount(lines.on("keel", finAt).plus(new Point(0, 0, 0.004 * l)), 0, 0, 90));
-        // wheels: two under its middle, one under the strake
+        // wheels: two under its middle, one under its nose
         final double ground = at.ground();
-        final double mainAt = (WING_ALONG - 0.03) * l;
-        final Point foot = new Point(0.075 * l, mainAt, ground + 0.025 * l);
-        gunship.pair(Piece.bar("leg", Paint.METAL, lines.on("chine", mainAt).plus(new Point(-0.004 * l, 0, 0)), foot,
+        final double mainAt = (CENTRE_AT - 0.5) * l - 0.02 * l;
+        final Point foot = new Point(0.085 * l, mainAt, ground + 0.025 * l);
+        gunship.pair(Piece.bar("leg", Paint.METAL, lines.on("chine", mainAt).plus(new Point(-0.006 * l, 0, 0)), foot,
                 0.012 * l, 0.012 * l));
         gunship.pair(Parts.wheel("wheel", Paint.DARK, Paint.METAL, 0.025 * l, 0.018 * l), Mount.at(foot));
-        final Point tailFoot = new Point(0, finAt - 0.02 * l, ground + 0.016 * l);
-        gunship.part(Piece.bar("tail leg", Paint.METAL, lines.on("keel", finAt - 0.02 * l).plus(new Point(0, 0, -0.05 * l)),
-                tailFoot, 0.01 * l, 0.01 * l));
-        gunship.parts(Parts.wheel("tail wheel", Paint.DARK, Paint.METAL, 0.016 * l, 0.012 * l), Mount.at(tailFoot));
-        if (marked) {
-            // its hardpoints, each a small bright cube
-            final double c = 0.018 * l;
-            for (final Mount m : List.of(at.mast(), at.tail(), at.nose())) {
-                gunship.part(Piece.box("hardpoint", Paint.TRIM, m.at(), c, c, c));
-            }
-            gunship.pair(Piece.box("hardpoint", Paint.TRIM, at.wingTip().at().plus(new Point(0.03 * l, 0, 0)), c, c, c));
-            for (final Mount m : at.pylons()) {
-                gunship.pair(Piece.box("hardpoint", Paint.TRIM, m.at(), c, c, c));
-            }
-        }
+        final double noseAt = 0.36 * l;
+        final Point noseFoot = new Point(0, noseAt, ground + 0.018 * l);
+        gunship.part(Piece.bar("nose leg", Paint.METAL, lines.on("keel", noseAt), noseFoot, 0.01 * l, 0.01 * l));
+        gunship.parts(Parts.wheel("nose wheel", Paint.DARK, Paint.METAL, 0.018 * l, 0.014 * l), Mount.at(noseFoot));
         return gunship.build();
     }
 
@@ -284,64 +258,99 @@ public final class Gunship {
         return of(length, lift, BodyStyle.PLAIN);
     }
 
-    /** The same, its body styled. */
+    /** The same, its body styled: its lift set into its bay, wherever the style puts it. */
     public static Craft of(final double length, final Lift lift, final BodyStyle style) {
         final double l = length;
-        final Hardpoints at = hardpoints(l, style);
+        final Bay bay = hardpoints(l, style).bay();
         final Craft.Builder gunship = Craft.named(switch (lift) {
             case NONE -> "Gunship body";
-            case TILT_DUCTS -> "Gunship, tilting ducts";
+            case FIXED_WING -> "Gunship, fixed wing";
+            case TWIN_PROPELLERS -> "Gunship, two big propellers";
             case MAIN_ROTOR -> "Gunship, main rotor";
             case COAXIAL_ROTORS -> "Gunship, coaxial rotors";
-        }).with(body(l, lift == Lift.NONE, style), Mount.at(Point.ZERO));
+        }).with(body(l, style), Mount.at(Point.ZERO));
         switch (lift) {
             case NONE -> { }
-            case TILT_DUCTS -> tiltDucts(gunship, at, l);
-            case MAIN_ROTOR -> mainRotor(gunship, at, l);
-            case COAXIAL_ROTORS -> coaxialRotors(gunship, at, l);
+            case FIXED_WING -> fixedWing(gunship, bay, l);
+            case TWIN_PROPELLERS -> twinPropellers(gunship, bay, l);
+            case MAIN_ROTOR -> {
+                final Point hub = pylonAndMast(gunship, bay, l, 0.06 * l);
+                gunship.spinner("main rotor", Parts.rotor("main rotor", Paint.DARK, Paint.METAL, 4, 0.42 * l, 0.03 * l,
+                        10, 1.5), List.of(), Mount.at(hub), 5);
+                final Hardpoints at = hardpoints(l, style);
+                final Engine fan = Engine.ductedFan(0.085 * l);
+                gunship.with(fan.build(), new Mount(at.tail().at().plus(new Point(0.025 * l + fan.diameter() * 0.25, 0, 0)),
+                        90, 0, 0));
+            }
+            case COAXIAL_ROTORS -> {
+                final Point upper = pylonAndMast(gunship, bay, l, 0.1 * l);
+                final Point lower = upper.plus(new Point(0, 0, -0.04 * l));
+                gunship.spinner("lower rotor", Parts.rotor("lower rotor", Paint.DARK, Paint.METAL, 3, 0.38 * l,
+                        0.032 * l, 10, 1), List.of(), Mount.at(lower), 5);
+                gunship.spinner("upper rotor", Parts.rotor("upper rotor", Paint.DARK, Paint.METAL, 3, 0.38 * l,
+                        0.032 * l, -10, 1), List.of(), Mount.at(upper), -5);
+            }
         }
         return gunship.build();
     }
 
+    // ---------------------------------------------------------------- its lift units, set into its bay
+
     /**
-     * A coaxial duct beyond each wing's tip, on its trunnion, its axis up to hover; tilting together on
-     * the trunnions' line ({@code "tilt"}), forward to fly, 0° to 90°.
+     * A lift unit's saddle: a block filling the bay, its top {@code over} above the body's top line
+     * (0, flush with it), its lower part sunk below the bay's floor; chamfered.
      */
-    private static void tiltDucts(final Craft.Builder gunship, final Hardpoints at, final double l) {
-        final Engine duct = Engine.coaxialDuct(0.24 * l);
+    private static void saddle(final Craft.Builder gunship, final Bay bay, final double l, final double over) {
+        final double high = 2 * bay.depth() + over;
+        final BoxBody block = new BoxBody("saddle", Paint.CAR, bay.length() * 0.985, bay.width() * 0.98, high,
+                Math.min(0.012 * l, high / 4), 0, 0).withChamfers();
+        gunship.body(block, Mount.at(bay.floor().plus(new Point(0, 0, over / 2))));
+    }
+
+    /** A high wing through the bay, flush with the top line; a turboprop slung under each side. */
+    private static void fixedWing(final Craft.Builder gunship, final Bay bay, final double l) {
+        saddle(gunship, bay, l, 0);
+        final double root = bay.length() * 0.9;
+        final double span = 0.42 * l;
+        final double top = bay.floor().up() + bay.depth();
+        final Point rootAt = new Point(bay.width() * 0.45, bay.floor().along() + root / 2, top - 0.012 * l);
+        gunship.withPair(wing("wing", Paint.WING, span, root, 0.45 * root, 6, 3, 0.12), Mount.at(rootAt));
+        final Engine engine = Engine.turboprop(0.15 * l);
+        final double out = rootAt.across() + 0.32 * span;
+        final Point engineAt = new Point(out, bay.floor().along() + 0.01 * l, top - 0.05 * l);
+        gunship.withPair(engine.build(), Mount.at(engineAt));
+        gunship.pair(Parts.strut("pylon", Paint.METAL, engineAt.plus(new Point(0, -0.02 * l, engine.diameter() * 0.35)),
+                new Point(out, engineAt.along() - 0.02 * l, top - 0.008 * l), 0.07 * l));
+    }
+
+    /**
+     * Two big propellers: a short beam out of each side of the saddle, a coaxial duct beyond each, on
+     * its trunnion, its axis up to hover; tilting together ({@code "tilt"}), forward to fly, 0° to 90°.
+     */
+    private static void twinPropellers(final Craft.Builder gunship, final Bay bay, final double l) {
+        saddle(gunship, bay, l, 0);
+        final double root = bay.length() * 0.6;
+        final double span = 0.13 * l;
+        final double up = bay.floor().up() + bay.depth() * 0.55;
+        final Point rootAt = new Point(bay.width() * 0.45, bay.floor().along() + root / 2, up);
+        gunship.withPair(wing("beam", Paint.CAR, span, root, root * 0.85, 0, 0, 0.22), Mount.at(rootAt));
+        final Engine duct = Engine.coaxialDuct(0.26 * l);
         final double d = duct.diameter();
-        // its inner trunnion's end against the tip pod: the trunnion is 0.05 out from its duct, 0.07 each way long
-        final Point centre = at.wingTip().at().plus(new Point(0.02 * l + d / 2 + 0.12 * d, 0, 0));
+        // its inner trunnion's end against the beam's tip: the trunnion is 0.05 out from its duct, 0.07 each way long
+        final Point centre = new Point(rootAt.across() + span + d / 2 + 0.12 * d, bay.floor().along(), up);
         final Craft tilting = duct.build().placed(new Mount(centre, 0, 90, 0))
                 .hinged("tilt", centre, new Point(-1, 0, 0), 0, 90);
         gunship.withPair(tilting, Mount.at(Point.ZERO));
     }
 
-    /** A four-bladed main rotor on the mast over a hub; a ducted fan at the boom's end, on its right. */
-    private static void mainRotor(final Craft.Builder gunship, final Hardpoints at, final double l) {
-        final Point foot = at.mast().at();
-        final Point hub = foot.plus(new Point(0, 0, 0.05 * l));
-        gunship.part(Piece.bar("mast", Paint.METAL, foot, hub, 0.014 * l, 0.014 * l));
+    /** A pylon standing {@code over} above the top line out of the bay, and a mast on it: its hub. */
+    private static Point pylonAndMast(final Craft.Builder gunship, final Bay bay, final double l, final double over) {
+        saddle(gunship, bay, l, over);
+        final Point foot = bay.floor().plus(new Point(0, 0, bay.depth() + over));
+        final Point hub = foot.plus(new Point(0, 0, 0.04 * l));
+        gunship.part(Piece.bar("mast", Paint.METAL, foot, hub.plus(new Point(0, 0, 0.01 * l)), 0.016 * l, 0.016 * l));
         gunship.body(Fuselage.spinner("hub", Paint.METAL, 0.03 * l, 0.04 * l).faceted(8),
                 new Mount(hub.plus(new Point(0, 0, 0.012 * l)), 0, 90, 0));
-        gunship.spinner("main rotor", Parts.rotor("main rotor", Paint.DARK, Paint.METAL, 4, 0.42 * l, 0.03 * l, 10, 1.5),
-                List.of(), Mount.at(hub), 5);
-        final Engine fan = Engine.ductedFan(0.085 * l);
-        gunship.with(fan.build(), new Mount(at.tail().at().plus(new Point(0.025 * l + fan.diameter() * 0.25, 0, 0)), 90, 0,
-                0));
-    }
-
-    /** Two three-bladed rotors on a longer mast, one over the other, turning opposite ways. */
-    private static void coaxialRotors(final Craft.Builder gunship, final Hardpoints at, final double l) {
-        final Point foot = at.mast().at();
-        final Point lower = foot.plus(new Point(0, 0, 0.045 * l));
-        final Point upper = foot.plus(new Point(0, 0, 0.085 * l));
-        gunship.part(Piece.bar("mast", Paint.METAL, foot, upper.plus(new Point(0, 0, 0.01 * l)), 0.016 * l, 0.016 * l));
-        gunship.body(Fuselage.spinner("hub", Paint.METAL, 0.03 * l, 0.04 * l).faceted(8),
-                new Mount(upper.plus(new Point(0, 0, 0.012 * l)), 0, 90, 0));
-        gunship.spinner("lower rotor", Parts.rotor("lower rotor", Paint.DARK, Paint.METAL, 3, 0.38 * l, 0.032 * l, 10,
-                1), List.of(), Mount.at(lower), 5);
-        gunship.spinner("upper rotor", Parts.rotor("upper rotor", Paint.DARK, Paint.METAL, 3, 0.38 * l, 0.032 * l, -10,
-                1), List.of(), Mount.at(upper), -5);
+        return hub;
     }
 }
