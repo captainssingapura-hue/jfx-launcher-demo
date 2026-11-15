@@ -30,7 +30,9 @@ public final class Course {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
         FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
         /** A building: one piece, its solid blocks its parts' boxes, broken as a whole. */
-        BUILDING(true);
+        BUILDING(true),
+        /** A unit of a wall: one of a wall's many, each standing, worn down and broken on its own. */
+        WALL_UNIT(true);
 
         private final boolean breakable;
 
@@ -69,10 +71,26 @@ public final class Course {
      * from there is its {@link Prop}'s.
      */
     public record Piece(Block block, Kind kind, int tint, List<Block> solid, Shape shape, Place place,
-                        Route route, int carrier, Loose loose, Bodywork body) {
+                        Route route, int carrier, Loose loose, Bodywork body, List<Volume> volumes) {
 
         public Piece {
             solid = List.copyOf(solid);
+            volumes = List.copyOf(volumes);
+        }
+
+        /** As given, in the way only as its blocks are. */
+        public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid, final Shape shape,
+                     final Place place, final Route route, final int carrier, final Loose loose, final Bodywork body) {
+            this(block, kind, tint, solid, shape, place, route, carrier, loose, body, List.of());
+        }
+
+        /**
+         * A piece that stays where it is, at {@code place}, in the way as {@code solid} blocks and
+         * {@code volumes} shaped more closely ({@link Volume}): a pyramid, a wall's curved unit.
+         */
+        public static Piece shaped(final Block block, final Kind kind, final int tint, final List<Block> solid,
+                                   final List<Volume> volumes, final Place place) {
+            return new Piece(block, kind, tint, solid, null, place, null, -1, null, null, volumes);
         }
 
         /** As given, with no body on it. */
@@ -1029,6 +1047,7 @@ public final class Course {
             case TRACK -> trackDemo();
             case TOWN -> townDemo();
             case TEMPLE -> templeDemo();
+            case PYRAMID -> pieces.addAll(pyramids.get());
         }
     }
 
@@ -1059,6 +1078,14 @@ public final class Course {
      * together outside the simulation, as the town's are; until it is told, nothing.
      */
     private static java.util.function.Supplier<List<Piece>> temple = List::of;
+
+    /** What stands among the pyramids: put together outside the simulation, as the town's are; until it is told, nothing. */
+    private static java.util.function.Supplier<List<Piece>> pyramids = List::of;
+
+    /** Says what stands among the pyramids. */
+    public static void pyramids(final java.util.function.Supplier<List<Piece>> what) {
+        pyramids = what;
+    }
 
     /** Says what stands in the temple's courtyard: its halls. */
     public static void temple(final java.util.function.Supplier<List<Piece>> what) {
@@ -1586,7 +1613,16 @@ public final class Course {
                 numbers.add(i);
             }
         }
-        return new Obstacles(blocks, gates, numbers);
+        // and what is shaped more closely, numbered the same way
+        final List<Volume> volumes = new ArrayList<>();
+        final List<Integer> each = new ArrayList<>();
+        for (int i = 0; i < pieces.size(); i++) {
+            for (final Volume volume : pieces.get(i).volumes()) {
+                volumes.add(volume);
+                each.add(i);
+            }
+        }
+        return new Obstacles(blocks, gates, numbers, volumes, each);
     }
 
     /**

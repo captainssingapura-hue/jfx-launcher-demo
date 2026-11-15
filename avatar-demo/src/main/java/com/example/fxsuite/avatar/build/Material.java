@@ -30,8 +30,10 @@ public enum Material {
     LACQUER("red lacquered timber", Double.POSITIVE_INFINITY),
     PAINTED("painted timber", Double.POSITIVE_INFINITY),
     TIMBER("dark timber", Double.POSITIVE_INFINITY),
-    /** A wall's plaster, red. */
-    PLASTER("red plaster", 300);
+    /** A wall's plaster, red; a pyramid's stone, sandstone or white limestone. */
+    PLASTER("red plaster", 300),
+    SANDSTONE("sandstone", Double.POSITIVE_INFINITY),
+    LIMESTONE("white limestone", Double.POSITIVE_INFINITY);
 
     private final String title;
     private final double span;

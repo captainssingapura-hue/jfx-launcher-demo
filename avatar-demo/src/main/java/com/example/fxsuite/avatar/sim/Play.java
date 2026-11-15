@@ -1151,7 +1151,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             blocks.add(person.box());
             pieces.add(person.piece());
         }
-        return new Obstacles(blocks, world.gates(), pieces);
+        return new Obstacles(blocks, world.gates(), pieces, world.volumes(), world.volumePieces());
     }
 
     /**
@@ -1291,6 +1291,6 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 blocks.add(now.get(k));
             }
         }
-        return new Obstacles(blocks, built.gates(), built.pieces());
+        return new Obstacles(blocks, built.gates(), built.pieces(), built.volumes(), built.volumePieces());
     }
 }

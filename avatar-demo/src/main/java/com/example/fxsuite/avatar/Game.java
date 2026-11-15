@@ -121,6 +121,7 @@ public final class Game {
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces);
         com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
+        com.example.fxsuite.avatar.sim.Course.pyramids(com.example.fxsuite.avatar.build.Pyramids::pieces);
     }
 
     private static final double FIELD_OF_VIEW = 48;

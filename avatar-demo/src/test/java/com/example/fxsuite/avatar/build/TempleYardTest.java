@@ -28,7 +28,7 @@ class TempleYardTest {
 
     @Test
     void aGreatHallAndASmallerHallEachSideFacingIn() {
-        final List<Course.Piece> halls = TempleYard.pieces();
+        final List<Course.Piece> halls = TempleYard.pieces().subList(0, TempleYard.HALLS.size());
         assertEquals(3, halls.size());
         final Block great = halls.get(0).block();
         for (int k = 0; k < halls.size(); k++) {

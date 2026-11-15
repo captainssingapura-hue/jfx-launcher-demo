@@ -32,7 +32,10 @@ public enum Demo {
             + " its platform.", 0),
     /** A temple's courtyard: its great hall at the back, a smaller hall each side, three monks at their stand-up. */
     TEMPLE("Temple", "A temple's courtyard: its great hall at the back, a smaller hall facing in from each side, and"
-            + " three monks at their stand-up in the middle. (Its gate is to come.)", 0);
+            + " three monks at their stand-up in the middle. (Its gate is to come.)", 0),
+    /** Pyramids, each in the way as it is shaped: a great smooth one, a low one to walk up, a stepped one with a stairway. */
+    PYRAMID("Pyramids", "A great smooth pyramid, too steep to climb; a low one, turned, to walk up to its point; and a"
+            + " stepped one with a stairway up to the shrine on its top. Each is in the way as it is shaped.", 0);
 
     private final String title;
     private final String description;

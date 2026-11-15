@@ -38,6 +38,8 @@ public final class Damage {
     public static final double BUNKER = 2500;
     /** A building, broken as a whole: ten bunkers' worth. */
     public static final double BUILDING = 25_000;
+    /** A unit of a wall: so much for each cubic metre of its box, a brick wall's worth; no less than a crate's. */
+    public static final double WALL_UNIT = 60;
     /** How tough a land vehicle is, bare as it is. */
     public static final double CAR = 800;
     public static final double CRATE = 80;
@@ -84,6 +86,8 @@ public final class Damage {
             case AIRSHIP -> AIRSHIP;
             case BUNKER -> BUNKER;
             case BUILDING -> BUILDING;
+            case WALL_UNIT -> Math.max(CRATE, Math.round(WALL_UNIT * 4 * block.halfWidth() * block.halfDepth()
+                    * (block.top() - block.bottom()) / 1e6));
             // a land vehicle's body makes it the tougher by its armour
             case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
             case PLATFORM -> PLATFORM;

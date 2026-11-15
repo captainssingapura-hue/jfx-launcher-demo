@@ -39,6 +39,52 @@ public final class TempleYard {
             new Hall("west hall", SIDE, "Green glazed", new Place(-3300, 2800, 0, 90)),
             new Hall("east hall", SIDE, "Green glazed", new Place(3300, 2800, 0, -90)));
 
+    /** Its wall's units' keys, to draw them by, start here: past its halls'. */
+    public static final int WALL_KEYS = 200;
+    /** How long, at most, each unit of its wall: what one blow can bring down. */
+    public static final double UNIT = 600;
+    /** Its wall round it: its front, its sides, its back; and the openings in it, front and back. */
+    public static final double FRONT = -800;
+    public static final double BACK = 9000;
+    public static final double FLANK = 4700;
+    /** The back's corners rounded so far in. */
+    public static final double ROUNDED = 800;
+    /** The main entrance, on its middle line at its front, so wide; and the back door, behind the great hall. */
+    public static final double ENTRANCE = 900;
+    public static final double BACK_DOOR = 180;
+
+    /**
+     * Its wall: a red wall on a stone plinth, its coping green-tiled, round the courtyard and its halls;
+     * the front open on its middle line for the main entrance (its gate still to come), and a small
+     * door in the back behind the great hall; the back's corners rounded. In units of 6 m at most.
+     */
+    public static final Wall WALL = new Wall("temple wall", Wall.Style.TEMPLE, enclosure());
+
+    private static List<Wall.Unit> enclosure() {
+        final List<Wall.Unit> units = new ArrayList<>();
+        final double gate = ENTRANCE / 2;
+        final double door = BACK_DOOR / 2;
+        final double turn = BACK - ROUNDED;
+        units.addAll(Wall.run(at(-FLANK, FRONT), at(-gate, FRONT), UNIT));
+        units.addAll(Wall.run(at(gate, FRONT), at(FLANK, FRONT), UNIT));
+        units.addAll(Wall.run(at(-FLANK, FRONT), at(-FLANK, turn), UNIT));
+        units.addAll(Wall.arc(at(-FLANK + ROUNDED, turn), ROUNDED, 270, 360, UNIT));
+        units.addAll(Wall.run(at(-FLANK + ROUNDED, BACK), at(-door, BACK), UNIT));
+        units.addAll(Wall.run(at(door, BACK), at(FLANK - ROUNDED, BACK), UNIT));
+        units.addAll(Wall.arc(at(FLANK - ROUNDED, turn), ROUNDED, 0, 90, UNIT));
+        units.addAll(Wall.run(at(FLANK, turn), at(FLANK, FRONT), UNIT));
+        return units;
+    }
+
+    private static Point at(final double x, final double z) {
+        return new Point(x, z, 0);
+    }
+
+    /** Its wall's palette: red plaster on stone, its coping's tiles green, as the side halls' roofs are. */
+    private static final Palette WALLED = Temple.LACQUERED.with(Map.of(Role.ROOF, Material.GREEN_GLAZED));
+
+    private static final Map<Integer, List<Solid>> WALL_DRAWN = new ConcurrentHashMap<>();
+
     private static final Map<Integer, List<Solid>> DRESSED = new ConcurrentHashMap<>();
 
     /** Hall {@code k}, dressed: red lacquer, its roof's tiles as it says. Worked out once, when first wanted. */
@@ -50,17 +96,23 @@ public final class TempleYard {
         });
     }
 
-    /** What stands in the courtyard: its halls, each one piece. */
+    /** What stands in the courtyard: its halls, each one piece; and round it its wall, each unit a piece. */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int k = 0; k < HALLS.size(); k++) {
             pieces.add(Town.building(solids(k), HALLS.get(k).place(), KEYS + k));
         }
+        for (int u = 0; u < WALL.units().size(); u++) {
+            pieces.add(WALL.piece(u, WALL_KEYS + u));
+        }
         return pieces;
     }
 
-    /** What building {@code key} is dressed as: a hall of the courtyard's, or one of the town's. */
+    /** What building {@code key} is dressed as: a unit of the courtyard's wall, a hall of it, or one of the town's. */
     public static List<Solid> drawn(final int key) {
+        if (key >= WALL_KEYS) {
+            return WALL_DRAWN.computeIfAbsent(key - WALL_KEYS, u -> WALL.drawn(u, WALLED));
+        }
         return key >= KEYS ? solids(key - KEYS) : Town.solids(key);
     }
 }

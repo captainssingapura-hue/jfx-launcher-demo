@@ -18,7 +18,8 @@ import java.util.stream.IntStream;
  * <p>A couple of hundred blocks are checked one by one: cheap at this size. A grid of cells,
  * each listing the blocks over it, would take over if the world grew a hundredfold.
  */
-public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> pieces) {
+public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> pieces, List<Volume> volumes,
+                        List<Integer> volumePieces) {
 
     /** Open ground and nothing else. */
     public static final Obstacles NONE = new Obstacles(List.of());
@@ -27,9 +28,28 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         blocks = List.copyOf(blocks);
         gates = List.copyOf(gates);
         pieces = List.copyOf(pieces);
+        volumes = List.copyOf(volumes);
+        volumePieces = List.copyOf(volumePieces);
         if (pieces.size() != blocks.size()) {
             throw new IllegalArgumentException(blocks.size() + " blocks but " + pieces.size() + " piece numbers");
         }
+        if (volumePieces.size() != volumes.size()) {
+            throw new IllegalArgumentException(volumes.size() + " volumes but " + volumePieces.size() + " piece numbers");
+        }
+    }
+
+    /** Blocks, each its piece's number, and gates: nothing shaped more closely ({@link Volume}). */
+    public Obstacles(final List<Block> blocks, final List<Gate> gates, final List<Integer> pieces) {
+        this(blocks, gates, pieces, List.of(), List.of());
+    }
+
+    /** The same, and {@code more} shaped more closely, each its piece's number in {@code numbers}. */
+    public Obstacles with(final List<Volume> more, final List<Integer> numbers) {
+        final List<Volume> all = new ArrayList<>(volumes);
+        all.addAll(more);
+        final List<Integer> each = new ArrayList<>(volumePieces);
+        each.addAll(numbers);
+        return new Obstacles(blocks, gates, pieces, all, each);
     }
 
     /** Blocks and gates, the blocks numbered in order from 0. */
@@ -47,7 +67,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
      * longer in the way.
      */
     public Obstacles without(final int piece) {
-        if (!pieces.contains(piece)) {
+        if (!pieces.contains(piece) && !volumePieces.contains(piece)) {
             return this;
         }
         final List<Block> left = new ArrayList<>();
@@ -58,7 +78,15 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 numbers.add(pieces.get(i));
             }
         }
-        return new Obstacles(left, gates, numbers);
+        final List<Volume> volumesLeft = new ArrayList<>();
+        final List<Integer> volumeNumbers = new ArrayList<>();
+        for (int i = 0; i < volumes.size(); i++) {
+            if (volumePieces.get(i) != piece) {
+                volumesLeft.add(volumes.get(i));
+                volumeNumbers.add(volumePieces.get(i));
+            }
+        }
+        return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers);
     }
 
     /**
@@ -73,7 +101,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 moved.set(i, now.get(k++));
             }
         }
-        return new Obstacles(moved, gates, pieces);
+        return new Obstacles(moved, gates, pieces, volumes, volumePieces);
     }
 
     /** What there is to stand on: how high, and what it is. */
@@ -98,6 +126,19 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
             if (block.bottom() < within && block.covers(x, z, radius)) {
                 // a ramp's top where the circle stands on it
                 final double top = block.topAt(x, z, radius);
+                if (top > floor && top <= within) {
+                    floor = top;
+                }
+            }
+        }
+        for (final Volume volume : volumes) {
+            if (volume.low() < within && volume.covers(x, z, radius)) {
+                final double top = volume.topAt(x, z, radius);
+                // too steep to stand on (rising more than a step from under the circle to as far again
+                // out): not footing, as a ramp that steep is not, so nothing creeps up it a step at a time
+                if (volume.topAt(x, z, 2 * radius) - top > Body.STEP) {
+                    continue;
+                }
                 if (top > floor && top <= within) {
                     floor = top;
                 }
@@ -128,6 +169,12 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 first = hit.on(pieces.get(i));
             }
         }
+        for (int i = 0; i < volumes.size(); i++) {
+            final Hit hit = volumes.get(i).ray(from, direction, first == null ? reach : first.distance());
+            if (hit != null && (first == null || hit.distance() < first.distance())) {
+                first = hit.on(volumePieces.get(i));
+            }
+        }
         return first;
     }
 
@@ -140,6 +187,12 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
             final Block block = blocks.get(i);
             if (block.covers(x, z, radius) && Math.abs(block.topAt(x, z, radius) - height) < 0.5) {
                 return pieces.get(i);
+            }
+        }
+        for (int i = 0; i < volumes.size(); i++) {
+            final Volume volume = volumes.get(i);
+            if (volume.covers(x, z, radius) && Math.abs(volume.topAt(x, z, radius) - height) < 0.5) {
+                return volumePieces.get(i);
             }
         }
         return -1;
@@ -159,6 +212,12 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         for (final Block block : blocks) {
             if (block.bottom() < ceiling && block.bottom() >= from && block.covers(x, z, radius)) {
                 ceiling = block.bottom();
+            }
+        }
+        for (final Volume volume : volumes) {
+            final double underside = volume.undersideAt(x, z, radius);
+            if (underside < ceiling && underside >= from) {
+                ceiling = underside;
             }
         }
         return ceiling;
@@ -197,6 +256,25 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 }
                 final Vec2 push = point ? block.push(ax + dx, az + dz, radius)
                         : block.push(ax + dx, az + dz, bx + dx, bz + dz, radius);
+                if (push == null) {
+                    continue;
+                }
+                blocked = true;
+                dx += push.x();
+                dz += push.z();
+                final double length = push.magnitude();
+                final double nx = push.x() / length;
+                final double nz = push.z() / length;
+                final double into = vx * nx + vz * nz;
+                if (into < 0) {
+                    vx -= nx * into;
+                    vz -= nz * into;
+                }
+            }
+            for (final Volume volume : volumes) {
+                final boolean point = ax == bx && az == bz;
+                final Vec2 push = point ? volume.push(ax + dx, az + dz, radius, feet, head)
+                        : volume.push(ax + dx, az + dz, bx + dx, bz + dz, radius, feet, head);
                 if (push == null) {
                     continue;
                 }

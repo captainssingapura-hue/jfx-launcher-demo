@@ -171,7 +171,7 @@ public final class World {
                 case CAR -> chassis(i, part);
                 case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
-                case BUILDING -> building(part, block, piece.tint());
+                case BUILDING, WALL_UNIT -> building(part, block, piece.tint());
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -340,8 +340,9 @@ public final class World {
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
-        if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT || kind == Course.Kind.BUILDING) {
-            return;  // a drone's box is mostly air, fruit is round, a building is no box: nothing to crack
+        if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT || kind == Course.Kind.BUILDING
+                || kind == Course.Kind.WALL_UNIT) {
+            return;  // a drone's box is mostly air, fruit is round, a building or a wall is no box: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -428,11 +429,11 @@ public final class World {
 
     /** A bunker: its concrete walls and roof, the slit along its front and the door at its back left open. */
     /**
-     * A building in the town ({@code build.Town}), site {@code site}: dressed as it is, a mesh a material
+     * A building in the town ({@code build.Town}) or the temple's courtyard, or a unit of its wall, by its key {@code site}: dressed as it is, a mesh a material
      * ({@link BuildingModel}), standing on the ground at the foot of its box.
      */
     private static Shape3D building(final Group part, final Block block, final int site) {
-        final Group dressed = BuildingModel.of(com.example.fxsuite.avatar.build.TempleYard.drawn(site));
+        final Group dressed = BuildingModel.of(com.example.fxsuite.avatar.build.Sites.drawn(site));
         dressed.setTranslateY((block.top() - block.bottom()) / 2);
         part.getChildren().add(dressed);
         return (Shape3D) dressed.getChildren().getFirst();

@@ -332,12 +332,13 @@ bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to
 with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
 oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
 motorcycle to ride between them, and before them the melon stall and the stand-up, each on its platform; and the
-**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it (`Demo`).
+**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
+**pyramids**, each in the way as it is shaped (`Demo`).
 Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PLAYGROUND`) goes straight to one.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
@@ -774,6 +775,34 @@ through, and one loaded until a pillar gives and it falls.
   middle, on the ground, three monks at their stand-up: a small one in red, a tall one in blue and a
   stout one in yellow, robed, their heads shaved, each having the floor in turn while the other two
   turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
+  Round it all, its wall (below): red on a stone plinth, its coping green-tiled, open on its middle
+  line at the front for the main entrance (9 m) and at the back for a small door (1.8 m) behind the
+  great hall, its back corners rounded.
+- **Shaped more closely than boxes** (`Volume`): what is in the way can be an outline stood straight up
+  (`Prism`: any outline, notches and curves and all, its top flat), or an outline laid on its side and
+  drawn along (`Extrusion`: a gable, a coping, a vault; its profile convex), or the part two of those
+  share (`Crossing`: two gables crossed are a hip roof, two triangles a pyramid). A body meets each as
+  it meets a block, its own way: between its feet and its head, what of it is there stops it; where
+  it slopes, what is under a body's feet rises as a ramp's top does; too steep to stand on (over
+  about 51°, as a ramp) and it is no footing, so nothing creeps up it a step at a time, and what lands
+  on it slides down to its foot. Rounds meet each where it truly is. A piece is in the way as its
+  blocks and its volumes (`Course.Piece.shaped`), in one list each (`Obstacles`): a world with no
+  volumes goes exactly as it did. Platforms do not yet know of them.
+- **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
+  to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
+  and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
+  front (a ramp): closely shaped and boxes in one piece.
+- **Walls** (`Wall`): a list of units, each from one point to another, straight or curved, all built
+  alike (`Wall.Style`: a plinth, the wall, a coping sloping down each side from a ridge). Where units
+  meet they are cut to fit, whatever the angle and however many meet: each one's end runs from where
+  its left face meets the next unit's face, in to the point they meet at (an inner vertex), and out
+  to where its right face meets the other's: in a line they run on as one, at a corner they are
+  mitred, at a junction each takes a slice. A free end is cut square; an opening is where no unit
+  is. Runs and arcs are cut into units no longer than asked (`Wall.run`, `Wall.arc`). In the world
+  each unit is a piece of its own (`Course.Kind.WALL_UNIT`), as tough as it is big: struck, only it
+  wears down and breaks, its neighbours standing. For now each unit is in the way as boxes, one
+  along a straight unit (drawn on to the point it meets others at, so corners close) or one along
+  each short chord of a curved one; exact shapes are next.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
 - **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
