@@ -846,11 +846,13 @@ through, and one loaded until a pillar gives and it falls.
   crowns are flown through.
 - **Void decks** (`Tower.Section.open`, `Towers.voidDeck`): a tower's section can be open, a void deck
   between the solid sections under and over it: no walls round it, its columns the whole grid's
-  standing in the open (slim, 60 cm, each bay 8 m clear), a railing along its open edges (glass
+  standing in the open (slim, 56 cm there, each bay 8 m clear), a railing along its open edges (glass
   under a metal rail), its floor the section under's top, its soffit the one over's underside. Part
   of it can stay enclosed, a plan of its own on its grid, walled as the tower is (composed
-  horizontally): a wing at one end, a core. In the way as it is shaped: its columns, its enclosed
-  part, its railing; walked about between them. On the bench (the void deck tower, 48 m by 32 m,
+  horizontally): a wing at one end. Its columns and core are the tower's frame's (`Frame`), the same
+  ones as in the floors under and over it, so they read as one structure through the glass. In the
+  way as it is shaped: its columns, its core, its enclosed part, its railing; walked about between
+  them. On the bench (the void deck tower, 48 m by 32 m,
   30 floors), its deck's floor, height and enclosed wing (in bays; none, open all through) are set
   live. On it, a garden (`DeckGarden`): the roof garden's parts but its pavilion: a pool sunk into
   the section under it, in a bay as near the open part's middle as it fits; plants in planters,
@@ -926,10 +928,29 @@ through, and one loaded until a pillar gives and it falls.
   base), so different designs stack: a stone podium under a glass shaft under a finned top. The
   columns standing clear of its outline show through its glass. Built in any palette, its doubts
   said as the apartments' are.
+- **Tower frames** (`Frame`): what holds a tower up, laid out in 2D once and shared by all its
+  sections, so a shaft's columns and core are its podium's, carried on up. Its cores are outlines of
+  any shape (`Frame.rectangle`, `octagon`, `cross`, `circle`, or any list of points): one in the
+  middle, two side by side, one in an L's inside corner. Its columns are points, round or square, a
+  size at the tower's foot: on a plan's grid with those in or on a core left out (`Frame.grid`,
+  `Frame.with`), in a ring (`Frame.ring`), or a few placed (`Frame.at`, mega columns). A column on
+  the outline is set in behind the curtain wall (30 cm off the glass); it tapers to 60% of its size
+  at the top; it stands in every section whose outline it is in and stops at a setback's roof. A
+  core runs from the ground through every section and 4 m on over the roof. The six towers each
+  have their own: the setback tower a bay-square core and its podium's grid; the round one a 12 m
+  core and a ring of sixteen round columns, nothing between them; the oval one an octagonal core;
+  the rounded one twin cores; the L block its core in the bay where its arms meet; the bow-front and
+  void deck towers a 16 m by 8 m core. A tower that says none (the church's, the hall's) has no core
+  and its foot's grid. What is wrong is said: a core reaching out of a section, a column standing
+  on nothing below, a void deck's enclosed part off its grid. Only seen, for now: the same frame is
+  what forces would be worked through. A tuned mass damper, concealed at the top of the tallest, is
+  for later.
 - On the bench, each tower's **Plan (2D)** tab shows its sections' plans flat, a section at a time,
   north up, to scale: the floor, the outline as it was square (dashed) and as shaped, the points on
   its curves, its columns and beams, the ring round its curves; with its figures and what is wrong
-  with the tower. The tower from the plan tab's own tab is where its plan is worked: its shape
+  with the tower. Over it, the tower's frame as it stands in that section: its cores, filled and
+  hatched, its columns drawn at their size there (those walled into a void deck's wing too), its
+  enclosed part outlined; the plan's own grid faint beneath; and the frame's figures read out. The tower from the plan tab's own tab is where its plan is worked: its shape
   picked, its width, depth, bays, one more setting, floors and floor height by sliders. The other
   buildings' plan tabs are empty, as yet.
 
@@ -942,7 +963,8 @@ apartments are dressed, `-Dbuilding.corners=corner` and `-Dbuilding.top=cornice`
 `-Dbuilding.size=bays=9,width=14` (counts, or metres) sizes the church (`bays`, `bay`, `width`,
 `walls`, `ridge`, `tower`, `belfry`, `spire`) or the hall (`across`, `middle`, `deep`, `columns`,
 `platform`) to start with.
-`-Dbuilding.tab=plan` opens on the plan tab; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
+`-Dbuilding.tab=plan` opens on the plan tab, `-Dbuilding.section=shaft` (the start of a section's name)
+at that section; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 (the start of a shape's name), `-Dplan.width`, `-Dplan.depth`, `-Dplan.bay` and `-Dplan.extra` (in
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
 plan tab to start with.

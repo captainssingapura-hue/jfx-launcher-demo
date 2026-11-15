@@ -61,7 +61,9 @@ class RoofGardenTest {
             final double width = garden.pavilion().spec().width();
             final String name = garden.tower().name();
             assertTrue(width <= narrowest / 2 + 1e-6, name + ": no more than half: " + width);
-            assertTrue(width >= narrowest / 4, name + ": no less than a quarter: " + width + " of " + narrowest);
+            // no less than a quarter; a sixth, where a core stands up through the roof's middle and it goes beside it
+            final double least = garden.tower().structure().cores().isEmpty() ? narrowest / 4 : narrowest / 6;
+            assertTrue(width >= least, name + ": no less than " + least + ": " + width + " of " + narrowest);
             // all of it on the roof, clear of its edge
             final double x = garden.place().x();
             final double z = garden.place().z();

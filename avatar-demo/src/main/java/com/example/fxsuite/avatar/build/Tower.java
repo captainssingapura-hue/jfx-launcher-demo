@@ -23,8 +23,9 @@ import java.util.Set;
  *
  * @param name     what it is
  * @param sections its sections, bottom to top
+ * @param frame    what holds it up, shared by all its sections ({@link Frame}); null for one made from its foot's plan
  */
-public record Tower(String name, List<Section> sections) {
+public record Tower(String name, List<Section> sections, Frame frame) {
 
     /**
      * One plan, stacked {@code floors} high, each floor {@code height} high, floor to floor. Solid, its
@@ -63,6 +64,16 @@ public record Tower(String name, List<Section> sections) {
         if (sections.isEmpty()) {
             throw new IllegalArgumentException(name + " has no sections");
         }
+    }
+
+    /** Its sections, held up by a frame made from its foot's plan. */
+    public Tower(final String name, final List<Section> sections) {
+        this(name, sections, null);
+    }
+
+    /** What holds it up: its own frame, or one made from its foot's plan ({@link Frame#of(Tower)}). */
+    public Frame structure() {
+        return frame != null ? frame : Frame.of(this);
     }
 
     /** One plan, {@code floors} high. */
@@ -183,6 +194,29 @@ public record Tower(String name, List<Section> sections) {
                 }
             }
             below = layout;
+        }
+        // its frame: each core within every section, each column standing on one below it, or on the ground
+        final Frame structure = structure();
+        for (final Section section : sections) {
+            final Plan.Layout layout = section.plan().layout();
+            for (final List<Plan.Pt> core : structure.cores()) {
+                if (core.stream().anyMatch(p -> !layout.inside(p))) {
+                    problems.add(section.name() + ": a core reaches out of it");
+                }
+            }
+        }
+        for (int s = 1; s < sections.size(); s++) {
+            final Plan.Layout under = sections.get(s - 1).plan().layout();
+            final long floating = structure.in(sections.get(s).plan().layout()).stream()
+                    .filter(c -> !under.inside(c.at())).count();
+            if (floating > 0) {
+                problems.add(sections.get(s).name() + ": " + floating + " of its frame's columns stand on none below");
+            }
+        }
+        final long nowhere = structure.columns().stream()
+                .filter(c -> sections.stream().noneMatch(sec -> sec.plan().layout().inside(c.at()))).count();
+        if (nowhere > 0) {
+            problems.add(nowhere + " of its frame's columns stand in none of its sections");
         }
         return problems;
     }

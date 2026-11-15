@@ -54,8 +54,14 @@ class VoidDeckTest {
         final double z = -400;
         assertEquals(floor, world.floor(x, z, 16, floor + 20), 1e-6);
         assertEquals(top, world.ceiling(x, z, 32, floor + Body.TALL), 1e-6);
-        // the whole grid's columns, but those inside the wing
-        assertEquals(7 * 5 - 3, TowerBuildings.deckColumns(deck).size(), "35 less the 3 inside the wing (those on its walls kept)");
+        // its frame's columns: the whole grid's, but those of its core (on its middle line, in its walls) and inside the wing
+        // (the wing's own perimeter columns set in behind its outer walls, so inside it: 3 + 5 + 2)
+        assertEquals(7 * 5 - 3 - 10, TowerBuildings.deckColumns(tower, 1).size(), "35 less the core's 3 and the wing's 10");
+        assertEquals(1, tower.structure().cores().size(), "a core in its middle");
+        // as its plan shows them, those walled into the wing too: every one but the core's, each as big as the open ones
+        final List<TowerBuildings.Standing> all = TowerBuildings.standing(tower, 1);
+        assertEquals(7 * 5 - 3, all.size(), "35 less the core's 3, the wing's standing all the same");
+        assertTrue(all.containsAll(TowerBuildings.deckColumns(tower, 1)), "the open ones among them");
         // walked east, toward its open edge: stopped by the railing, still on the deck
         Body body = Body.standing(new Vec3(1800, -floor, -400), 90);
         for (int i = 0; i < 300; i++) {
@@ -64,14 +70,14 @@ class VoidDeckTest {
         assertEquals(floor, body.height(), 1e-6, "still on the deck");
         assertTrue(body.position().x() < 2400 - TowerBuildings.RAILING_IN, "behind the railing: " + body.position());
         // walked west, toward the wing: stopped at its wall
-        Body west = Body.standing(new Vec3(400, -floor, -400), 270);
+        Body west = Body.standing(new Vec3(400, -floor, -1200), 270);
         for (int i = 0; i < 300; i++) {
             west = west.step(new Controls(1, 0, 0, 0, false), 1.0 / 60, world);
         }
         assertTrue(west.position().x() > -2400 + 2 * Towers.BAY - 1, "stopped by the wing: " + west.position());
         // open all through: no wing, every column
         final Tower open = Towers.voidDeck(15, 760, 0);
-        assertEquals(35, TowerBuildings.deckColumns(open.sections().get(1)).size());
+        assertEquals(35 - 3, TowerBuildings.deckColumns(open, 1).size(), "every column, but the core's");
         assertEquals(4, TowerBuildings.openEdges(open.sections().get(1)).size(), "a railing along all four of its edges");
         assertEquals(3, TowerBuildings.openEdges(deck).size(), "but along the wing's end wall");
     }
@@ -81,12 +87,16 @@ class VoidDeckTest {
         for (final Tower tower : List.of(Towers.voidDeck(), Towers.voidDeck(12, 400, 0), Towers.voidDeck(18, 1100, 3))) {
             final DeckGarden garden = DeckGarden.of(tower);
             final Tower.Section deck = tower.sections().get(1);
-            final List<Plan.Pt> columns = TowerBuildings.deckColumns(deck);
+            final List<TowerBuildings.Standing> columns = TowerBuildings.deckColumns(tower, 1);
             final RoofGarden.Pool pool = garden.pool();
-            for (final Plan.Pt c : columns) {
-                assertTrue(pool.gap(c.x(), c.y()) > RoofGarden.RIM + TowerBuildings.DECK_COLUMN / 2, "no column in the pool");
+            for (final List<Plan.Pt> core : tower.structure().cores()) {
+                assertTrue(core.stream().allMatch(p -> pool.gap(p.x(), p.y()) > RoofGarden.RIM), "no core in the pool");
+            }
+            for (final TowerBuildings.Standing c : columns) {
+                assertTrue(pool.gap(c.at().x(), c.at().y()) > RoofGarden.RIM + c.size() / 2, "no column in the pool");
                 for (final RoofGarden.Plant plant : garden.plants()) {
-                    assertTrue(Math.hypot(plant.x() - c.x(), plant.z() - c.y()) > plant.size() * 0.8, "no plant on a column");
+                    assertTrue(Math.hypot(plant.x() - c.at().x(), plant.z() - c.at().y()) > plant.size() * 0.8,
+                            "no plant on a column");
                 }
             }
             // every plant's crown under the deck's soffit

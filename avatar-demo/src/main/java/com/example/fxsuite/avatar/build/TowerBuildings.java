@@ -27,31 +27,20 @@ public final class TowerBuildings {
     /** How high a parapet stands round a roof, or a terrace. */
     public static final double PARAPET = 110;
 
-    /** {@code tower}, as a building to dress. */
+    /** {@code tower}, as a building to dress: its walls, floors and roofs; its frame behind them; its void decks' railings. */
     public static Building of(final Tower tower) {
         final List<Surface> walls = new ArrayList<>();
         final List<Plate> plates = new ArrayList<>();
         surfaces(tower, walls, plates);
-        // the columns that show through its glass: its skeleton's upright edges standing clear of its outline
-        final List<Plan.Layout> layouts = tower.sections().stream().map(s -> s.plan().layout()).toList();
         final Form skeleton = tower.skeleton();
-        final Building.Structure columns = Building.Structure.members("column", edge -> {
-            final Form.Vertex a = skeleton.vertices().get(edge.from());
-            final Form.Vertex b = skeleton.vertices().get(edge.to());
-            if (a.across() != b.across() || a.along() != b.along()) {
-                return false;
-            }
-            final int section = sectionAt(tower, Math.min(a.up(), b.up()));
-            // a void deck's columns are its own, standing in the open
-            return !tower.sections().get(section).open()
-                    && clearOfOutline(layouts.get(section), new Plan.Pt(a.across(), a.along()));
-        }, 50, Role.STRUCTURE);
-        final List<Building.Structure> structure = new ArrayList<>(List.of(columns));
+        final List<Building.Structure> structure = new ArrayList<>();
+        // what holds it up, seen through its glass: its columns and its cores, the same all the way up
+        structure.add((sk, palette) -> frame(tower, palette));
         for (int s = 0; s < tower.sections().size(); s++) {
             final Tower.Section section = tower.sections().get(s);
             if (section.open()) {
                 final double base = tower.base(s);
-                structure.add((sk, palette) -> deck(section, base, palette));
+                structure.add((sk, palette) -> railings(section, base, palette));
             }
         }
         final Map<String, List<Building.Option>> choices = new LinkedHashMap<>();
@@ -65,18 +54,81 @@ public final class TowerBuildings {
         return points.stream().map(p -> new com.example.fxsuite.avatar.sim.Vec2(p.x(), p.y())).toList();
     }
 
-    /** How big a void deck's columns are, square; how high its railing stands, how far in from its edge. */
-    public static final double DECK_COLUMN = 60;
+    /** How high a void deck's railing stands, how far in from its edge; how far its cores run on over its roof. */
     public static final double RAILING = 110;
     public static final double RAILING_IN = 15;
+    public static final double OVERRUN = 400;
 
-    /** A void deck's columns standing in the open: its plan's, but for those inside its enclosed part. */
-    public static List<Plan.Pt> deckColumns(final Tower.Section section) {
-        final Plan.Layout enclosed = section.enclosed() == null ? null : section.enclosed().layout();
-        return section.plan().layout().allColumns().values().stream()
-                .filter(c -> enclosed == null || !enclosed.inside(c)
-                        || enclosed.shaped().stream().anyMatch(loop -> onOutline(c, loop)))
-                .toList();
+    /** A column of a tower's frame as it stands in one of its sections: where, its section, how big across there. */
+    public record Standing(Plan.Pt at, Frame.Section section, double size) {
+
+        /** Its footprint. */
+        public List<Plan.Pt> footprint() {
+            return Frame.footprint(new Frame.Column(at, section, size), size);
+        }
+    }
+
+    /**
+     * Section {@code s}'s columns: its frame's within its outline, as big as they are half way up it
+     * (thinner the higher); any too near its wall set in behind it, its face {@link Frame#BEHIND} off
+     * the glass; on a void deck, none inside its enclosed part.
+     */
+    public static List<Standing> columns(final Tower tower, final int s) {
+        return standing(tower, s, false);
+    }
+
+    /**
+     * All section {@code s}'s columns, as {@link #columns} has them, but those inside a void deck's
+     * enclosed part too: walled in there, but standing all the same, as its plan shows them.
+     */
+    public static List<Standing> standing(final Tower tower, final int s) {
+        return standing(tower, s, true);
+    }
+
+    private static List<Standing> standing(final Tower tower, final int s, final boolean walledIn) {
+        final Tower.Section section = tower.sections().get(s);
+        final Plan.Layout layout = section.plan().layout();
+        final List<Plan.Pt> outline = layout.shaped().getFirst();
+        final Plan.Layout enclosed = walledIn || section.enclosed() == null ? null : section.enclosed().layout();
+        final double middle = tower.base(s) + section.tall() / 2;
+        final List<Standing> standing = new ArrayList<>();
+        for (final Frame.Column column : tower.structure().in(layout)) {
+            if (enclosed != null && enclosed.inside(column.at())
+                    && enclosed.shaped().stream().noneMatch(loop -> onOutline(column.at(), loop))) {
+                continue;
+            }
+            final double size = Frame.size(column, middle, tower.height());
+            standing.add(new Standing(clear(outline, column.at(), size / 2 + Frame.BEHIND), column.section(), size));
+        }
+        return standing;
+    }
+
+    /** {@code p} moved in off each piece of {@code outline} it is nearer than {@code need}, to {@code need} off it. */
+    private static Plan.Pt clear(final List<Plan.Pt> outline, final Plan.Pt p, final double need) {
+        double x = p.x();
+        double y = p.y();
+        for (int k = 0; k < outline.size(); k++) {
+            final Plan.Pt a = outline.get(k);
+            final Plan.Pt b = outline.get((k + 1) % outline.size());
+            final Plan.Pt at = new Plan.Pt(x, y);
+            final double gap = toSegment(at, a, b);
+            if (gap < need) {
+                final double length = a.distance(b);
+                // only off a piece it is beside, not past its end; inside on its left, the outline anticlockwise
+                final double along = ((x - a.x()) * (b.x() - a.x()) + (y - a.y()) * (b.y() - a.y())) / (length * length);
+                if (along < 0 || along > 1) {
+                    continue;
+                }
+                x += -(b.y() - a.y()) / length * (need - gap);
+                y += (b.x() - a.x()) / length * (need - gap);
+            }
+        }
+        return new Plan.Pt(x, y);
+    }
+
+    /** A void deck's columns standing in the open (section {@code s}'s). */
+    public static List<Standing> deckColumns(final Tower tower, final int s) {
+        return columns(tower, s);
     }
 
     /** A void deck's open edges: the pieces of its outline its enclosed part is not walled along. */
@@ -105,23 +157,57 @@ public final class TowerBuildings {
                 new Plan.Pt(a.x() + ix * (in + thick), a.y() + iy * (in + thick)));
     }
 
-    /** A void deck drawn: its columns standing from its floor to its soffit; its railing, glass under a metal rail. */
-    private static List<Solid> deck(final Tower.Section section, final double base, final Palette palette) {
+    /**
+     * Its frame drawn: in each section, its columns standing from its floor to its top, as big as they
+     * are there; its cores, all the way up, and on over its roof.
+     */
+    private static List<Solid> frame(final Tower tower, final Palette palette) {
         final List<Solid> solids = new ArrayList<>();
-        final double r = DECK_COLUMN / 2;
-        int k = 0;
-        for (final Plan.Pt c : deckColumns(section)) {
-            solids.add(block(section.name() + ", deck column " + k++, Role.STRUCTURE, palette.of(Role.STRUCTURE),
-                    List.of(new Plan.Pt(c.x() - r, c.y() - r), new Plan.Pt(c.x() + r, c.y() - r),
-                            new Plan.Pt(c.x() + r, c.y() + r), new Plan.Pt(c.x() - r, c.y() + r)),
-                    base, base + section.tall()));
+        for (int s = 0; s < tower.sections().size(); s++) {
+            final double base = tower.base(s);
+            final double top = base + tower.sections().get(s).tall();
+            int k = 0;
+            for (final Standing column : columns(tower, s)) {
+                solids.addAll(stood(tower.sections().get(s).name() + ", column " + k++, Role.STRUCTURE,
+                        palette.of(Role.STRUCTURE), column.footprint(), base, top));
+            }
         }
-        k = 0;
+        int k = 0;
+        for (final List<Plan.Pt> core : tower.structure().cores()) {
+            solids.addAll(stood("core " + k++, Role.STRUCTURE, Material.CONCRETE, core, 0, tower.height() + OVERRUN));
+        }
+        return solids;
+    }
+
+    /** A void deck's railing, along its open edges: glass under a metal rail. */
+    private static List<Solid> railings(final Tower.Section section, final double base, final Palette palette) {
+        final List<Solid> solids = new ArrayList<>();
+        int k = 0;
         for (final Plan.Pt[] edge : openEdges(section)) {
             solids.add(block(section.name() + ", railing " + k, Role.GLAZING, palette.of(Role.GLAZING),
                     railing(edge[0], edge[1], RAILING_IN, 3), base, base + RAILING - 6));
             solids.add(block(section.name() + ", rail " + k++, Role.FRAME, palette.of(Role.FRAME),
                     railing(edge[0], edge[1], RAILING_IN - 2, 7), base + RAILING - 6, base + RAILING));
+        }
+        return solids;
+    }
+
+    /** An outline seen whole from its middle (a rectangle, an octagon, a cross, a circle) stood up: a wedge to each side. */
+    private static List<Solid> stood(final String name, final Role role, final Material material, final List<Plan.Pt> outline,
+                                     final double low, final double high) {
+        final double mx = outline.stream().mapToDouble(Plan.Pt::x).average().orElseThrow();
+        final double my = outline.stream().mapToDouble(Plan.Pt::y).average().orElseThrow();
+        final List<Solid> solids = new ArrayList<>();
+        for (int k = 0; k < outline.size(); k++) {
+            final Plan.Pt a = outline.get(k);
+            final Plan.Pt b = outline.get((k + 1) % outline.size());
+            final List<Point> corners = new ArrayList<>();
+            for (int c = 0; c < 8; c++) {
+                final double up = (c & 4) == 0 ? low : high;
+                final Plan.Pt at = (c & 2) == 0 ? new Plan.Pt(mx, my) : (c & 1) == 0 ? a : b;
+                corners.add(new Point(at.x(), at.y(), up));
+            }
+            solids.add(new Solid(name + ", " + k, role, material, corners));
         }
         return solids;
     }
@@ -137,28 +223,6 @@ public final class TowerBuildings {
             corners.add(new Point(p.x(), p.y(), (c & 4) == 0 ? low : high));
         }
         return new Solid(name, role, material, corners);
-    }
-
-    /** Which section stands from {@code up}. */
-    private static int sectionAt(final Tower tower, final double up) {
-        for (int s = tower.sections().size() - 1; s >= 0; s--) {
-            if (up >= tower.base(s) - 1e-6) {
-                return s;
-            }
-        }
-        return 0;
-    }
-
-    /** Whether {@code p} stands clear of {@code plan}'s outline, inside it: half a metre at least. */
-    private static boolean clearOfOutline(final Plan.Layout plan, final Plan.Pt p) {
-        for (final List<Plan.Pt> loop : plan.shaped()) {
-            for (int k = 0; k < loop.size(); k++) {
-                if (toSegment(p, loop.get(k), loop.get((k + 1) % loop.size())) < 50) {
-                    return false;
-                }
-            }
-        }
-        return plan.inside(p);
     }
 
     private static double toSegment(final Plan.Pt p, final Plan.Pt a, final Plan.Pt b) {
@@ -203,12 +267,12 @@ public final class TowerBuildings {
             final double top = base + section.tall();
             final List<Plan.Pt> outside = layout.shaped().getFirst();
             if (section.open()) {
-                // a void deck: open but for its columns, its enclosed part and its railings
-                final double r = DECK_COLUMN / 2;
-                for (final Plan.Pt c : deckColumns(section)) {
-                    shape.add(new com.example.fxsuite.avatar.sim.Prism(vec(List.of(new Plan.Pt(c.x() - r, c.y() - r),
-                            new Plan.Pt(c.x() + r, c.y() - r), new Plan.Pt(c.x() + r, c.y() + r),
-                            new Plan.Pt(c.x() - r, c.y() + r))), base, top));
+                // a void deck: open but for its frame's columns and cores, its enclosed part and its railings
+                for (final Standing column : columns(tower, s)) {
+                    shape.add(new com.example.fxsuite.avatar.sim.Prism(vec(column.footprint()), base, top));
+                }
+                for (final List<Plan.Pt> core : tower.structure().cores()) {
+                    shape.add(new com.example.fxsuite.avatar.sim.Prism(vec(core), base, top));
                 }
                 if (section.enclosed() != null) {
                     shape.add(new com.example.fxsuite.avatar.sim.Prism(vec(section.enclosed().layout().shaped().getFirst()),
@@ -238,6 +302,10 @@ public final class TowerBuildings {
                         new com.example.fxsuite.avatar.sim.Vec2(b.x() + ix, b.y() + iy),
                         new com.example.fxsuite.avatar.sim.Vec2(a.x() + ix, a.y() + iy)), top, top + PARAPET));
             }
+        }
+        // its cores, on over its roof: their lift overrun
+        for (final List<Plan.Pt> core : tower.structure().cores()) {
+            shape.add(new com.example.fxsuite.avatar.sim.Prism(vec(core), tower.height(), tower.height() + OVERRUN));
         }
         return shape;
     }

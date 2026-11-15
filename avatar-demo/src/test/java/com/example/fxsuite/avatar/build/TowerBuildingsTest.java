@@ -43,7 +43,8 @@ class TowerBuildingsTest {
                 for (final Point p : solid.corners()) {
                     assertTrue(p.across() >= reach[0] - 100 && p.across() <= reach[2] + 100
                             && p.along() >= reach[1] - 100 && p.along() <= reach[3] + 100
-                            && p.up() >= -40 && p.up() <= tower.height() + TowerBuildings.PARAPET + 20,
+                            && p.up() >= -40 && p.up() <= tower.height()
+                                    + Math.max(TowerBuildings.PARAPET + 20, TowerBuildings.OVERRUN + 1),
                             tower.name() + ": " + solid.name() + " at " + p);
                 }
             }

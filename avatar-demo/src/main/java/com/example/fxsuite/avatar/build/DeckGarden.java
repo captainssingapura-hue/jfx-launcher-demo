@@ -65,9 +65,15 @@ public final class DeckGarden {
             throw new IllegalArgumentException(tower.name() + " has no void deck over a section to sink a pool into");
         }
         final Tower.Section section = tower.sections().get(deck);
-        final Room room = new Room(vec(section.plan().layout().shaped().getFirst()),
-                section.enclosed() == null ? null : vec(section.enclosed().layout().shaped().getFirst()),
-                TowerBuildings.deckColumns(section).stream().map(c -> new Vec2(c.x(), c.y())).toList());
+        // kept clear of: its enclosed part, its cores, its columns
+        final List<List<Vec2>> enclosed = new ArrayList<>();
+        if (section.enclosed() != null) {
+            enclosed.add(vec(section.enclosed().layout().shaped().getFirst()));
+        }
+        tower.structure().cores().forEach(core -> enclosed.add(vec(core)));
+        final Room room = new Room(vec(section.plan().layout().shaped().getFirst()), enclosed,
+                TowerBuildings.deckColumns(tower, deck).stream()
+                        .map(c -> new double[] {c.at().x(), c.at().y(), c.size()}).toList());
         final Vec2 middle = room.middle();
         // the pool: in a bay, as near the open part's middle as it fits
         final RoofGarden.Pool pool = room.nearest(middle, POOL_LONG / 2 + RoofGarden.RIM, POOL_WIDE / 2 + RoofGarden.RIM,
@@ -78,8 +84,8 @@ public final class DeckGarden {
         return new DeckGarden(tower, deck, pool, room.plant(tower, section.tall() - HEADROOM - PLANTER, taken));
     }
 
-    /** The deck's open part: its outline, its enclosed part's (if it has one), its columns. */
-    private record Room(List<Vec2> outline, List<Vec2> enclosed, List<Vec2> columns) {
+    /** The deck's open part: its outline; what is enclosed in it (its enclosed part, its cores); its columns, each x, z and size. */
+    private record Room(List<Vec2> outline, List<List<Vec2>> enclosed, List<double[]> columns) {
 
         /** Where in it is roughly its middle: the middle of its open points. */
         Vec2 middle() {
@@ -103,7 +109,9 @@ public final class DeckGarden {
                     outline.stream().mapToDouble(Vec2::z).max().orElseThrow()};
             for (double x = box[0]; x <= box[2]; x += step) {
                 for (double z = box[1]; z <= box[3]; z += step) {
-                    if (Outline.inside(outline, x, z) && (enclosed == null || !Outline.inside(enclosed, x, z))) {
+                    final double px = x;
+                    final double pz = z;
+                    if (Outline.inside(outline, px, pz) && enclosed.stream().noneMatch(e -> Outline.inside(e, px, pz))) {
                         spots.add(new double[] {x, z});
                     }
                 }
@@ -126,15 +134,15 @@ public final class DeckGarden {
             if (outline.stream().anyMatch(p -> r.gap(p.x(), p.z()) < EDGE)) {
                 return false;
             }
-            if (enclosed != null) {
-                final List<Vec2> near = r.outline(CLEAR + 30);
-                if (near.stream().anyMatch(c -> Outline.inside(enclosed, c.x(), c.z()))
-                        || enclosed.stream().anyMatch(p -> Outline.inside(near, p.x(), p.z()))
-                        || Outline.inside(enclosed, x, z)) {
+            final List<Vec2> near = r.outline(CLEAR + 30);
+            for (final List<Vec2> part : enclosed) {
+                if (near.stream().anyMatch(c -> Outline.inside(part, c.x(), c.z()))
+                        || part.stream().anyMatch(p -> Outline.inside(near, p.x(), p.z()))
+                        || Outline.inside(part, x, z)) {
                     return false;
                 }
             }
-            if (columns.stream().anyMatch(c -> r.gap(c.x(), c.z()) < TowerBuildings.DECK_COLUMN / 2 + CLEAR)) {
+            if (columns.stream().anyMatch(c -> r.gap(c[0], c[1]) < c[2] * 0.75 + CLEAR)) {
                 return false;
             }
             return taken.stream().noneMatch(t -> overlap(r, t, APART));

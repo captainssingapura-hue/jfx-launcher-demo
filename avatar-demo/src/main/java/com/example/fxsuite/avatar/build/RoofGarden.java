@@ -92,13 +92,16 @@ public final class RoofGarden {
                 .map(p -> new Vec2(p.x(), p.y())).toList();
         final double[] box = bounds(roof);
         final double narrowest = Math.min(box[2] - box[0], box[3] - box[1]);
+        // its cores, standing up through the roof: kept clear of, as its edge is
+        final List<List<Vec2>> cores = tower.structure().cores().stream()
+                .map(core -> core.stream().map(p -> new Vec2(p.x(), p.y())).toList()).toList();
         // the points to stand them at, and how far each is from the roof's edge
         final List<double[]> spots = new ArrayList<>();
         for (double x = box[0]; x <= box[2]; x += 150) {
             for (double z = box[1]; z <= box[3]; z += 150) {
-                if (Outline.inside(roof, x, z)) {
+                if (Outline.inside(roof, x, z) && gap(cores, x, z) > 0) {
                     final Vec2 edge = Outline.nearest(roof, x, z);
-                    spots.add(new double[] {x, z, Math.hypot(edge.x() - x, edge.z() - z)});
+                    spots.add(new double[] {x, z, Math.min(Math.hypot(edge.x() - x, edge.z() - z), gap(cores, x, z))});
                 }
             }
         }
@@ -114,7 +117,7 @@ public final class RoofGarden {
                 for (final boolean across : new boolean[] {true, false}) {
                     final Pool pool = across ? new Pool(spot[0], spot[1], length / 2, wide / 2)
                             : new Pool(spot[0], spot[1], wide / 2, length / 2);
-                    if (fits(roof, pool)) {
+                    if (fits(roof, pool) && clearOf(cores, pool)) {
                         pools.add(pool);
                     }
                 }
@@ -146,10 +149,35 @@ public final class RoofGarden {
                     throw new IllegalStateException(tower.name() + ": no room on its roof for a pavilion and a pool");
                 }
                 final Place at = new Place(where[0], where[1], tower.height() + LAWN, 0);
-                return new RoofGarden(tower, pavilion, at, beside, plant(tower, roof, new Vec2(where[0], where[1]), reach,
+                return new RoofGarden(tower, pavilion, at, beside, plant(tower, roof, cores, new Vec2(where[0], where[1]), reach,
                         beside), roof);
             }
         }
+    }
+
+    /** How far ({@code x}, {@code z}) is from the nearest of {@code cores}: 0 in one. */
+    private static double gap(final List<List<Vec2>> cores, final double x, final double z) {
+        double gap = Double.POSITIVE_INFINITY;
+        for (final List<Vec2> core : cores) {
+            if (Outline.inside(core, x, z)) {
+                return 0;
+            }
+            final Vec2 near = Outline.nearest(core, x, z);
+            gap = Math.min(gap, Math.hypot(near.x() - x, near.z() - z));
+        }
+        return gap;
+    }
+
+    /** Whether {@code pool}, its rim and room round it, is clear of {@code cores}. */
+    private static boolean clearOf(final List<List<Vec2>> cores, final Pool pool) {
+        final List<Vec2> clear = pool.outline(RIM + EDGE);
+        for (final List<Vec2> core : cores) {
+            if (clear.stream().anyMatch(c -> Outline.inside(core, c.x(), c.z()))
+                    || core.stream().anyMatch(p -> Outline.inside(clear, p.x(), p.z()))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Whether {@code pool}, its rim and room round it, is on the roof clear of its edge: none of its corners off it, none of the roof's in it. */
@@ -189,7 +217,8 @@ public final class RoofGarden {
      * each kept if it is on the roof clear of its edge, of the pavilion, of the pool, and of the plants
      * before it. The same for the same tower, every time.
      */
-    private static List<Plant> plant(final Tower tower, final List<Vec2> roof, final Vec2 middle, final double reach,
+    private static List<Plant> plant(final Tower tower, final List<Vec2> roof, final List<List<Vec2>> cores,
+                                     final Vec2 middle, final double reach,
                                      final Pool pool) {
         final Random random = new Random(tower.name().hashCode());
         final double[] box = bounds(roof);
@@ -216,6 +245,9 @@ public final class RoofGarden {
                     continue;
                 }
                 if (pool.gap(px, pz) < RIM + 100 + size) {
+                    continue;
+                }
+                if (gap(cores, px, pz) < EDGE + size * 0.6) {
                     continue;
                 }
                 if (plants.stream().anyMatch(p -> Math.hypot(p.x() - px, p.z() - pz) < (p.size() + size) * 1.1)) {
