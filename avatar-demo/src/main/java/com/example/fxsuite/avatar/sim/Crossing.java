@@ -95,4 +95,15 @@ public record Crossing(Extrusion first, Extrusion second) implements Volume {
         }
         return new Hit(from.add(direction.multiply(later.enter())), later.in(), Surface.BLOCK, later.enter());
     }
+
+    @Override
+    public boolean overlaps(final Block block) {
+        final double feet = Math.max(low(), block.bottom());
+        final double head = Math.min(high(), block.top());
+        if (feet >= head) {
+            return false;
+        }
+        final List<Vec2> shared = outline(feet, head);
+        return !shared.isEmpty() && Outline.intersects(shared, Outline.corners(block));
+    }
 }

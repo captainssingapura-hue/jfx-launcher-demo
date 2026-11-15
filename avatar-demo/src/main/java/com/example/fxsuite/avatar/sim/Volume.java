@@ -58,6 +58,9 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
     /** Where a ray from {@code from} along {@code direction} (a unit vector) first meets it, within {@code reach}; {@code null} if it misses. */
     Hit ray(Vec3 from, Vec3 direction, double reach);
 
+    /** Whether it and {@code block} take up any of the same space: what a platform needs clear to move into. */
+    boolean overlaps(Block block);
+
     /**
      * {@code shape}, given in a building's own frame (its x across, to the right; its z along,
      * ahead; heights up), {@code scale} times as big about its origin, and put where the building

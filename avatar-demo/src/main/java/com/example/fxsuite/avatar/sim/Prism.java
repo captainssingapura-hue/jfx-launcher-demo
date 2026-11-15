@@ -132,4 +132,9 @@ public record Prism(List<Vec2> outline, double bottom, double top) implements Vo
         }
         return normal == null ? null : new Hit(from.add(direction.multiply(best)), normal, Surface.BLOCK, best);
     }
+
+    @Override
+    public boolean overlaps(final Block block) {
+        return bottom < block.top() && top > block.bottom() && Outline.intersects(outline, Outline.corners(block));
+    }
 }

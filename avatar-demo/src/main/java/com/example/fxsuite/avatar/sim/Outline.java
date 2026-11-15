@@ -154,6 +154,47 @@ public final class Outline {
         return kept;
     }
 
+    /** Whether outlines {@code a} and {@code b} share any ground: one's edges cross the other's, or one is inside the other. */
+    public static boolean intersects(final List<Vec2> a, final List<Vec2> b) {
+        if (inside(b, a.getFirst().x(), a.getFirst().z()) || inside(a, b.getFirst().x(), b.getFirst().z())) {
+            return true;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            final Vec2 p = a.get(i);
+            final Vec2 q = a.get((i + 1) % a.size());
+            for (int j = 0; j < b.size(); j++) {
+                final Vec2 r = b.get(j);
+                final Vec2 s = b.get((j + 1) % b.size());
+                final double ex = q.x() - p.x();
+                final double ez = q.z() - p.z();
+                final double fx = s.x() - r.x();
+                final double fz = s.z() - r.z();
+                final double det = ex * fz - ez * fx;
+                if (Math.abs(det) < 1e-12) {
+                    continue;
+                }
+                final double t = ((r.x() - p.x()) * fz - (r.z() - p.z()) * fx) / det;
+                final double u = ((r.x() - p.x()) * ez - (r.z() - p.z()) * ex) / det;
+                if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** A block's footprint, its four corners anticlockwise. */
+    public static List<Vec2> corners(final Block block) {
+        final Vec3 right = Num.right(block.yaw());
+        final Vec3 ahead = Num.heading(block.yaw());
+        final List<Vec2> corners = new ArrayList<>();
+        for (final double[] c : new double[][] {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}}) {
+            corners.add(new Vec2(block.x() + right.x() * c[0] * block.halfWidth() + ahead.x() * c[1] * block.halfDepth(),
+                    block.z() + right.z() * c[0] * block.halfWidth() + ahead.z() * c[1] * block.halfDepth()));
+        }
+        return twiceArea(corners) < 0 ? corners.reversed() : corners;
+    }
+
     /** The part of convex outline {@code points} also inside convex outline {@code by}. */
     public static List<Vec2> within(final List<Vec2> points, final List<Vec2> by) {
         List<Vec2> kept = points;

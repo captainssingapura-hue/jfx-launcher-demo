@@ -398,8 +398,9 @@ public final class Course {
                            boolean cuts) {
     }
 
-    /** A platform: quick, sideways too, turning as fast as the mouse, and its engine can be cut. */
-    public static final Handling PLATFORM_HANDLING = new Handling(700, 0.6, 350, 0, 60, 4500, true);
+    /** A platform: quick, sideways too, climbing briskly to well over the towers, turning as fast as the mouse; its engine can be cut. */
+    public static final Handling PLATFORM_HANDLING = new Handling(700, 0.6, 700, 0, Course.LIFT_LOW, Course.LIFT_HIGH,
+            true);
     /** An airship: stately, no sideways, turning slowly; it never comes down below its moorings. */
     public static final Handling SHIP_HANDLING = new Handling(900, 0, 250, 22, Course.MOORED, 4500, false);
 
@@ -933,9 +934,9 @@ public final class Course {
 
     private static final List<Berth> PLATFORMS = List.of(new Berth(60, 1800, CARPET), new Berth(10, 2200, BARGE),
             new Berth(-100, 2000, MEETING));
-    /** How low and high a platform's deck goes: just off the ground, and well over the airships. */
+    /** How low and high a platform's deck goes: just off the ground, and well over the tallest tower, under the ceiling. */
     public static final double LIFT_LOW = 60;
-    public static final double LIFT_HIGH = 4500;
+    public static final double LIFT_HIGH = 35_000;
     /** How high a moored airship is: its gondola and lower fin just over the avatar's head, to walk in under and board. */
     public static final double MOORED = 600;
     /**

@@ -234,7 +234,7 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   the left, and a meeting platform, 6.4 m by 5.2 m, further round to the left. A platform is as big as it is made for what it is for (`Course.Deck`). Jump onto
   one and stand behind its console, and the HUD offers the controls (T). At them, the keys that
   would move the robot fly the platform: W and S ahead and back, A and D sideways, the mouse
-  turns it, Space climbs and Ctrl descends, from just off the ground to 45 m up, Shift to go
+  turns it, Space climbs and Ctrl descends, from just off the ground to 350 m up, well over the tallest tower, climbing at 7 m/s, Shift to go
   carefully. It eases up to speed and to a stop, and stops short of anything in its way, with
   room over the deck for whoever rides it. The robot stands at the console and is carried and
   turned with it, and can still draw a weapon and fire. T again lets go, and it hangs where it
@@ -789,7 +789,9 @@ through, and one loaded until a pillar gives and it falls.
   about 51°, as a ramp) and it is no footing, so nothing creeps up it a step at a time, and what lands
   on it slides down to its foot. Rounds meet each where it truly is. A piece is in the way as its
   blocks and its volumes (`Course.Piece.shaped`), in one list each (`Obstacles`): a world with no
-  volumes goes exactly as it did. Platforms do not yet know of them.
+  volumes goes exactly as it did. Platforms know of them too: one will not move into a round tower's
+  curve (but will into its box's empty corner), and settles on a shaped top; a land vehicle is stopped
+  by what of them stands over a kerb in its way.
   An extrusion may have passages through it (`holes`: each convex, drawn all along it): a gateway's
   arch. A body fits through where the passage is open from its feet to its head; in it, the
   passage's floor is under it and its soffit over it; a round down the passage flies on through,

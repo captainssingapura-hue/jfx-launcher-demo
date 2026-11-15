@@ -380,4 +380,15 @@ public record Extrusion(double x, double z, double yaw, double half, List<Vec2> 
         }
         return new Hit(from.add(direction.multiply(span.enter())), span.in(), Surface.BLOCK, span.enter());
     }
+
+    /** Whether any stretch of it between the block's bottom and its top, as a box, overlaps it. */
+    @Override
+    public boolean overlaps(final Block block) {
+        final double feet = Math.max(low(), block.bottom());
+        final double head = Math.min(high(), block.top());
+        if (feet >= head) {
+            return false;
+        }
+        return bands(feet, head).stream().anyMatch(stretch -> box(stretch, feet, head).overlaps(block));
+    }
 }
