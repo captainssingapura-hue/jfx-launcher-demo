@@ -1042,6 +1042,25 @@ hinges on hinges). A coaxial ducted rotor (`Engine.coaxialDuct`) is a deep facet
 in it turning opposite ways, a hub held by stators, vanes across its exit, a trunnion either side to
 tilt it on. Liveries for them: olive drab, desert, gunmetal.
 
+A body can be drawn by its lines first, as a designer draws one, and then dressed on them, as a
+building is (`Lines`): its longerons, lines running its length (a keel, a chine, its widest line,
+a shoulder, a canopy's rail, a spine), each given where it crosses each of its sections, tail to
+nose, for its right half (the left its mirror image), with more sections put between on smooth
+curves through them. From them its skeleton, a graph (`Form`) like a building's: a vertex where
+each longeron crosses each section, edges round each section and along each longeron. On that
+skeleton its skin: a flat panel (`Panel`) between each two longerons and each two sections, each
+band painted as its dressing says (a canopy's glass over a cockpit, a darker belly, an intake). So
+its chines are lines it is drawn by, crisp. A wing's lines are an aerofoil's section along its span,
+drawn to a point at its tip. On the bench, its skeleton can be shown, and its dressing.
+
+A gunship is drawn so (`Gunship`): six longerons through thirteen sections, from a thin boom raised
+to its tail, through a deep middle humped over its engine and a cockpit for two under a framed
+canopy, to a chiselled nose; stub wings with a pod at each tip, a V-tail, wheels. It says where
+things are fixed to it, from its lines (`Gunship.Hardpoints`): a mast on its hump, each wing's tip,
+its boom's end, under its nose, pylons under its wings. So it can be lifted several ways, the body
+the same: tilting coaxial ducts at its wing tips (`"tilt"`, hovering to flying), a main rotor and a
+ducted tail fan, or two coaxial rotors.
+
 Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
 fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an
 outrigger), a heavy bomber airship (a fatter, dark envelope, red bands round its nose, a long
@@ -1060,6 +1079,7 @@ with, `-Daircraft.livery=bomber` its livery, `-Daircraft.size=30` its size in me
 `-Daircraft.turning=false` holds its rotors still. `-Daircraft.floor=false` and `-Daircraft.person=false` start
 without the floor (to look up at it from under it) and the person;
 `-Daircraft.set=turret traverse=40,turret elevation=-30` sets its hinges' controls to start with.
+`-Daircraft.skeleton=true` starts with its skeleton shown, `-Daircraft.dressed=false` undressed.
 
 ## Unattended runs
 

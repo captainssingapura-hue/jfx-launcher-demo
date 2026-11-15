@@ -65,12 +65,17 @@ public final class AircraftBench extends Application {
     private final ComboBox<Crafts.Kind> kinds = new ComboBox<>();
     private final ComboBox<Livery> liveries = new ComboBox<>();
     private final Spinner<Double> size = new Spinner<>();
+    private final CheckBox showSkeleton = new CheckBox("Its skeleton: the lines it is drawn by");
+    private final CheckBox showDressed = new CheckBox("Dressed: its skin and its parts");
     private final CheckBox turning = new CheckBox("Its rotors and propellers turning");
     private final Slider power = new Slider(0, 1, 0.35);
     private final CheckBox showFloor = new CheckBox("The floor, ruled every 10 m (every metre, for a small one)");
     private final CheckBox showPerson = new CheckBox(String.format(Locale.ROOT, "A person, %.2f m tall, beside it",
             Stall.PERSON / 100));
     private final Label figures = new Label();
+    /** A slider for each control its shape is made by (a styled body's width, its haunch), by name. */
+    private final VBox shaping = new VBox(6);
+    private final java.util.Map<String, Slider> shapers = new java.util.LinkedHashMap<>();
     /** A slider for each control its hinges turn on (a duct's tilt, a turret's traverse). */
     private final VBox hinged = new VBox(6);
     private CraftModel model;
@@ -128,21 +133,25 @@ public final class AircraftBench extends Application {
         final String paint = System.getProperty("aircraft.livery", "").toLowerCase(Locale.ROOT);
         liveries.setValue(Livery.all().stream()
                 .filter(l -> !paint.isEmpty() && l.name().toLowerCase(Locale.ROOT).startsWith(paint)).findFirst()
-                .orElse(kinds.getValue() == Crafts.Kind.BOMBER ? Livery.BOMBER : Livery.PATROL));
+                .orElse(usualLivery(kinds.getValue())));
         sized(kinds.getValue());
+        shapers(kinds.getValue());
         if (System.getProperty("aircraft.size") != null) {
             size.getValueFactory().setValue(Double.parseDouble(System.getProperty("aircraft.size")));
         }
         kinds.setOnAction(e -> {
             sized(kinds.getValue());
-            if (kinds.getValue() == Crafts.Kind.BOMBER) {
-                liveries.setValue(Livery.BOMBER);
-            }
+            shapers(kinds.getValue());
+            liveries.setValue(usualLivery(kinds.getValue()));
             rebuild(true);
         });
         liveries.setOnAction(e -> rebuild(false));
         size.valueProperty().addListener((o, was, now) -> rebuild(true));
         turning.setSelected(!"false".equalsIgnoreCase(System.getProperty("aircraft.turning")));
+        showSkeleton.setSelected(Boolean.getBoolean("aircraft.skeleton"));
+        showDressed.setSelected(!"false".equalsIgnoreCase(System.getProperty("aircraft.dressed")));
+        showSkeleton.setOnAction(e -> rebuild(false));
+        showDressed.setOnAction(e -> rebuild(false));
         showFloor.setSelected(!"false".equalsIgnoreCase(System.getProperty("aircraft.floor")));
         showFloor.setOnAction(e -> floor.setVisible(showFloor.isSelected()));
         floor.setVisible(showFloor.isSelected());
@@ -159,8 +168,8 @@ public final class AircraftBench extends Application {
                         + " sections (an airship's envelope, an aeroplane's, a helicopter's pod and boom, an engine's"
                         + " nacelle); a box with its edges rounded (a drone's body, a boxy helicopter, a gondola);"
                         + " wings, fins, rotors, wheels and struts as solid pieces. An airship is both."),
-                new HBox(8, new Label("Size (m)"), size),
-                turning, new HBox(8, new Label("Power"), power), hinged,
+                new HBox(8, new Label("Size (m)"), size), shaping,
+                showDressed, showSkeleton, turning, new HBox(8, new Label("Power"), power), hinged,
                 showFloor, showPerson,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -201,6 +210,46 @@ public final class AircraftBench extends Application {
         SoundBench.snapshotIfAsked(scene);
     }
 
+    /** What {@code kind} is painted in to start with: a bomber as one, a gunship olive drab, the rest as a patrol's. */
+    private static Livery usualLivery(final Crafts.Kind kind) {
+        return kind == Crafts.Kind.BOMBER ? Livery.BOMBER
+                : kind.name().startsWith("GUNSHIP") ? Livery.OLIVE : Livery.PATROL;
+    }
+
+    /**
+     * A slider for each control {@code kind}'s shape is made by, from its least to its most, as drawn to
+     * start with (or as {@code -Daircraft.shape=width=1.2,haunch=0.02} says); each change makes it again.
+     */
+    private void shapers(final Crafts.Kind kind) {
+        final java.util.Map<String, Double> asked = new java.util.HashMap<>();
+        for (final String pair : System.getProperty("aircraft.shape", "").split(",")) {
+            final String[] kv = pair.split("=");
+            if (kv.length == 2) {
+                asked.put(kv[0].trim().toLowerCase(Locale.ROOT), Double.parseDouble(kv[1].trim()));
+            }
+        }
+        shapers.clear();
+        shaping.getChildren().clear();
+        for (final com.example.fxsuite.avatar.air.BodyStyle.Control control : kind.controls()) {
+            final Slider slider = new Slider(control.least(), control.most(),
+                    Math.clamp(asked.getOrDefault(control.name(), control.usual()), control.least(), control.most()));
+            slider.setPrefWidth(170);
+            slider.valueChangingProperty().addListener((o, was, now) -> {
+                if (!now) {
+                    rebuild(false);
+                }
+            });
+            slider.valueProperty().addListener((o, was, now) -> {
+                if (!slider.isValueChanging()) {
+                    rebuild(false);
+                }
+            });
+            shapers.put(control.name(), slider);
+            shaping.getChildren().add(new HBox(8, new Label(Character.toUpperCase(control.name().charAt(0))
+                    + control.name().substring(1)), slider));
+        }
+    }
+
     /** The size spinner as {@code kind} may be made: from its least to its most, at its usual. */
     private void sized(final Crafts.Kind kind) {
         final double step = kind.most() <= 10 ? 0.1 : 1;
@@ -214,8 +263,11 @@ public final class AircraftBench extends Application {
     private void rebuild(final boolean frame) {
         final Crafts.Kind kind = kinds.getValue();
         final double metres = Math.clamp(size.getValue(), kind.least(), kind.most());
-        final Craft craft = kind.build(metres);
-        model = new CraftModel(craft, liveries.getValue());
+        final java.util.Map<String, Double> shape = new java.util.HashMap<>();
+        shapers.forEach((control, slider) -> shape.put(control, slider.getValue()));
+        final Craft craft = kind.build(metres, shape);
+        model = new CraftModel(craft, liveries.getValue(), showDressed.isSelected(), showSkeleton.isSelected(),
+                Math.max(0.6, metres * 100 / 700));
         hinges(craft);
         final Extent box = craft.extent();
         // stood on the floor, as it would be parked: its lowest point a hair above it

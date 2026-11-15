@@ -23,6 +23,11 @@ public final class Crafts {
         HELICOPTER("Helicopter", 12, 6, 24, Category.AIRCRAFT),
         TANDEM("Tandem-rotor helicopter", 15, 8, 30, Category.AIRCRAFT),
         LIGHT_PLANE("Light aeroplane", 8, 5, 20, Category.AIRCRAFT),
+        /** A gunship ({@link Gunship}): its body alone, its hardpoints marked; and lifted three ways. */
+        GUNSHIP_BODY("Gunship body: its fuselage alone", 16, 8, 30, Category.BODY),
+        GUNSHIP_DUCTS("Gunship, tilting ducts", 16, 8, 30, Category.AIRCRAFT),
+        GUNSHIP_ROTOR("Gunship, main rotor", 16, 8, 30, Category.AIRCRAFT),
+        GUNSHIP_COAXIAL("Gunship, coaxial rotors", 16, 8, 30, Category.AIRCRAFT),
         /** Engines on their own ({@link Engine}): a radial and a turboprop by their length, a duct by its width. */
         RADIAL_ENGINE("Radial piston engine", 1.6, 0.4, 6, Category.ENGINE),
         TURBOPROP("Turboprop engine", 4, 1, 10, Category.ENGINE),
@@ -80,8 +85,19 @@ public final class Crafts {
             return category == Category.ENGINE;
         }
 
-        /** It, {@code metres} long (a drone, a ducted fan, across). */
+        /** The controls it is shaped by, besides its size: a styled body's ({@link BodyStyle}); none, for the rest. */
+        public List<BodyStyle.Control> controls() {
+            return name().startsWith("GUNSHIP") ? BodyStyle.CONTROLS : List.of();
+        }
+
+        /** It, {@code metres} long (a drone, a ducted fan, across), shaped as drawn. */
         public Craft build(final double metres) {
+            return build(metres, java.util.Map.of());
+        }
+
+        /** It, {@code metres} long, shaped as {@code shape} says, by its controls' names. */
+        public Craft build(final double metres, final java.util.Map<String, Double> shape) {
+            final BodyStyle style = BodyStyle.of(shape);
             if (metres < least || metres > most) {
                 throw new IllegalArgumentException(title + " " + metres + " m: from " + least + " to " + most);
             }
@@ -93,6 +109,10 @@ public final class Crafts {
                 case HELICOPTER -> helicopter(size);
                 case TANDEM -> tandem(size);
                 case LIGHT_PLANE -> lightPlane(size);
+                case GUNSHIP_BODY -> Gunship.fuselageAlone(size, style);
+                case GUNSHIP_DUCTS -> Gunship.of(size, Gunship.Lift.TILT_DUCTS, style);
+                case GUNSHIP_ROTOR -> Gunship.of(size, Gunship.Lift.MAIN_ROTOR, style);
+                case GUNSHIP_COAXIAL -> Gunship.of(size, Gunship.Lift.COAXIAL_ROTORS, style);
                 case RADIAL_ENGINE -> Engine.radial(size).build();
                 case TURBOPROP -> Engine.turboprop(size).build();
                 case DUCTED_FAN -> Engine.ductedFan(size).build();

@@ -110,6 +110,20 @@ final class MeshBuilder {
     /** A faceted skin's quad's smoothing group, while it is being added; none, otherwise. */
     private int facet;
 
+    /** A flat face through {@code corners} (three or four, round it), shaded flat, its points its own. */
+    void face(final Point3D[] corners) {
+        final int[] at = new int[corners.length];
+        for (int k = 0; k < corners.length; k++) {
+            at[k] = point(corners[k]);
+        }
+        if (corners.length == 3) {
+            triangle(at[0], at[1], at[2]);
+            quads++;
+        } else {
+            quad(at[0], at[1], at[2], at[3]);
+        }
+    }
+
     /** A square rod {@code width} across from {@code a} to {@code b}. */
     void rod(final Point3D a, final Point3D b, final double width) {
         final Point3D run = b.subtract(a).normalize();

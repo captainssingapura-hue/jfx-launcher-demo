@@ -37,15 +37,46 @@ public final class CraftModel {
     private final Map<String, List<Rotate>> hinges = new java.util.LinkedHashMap<>();
     private final Map<Rotate, Double> senses = new java.util.HashMap<>();
 
+    /** Whether it is drawn dressed (its skin, its parts); its lines' skeletons, and how thick they are drawn. */
+    private final boolean dressed;
+    private final boolean lines;
+    private final double thickness;
+
     public CraftModel(final Craft craft, final Livery livery) {
+        this(craft, livery, true, false, 0);
+    }
+
+    /**
+     * {@code craft} in {@code livery}: dressed, if {@code dressed}; and its lines' skeletons, if
+     * {@code skeleton}, each edge a rod {@code thickness} across, in a colour for how it leans (as a
+     * building's skeleton is drawn).
+     */
+    public CraftModel(final Craft craft, final Livery livery, final boolean dressed, final boolean skeleton,
+                      final double thickness) {
+        this.dressed = dressed;
+        this.lines = skeleton;
+        this.thickness = thickness;
         root.getChildren().add(drawn(craft, livery));
     }
 
+    /** How a skeleton's edges are coloured, by how they lean: as a building's. */
+    private static final Map<FormModel.Lean, PhongMaterial> LEANS = Map.of(
+            FormModel.Lean.UPRIGHT, BoxRig.matte("#2f6fb3"), FormModel.Lean.LEVEL, BoxRig.matte("#3b3f45"),
+            FormModel.Lean.SLOPED, BoxRig.matte("#c26a1b"));
+
     /** {@code craft} drawn: its skins and pieces; what turns, each about its axis; what is hinged, each on its hinge, and so on. */
     private Group drawn(final Craft craft, final Livery livery) {
-        final Group group = new Group(meshes(craft.skins(), craft.pieces(), livery));
+        final Group group = new Group();
+        if (dressed) {
+            group.getChildren().add(meshes(craft.skins(), craft.pieces(), craft.panels(), livery));
+        }
+        if (lines) {
+            for (final com.example.fxsuite.avatar.sim.Form skeleton : craft.skeletons()) {
+                group.getChildren().add(FormModel.of(skeleton, thickness, LEANS, false, BoxRig.matte("#d8323a")));
+            }
+        }
         for (final Spinner spinner : craft.spinners()) {
-            final Group turning = meshes(spinner.skins(), spinner.pieces(), livery);
+            final Group turning = dressed ? meshes(spinner.skins(), spinner.pieces(), List.of(), livery) : new Group();
             final Rotate turn = about(spinner.hub(), spinner.axis());
             turning.getTransforms().add(turn);
             turns.add(turn);
@@ -98,7 +129,8 @@ public final class CraftModel {
         }
     }
 
-    private Group meshes(final List<Skin> skins, final List<Piece> pieces, final Livery livery) {
+    private Group meshes(final List<Skin> skins, final List<Piece> pieces,
+                         final List<com.example.fxsuite.avatar.air.Panel> panels, final Livery livery) {
         final Map<Paint, MeshBuilder> meshes = new EnumMap<>(Paint.class);
         for (final Skin skin : skins) {
             meshes.computeIfAbsent(skin.paint(), p -> new MeshBuilder())
@@ -108,6 +140,10 @@ public final class CraftModel {
         for (final Piece piece : pieces) {
             meshes.computeIfAbsent(piece.paint(), p -> new MeshBuilder())
                     .box(piece.corners().stream().map(CraftModel::fx).toArray(Point3D[]::new));
+        }
+        for (final com.example.fxsuite.avatar.air.Panel panel : panels) {
+            meshes.computeIfAbsent(panel.paint(), p -> new MeshBuilder())
+                    .face(panel.corners().stream().map(CraftModel::fx).toArray(Point3D[]::new));
         }
         final Group drawn = new Group();
         // glass last, so it is drawn over what is behind it

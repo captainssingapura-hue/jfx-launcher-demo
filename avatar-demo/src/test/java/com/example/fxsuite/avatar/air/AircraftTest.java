@@ -155,6 +155,92 @@ class AircraftTest {
     }
 
     @Test
+    void linesGiveASkeletonAVertexWhereEachLongeronCrossesEachSectionAndAPanelBetweenEachTwo() {
+        final Lines lines = Gunship.fuselage(1600);
+        final List<Lines.Section> sections = lines.refined();
+        // its sections given, and two between each two
+        final int count = lines.sections().size();
+        assertEquals(count + (count - 1) * 2, sections.size());
+        final int round = 2 * Gunship.LONGERONS.size() - 2;
+        final com.example.fxsuite.avatar.sim.Form skeleton = lines.skeleton();
+        // a vertex round each section but its two ends, each drawn to one point
+        assertEquals((sections.size() - 2) * round + 2, skeleton.vertices().size());
+        assertTrue(skeleton.problems().isEmpty(), skeleton.problems().toString());
+        assertEquals(1, skeleton.pieces(), "all one piece");
+        // a panel between each two longerons and each two sections
+        final List<Panel> panels = lines.panels((band, along) -> Paint.SKIN);
+        assertEquals((sections.size() - 1) * round, panels.size());
+        // the same either side
+        final Extent e = lines.extent();
+        assertEquals(-e.minAcross(), e.maxAcross(), 1e-6);
+        // and where a longeron crosses a given section, where it was given
+        final Lines.Section given = lines.sections().get(5);
+        near(new Point(given.points().get(2)[0], given.along(), given.points().get(2)[1]), lines.on("side", given.along()),
+                1e-6, "its widest line, where it was given");
+        // its canopy glazed over its cockpit, and not ahead of it
+        final Craft body = Gunship.body(1600, false);
+        assertTrue(body.panels().stream().anyMatch(p -> p.paint() == Paint.GLASS), "a glazed canopy");
+        assertTrue(body.panels().stream().filter(p -> p.paint() == Paint.GLASS)
+                .allMatch(p -> p.corners().stream().allMatch(c -> c.along() > 0.15 * 1600 && c.along() < 0.4 * 1600)),
+                "over its cockpit only");
+    }
+
+    @Test
+    void aBodysStyleWidensItSwellsItsHaunchAndDrawsInItsCabinItsEndsStillClosed() {
+        final double l = 1600;
+        final Lines plain = Gunship.fuselage(l, BodyStyle.PLAIN);
+        final Lines wide = Gunship.fuselage(l, new BodyStyle(1.2, 1, 0, 0.56, 0, 0, 0));
+        assertEquals(plain.extent().width() * 1.2, wide.extent().width(), 1e-6, "a fifth wider");
+        assertEquals(plain.extent().height(), wide.extent().height(), 1e-6, "no taller");
+        // its haunch: its beltline out where it is, not at its nose
+        final Lines hipped = Gunship.fuselage(l, new BodyStyle(1, 1, 0.03, 0.56, 0, 0, 0));
+        final double at = (0.56 - 0.5) * l;
+        assertEquals(plain.on("side", at).across() + 0.03 * l, hipped.on("side", at).across(), 1e-6, "swelled there");
+        final double nose = (0.955 - 0.5) * l;
+        assertEquals(plain.on("side", nose).across(), hipped.on("side", nose).across(), 1e-6, "not at its nose");
+        // its cabin drawn in over its beltline: its rail in by the share, its beltline as it was
+        final Lines drawnIn = Gunship.fuselage(l, new BodyStyle(1, 1, 0, 0.56, 0.3, 0, 0));
+        assertEquals(plain.on("rail", at).across() * 0.7, drawnIn.on("rail", at).across(), 1e-6);
+        assertEquals(plain.on("side", at).across(), drawnIn.on("side", at).across(), 1e-6);
+        // and its ends, however styled, still drawn to a point
+        final Lines styled = Gunship.fuselage(l, new BodyStyle(1.3, 1.2, 0.04, 0.4, 0.4, 0.02, 0.5));
+        assertTrue(styled.sections().getFirst().point() && styled.sections().getLast().point());
+        assertTrue(styled.skeleton().problems().isEmpty());
+    }
+
+    @Test
+    void aGunshipsBodyIsTheSameHoweverItIsLiftedEachLiftOnItsHardpoints() {
+        final double l = 1600;
+        final Gunship.Hardpoints at = Gunship.hardpoints(l);
+        final Extent body = Gunship.body(l, false).extent();
+        // its hardpoints on it, or just by it: the mast over its middle, the tips out on its wings,
+        // the tail at its back, the nose at its front, the pylons under its wings
+        assertEquals(0, at.mast().at().across(), 1e-9);
+        assertTrue(at.mast().at().up() > 0 && at.mast().at().up() < body.maxUp() + 1, "the mast's foot on its back");
+        assertEquals(body.maxAcross(), at.wingTip().at().across(), 0.05 * l, "the wing's tip out at its widest");
+        assertTrue(at.tail().at().along() < -0.4 * l && at.nose().at().along() > 0.3 * l, "tail behind, nose ahead");
+        for (final Mount pylon : at.pylons()) {
+            assertTrue(pylon.at().across() > 0 && pylon.at().across() < at.wingTip().at().across(), "under the wing");
+        }
+        assertTrue(at.ground() < body.minUp() + 1, "its wheels on the ground");
+        // each lift the same body, and its own: its body's every point among the lifted one's
+        final java.util.Set<Point> bare = new java.util.HashSet<>(Gunship.body(l, false).points());
+        for (final Gunship.Lift lift : Gunship.Lift.values()) {
+            if (lift == Gunship.Lift.NONE) {
+                continue;
+            }
+            final Craft lifted = Gunship.of(l, lift);
+            assertTrue(new java.util.HashSet<>(lifted.points()).containsAll(bare), lift + ": the same body");
+            assertTrue(lifted.points().size() > bare.size(), lift + ": and its lift");
+        }
+        // the ducts tilt together, from hovering to flying
+        final java.util.Map<String, double[]> controls = Hinge.controls(Gunship.of(l, Gunship.Lift.TILT_DUCTS));
+        assertEquals(List.of("tilt"), List.copyOf(controls.keySet()));
+        assertEquals(0, controls.get("tilt")[0], 1e-9);
+        assertEquals(90, controls.get("tilt")[1], 1e-9);
+    }
+
+    @Test
     void everyAircraftAtAnySizeIsWholeFiniteAndTheSameEitherSide() {
         for (final Crafts.Kind kind : Crafts.Kind.values()) {
             for (final double size : new double[] {kind.least(), kind.usual(), kind.most()}) {
@@ -168,7 +254,10 @@ class AircraftTest {
                 craft.skins().forEach(s -> fixed.addAll(s.points()));
                 craft.pieces().forEach(p -> fixed.addAll(p.corners()));
                 final Extent still = Extent.of(fixed);
-                assertEquals(-still.minAcross(), still.maxAcross(), 1e-6 * size * 100, what + ": the same either side");
+                // (a main rotor's tail fan is on one side only, against its turning, as it would be)
+                if (kind != Crafts.Kind.GUNSHIP_ROTOR) {
+                    assertEquals(-still.minAcross(), still.maxAcross(), 1e-6 * size * 100, what + ": the same either side");
+                }
                 // as long as it was made, give or take what stands out of it (a drone, as wide, its rotors in it; a
                 // helicopter, its rotors out of it)
                 // an aircraft or an engine as long (or as wide) as it was made; a weapon or a body, any size it is
