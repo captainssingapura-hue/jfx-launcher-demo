@@ -94,6 +94,49 @@ public final class TowerBuildings {
         return section.name() + " roof";
     }
 
+    /** How thick a parapet is in the way: a roof's edge to stand behind. */
+    public static final double PARAPET_THICK = 30;
+
+    /**
+     * {@code tower} in the way as it is shaped, in its own frame (x across, z along): each section its
+     * plan's outline, its corners shaped and its curves as they are drawn, stood up from its floor to
+     * its roof; and round each roof, where no section above stands on it, its parapet, a strip inside
+     * each piece of its edge. So a round tower is round, an L is open in its corner, a setback's
+     * terrace is stood on behind its parapet.
+     */
+    public static List<com.example.fxsuite.avatar.sim.Volume> shape(final Tower tower) {
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = new ArrayList<>();
+        final List<Tower.Section> sections = tower.sections();
+        for (int s = 0; s < sections.size(); s++) {
+            final Tower.Section section = sections.get(s);
+            final Plan.Layout layout = section.plan().layout();
+            final Plan.Layout above = s + 1 < sections.size() ? sections.get(s + 1).plan().layout() : null;
+            final double base = tower.base(s);
+            final double top = base + section.tall();
+            final List<Plan.Pt> outside = layout.shaped().getFirst();
+            shape.add(new com.example.fxsuite.avatar.sim.Prism(outside.stream()
+                    .map(p -> new com.example.fxsuite.avatar.sim.Vec2(p.x(), p.y())).toList(), base, top));
+            for (int k = 0; k < outside.size(); k++) {
+                final Plan.Pt a = outside.get(k);
+                final Plan.Pt b = outside.get((k + 1) % outside.size());
+                final Plan.Pt middle = new Plan.Pt((a.x() + b.x()) / 2, (a.y() + b.y()) / 2);
+                if (above != null && above.shaped().stream().anyMatch(other -> onOutline(middle, other))) {
+                    continue;
+                }
+                // inside the edge: its outline anticlockwise, so its inside on its left
+                final double width = a.distance(b);
+                final double ix = -(b.y() - a.y()) / width * PARAPET_THICK;
+                final double iy = (b.x() - a.x()) / width * PARAPET_THICK;
+                shape.add(new com.example.fxsuite.avatar.sim.Prism(List.of(
+                        new com.example.fxsuite.avatar.sim.Vec2(a.x(), a.y()),
+                        new com.example.fxsuite.avatar.sim.Vec2(b.x(), b.y()),
+                        new com.example.fxsuite.avatar.sim.Vec2(b.x() + ix, b.y() + iy),
+                        new com.example.fxsuite.avatar.sim.Vec2(a.x() + ix, a.y() + iy)), top, top + PARAPET));
+            }
+        }
+        return shape;
+    }
+
     /**
      * Its surfaces: for each section, a wall on each straight piece of each of its outlines, seen from
      * outside left to right as its outline runs (anticlockwise round its outside, so its outside on

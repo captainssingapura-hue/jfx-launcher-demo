@@ -798,7 +798,11 @@ through, and one loaded until a pillar gives and it falls.
   turned and scaled with it): the town church (its nave, its roof a gable, its apse a half circle
   and its half cone of a roof in slices, its tower, its spire two triangles crossed) and the temple
   halls (platform, hall, a hip roof of two gables crossed, its steps), open under their eaves, are in
-  the way so; the rest as their parts' boxes.
+  the way so; and the towers (`TowerBuildings.shape`): each section its plan's outline, corners shaped
+  and curves as drawn, stood up from its floor to its roof, and round each roof nothing stands on a
+  parapet strip. So a round tower is round (fly at it off its middle and slide round its curve), an
+  L block is open in its corner down to its podium, a setback's terrace is stood on behind its
+  parapet. The apartments still as their parts' boxes.
 - **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its

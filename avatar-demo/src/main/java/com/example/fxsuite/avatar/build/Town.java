@@ -59,14 +59,14 @@ public final class Town {
                 new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED,
                         (Supplier<List<Volume>>) () -> Temple.standard().shape()},
                 new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE},
-                new Object[] {"setback tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.setback()), Palette.STONE},
-                new Object[] {"round tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.round()), Palette.CONCRETE},
-                new Object[] {"oval tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.oval()), Palette.CONCRETE},
-                new Object[] {"rounded tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.rounded()), Palette.PRECAST},
+                new Object[] {"setback tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.setback()), Palette.STONE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.setback())},
+                new Object[] {"round tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.round()), Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.round())},
+                new Object[] {"oval tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.oval()), Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.oval())},
+                new Object[] {"rounded tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.rounded()), Palette.PRECAST, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.rounded())},
                 new Object[] {"L block on a podium", (Supplier<Building>) () -> TowerBuildings.of(Towers.lBlock()),
-                        Palette.CONCRETE},
+                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.lBlock())},
                 new Object[] {"bow-front tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.bowFront()),
-                        Palette.CONCRETE});
+                        Palette.CONCRETE, (Supplier<List<Volume>>) () -> TowerBuildings.shape(Towers.bowFront())});
         for (int k = 0; k < buildings.size(); k++) {
             final Object[] b = buildings.get(k);
             @SuppressWarnings("unchecked")
