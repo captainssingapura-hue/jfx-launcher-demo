@@ -3,8 +3,12 @@ package com.example.fxsuite.avatar.build;
 import com.example.fxsuite.avatar.build.Assembly.Placed;
 import com.example.fxsuite.avatar.build.Grid.Quarter;
 import com.example.fxsuite.avatar.build.Tower.Section;
+import com.example.fxsuite.avatar.sim.Crossing;
 import com.example.fxsuite.avatar.sim.Curve;
+import com.example.fxsuite.avatar.sim.Extrusion;
 import com.example.fxsuite.avatar.sim.Form;
+import com.example.fxsuite.avatar.sim.Prism;
+import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import java.util.ArrayList;
@@ -145,6 +149,49 @@ public final class Church {
     /** How big it is built. */
     public Size size() {
         return size;
+    }
+
+    /**
+     * The church in the way as it is shaped, in its own frame (x across, z along, its front +z): its
+     * nave stood up to its eaves, its roof a gable drawn along it; its apse a half circle stood up,
+     * its half cone of a roof in slices, each a half circle narrower; its tower stood up to its
+     * belfry's top, its spire two triangles crossed (its flare left out).
+     */
+    public List<com.example.fxsuite.avatar.sim.Volume> shape() {
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = new ArrayList<>();
+        shape.add(rect(0, halfWide, 0, front, 0, eavesHeight));
+        shape.add(new Extrusion(0, 0, 0, front, List.of(new Vec2(-halfWide, eavesHeight), new Vec2(halfWide, eavesHeight),
+                new Vec2(0, ridgeHeight))));
+        shape.add(new Prism(halfRound(halfWide), 0, apseEaves));
+        final int slices = 4;
+        for (int k = 0; k < slices; k++) {
+            final double low = apseEaves + (apexHeight - apseEaves) * k / slices;
+            final double high = apseEaves + (apexHeight - apseEaves) * (k + 1) / slices;
+            shape.add(new Prism(halfRound(halfWide * (1 - (k + 0.5) / slices)), low, high));
+        }
+        final double belfry = stageTops[stageTops.length - 1];
+        shape.add(rect(0, towerHalf, towerAlong, towerHalf, 0, belfry));
+        final List<Vec2> triangle = List.of(new Vec2(-towerHalf, belfry), new Vec2(towerHalf, belfry), new Vec2(0, tipHeight));
+        shape.add(new Crossing(new Extrusion(0, towerAlong, 0, towerHalf, triangle),
+                new Extrusion(0, towerAlong, 90, towerHalf, triangle)));
+        return shape;
+    }
+
+    /** A half circle {@code radius} round the middle of the nave's back, out behind it. */
+    private List<Vec2> halfRound(final double radius) {
+        final List<Vec2> round = new ArrayList<>();
+        for (int k = 0; k <= 16; k++) {
+            final double a = Math.PI * k / 16;
+            round.add(new Vec2(radius * Math.cos(a), back - radius * Math.sin(a)));
+        }
+        return round;
+    }
+
+    /** A rectangle stood up, {@code across} each way of {@code x}, {@code along} each way of {@code z}, from {@code low} to {@code high}. */
+    private static Prism rect(final double x, final double across, final double z, final double along, final double low,
+                              final double high) {
+        return new Prism(List.of(new Vec2(x - across, z - along), new Vec2(x + across, z - along),
+                new Vec2(x + across, z + along), new Vec2(x - across, z + along)), low, high);
     }
 
     /** The plans its stacked parts are made from, by name. */

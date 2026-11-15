@@ -11,6 +11,12 @@ import java.util.List;
  */
 public record Crossing(Extrusion first, Extrusion second) implements Volume {
 
+    public Crossing {
+        if (!first.holes().isEmpty() || !second.holes().isEmpty()) {
+            throw new IllegalArgumentException("crossed extrusions are solid all through");
+        }
+    }
+
     @Override
     public double low() {
         return Math.max(first.low(), second.low());
@@ -27,13 +33,15 @@ public record Crossing(Extrusion first, Extrusion second) implements Volume {
     }
 
     @Override
-    public double topAt(final double x, final double z, final double radius) {
-        return Math.min(first.topAt(x, z, radius), second.topAt(x, z, radius));
+    public double topAt(final double x, final double z, final double radius, final double below) {
+        final double top = Math.min(first.topAt(x, z, radius), second.topAt(x, z, radius));
+        return top <= below ? top : Double.NEGATIVE_INFINITY;
     }
 
     @Override
-    public double undersideAt(final double x, final double z, final double radius) {
-        return Math.max(first.undersideAt(x, z, radius), second.undersideAt(x, z, radius));
+    public double undersideAt(final double x, final double z, final double radius, final double above) {
+        final double underside = Math.max(first.undersideAt(x, z, radius), second.undersideAt(x, z, radius));
+        return underside >= above ? underside : Double.POSITIVE_INFINITY;
     }
 
     /** Across the ground, where both their stretches between {@code feet} and {@code head} are; empty if nowhere. */
@@ -85,6 +93,6 @@ public record Crossing(Extrusion first, Extrusion second) implements Volume {
         if (later.enter() > exit || later.enter() < 0 || later.enter() > reach) {
             return null;
         }
-        return new Hit(from.add(direction.multiply(later.enter())), later.normal(), Surface.BLOCK, later.enter());
+        return new Hit(from.add(direction.multiply(later.enter())), later.in(), Surface.BLOCK, later.enter());
     }
 }

@@ -158,4 +158,24 @@ class ChurchTest {
         assertThrows(IllegalArgumentException.class, () -> new Church.Size(6, 400, 1000, 900, 1500, 500, 2200, 2400),
                 "its spire a stub");
     }
+
+    @Test
+    void inTheWayAsItIsShapedItsRoofASlopeAndItsSpireAPoint() {
+        final Church church = Church.standard();
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = church.shape();
+        final com.example.fxsuite.avatar.sim.Obstacles world = new com.example.fxsuite.avatar.sim.Obstacles(List.of())
+                .with(shape, shape.stream().map(v -> 0).toList());
+        // standing on its roof's ridge; half way down a slope, half way between eaves and ridge
+        assertEquals(1500, world.floor(0, 0, 1, 1600), 1);
+        assertEquals(1200, world.floor(250, 0, 1, 1600), 2);
+        // a round level at 14.5 m across the nave meets its roof; at 16 m it passes over the nave
+        final double along = -600;
+        assertTrue(world.ray(new Vec3(-3000, -1450, along), new Vec3(1, 0, 0), 6000) != null);
+        assertTrue(world.ray(new Vec3(-3000, -1600, along), new Vec3(1, 0, 0), 6000) == null, "over the ridge");
+        // its spire: to its tip, over the tower's middle
+        assertEquals(3700, world.floor(0, 1450, 1, 3800), 2);
+        // the apse: a half circle, open beyond its curve where its bounding box was not
+        assertTrue(world.floor(0, -1200 - 400, 1, 800) > 0, "in the apse");
+        assertEquals(0, world.floor(-450, -1200 - 450, 1, 800), 1e-9, "beyond its curve, open ground");
+    }
 }

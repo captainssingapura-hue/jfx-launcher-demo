@@ -5,6 +5,10 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Curve;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Prism;
+import com.example.fxsuite.avatar.sim.Vec2;
+import com.example.fxsuite.avatar.sim.Volume;
+import com.example.fxsuite.avatar.sim.Extrusion;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import java.util.ArrayList;
@@ -341,8 +345,59 @@ public final class Wall {
     }
 
     /**
+     * Unit {@code u} in the way as it is shaped: its plinth and its wall each its footprint stood up
+     * (cut to fit where it meets others, as it is drawn); its coping, on a straight unit, its section
+     * drawn along it (sloping to its ridge, on past its ends where it meets others, so its corners
+     * close); on a curved one, its footprint stood up as high as its ridge.
+     */
+    public List<Volume> volumes(final int u) {
+        final double half = style.thickness() / 2;
+        final List<Volume> volumes = new ArrayList<>();
+        volumes.add(new Prism(outline(u, half + style.projection()), 0, style.plinth()));
+        volumes.add(new Prism(outline(u, half), style.plinth(), style.height()));
+        final Unit unit = units.get(u);
+        final double cope = half + style.overhang();
+        if (unit.curve() == null) {
+            final double length = unit.length();
+            final double startBy = meeting(u, true) > 1 ? cope : 0;
+            final double endBy = meeting(u, false) > 1 ? cope : 0;
+            final Point along = unit.to().plus(unit.from().times(-1)).times(1 / length);
+            final Point middle = unit.from().plus(unit.to()).times(0.5).plus(along.times((endBy - startBy) / 2));
+            final double h = style.height();
+            volumes.add(new Extrusion(middle.across(), middle.along(),
+                    Math.toDegrees(Math.atan2(along.across(), along.along())), (length + startBy + endBy) / 2,
+                    List.of(new Vec2(-cope, h), new Vec2(cope, h), new Vec2(cope, h + style.edge()),
+                            new Vec2(0, style.top()), new Vec2(-cope, h + style.edge()))));
+        } else {
+            volumes.add(new Prism(outline(u, cope), style.height(), style.top()));
+        }
+        return volumes;
+    }
+
+    /**
+     * Unit {@code u}'s footprint at {@code half} each side of its line, as an outline: up its left
+     * side, round its end (in to the point it meets others at, if it does), back down its right side,
+     * round its start.
+     */
+    private List<Vec2> outline(final int u, final double half) {
+        final List<Point[]> across = footprint(u, half);
+        final List<Vec2> outline = new ArrayList<>();
+        across.forEach(a -> outline.add(new Vec2(a[0].across(), a[0].along())));
+        if (meeting(u, false) > 1) {
+            final Point end = across.getLast()[1];
+            outline.add(new Vec2(end.across(), end.along()));
+        }
+        across.reversed().forEach(a -> outline.add(new Vec2(a[2].across(), a[2].along())));
+        if (meeting(u, true) > 1) {
+            final Point start = across.getFirst()[1];
+            outline.add(new Vec2(start.across(), start.along()));
+        }
+        return outline;
+    }
+
+    /**
      * Unit {@code u} as a piece in the world, drawn by {@code key}: its box along it from its start to
-     * its end, round all of it, as high as its coping's ridge; in the way as its boxes ({@link #blocks}).
+     * its end, round all of it, as high as its coping's ridge; in the way as it is shaped ({@link #volumes}).
      */
     public Course.Piece piece(final int u, final int key) {
         final Place at = place(u);
@@ -364,7 +419,7 @@ public final class Wall {
                 0, at.yaw());
         final Block block = new Block(middle.x(), middle.z(), (box[1] - box[0]) / 2, (box[3] - box[2]) / 2, at.yaw(), 0,
                 style.top());
-        return new Course.Piece(block, Course.Kind.WALL_UNIT, key, blocks(u), null, middle, null, -1, null);
+        return Course.Piece.shaped(block, Course.Kind.WALL_UNIT, key, List.of(), volumes(u), middle);
     }
 
     /** Unit {@code u}'s solids, dressed in {@code palette}, about the middle of its piece's box and turned with it. */

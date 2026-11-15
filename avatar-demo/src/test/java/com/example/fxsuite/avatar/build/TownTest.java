@@ -32,7 +32,7 @@ class TownTest {
             final Course.Piece building = pieces.get(k);
             assertEquals(Course.Kind.BUILDING, building.kind());
             assertEquals(k, building.tint(), "its site's number, to draw it by");
-            assertFalse(building.solid().isEmpty());
+            assertFalse(building.solid().isEmpty() && building.volumes().isEmpty(), "in the way");
             assertTrue(Double.isFinite(Damage.toughness(building)), "broken as a whole");
             assertTrue(building.block().top() + Body.TALL < Body.CEILING,
                     Town.SITES.get(k).name() + " can be flown over");
@@ -55,14 +55,20 @@ class TownTest {
                 assertFalse(part.covers(0, 0, 100), Town.SITES.get(a).name() + " on the start");
                 assertFalse(part.covers(300, 600, 200), Town.SITES.get(a).name() + " on the boxer");
             }
+            for (final com.example.fxsuite.avatar.sim.Volume part : pieces.get(a).volumes()) {
+                assertFalse(part.covers(0, 0, 100), Town.SITES.get(a).name() + " on the start");
+                assertFalse(part.covers(300, 600, 200), Town.SITES.get(a).name() + " on the boxer");
+            }
         }
     }
 
     @Test
     void solidWhereItsPartsAreOpenBetween() {
-        // the church: its nave, its tower, its spire each a box of their own, not one box round it all
+        // the church: its nave, its roof, its apse, its tower, its spire each shaped as it is, not one box round it all
         final Course.Piece church = Town.piece(0);
-        assertTrue(church.solid().size() >= 6, church.solid().size() + " parts");
+        assertTrue(church.volumes().size() >= 6, church.volumes().size() + " parts");
+        // a building that does not say how it is shaped: its parts' boxes
+        assertTrue(Town.piece(2).solid().size() >= 2, "the apartments, in boxes");
         assertEquals("nave", Town.part("nave, left wall, slab 3"));
         assertEquals("column", Town.part("column 12"));
         assertEquals("roof", Town.part("roof, front slope, slab 40"));

@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import org.junit.jupiter.api.Test;
 
@@ -160,30 +161,31 @@ class WallTest {
     void theTemplesWallStandsClearOfItsHallsItsMonksAndTheStartEachUnitAPieceOfItsOwn() {
         final List<Course.Piece> pieces = TempleYard.pieces();
         final List<Course.Piece> halls = pieces.subList(0, TempleYard.HALLS.size());
-        final List<Course.Piece> units = pieces.subList(TempleYard.HALLS.size(), pieces.size());
+        final List<Course.Piece> units = pieces.subList(TempleYard.HALLS.size(), TempleYard.HALLS.size()
+                + TempleYard.WALL.units().size());
         assertEquals(TempleYard.WALL.units().size(), units.size());
         for (int u = 0; u < units.size(); u++) {
             final Course.Piece unit = units.get(u);
             assertEquals(Course.Kind.WALL_UNIT, unit.kind());
             assertEquals(TempleYard.WALL_KEYS + u, unit.tint());
             assertTrue(Double.isFinite(Damage.toughness(unit)) && Damage.toughness(unit) > 500, "broken, but not easily");
+            assertEquals(3, unit.volumes().size(), "its plinth, its wall, its coping");
             for (final Course.Piece hall : halls) {
-                for (final Block block : unit.solid()) {
-                    assertFalse(block.overlaps(hall.block()), "unit " + u + " on a hall");
-                }
+                assertFalse(unit.block().overlaps(hall.block()), "unit " + u + " on a hall");
             }
-            for (final Block block : unit.solid()) {
-                assertFalse(block.covers(0, 0, 300), "on the start");
+            for (final Volume volume : unit.volumes()) {
+                assertFalse(volume.covers(0, 0, 300), "on the start");
                 for (final Course.Cast monk : Course.MONKS) {
-                    assertFalse(block.covers(monk.across(), monk.along(), 300), "on the monks");
+                    assertFalse(volume.covers(monk.across(), monk.along(), 300), "on the monks");
                 }
             }
             assertFalse(TempleYard.drawn(unit.tint()).isEmpty());
         }
-        // out through the entrance from the start; not through the wall beside it
-        final List<Block> blocks = units.stream().flatMap(p -> p.solid().stream()).toList();
-        final Obstacles world = new Obstacles(blocks);
-        assertTrue(walks(world, new Vec3(0, 0, 0), new Vec3(0, 0, -1500)) < TempleYard.FRONT - 300, "out the entrance");
+        // out through the gate's passage from the start; not through its piers, nor the wall beside it
+        Course.temple(TempleYard::pieces);
+        final Obstacles world = new Course(com.example.fxsuite.avatar.sim.Demo.TEMPLE).obstacles();
+        assertTrue(walks(world, new Vec3(0, 0, 0), new Vec3(0, 0, -1500)) < TempleYard.FRONT - 300, "out the gate");
+        assertTrue(walks(world, new Vec3(-400, 0, 0), new Vec3(-400, 0, -1500)) > TempleYard.FRONT, "its pier stops it");
         assertTrue(walks(world, new Vec3(-2000, 0, 0), new Vec3(-2000, 0, -1500)) > TempleYard.FRONT, "the wall stops it");
     }
 }

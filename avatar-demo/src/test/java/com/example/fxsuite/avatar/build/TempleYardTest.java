@@ -36,7 +36,7 @@ class TempleYardTest {
             assertEquals(Course.Kind.BUILDING, hall.kind());
             assertEquals(TempleYard.KEYS + k, hall.tint(), "drawn by its own key");
             assertFalse(TempleYard.drawn(hall.tint()).isEmpty());
-            assertFalse(hall.solid().isEmpty());
+            assertFalse(hall.volumes().isEmpty(), "in the way as it is shaped");
             if (k > 0) {
                 assertTrue(hall.block().top() < great.top(), "the side halls lower");
                 assertTrue(hall.block().halfWidth() < great.halfWidth(), "and narrower");

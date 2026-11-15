@@ -1,8 +1,12 @@
 package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.build.Assembly.Placed;
+import com.example.fxsuite.avatar.sim.Crossing;
 import com.example.fxsuite.avatar.sim.Curve;
+import com.example.fxsuite.avatar.sim.Extrusion;
 import com.example.fxsuite.avatar.sim.Form;
+import com.example.fxsuite.avatar.sim.Prism;
+import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import java.util.ArrayList;
@@ -162,8 +166,43 @@ public final class Temple {
         return size;
     }
 
+    /** A rectangle stood up, {@code across} each way of {@code x}, {@code along} each way of {@code z}, from {@code low} to {@code high}. */
+    private static Prism rect(final double x, final double across, final double z, final double along, final double low,
+                              final double high) {
+        return new Prism(List.of(new Vec2(x - across, z - along), new Vec2(x + across, z - along),
+                new Vec2(x + across, z + along), new Vec2(x - across, z + along)), low, high);
+    }
+
     private double sum(final double[] bays) {
         return java.util.Arrays.stream(bays).sum();
+    }
+
+    /**
+     * The hall in the way as it is shaped, in its own frame (x across, z along, its front +z): its
+     * platform and its hall stood up, the hall to its eave purlin; its roof a hip roof, a gable along
+     * it crossed with one across it (its upturned corners and its rafters' sag left out); its steps.
+     * Under its eaves, open: walked round on its platform, flown under.
+     */
+    public List<com.example.fxsuite.avatar.sim.Volume> shape() {
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = new ArrayList<>();
+        final double pw = halfWide + marginWidth;
+        final double pd = halfDeep + marginWidth;
+        shape.add(rect(0, pw, 0, pd, 0, platformHeight));
+        shape.add(rect(0, halfWide, 0, halfDeep, platformHeight, purlinHeight));
+        final double wide = halfWide + OVERHANG + FLARE;
+        final double deep = halfDeep + OVERHANG + FLARE;
+        shape.add(new Crossing(
+                new Extrusion(0, 0, 90, wide, List.of(new Vec2(-deep, eaveHeight), new Vec2(deep, eaveHeight),
+                        new Vec2(0, ridgeHeight))),
+                new Extrusion(0, 0, 0, deep, List.of(new Vec2(-wide, eaveHeight), new Vec2(wide, eaveHeight),
+                        new Vec2(ridgeHalf, ridgeHeight), new Vec2(-ridgeHalf, ridgeHeight)))));
+        // its steps down before its middle bay, each a block to step (or jump) down
+        final double half = bayWidths[bayWidths.length / 2] / 2;
+        final double rise = platformHeight / stepCount;
+        for (int k = 0; k + 1 < stepCount; k++) {
+            shape.add(rect(0, half, pd + GOING * (k + 0.5), GOING / 2, 0, platformHeight - rise * (k + 1)));
+        }
+        return shape;
     }
 
     /** The plans its stacked parts are made from: its platform, its hall. */

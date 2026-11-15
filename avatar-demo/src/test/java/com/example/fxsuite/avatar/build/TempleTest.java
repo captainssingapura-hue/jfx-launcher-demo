@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -147,5 +148,22 @@ class TempleTest {
         assertThrows(IllegalArgumentException.class, () -> new Temple.Size(4, 640, 3, 450, 120), "no middle bay");
         assertThrows(IllegalArgumentException.class, () -> new Temple.Size(3, 640, 5, 450, 120), "deeper than wide");
         assertThrows(IllegalArgumentException.class, () -> new Temple.Size(5, 640, 3, 1000, 120), "columns too tall");
+    }
+
+    @Test
+    void inTheWayAsItIsShapedOpenUnderItsEaves() {
+        final Temple temple = Temple.standard();
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = temple.shape();
+        final com.example.fxsuite.avatar.sim.Obstacles world = new com.example.fxsuite.avatar.sim.Obstacles(List.of())
+                .with(shape, shape.stream().map(v -> 0).toList());
+        // on its platform, under its eaves, between its wall and their edge: the eaves over, room to stand
+        final double z = 640 + 150;
+        assertEquals(120, world.floor(0, z, 16, 200), 1e-9, "on its platform");
+        final double over = world.ceiling(0, z, 32, 120 + 200);
+        assertTrue(over > 120 + 200 && over < 700, "the eaves overhead: " + over);
+        assertFalse(world.slide(0, z, 300, 0, 32, 140, 320).blocked(), "walked along under them");
+        // its roof: on its ridge; and its hip end slopes down to its eaves
+        assertEquals(1375, world.floor(0, 0, 1, 1400), 1);
+        assertTrue(world.floor(1250, 0, 1, 1400) < 1375 - 100, "down its hip end");
     }
 }

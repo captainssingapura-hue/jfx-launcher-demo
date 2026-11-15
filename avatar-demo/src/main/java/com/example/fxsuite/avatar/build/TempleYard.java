@@ -1,7 +1,12 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Crossing;
+import com.example.fxsuite.avatar.sim.Extrusion;
 import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Vec2;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +85,103 @@ public final class TempleYard {
         return new Point(x, z, 0);
     }
 
+    /**
+     * Its main gate, in the entrance: a gatehouse, half so wide and so deep, its walls so high, an
+     * arched passage through it (half so wide, springing so high, a half circle over it); its hip
+     * roof out so far over it, its ridge so high and so long each way.
+     */
+    public static final double GATE_WIDE = 550;
+    public static final double GATE_DEEP = 250;
+    public static final double GATE_HIGH = 700;
+    public static final double PASSAGE = 180;
+    public static final double SPRING = 340;
+    public static final double GATE_EAVES = 120;
+    public static final double GATE_RIDGE = 1000;
+    public static final double GATE_RIDGE_HALF = 300;
+    /** Where it stands: on the middle line, in the front wall, its passage running in. */
+    public static final Place GATE = new Place(0, FRONT, 0, 0);
+
+    /** The passage's outline across: up its sides to its springing, round its arch. */
+    public static List<Vec2> passage() {
+        final List<Vec2> arch = new ArrayList<>(List.of(new Vec2(-PASSAGE, 0), new Vec2(PASSAGE, 0)));
+        for (int k = 0; k <= 16; k++) {
+            final double a = Math.PI * k / 16;
+            arch.add(new Vec2(PASSAGE * Math.cos(a), SPRING + PASSAGE * Math.sin(a)));
+        }
+        return arch;
+    }
+
+    /**
+     * The gate in the way, in its own frame: its body, its profile drawn through it from front to back,
+     * the passage through it; its hip roof, two gables crossed.
+     */
+    public static List<Volume> gateShape() {
+        final Extrusion body = new Extrusion(0, 0, 0, GATE_DEEP, List.of(new Vec2(-GATE_WIDE, 0), new Vec2(GATE_WIDE, 0),
+                new Vec2(GATE_WIDE, GATE_HIGH), new Vec2(-GATE_WIDE, GATE_HIGH)), List.of(passage()));
+        final double wide = GATE_WIDE + GATE_EAVES;
+        final double deep = GATE_DEEP + GATE_EAVES;
+        final Crossing roof = new Crossing(
+                new Extrusion(0, 0, 90, wide, List.of(new Vec2(-deep, GATE_HIGH), new Vec2(deep, GATE_HIGH),
+                        new Vec2(0, GATE_RIDGE))),
+                new Extrusion(0, 0, 0, deep, List.of(new Vec2(-wide, GATE_HIGH), new Vec2(wide, GATE_HIGH),
+                        new Vec2(GATE_RIDGE_HALF, GATE_RIDGE), new Vec2(-GATE_RIDGE_HALF, GATE_RIDGE))));
+        return List.of(body, roof);
+    }
+
+    /** The gate drawn: its walls either side of the passage, over its arch, its roof. */
+    private static List<Solid> gateSolids() {
+        final List<Solid> solids = new ArrayList<>();
+        final Material red = WALLED.of(Role.WALL);
+        for (final double side : new double[] {-1, 1}) {
+            solids.add(block("gate, " + (side < 0 ? "left" : "right") + " pier", Role.WALL, red,
+                    Math.min(side * PASSAGE, side * GATE_WIDE), Math.max(side * PASSAGE, side * GATE_WIDE),
+                    GATE_DEEP, 0, GATE_HIGH, 0, GATE_HIGH));
+        }
+        // over the arch: a slice between each two of its points, up to the top of the walls
+        final List<Vec2> arch = passage().subList(2, passage().size());
+        for (int k = 0; k + 1 < arch.size(); k++) {
+            final Vec2 a = arch.get(k + 1);
+            final Vec2 b = arch.get(k);
+            solids.add(block("gate, over the arch " + k, Role.WALL, red, a.x(), b.x(), GATE_DEEP, a.z(), GATE_HIGH,
+                    b.z(), GATE_HIGH));
+        }
+        // its hip roof: a box whose top is its ridge
+        final double wide = GATE_WIDE + GATE_EAVES;
+        final double deep = GATE_DEEP + GATE_EAVES;
+        final List<Point> roof = new ArrayList<>();
+        for (int k = 0; k < 8; k++) {
+            final double side = (k & 1) == 0 ? -1 : 1;
+            roof.add((k & 4) == 0 ? new Point(side * wide, ((k & 2) == 0 ? -1 : 1) * deep, GATE_HIGH)
+                    : new Point(side * GATE_RIDGE_HALF, 0, GATE_RIDGE));
+        }
+        solids.add(new Solid("gate, roof", Role.ROOF, Material.GLAZED, roof));
+        return solids;
+    }
+
+    /**
+     * A block from {@code x0} to {@code x1} across, {@code deep} each way along, from {@code low0} up
+     * to {@code high0} at {@code x0} and from {@code low1} to {@code high1} at {@code x1}.
+     */
+    private static Solid block(final String name, final Role role, final Material material, final double x0,
+                               final double x1, final double deep, final double low0, final double high0,
+                               final double low1, final double high1) {
+        final List<Point> corners = new ArrayList<>();
+        for (int k = 0; k < 8; k++) {
+            final boolean far = (k & 1) != 0;
+            corners.add(new Point(far ? x1 : x0, ((k & 2) == 0 ? -1 : 1) * deep,
+                    (k & 4) == 0 ? (far ? low1 : low0) : (far ? high1 : high0)));
+        }
+        return new Solid(name, role, material, corners);
+    }
+
+    /** The main gate, one piece: in the way as it is shaped, its passage open to walk through. */
+    public static Course.Piece gate() {
+        final Block box = new Block(GATE.x(), GATE.z(), GATE_WIDE + GATE_EAVES, GATE_DEEP + GATE_EAVES, GATE.yaw(), 0,
+                GATE_RIDGE);
+        return Course.Piece.shaped(box, Course.Kind.BUILDING, KEYS + HALLS.size(), List.of(),
+                gateShape().stream().map(v -> Volume.placed(v, GATE, 1)).toList(), GATE);
+    }
+
     /** Its wall's palette: red plaster on stone, its coping's tiles green, as the side halls' roofs are. */
     private static final Palette WALLED = Temple.LACQUERED.with(Map.of(Role.ROOF, Material.GREEN_GLAZED));
 
@@ -87,24 +189,34 @@ public final class TempleYard {
 
     private static final Map<Integer, List<Solid>> DRESSED = new ConcurrentHashMap<>();
 
-    /** Hall {@code k}, dressed: red lacquer, its roof's tiles as it says. Worked out once, when first wanted. */
+    /**
+     * Hall {@code k}, dressed: red lacquer, its roof's tiles as it says; or, past its halls, its gate.
+     * Worked out once, when first wanted.
+     */
     public static List<Solid> solids(final int k) {
         return DRESSED.computeIfAbsent(k, i -> {
+            if (i == HALLS.size()) {
+                return gateSolids();
+            }
             final Hall hall = HALLS.get(i);
             final Building building = Temple.of(hall.size()).building();
             return building.dressed(List.of(building.option("Roof tiles", hall.tiles())), Temple.LACQUERED);
         });
     }
 
-    /** What stands in the courtyard: its halls, each one piece; and round it its wall, each unit a piece. */
+    /**
+     * What stands in the courtyard: its halls, each one piece, in the way as each is shaped; round it
+     * its wall, each unit a piece; and in its entrance, its gate, its passage open.
+     */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int k = 0; k < HALLS.size(); k++) {
-            pieces.add(Town.building(solids(k), HALLS.get(k).place(), KEYS + k));
+            pieces.add(Town.building(solids(k), HALLS.get(k).place(), KEYS + k, Temple.of(HALLS.get(k).size()).shape(), 1));
         }
         for (int u = 0; u < WALL.units().size(); u++) {
             pieces.add(WALL.piece(u, WALL_KEYS + u));
         }
+        pieces.add(gate());
         return pieces;
     }
 

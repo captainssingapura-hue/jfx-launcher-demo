@@ -5,6 +5,7 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -30,7 +31,8 @@ public final class Town {
     }
 
     /** A site: which building, how it is dressed, and where on the grid (its column, 0 to 2, and its row from the start). */
-    public record Site(String name, Supplier<Building> building, Palette palette, int column, int row) {
+    public record Site(String name, Supplier<Building> building, Palette palette, int column, int row,
+                       Supplier<List<Volume>> shape) {
     }
 
     /** Its streets' grid: so far apart, the first row so far ahead, at its own scale. */
@@ -52,8 +54,10 @@ public final class Town {
     private static List<Site> sites() {
         final List<Site> sites = new ArrayList<>();
         final List<Object[]> buildings = List.of(
-                new Object[] {"town church", (Supplier<Building>) () -> Church.standard().building(), Palette.STONE},
-                new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED},
+                new Object[] {"town church", (Supplier<Building>) () -> Church.standard().building(), Palette.STONE,
+                        (Supplier<List<Volume>>) () -> Church.standard().shape()},
+                new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED,
+                        (Supplier<List<Volume>>) () -> Temple.standard().shape()},
                 new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE},
                 new Object[] {"setback tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.setback()), Palette.STONE},
                 new Object[] {"round tower", (Supplier<Building>) () -> TowerBuildings.of(Towers.round()), Palette.CONCRETE},
@@ -67,7 +71,9 @@ public final class Town {
             final Object[] b = buildings.get(k);
             @SuppressWarnings("unchecked")
             final Supplier<Building> make = (Supplier<Building>) b[1];
-            sites.add(new Site((String) b[0], make, (Palette) b[2], k % 3, k / 3));
+            @SuppressWarnings("unchecked")
+            final Supplier<List<Volume>> shape = b.length > 3 ? (Supplier<List<Volume>>) b[3] : null;
+            sites.add(new Site((String) b[0], make, (Palette) b[2], k % 3, k / 3, shape));
         }
         return List.copyOf(sites);
     }
@@ -127,7 +133,8 @@ public final class Town {
      * columns, all of them together each), turned and placed as it is.
      */
     static Course.Piece piece(final int k) {
-        return building(solids(k), place(k), k);
+        final Supplier<List<Volume>> shape = SITES.get(k).shape();
+        return building(solids(k), place(k), k, shape == null ? List.of() : shape.get(), scale);
     }
 
     /**
@@ -136,6 +143,15 @@ public final class Town {
      * them, turned and placed as it is. Drawn by its {@code key} ({@link Course.Piece#tint}).
      */
     public static Course.Piece building(final List<Solid> solids, final Place at, final int key) {
+        return building(solids, at, key, List.of(), 1);
+    }
+
+    /**
+     * As {@link #building(List, Place, int)}; but if it says how it is {@code shape}d (in its own
+     * frame, life size), in the way as that is, {@code scale}d, rather than as its parts' boxes.
+     */
+    public static Course.Piece building(final List<Solid> solids, final Place at, final int key,
+                                        final List<Volume> shape, final double scale) {
         final Map<String, double[]> parts = new LinkedHashMap<>();
         final double[] whole = {0, 0, 0};
         for (final Solid solid : solids) {
@@ -161,6 +177,10 @@ public final class Town {
                     Math.max(1, (box[3] - box[2]) / 2), at.yaw(), Math.max(0, box[4]), Math.max(box[4] + 1, box[5])));
         }
         final Block block = new Block(at.x(), at.z(), whole[0], whole[1], at.yaw(), 0, whole[2]);
+        if (!shape.isEmpty()) {
+            return Course.Piece.shaped(block, Course.Kind.BUILDING, key, List.of(),
+                    shape.stream().map(v -> Volume.placed(v, at, scale)).toList(), at);
+        }
         return new Course.Piece(block, Course.Kind.BUILDING, key, solid, null, at, null, -1, null);
     }
 

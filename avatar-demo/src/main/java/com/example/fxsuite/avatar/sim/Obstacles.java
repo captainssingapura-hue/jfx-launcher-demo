@@ -133,10 +133,10 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         }
         for (final Volume volume : volumes) {
             if (volume.low() < within && volume.covers(x, z, radius)) {
-                final double top = volume.topAt(x, z, radius);
+                final double top = volume.topAt(x, z, radius, within);
                 // too steep to stand on (rising more than a step from under the circle to as far again
                 // out): not footing, as a ramp that steep is not, so nothing creeps up it a step at a time
-                if (volume.topAt(x, z, 2 * radius) - top > Body.STEP) {
+                if (top == Double.NEGATIVE_INFINITY || volume.topAt(x, z, 2 * radius) - top > Body.STEP) {
                     continue;
                 }
                 if (top > floor && top <= within) {
@@ -191,7 +191,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         }
         for (int i = 0; i < volumes.size(); i++) {
             final Volume volume = volumes.get(i);
-            if (volume.covers(x, z, radius) && Math.abs(volume.topAt(x, z, radius) - height) < 0.5) {
+            if (volume.covers(x, z, radius) && Math.abs(volume.topAt(x, z, radius, height + 0.5) - height) < 0.5) {
                 return volumePieces.get(i);
             }
         }
@@ -215,7 +215,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
             }
         }
         for (final Volume volume : volumes) {
-            final double underside = volume.undersideAt(x, z, radius);
+            final double underside = volume.undersideAt(x, z, radius, from);
             if (underside < ceiling && underside >= from) {
                 ceiling = underside;
             }

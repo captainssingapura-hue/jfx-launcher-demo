@@ -47,13 +47,13 @@ public record Prism(List<Vec2> outline, double bottom, double top) implements Vo
     }
 
     @Override
-    public double topAt(final double x, final double z, final double radius) {
-        return covers(x, z, radius) ? top : Double.NEGATIVE_INFINITY;
+    public double topAt(final double x, final double z, final double radius, final double below) {
+        return top <= below && covers(x, z, radius) ? top : Double.NEGATIVE_INFINITY;
     }
 
     @Override
-    public double undersideAt(final double x, final double z, final double radius) {
-        return covers(x, z, radius) ? bottom : Double.POSITIVE_INFINITY;
+    public double undersideAt(final double x, final double z, final double radius, final double above) {
+        return bottom >= above && covers(x, z, radius) ? bottom : Double.POSITIVE_INFINITY;
     }
 
     @Override

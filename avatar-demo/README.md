@@ -777,7 +777,9 @@ through, and one loaded until a pillar gives and it falls.
   turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
   Round it all, its wall (below): red on a stone plinth, its coping green-tiled, open on its middle
   line at the front for the main entrance (9 m) and at the back for a small door (1.8 m) behind the
-  great hall, its back corners rounded.
+  great hall, its back corners rounded. In the entrance its main gate: a gatehouse 11 m wide and 7 m
+  high, red, its hip roof yellow-tiled, an arched passage 3.6 m wide through it (its crown at 5.2 m)
+  to walk in and out by; its piers either side stop a body as the wall does.
 - **Shaped more closely than boxes** (`Volume`): what is in the way can be an outline stood straight up
   (`Prism`: any outline, notches and curves and all, its top flat), or an outline laid on its side and
   drawn along (`Extrusion`: a gable, a coping, a vault; its profile convex), or the part two of those
@@ -788,6 +790,15 @@ through, and one loaded until a pillar gives and it falls.
   on it slides down to its foot. Rounds meet each where it truly is. A piece is in the way as its
   blocks and its volumes (`Course.Piece.shaped`), in one list each (`Obstacles`): a world with no
   volumes goes exactly as it did. Platforms do not yet know of them.
+  An extrusion may have passages through it (`holes`: each convex, drawn all along it): a gateway's
+  arch. A body fits through where the passage is open from its feet to its head; in it, the
+  passage's floor is under it and its soffit over it; a round down the passage flies on through,
+  and one fired across it from inside meets its side. So a building can be passed through.
+  A building can say how it is shaped, in its own frame (`Volume.placed`: put where it stands,
+  turned and scaled with it): the town church (its nave, its roof a gable, its apse a half circle
+  and its half cone of a roof in slices, its tower, its spire two triangles crossed) and the temple
+  halls (platform, hall, a hip roof of two gables crossed, its steps), open under their eaves, are in
+  the way so; the rest as their parts' boxes.
 - **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
@@ -800,9 +811,10 @@ through, and one loaded until a pillar gives and it falls.
   mitred, at a junction each takes a slice. A free end is cut square; an opening is where no unit
   is. Runs and arcs are cut into units no longer than asked (`Wall.run`, `Wall.arc`). In the world
   each unit is a piece of its own (`Course.Kind.WALL_UNIT`), as tough as it is big: struck, only it
-  wears down and breaks, its neighbours standing. For now each unit is in the way as boxes, one
-  along a straight unit (drawn on to the point it meets others at, so corners close) or one along
-  each short chord of a curved one; exact shapes are next.
+  wears down and breaks, its neighbours standing. Each is in the way as it is shaped: its plinth and
+  its wall each its cut footprint stood up, corners and all; its coping, on a straight unit, its
+  section drawn along it (land on it and stand on its ridge, or slide off its slope), on a curved
+  one, its footprint stood up to its ridge.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
 - **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
