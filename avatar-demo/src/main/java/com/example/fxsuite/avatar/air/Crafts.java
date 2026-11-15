@@ -19,6 +19,8 @@ public final class Crafts {
     public enum Kind {
         AIRSHIP("Airship", 24, 12, 60, Category.AIRCRAFT),
         BOMBER("Heavy bomber airship", 70, 30, 150, Category.AIRCRAFT),
+        /** The heavy bomber airship drawn by its lines ({@link Bomber}): its body: its hull, the shroud at its tail and the vanes holding it. */
+        BOMBER_HULL("Heavy bomber airship: its body", 70, 30, 150, Category.BODY),
         QUADCOPTER("Quadcopter drone", 1.2, 0.4, 6, Category.AIRCRAFT),
         HELICOPTER("Helicopter", 12, 6, 24, Category.AIRCRAFT),
         TANDEM("Tandem-rotor helicopter", 15, 8, 30, Category.AIRCRAFT),
@@ -107,6 +109,7 @@ public final class Crafts {
             return switch (this) {
                 case AIRSHIP -> airship(size);
                 case BOMBER -> bomber(size);
+                case BOMBER_HULL -> Bomber.body(size);
                 case QUADCOPTER -> quadcopter(size);
                 case HELICOPTER -> helicopter(size);
                 case TANDEM -> tandem(size);

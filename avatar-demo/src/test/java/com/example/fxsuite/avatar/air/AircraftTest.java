@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -242,6 +243,57 @@ class AircraftTest {
         assertEquals(List.of("tilt"), List.copyOf(controls.keySet()));
         assertEquals(0, controls.get("tilt")[0], 1e-9);
         assertEquals(90, controls.get("tilt")[1], 1e-9);
+    }
+
+    @Test
+    void theBombersHullIsAFrameOfGirdersSixteenSidedItsBellyFlatterThanItsBack() {
+        final double l = 7000;
+        final Lines hull = Bomber.hull(l);
+        assertEquals(Bomber.FRAMES.length, hull.sections().size(), "a section at each main frame");
+        final int round = 2 * Bomber.LONGERONS.size() - 2;
+        assertEquals(16, round);
+        final com.example.fxsuite.avatar.sim.Form skeleton = hull.skeleton();
+        assertTrue(skeleton.problems().isEmpty(), skeleton.problems().toString());
+        assertEquals(1, skeleton.pieces(), "all one frame");
+        assertEquals((hull.refined().size() - 2) * round + 2, skeleton.vertices().size(), "drawn to a point at each end");
+        final Extent e = hull.extent();
+        assertEquals(l, e.length(), 1e-6);
+        assertEquals(Bomber.DIAMETER * l, e.width(), 0.01 * l, "as wide as it is round");
+        assertEquals(e.maxUp() * Bomber.BELLY, -e.minUp(), 0.01 * l, "its belly flatter than its back");
+        // its widest girder level with its axis, all along its middle
+        assertEquals(Bomber.DIAMETER * l / 2, hull.on("beam", 0).across(), 1e-6);
+        assertEquals(0, hull.on("beam", 0).up(), 1e-6);
+        assertEquals(hull.on("beam", 0).across(), hull.on("beam", 0.15 * l).across(), 1, "a parallel middle");
+        // its tail tapering to its hub, slim, and closing round behind
+        assertEquals(Bomber.HUB * Bomber.DIAMETER * l / 2, hull.on("beam", (Bomber.HUB_ENDS - 0.5) * l).across(), 1e-6);
+    }
+
+    @Test
+    void theBombersShroudRingsItsHubBehindItsTaperHeldByFourVanes() {
+        final double l = 7000;
+        final Lines outside = Bomber.shroud(l, true);
+        final Lines inside = Bomber.shroud(l, false);
+        // closed: its two faces meet at its leading and trailing edges
+        for (final int end : new int[] {0, outside.sections().size() - 1}) {
+            for (int i = 0; i < Bomber.LONGERONS.size(); i++) {
+                assertArrayEquals(outside.sections().get(end).points().get(i), inside.sections().get(end).points().get(i),
+                        1e-6);
+            }
+        }
+        // big and shallow: most of the hull's width across, a third of that deep
+        final Extent ring = outside.extent();
+        assertTrue(ring.width() > 0.8 * Bomber.DIAMETER * l, "big: " + ring.width());
+        assertTrue(ring.length() < 0.4 * ring.width(), "shallow: " + ring.length());
+        assertTrue(inside.on("beam", ring.minAlong() + ring.length() / 2).across()
+                < outside.on("beam", ring.minAlong() + ring.length() / 2).across(), "a ring with some thickness");
+        // behind the taper, round the hub
+        assertTrue(ring.maxAlong() <= (Bomber.HUB_ENDS + 0.011 - 0.5) * l, "from the hull's rear");
+        assertTrue(Bomber.hull(l).extent().minAlong() < ring.minAlong(), "its hub running on through it");
+        // its body: the hull, the shroud's two faces and four vanes, each by its lines, its skeleton
+        final Craft body = Bomber.body(l);
+        assertEquals(1 + 2 + 4, body.skeletons().size(), "the hull, the shroud's two faces, four vanes");
+        assertTrue(body.panels().stream().anyMatch(p -> p.paint() == Paint.CAR), "its keel band");
+        assertEquals(0, body.spinners().size(), "nothing turning in it yet");
     }
 
     @Test
