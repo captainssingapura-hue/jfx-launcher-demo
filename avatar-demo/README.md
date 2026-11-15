@@ -374,7 +374,7 @@ the window, so clicks stay free for actions.
 | Right click (held) | Aboard the airship, drop a bomb (held, a stick of them) | |
 | G | At the controls of the pickup or the airship: give up control of its gun, or take it back | |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
-| V | First person, or back: on foot, from the avatar's own eyes (its arms and what they hold drawn up into the bottom of the view, the rounds still leaving from its hands); at a vehicle's controls, from the driver's seat | The same |
+| V | First person, or back: on foot, from the avatar's own eyes, exactly where its visor is drawn, so the view goes with its head into a run, a dive or a flight (its arms and what they hold drawn upright and steady at the bottom of the view, however it is tipped, the rounds still leaving from its hands); at a vehicle's controls, from the driver's seat | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
 
 As in most shooters, it goes at full speed unless Shift is held. `-Davatar.pack=true` starts

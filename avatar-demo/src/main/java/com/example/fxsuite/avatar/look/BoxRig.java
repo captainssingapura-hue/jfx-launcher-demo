@@ -2,7 +2,9 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Avatar;
 import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Vec3;
 
+import javafx.geometry.Point3D;
 import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.image.WritableImage;
@@ -107,8 +109,46 @@ public final class BoxRig {
         return root;
     }
 
-    /** How high its eyes are over its soles, standing: its visor's middle. */
-    public static final double EYE = NECK + 24 + SOLE;
+    /** Where its eyes are in its head: its visor's middle, how far up from the neck and how far out in front. */
+    static final double EYE_UP = 24;
+    static final double EYE_OUT = 23;
+
+    /**
+     * Where its eyes are in the world, as it stands at {@code where} holding {@code pose}: its visor,
+     * exactly where it is drawn: its head turned and tipped on its neck, the body raised, banked and
+     * leaned about its middle, and turned its way. The view from them goes with its head, into a
+     * dive, a run, a flight, as the figure does.
+     */
+    public static Vec3 eye(final Body where, final Pose pose) {
+        // in the head: turned, then tipped, on the neck (see head())
+        Point3D p = new Point3D(0, -EYE_UP, EYE_OUT);
+        p = new Rotate(pose.headPitch(), Rotate.X_AXIS).transform(p);
+        p = new Rotate(pose.headYaw(), Rotate.Y_AXIS).transform(p);
+        p = p.add(0, -NECK, 0);
+        // in the body: leaned, then banked, then raised (see the constructor)
+        p = new Rotate(-pose.lean(), 0, -MIDDLE, 0, Rotate.X_AXIS).transform(p);
+        p = new Rotate(pose.bank(), 0, -MIDDLE, 0, Rotate.Z_AXIS).transform(p);
+        p = p.add(0, -(pose.lift() + SOLE), 0);
+        // then turned its way, and put where it is
+        p = new Rotate(where.yaw(), Rotate.Y_AXIS).transform(p);
+        return where.position().add(p.getX(), p.getY(), p.getZ());
+    }
+
+    /**
+     * Seen from its own eyes: its arms, and what they hold, as {@code pose} (upright, {@link Gait#upright})
+     * has them, placed so its eyes, standing upright, are at {@code eye} facing {@code yaw}: steady
+     * at the bottom of the view, however its body is tipped flying, diving or running, as a
+     * shooter's are. (The rest of it is not drawn: {@link #fromItsEyes}.)
+     */
+    public void showFromEyes(final Avatar avatar, final Pose pose, final Vec3 eye, final double yaw) {
+        // the arms placed from the middle of its head, not its visor: as far ahead of the view as a shooter's are
+        final Point3D eyes = new Rotate(yaw, Rotate.Y_AXIS).transform(new Point3D(0, -(NECK + EYE_UP + SOLE), 0));
+        posed(avatar, pose.upright());
+        at.setX(eye.x() - eyes.getX());
+        at.setY(eye.y() - eyes.getY());
+        at.setZ(eye.z() - eyes.getZ());
+        turn.setAngle(yaw);
+    }
 
     /**
      * Seen from its own eyes, how much higher its arms are drawn, and how much further ahead, than
@@ -119,6 +159,9 @@ public final class BoxRig {
     static final double IN_VIEW_AHEAD = 30;
     private final Translate inView = new Translate();
 
+    /** Whether it is seen from its own eyes. */
+    private boolean fromEyes;
+
     /** Its legs, body, pack, neck and head: all but its arms and what they hold. */
     private final List<Node> beyondView;
 
@@ -127,6 +170,7 @@ public final class BoxRig {
      * (its head first of all) out of the way of the view; or ({@code false}) whole.
      */
     public void fromItsEyes(final boolean eyes) {
+        fromEyes = eyes;
         beyondView.forEach(part -> part.setVisible(!eyes));
         // and its arms drawn up into the view, as a shooter's are: the rounds still leave from where its hands are
         inView.setY(eyes ? -IN_VIEW_UP : 0);
@@ -145,6 +189,11 @@ public final class BoxRig {
         at.setY(where.position().y());
         at.setZ(where.position().z());
         turn.setAngle(where.yaw());
+        posed(avatar, pose);
+    }
+
+    /** Holds {@code pose}: the body raised, tipped and its limbs turned; the jet-pack and what the hands hold as the avatar has them. */
+    private void posed(final Avatar avatar, final Pose pose) {
         // the soles hover a hair above the ground: a sole lying in the same
         // plane as the ground flickers, as the renderer cannot tell which is in front
         raise.setY(-(pose.lift() + SOLE));
@@ -172,6 +221,10 @@ public final class BoxRig {
         headTip.setAngle(pose.headPitch());
 
         pack.show(avatar);
+        // which shows itself when worn: not, seen from its own eyes, as nothing behind its arms is
+        if (fromEyes) {
+            pack.node().setVisible(false);
+        }
         arsenal.show(avatar, pose);
     }
 

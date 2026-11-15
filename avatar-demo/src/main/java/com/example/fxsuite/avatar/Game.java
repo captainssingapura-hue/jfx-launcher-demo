@@ -630,7 +630,8 @@ public final class Game {
         final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
                 && gunned.isEmpty();
         headYaw = firstPerson && seated ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
-        final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt, body) : null;
+        final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt, body,
+                Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH)) : null;
         // on foot, from its own eyes: only its arms and what they hold are drawn, at the bottom of the view
         final boolean ownEyes = cockpit != null && flying.isEmpty() && alone.isEmpty();
         rig.fromItsEyes(ownEyes);
@@ -654,6 +655,10 @@ public final class Game {
         } else if (alone.filter(gun -> gun.mount().rides()).isPresent()) {
             // at a mounted gun, sat behind it, turned with it
             rig.show(avatar, Gait.seated(looking));
+        } else if (ownEyes) {
+            // from its own eyes, its arms upright and steady at the bottom of the view, however it is tipped
+            rig.showFromEyes(avatar, Gait.upright(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH),
+                    cockpit.at(), cockpit.yaw());
         } else {
             rig.show(avatar, looking);
         }
@@ -1190,13 +1195,15 @@ public final class Game {
 
     /**
      * The first-person view: on foot (no {@code lift} at its controls, no {@code gun} manned), from the
-     * avatar's own eyes as {@code body} is drawn, the way it faces, tilted with its aim; at the
+     * avatar's own eyes as {@code body} is drawn holding {@code pose}, the way it faces, tilted with its
+     * aim; at the
      * controls of {@code lift}, or behind {@code gun}, as they are drawn
      * ({@code shownAt}): from where its driver's eyes are, looking the way it heads (and the head
      * turned, in a land vehicle), up or down as the view is tilted, and tipped as it is; behind a
      * gun, looking where it is aimed. Null when there is nothing drawn to look from.
      */
-    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt, final Body body) {
+    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt, final Body body,
+                        final Pose pose) {
         final double look = chase.pitch() - restPitch();
         if (gun != null) {
             final Block was = movedNow.get(gun.host());
@@ -1208,7 +1215,7 @@ public final class Game {
             return new View(eye, yaw, look);
         }
         if (lift == null) {
-            return new View(body.position().add(0, -BoxRig.EYE, 0), body.yaw(), look);
+            return new View(BoxRig.eye(body, pose), body.yaw(), look);
         }
         final Block block = shownAt.get(lift.piece());
         if (block == null) {
