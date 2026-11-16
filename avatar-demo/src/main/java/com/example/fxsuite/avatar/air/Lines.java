@@ -21,7 +21,11 @@ import java.util.List;
  * given all the way round (a wing's, from its leading edge over its top and back under it).
  *
  * <p>Between the sections given, {@code steps} more to each span, on smooth curves through them, so
- * it is smooth along its length and crisp round it.
+ * it is smooth along its length and crisp round it. Or, {@code around}, round it too: so many points
+ * between each two neighbouring longerons round each section, on an arc about its axis (across 0,
+ * up 0), its angle stepped evenly and its distance out going evenly from the one to the other; so
+ * where they are as far out, part of a circle. Its frames, then, round; its longerons as they were,
+ * the only lines along it. For a hull round its axis: an airship's.
  *
  * @param name      what it is
  * @param longerons its lines' names, in order round a section (a mirrored one's from its keel to its
@@ -29,8 +33,17 @@ import java.util.List;
  * @param sections  its sections, tail to nose (along, increasing)
  * @param mirrored  whether each section is given for its right half only
  * @param steps     how many sections are put between each two given, to smooth it along its length
+ * @param around    how many points are put between each two longerons round each section, on an arc
+ *                  about its axis: none, crisp round it
  */
-public record Lines(String name, List<String> longerons, List<Section> sections, boolean mirrored, int steps) {
+public record Lines(String name, List<String> longerons, List<Section> sections, boolean mirrored, int steps,
+                    int around) {
+
+    /** Crisp round it: its longerons joined straight across each section. */
+    public Lines(final String name, final List<String> longerons, final List<Section> sections, final boolean mirrored,
+                 final int steps) {
+        this(name, longerons, sections, mirrored, steps, 0);
+    }
 
     /**
      * Where the longerons cross the body {@code along} its length: each {across, up}, in the order of
@@ -64,7 +77,7 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
     public Lines {
         longerons = List.copyOf(longerons);
         sections = List.copyOf(sections);
-        if (longerons.size() < (mirrored ? 2 : 3) || sections.size() < 2 || steps < 0) {
+        if (longerons.size() < (mirrored ? 2 : 3) || sections.size() < 2 || steps < 0 || around < 0) {
             throw new IllegalArgumentException(name + ": " + longerons.size() + " longerons, " + sections.size()
                     + " sections");
         }
@@ -153,6 +166,52 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
         return new Point(left(i) ? -p[0] : middle(i) ? 0 : p[0], section.along(), p[1]);
     }
 
+    /**
+     * Every point round {@code section}, from its first longeron's on: at each longeron, and, if it is
+     * rounded ({@link #around}), so many between each two, on an arc about its axis.
+     */
+    public List<Point> ring(final Section section) {
+        final List<Point> ring = new ArrayList<>();
+        for (int i = 0; i < round(); i++) {
+            final Point p = point(section, i);
+            ring.add(p);
+            if (around == 0) {
+                continue;
+            }
+            final Point q = point(section, (i + 1) % round());
+            final double from = Math.atan2(p.up(), p.across());
+            final double to = Math.atan2(q.up(), q.across());
+            // the shorter way round, to the next
+            final double turn = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+            final double r = Math.hypot(p.across(), p.up());
+            final double s = Math.hypot(q.across(), q.up());
+            for (int m = 1; m <= around; m++) {
+                final double t = (double) m / (around + 1);
+                final double angle = from + turn * t;
+                final double out = r + (s - r) * t;
+                ring.add(new Point(out * Math.cos(angle), section.along(), out * Math.sin(angle)));
+            }
+        }
+        return ring;
+    }
+
+    /** The vertices round {@code section} (the {@code k}th) for its ring: its longerons' {@code at}, and between them, new. */
+    private int[] ring(final Form.Builder form, final Section section, final int[] at, final int k) {
+        final List<Point> points = ring(section);
+        final int each = around + 1;
+        final int[] ring = new int[points.size()];
+        for (int p = 0; p < points.size(); p++) {
+            if (p % each == 0) {
+                ring[p] = at[p / each];
+            } else {
+                final Point point = points.get(p);
+                ring[p] = form.vertex(vertexName(p / each, k) + "." + p % each, point.across(), point.along(),
+                        point.up());
+            }
+        }
+        return ring;
+    }
+
     /** The {@code i}th point round's vertex's name, at section {@code k}. */
     private String vertexName(final int i, final int k) {
         return longerons.get(longeron(i)) + (middle(i) || !mirrored ? "" : left(i) ? " left" : " right") + " " + k;
@@ -181,9 +240,10 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
                     final Point p = point(section, i);
                     at[i] = form.vertex(vertexName(i, k), p.across(), p.along(), p.up());
                 }
-                // round it only where a section was given: its lines plan, not every section put between
+                // round it only where a section was given: its lines plan, not every section put between; through
+                // the points round it between its longerons, if it is rounded
                 if (k % (steps + 1) == 0) {
-                    form.loop(at);
+                    form.loop(around == 0 ? at : ring(form, section, at, k));
                 }
             }
             if (last != null) {
@@ -210,17 +270,26 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
             final Section a = all.get(k);
             final Section b = all.get(k + 1);
             final double along = (a.along() + b.along()) / 2;
+            final List<Point> ra = ring(a);
+            final List<Point> rb = ring(b);
+            final int each = around + 1;
             for (int i = 0; i < round(); i++) {
                 final int j = (i + 1) % round();
                 final String band = band(i, j);
                 final Paint paint = dress.paint(band, along);
                 final String named = band + (left(i) || left(j) ? " left " : mirrored ? " right " : " ") + k;
-                if (a.point()) {
-                    panels.add(new Panel(named, paint, List.of(point(a, i), point(b, j), point(b, i))));
-                } else if (b.point()) {
-                    panels.add(new Panel(named, paint, List.of(point(a, i), point(a, j), point(b, i))));
-                } else {
-                    panels.add(new Panel(named, paint, List.of(point(a, i), point(a, j), point(b, j), point(b, i))));
+                // a strip between each two points round, from this longeron to the next
+                for (int m = 0; m < each; m++) {
+                    final int p = i * each + m;
+                    final int q = (p + 1) % ra.size();
+                    final String strip = around == 0 ? named : named + "." + m;
+                    if (a.point()) {
+                        panels.add(new Panel(strip, paint, List.of(ra.get(p), rb.get(q), rb.get(p))));
+                    } else if (b.point()) {
+                        panels.add(new Panel(strip, paint, List.of(ra.get(p), ra.get(q), rb.get(p))));
+                    } else {
+                        panels.add(new Panel(strip, paint, List.of(ra.get(p), ra.get(q), rb.get(q), rb.get(p))));
+                    }
                 }
             }
         }
@@ -258,9 +327,7 @@ public record Lines(String name, List<String> longerons, List<Section> sections,
     public Extent extent() {
         final List<Point> points = new ArrayList<>();
         for (final Section section : refined()) {
-            for (int i = 0; i < round(); i++) {
-                points.add(point(section, i));
-            }
+            points.addAll(ring(section));
         }
         return Extent.of(points);
     }

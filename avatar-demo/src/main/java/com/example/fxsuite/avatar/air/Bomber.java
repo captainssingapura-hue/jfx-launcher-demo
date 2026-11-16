@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * The heavy bomber airship, drawn by its lines first ({@link Lines}), as a rigid airship is built:
  * its hull a frame of girders, ring frames round it and longitudinal girders along it, the skin
- * stretched over them. So its skeleton is its structure, and its skin flat panels between its
- * girders: a many-sided hull, not a smooth one.
+ * stretched over them. So its skeleton is its structure: its ring frames curved round between its
+ * girders ({@link #AROUND}), and its skin flat strips on them, between each two points round.
  *
  * <p>Its hull, sixteen-sided, its belly flatter than its back, to carry a long gondola and its bomb
  * bay under it; a blunt nose, a long parallel middle, and a long tail tapering, as a torpedo's does,
@@ -33,6 +33,9 @@ public final class Bomber {
     public static final double DIAMETER = 0.25;
     /** How much flatter its belly is than its back: its lower girders this much nearer its axis, up and down. */
     public static final double BELLY = 0.85;
+
+    /** How many points round between each two girders, on an arc about its axis: its frames round, not straight between. */
+    public static final int AROUND = 3;
 
     /** Where its main frames are, from its tail (0) to its nose (1): closer where it curves most. */
     static final double[] FRAMES = {0, 0.015, 0.05, 0.08, 0.11, 0.15, 0.21, 0.28, 0.35, 0.42, 0.50, 0.58, 0.66, 0.74,
@@ -98,7 +101,7 @@ public final class Bomber {
             // where its taper meets its hub, a shoulder: its girders turn there, not curving through
             sections.add(new Lines.Section((t - 0.5) * length, points, t == HUB_ENDS));
         }
-        return new Lines("hull", LONGERONS, sections, true, 2);
+        return new Lines("hull", LONGERONS, sections, true, 2, AROUND);
     }
 
     /** The {@code i}th girder's angle round from across, up positive: the keel's -90°, the spine's 90°. */
@@ -129,7 +132,7 @@ public final class Bomber {
             sections.add(new Lines.Section((SHROUD_TRAILS + s * (SHROUD_LEADS - SHROUD_TRAILS) - 0.5) * length,
                     points));
         }
-        return new Lines(outside ? "shroud outside" : "shroud inside", LONGERONS, sections, true, 2);
+        return new Lines(outside ? "shroud outside" : "shroud inside", LONGERONS, sections, true, 2, AROUND);
     }
 
     /**

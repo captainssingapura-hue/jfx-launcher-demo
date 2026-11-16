@@ -255,7 +255,9 @@ class AircraftTest {
         final com.example.fxsuite.avatar.sim.Form skeleton = hull.skeleton();
         assertTrue(skeleton.problems().isEmpty(), skeleton.problems().toString());
         assertEquals(1, skeleton.pieces(), "all one frame");
-        assertEquals((hull.refined().size() - 2) * round + 2, skeleton.vertices().size(), "drawn to a point at each end");
+        // a vertex where each girder crosses each section, and round each main frame, between its girders
+        assertEquals((hull.refined().size() - 2) * round + (Bomber.FRAMES.length - 2) * round * Bomber.AROUND + 2,
+                skeleton.vertices().size(), "drawn to a point at each end");
         final Extent e = hull.extent();
         assertEquals(l, e.length(), 1e-6);
         assertEquals(Bomber.DIAMETER * l, e.width(), 0.01 * l, "as wide as it is round");
@@ -264,6 +266,21 @@ class AircraftTest {
         assertEquals(Bomber.DIAMETER * l / 2, hull.on("beam", 0).across(), 1e-6);
         assertEquals(0, hull.on("beam", 0).up(), 1e-6);
         assertEquals(hull.on("beam", 0).across(), hull.on("beam", 0.15 * l).across(), 1, "a parallel middle");
+        // its frames round: above its beam, every point round a frame as far out as its girders, part of a circle
+        final Lines.Section frame = hull.sections().get(10);
+        final List<Point> ring = hull.ring(frame);
+        assertEquals(round * (Bomber.AROUND + 1), ring.size());
+        final double out = Bomber.round(Bomber.FRAMES[10]) * Bomber.DIAMETER * l / 2;
+        for (final Point p : ring) {
+            if (p.up() >= 0) {
+                assertEquals(out, Math.hypot(p.across(), p.up()), 1e-6, "on the circle: " + p);
+            } else {
+                assertTrue(Math.hypot(p.across(), p.up()) <= out + 1e-6, "its belly flatter: " + p);
+            }
+        }
+        // its skin a strip between each two points round
+        assertEquals((hull.refined().size() - 1) * round * (Bomber.AROUND + 1),
+                hull.panels((band, along) -> Paint.SKIN).size());
         // its tail tapering to its hub, slim, and closing round behind
         assertEquals(Bomber.HUB * Bomber.DIAMETER * l / 2, hull.on("beam", (Bomber.HUB_ENDS - 0.5) * l).across(), 1e-6);
     }
