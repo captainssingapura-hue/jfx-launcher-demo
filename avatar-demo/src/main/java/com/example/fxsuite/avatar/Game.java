@@ -386,9 +386,25 @@ public final class Game {
                 avatar.wearingPack());
     }
 
+    /**
+     * How near the camera it draws, cm: as near as a hand from the eyes, seen from them; from behind, a
+     * fifth of the way to the avatar, up to a metre. The depth it tells near from far by is finest near
+     * the camera and coarser with the square of the distance, the coarser the nearer it draws from: so
+     * drawing from further off keeps what lies a few centimetres over the ground, a lawn, a path, a pond,
+     * apart from it far off, rather than flickering through each other.
+     */
+    private static final double NEAR = 10;
+    private static final double NEAR_MOST = 100;
+    private static final double NEAR_SHARE = 0.2;
+
+    /** How near the camera it draws, seen from the eyes ({@code eyes}) or from behind. */
+    private double nearClip(final boolean eyes) {
+        return eyes ? NEAR : Num.clamp(chase.distance() * NEAR_SHARE, NEAR, NEAR_MOST);
+    }
+
     /** Plays it in {@code stage}. */
     private void start(final Stage stage) {
-        eye.setNearClip(10);
+        eye.setNearClip(NEAR);
         eye.setFarClip(150_000);
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
@@ -735,6 +751,7 @@ public final class Game {
                 ? Num.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
         fieldOfView = Num.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
+        eye.setNearClip(nearClip(cockpit != null));
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
         eyeAt.setY(at.y());

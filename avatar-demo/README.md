@@ -902,7 +902,12 @@ through, and one loaded until a pillar gives and it falls.
   across, a path over it up to the gate, a pond either side of the temple (its water in a stone rim,
   an island in its middle with a pavilion on it, a bridge out to it), and the rest of the pavilions
   round it, one of each kind, each facing the temple; the park's lawn, water and paving lie on the
-  ground in no one's way (`Course.Kind.GARDEN`), to be waded and driven over. In the temple's
+  ground in no one's way (`Course.Kind.GARDEN`), to be waded and driven over. Drawn so that
+  none lies over another but well over it (`GardenMesh`): the lawn open where the courtyard's paving
+  and the ponds are, each pond's rim a ring round its water and its water round its island, the grid's
+  lines stopped at the lawn's edge, the path and the bridges 6 cm over what they cross; and the camera
+  draws from further off the further behind the avatar it is (`Game.nearClip`), the depth it tells
+  near from far by the finer for it, so flat things far off do not flicker through each other. In the temple's
   courtyard (`Town.parked`), the cars, the pickup and the truck parked along its west side, the six
   motorcycles along its east, all facing in, and the gunship on its middle line before the monks, its
   nose to the gate. East of the town, the pyramids. On top of each tower, on each of its cores where

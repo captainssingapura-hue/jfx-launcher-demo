@@ -110,6 +110,28 @@ class TownTest {
     }
 
     @Test
+    void whatLiesInTheParkLiesOverNothingElseOrWellOverIt() {
+        final List<Course.Piece> garden = Town.park().stream().filter(p -> p.kind() == Course.Kind.GARDEN).toList();
+        final Course.Piece lawn = garden.getFirst();
+        for (int a = 0; a < garden.size(); a++) {
+            for (int b = a + 1; b < garden.size(); b++) {
+                final Block one = garden.get(a).block();
+                final Block other = garden.get(b).block();
+                // a rim round its water round its island: rings, drawn one round the next
+                final boolean rings = garden.get(a).tint() != Course.GARDEN_PAVING && garden.get(b).tint() != Course.GARDEN_PAVING
+                        && Math.hypot(one.x() - other.x(), one.z() - other.z()) < 1;
+                // the lawn open where the paving at its middle is, and where each pond is
+                final boolean holed = garden.get(a) == lawn && (other.covers(lawn.block().x(), lawn.block().z(), 0)
+                        || garden.get(b).tint() != Course.GARDEN_PAVING);
+                if (!rings && !holed && one.overlaps(other)) {
+                    assertTrue(Math.abs(one.top() - other.top()) >= Town.LAID_APART, a + " over " + b + ": " + one.top()
+                            + " and " + other.top());
+                }
+            }
+        }
+    }
+
+    @Test
     void thePyramidsAtTheEdgeOfTown() {
         final List<Course.Piece> pyramids = Town.pieces().stream().filter(p -> p.tint() >= Pyramids.KEYS
                 && p.tint() < Pavilions.KEYS).toList();

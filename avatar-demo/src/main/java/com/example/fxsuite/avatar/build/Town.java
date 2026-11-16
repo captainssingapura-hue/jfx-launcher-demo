@@ -266,16 +266,20 @@ public final class Town {
     public static final double ISLAND = 750;
     public static final double BRIDGE = 300;
     /**
-     * How high each lies, each drawn over what it lies on: the lawn; the courtyard's paving and the path;
-     * the rim, under the water, showing round it; the water; the island and the bridge over it.
+     * How high each lies. The lawn, open where the courtyard's paving and the ponds are, and the paving,
+     * level with it; each pond's rim round its water, a little lower, and its island in it, each a ring
+     * round the next, none over another. What does lie over another, the path over the lawn and the
+     * bridge over the water, its rim and its island, at least {@link #LAID_APART} over it: so far off, they
+     * are still told apart, not flickering through each other.
      */
-    private static final double LAWN_TOP = 2;
-    private static final double COURTYARD_TOP = 4;
-    private static final double PATH_TOP = 5;
-    private static final double RIM_TOP = 8;
-    private static final double WATER_TOP = 12;
-    private static final double ISLAND_TOP = 16;
-    private static final double BRIDGE_TOP = 18;
+    private static final double LAWN_TOP = 5;
+    private static final double COURTYARD_TOP = 5;
+    private static final double RIM_TOP = 12;
+    private static final double WATER_TOP = 9;
+    private static final double ISLAND_TOP = 14;
+    public static final double LAID_APART = 6;
+    private static final double PATH_TOP = LAWN_TOP + LAID_APART;
+    private static final double BRIDGE_TOP = ISLAND_TOP + LAID_APART;
     /** The pavilions round the park, but those on the islands: so far out from its middle. */
     public static final double PAVILIONS_OUT = 8_300;
 
@@ -296,13 +300,12 @@ public final class Town {
         final Place middle = middle();
         final List<Course.Piece> park = new ArrayList<>();
         park.add(garden(middle.x(), middle.z(), PARK, PARK, 0, LAWN_TOP, Course.GARDEN_LAWN));
-        // the temple's courtyard paved within its wall, up to where its back corners round, and between them
+        // the temple's courtyard paved within its wall, up to where its back corners round (behind the great
+        // hall, the lawn): one box, the lawn open where it is
         final Place temple = temple();
         final double round = TempleYard.BACK - TempleYard.ROUNDED;
         park.add(garden(temple.x(), temple.z() + (TempleYard.FRONT + round) / 2, TempleYard.FLANK,
                 (round - TempleYard.FRONT) / 2, 0, COURTYARD_TOP, Course.GARDEN_PAVING));
-        park.add(garden(temple.x(), temple.z() + (round + TempleYard.BACK) / 2, TempleYard.FLANK - TempleYard.ROUNDED,
-                TempleYard.ROUNDED / 2, 0, COURTYARD_TOP, Course.GARDEN_PAVING));
         // the path, from the park's edge before the temple up to its gate
         final double edge = middle.z() - PARK;
         final double gate = temple.z() + TempleYard.GATE.z();
