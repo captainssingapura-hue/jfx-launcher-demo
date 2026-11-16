@@ -22,7 +22,7 @@ import java.util.stream.IntStream;
  *   <li><b>Smoothed.</b> A few passes, each point the mean of those round it, round off the creases
  *       left along the loops; the flat ground and the spot heights stay as they are.</li>
  *   <li><b>Roughened.</b> The terrain's noise, worked from its seed, laid over all but the flat
- *       ground, fading in away from it.</li>
+ *       ground, fading in away from it, and the spot heights, which are as marked.</li>
  * </ol>
  */
 public final class Survey {
@@ -116,6 +116,7 @@ public final class Survey {
             final int j = (int) Math.round((spot.at().z() + reach) / every);
             if (i >= 0 && j >= 0 && i < size && j < size) {
                 held[j * size + i] = true;
+                rough[j * size + i] = 0;
             }
         }
 

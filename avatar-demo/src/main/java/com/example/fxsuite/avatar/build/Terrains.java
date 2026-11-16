@@ -1,8 +1,14 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Body;
+import com.example.fxsuite.avatar.sim.Contour;
 import com.example.fxsuite.avatar.sim.Terrain;
+import com.example.fxsuite.avatar.sim.Vec2;
 
-/** Terrains drawn so far, as their maps' text ({@link Terrain#parse}). */
+import java.util.ArrayList;
+import java.util.List;
+
+/** Terrains drawn so far: as their maps' text ({@link Terrain#parse}), or worked out from what stands on them. */
 public final class Terrains {
 
     private Terrains() {
@@ -27,5 +33,115 @@ public final class Terrains {
 
     public static Terrain valley() {
         return Terrain.parse(VALLEY);
+    }
+
+    // --- the meadow ---------------------------------------------------------------------------------------
+
+    /** How far apart its banks' lines have a point; how far past the world's ends east and west the first runs, each after it so much further, so they nest. */
+    private static final double ALONG = 10_000;
+    private static final double PAST = 20_000;
+
+    /**
+     * A band along the river, the land within it lower than {@code height}: its line so far {@code north}
+     * of the river and so far {@code south}, each widened and narrowed along its length; its lines joined
+     * past the world's ends, the further the wider the band (its {@code outward}), so the valley runs out of the world east and west, low.
+     */
+    private record Band(double height, double north, double south, boolean flat, double bulge, double bulgeWide) {
+
+        double northAt(final double x) {
+            final double wave = 1 + 0.18 * Math.sin(x / 90_000 + 0.7) + 0.08 * Math.sin(x / 37_000 + 2.1);
+            final double round = Math.max(0, 1 - (x / bulgeWide) * (x / bulgeWide));
+            return north * wave + bulge * round;
+        }
+
+        double southAt(final double x) {
+            return south * (1 + 0.2 * Math.sin(x / 70_000 + 2.6) + 0.07 * Math.sin(x / 29_000 + 0.4));
+        }
+
+        Contour contour(final int outward) {
+            final double reach = Body.EDGE + PAST * (outward + 1);
+            final List<Vec2> loop = new ArrayList<>();
+            for (double x = -reach; x <= reach; x += ALONG) {
+                loop.add(metre(x, Village.riverAt(x) + northAt(x)));
+            }
+            for (double x = reach; x >= -reach; x -= ALONG) {
+                loop.add(metre(x, Village.riverAt(x) - southAt(x)));
+            }
+            return new Contour(height, loop, flat);
+        }
+    }
+
+    /**
+     * The river's valley, its bands from the water out: its floor, the meadows by the river and the
+     * village on them, level; then up gently northward, through rolling ground to the hills, and more
+     * steeply southward; at last up to the moors at the world's edge.
+     */
+    private static final List<Band> BANDS = List.of(
+            new Band(0, 9_000, 6_000, true, 10_000, 25_000),
+            new Band(300, 30_000, 15_000, false, 8_000, 40_000),
+            new Band(1_000, 70_000, 30_000, false, 0, 1),
+            new Band(2_500, 140_000, 60_000, false, 0, 1),
+            new Band(5_000, 250_000, 120_000, false, 0, 1),
+            new Band(8_000, 380_000, 260_000, false, 0, 1));
+    /** The moors at the world's edge, past every band. */
+    private static final double MOORS = 10_000;
+
+    /**
+     * Where a hill (or a hollow) on the northern slope stands: so far east, between band {@code inner}'s
+     * line and the next one's, as far between them as {@code between} (0 at the inner, 1 at the outer).
+     */
+    private static Vec2 between(final int inner, final double x, final double between) {
+        final double near = BANDS.get(inner).northAt(x);
+        final double far = BANDS.get(inner + 1).northAt(x);
+        return metre(x, Village.riverAt(x) + near + (far - near) * between);
+    }
+
+    /** The room between band {@code inner}'s line and the next one's, northward, at {@code x}. */
+    private static double room(final int inner, final double x) {
+        return BANDS.get(inner + 1).northAt(x) - BANDS.get(inner).northAt(x);
+    }
+
+    /** A loop round {@code at}, {@code r} out, a little out of round, to the metre. */
+    private static Contour round(final double height, final Vec2 at, final double r, final int points, final double turn) {
+        final List<Vec2> loop = new ArrayList<>();
+        for (int k = 0; k < points; k++) {
+            final double a = 2 * Math.PI * k / points;
+            final double out = r * (1 + 0.12 * Math.sin(3 * a + turn) + 0.06 * Math.sin(5 * a + 2 * turn));
+            loop.add(metre(at.x() + out * Math.cos(a), at.z() + out * Math.sin(a) * 0.8));
+        }
+        return new Contour(height, loop);
+    }
+
+    private static Vec2 metre(final double x, final double z) {
+        return new Vec2(Math.round(x / 100) * 100.0, Math.round(z / 100) * 100.0);
+    }
+
+    /** Where the meadow's knoll tops out, its hill's beacon stands, and its hollow (a pond, in time) is deepest. */
+    public static final Vec2 KNOLL = between(2, -90_000, 0.5);
+    public static final Vec2 BEACON = between(3, 150_000, 0.5);
+    public static final Vec2 HOLLOW = between(1, 45_000, 0.45);
+
+    /**
+     * The meadow round the village ({@link Village}), 5 km each way: the river's valley across it west
+     * to east, its floor level at 0 where the river runs and the village stands, 80 to 190 m wide; the
+     * land rising gently northward, 3 m 300 m out, 10 m at 700 m, 25 m at 1.4 km, past a knoll (34 m)
+     * and a hollow for a pond, to a beacon hill (66 m) 2 km out; southward more steeply, to a ridge;
+     * moors at 100 m round the edge, framing the sky.
+     */
+    public static Terrain meadow() {
+        final List<Contour> loops = new ArrayList<>();
+        for (int k = 0; k < BANDS.size(); k++) {
+            loops.add(BANDS.get(k).contour(k));
+        }
+        // the knoll, between the 10 m and 25 m lines
+        loops.add(round(3_000, KNOLL, Math.min(15_000, room(2, KNOLL.x()) * 0.3), 18, 0.4));
+        // the beacon hill, between the 25 m and 50 m lines
+        final double beacon = Math.min(40_000, room(3, BEACON.x()) * 0.32);
+        loops.add(round(5_500, BEACON, beacon, 24, 1.7));
+        loops.add(round(6_000, BEACON, beacon * 0.45, 16, 2.3));
+        // the hollow, between the 3 m and 10 m lines, sinking to 1 m
+        loops.add(round(400, HOLLOW, Math.min(6_000, room(1, HOLLOW.x()) * 0.25), 14, 0.9));
+        return new Terrain("meadow", Body.EDGE, 1_000, MOORS, 11, new Terrain.Noise(60, 4_000, 3), loops,
+                List.of(new Terrain.Spot(KNOLL, 3_400), new Terrain.Spot(BEACON, 6_600)));
     }
 }

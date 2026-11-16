@@ -27,11 +27,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 /**
  * Terrains worked on as maps ({@link Terrain}): the map drawn flat over the land surveyed from it
@@ -39,11 +42,19 @@ import java.util.concurrent.atomic.AtomicLong;
  * text beside it, to be written in and applied; what is wrong with it, how high and low the land
  * goes, and how long it took to survey. Surveyed apart from the screen, so the map keeps up.
  *
- * <p>{@code -Dterrain.file=path} opens a terrain's text to start with (else the valley,
- * {@link Terrains#VALLEY}); {@code -Dterrain.lines=2} draws the contour lines every so many metres.
+ * <p>{@code -Dterrain.file=path} opens a terrain's text to start with, or {@code -Dterrain.map=meadow}
+ * one of the maps drawn so far ({@link Terrains}; else the valley); {@code -Dterrain.lines=2} draws the contour lines every so many metres.
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
 public final class TerrainBench extends Application {
+
+    /** The maps drawn so far, by name, as text. */
+    private static final Map<String, Supplier<String>> MAPS = new LinkedHashMap<>();
+
+    static {
+        MAPS.put("valley", () -> Terrains.VALLEY);
+        MAPS.put("meadow", () -> Terrains.meadow().text());
+    }
 
     private final TerrainMap map = new TerrainMap();
     private final TextArea text = new TextArea();
@@ -64,7 +75,20 @@ public final class TerrainBench extends Application {
     public void start(final Stage stage) throws IOException {
         this.stage = stage;
         final String file = System.getProperty("terrain.file");
-        final String start = file == null ? Terrains.VALLEY : Files.readString(Path.of(file), StandardCharsets.UTF_8);
+        final String named = System.getProperty("terrain.map", "valley").toLowerCase(Locale.ROOT);
+        final String start = file != null ? Files.readString(Path.of(file), StandardCharsets.UTF_8)
+                : MAPS.getOrDefault(named, MAPS.get("valley")).get();
+        final ComboBox<String> maps = new ComboBox<>();
+        maps.getItems().setAll(MAPS.keySet());
+        maps.setValue(file != null ? null : MAPS.containsKey(named) ? named : "valley");
+        maps.setPromptText("Map");
+        maps.setOnAction(e -> {
+            if (maps.getValue() != null) {
+                text.setText(MAPS.get(maps.getValue()).get());
+                applyText();
+                map.fit();
+            }
+        });
 
         text.setFont(Font.font("Monospaced", 12));
         text.setWrapText(false);
@@ -88,7 +112,7 @@ public final class TerrainBench extends Application {
                 + " right click a point to take it out; drag elsewhere to move the map, the wheel to zoom.");
         help.setWrapText(true);
         final VBox side = new VBox(8,
-                new HBox(8, apply, open, save, fit),
+                new HBox(8, maps, apply, open, save, fit),
                 new HBox(8, new Label("Contour lines every (m)"), apart),
                 text, figures, problems, help);
         side.setPadding(new Insets(10));
