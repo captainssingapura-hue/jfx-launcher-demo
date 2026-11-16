@@ -308,7 +308,7 @@ class AircraftTest {
         assertTrue(Bomber.hull(l).extent().minAlong() < ring.minAlong(), "its hub running on through it");
         // its body: the hull, the shroud's two faces and four vanes, each by its lines, its skeleton
         final Craft body = Bomber.body(l);
-        assertEquals(1 + 2 + 4, body.skeletons().size(), "the hull, the shroud's two faces, four vanes");
+        assertEquals(1 + 1 + 2 + 4, body.skeletons().size(), "the hull, its cabin, the shroud's two faces, four vanes");
         assertTrue(body.panels().stream().anyMatch(p -> p.paint() == Paint.CAR), "its keel band");
         assertEquals(0, body.spinners().size(), "nothing turning in it yet");
     }
@@ -362,6 +362,35 @@ class AircraftTest {
         final double[] trail = blade.sections().get(k).points().get(3);
         // across the way it turns, and up back against its pull: so the leading edge is ahead and pulled forward
         return Math.toDegrees(Math.atan2(-(lead[1] - trail[1]), lead[0] - trail[0]));
+    }
+
+    @Test
+    void theBombersCabinIsFlushUnderItsKeelGlazedAlongItsSidesAndRoundItsBridge() {
+        final double l = 7000;
+        final Lines cabin = Bomber.cabin(l);
+        final Lines hull = Bomber.hull(l);
+        assertTrue(cabin.skeleton().problems().isEmpty(), cabin.skeleton().problems().toString());
+        assertEquals(1, cabin.skeleton().pieces());
+        final Extent e = cabin.extent();
+        // under its keel, forward of its middle, as long, wide and deep as it is drawn
+        assertEquals((Bomber.CABIN_TO - Bomber.CABIN_FROM) * l, e.length(), 1e-6);
+        assertTrue(e.minAlong() > 0, "forward of its middle");
+        assertEquals(Bomber.CABIN_WIDTH * l, e.width(), 0.01 * Bomber.CABIN_WIDTH * l, "(its sides easing smoothly out of its tail)");
+        final double keel = hull.on("keel", 0.15 * l).up();
+        assertEquals(keel - Bomber.CABIN_DEPTH * l, cabin.on("floor", 0.15 * l).up(), 0.01 * Bomber.CABIN_DEPTH * l,
+                "its floor a cabin's depth down");
+        // flush: its roof and its eaves a little up inside the hull, no gap between
+        assertEquals(keel + Bomber.CABIN_SET * l, cabin.on("roof", 0.15 * l).up(), 0.1);
+        final Point eave = cabin.on("eave", 0.15 * l);
+        final Point bilge = hull.on("bilge", 0.15 * l);
+        assertTrue(eave.up() > keel + (bilge.up() - keel) * eave.across() / bilge.across(), "its eave inside the hull");
+        // glazed: its windows along its sides, its bridge all round its front, both sides alike
+        final List<Panel> panels = cabin.panels(Bomber.cabinDress(l));
+        final List<Panel> glass = panels.stream().filter(p -> p.paint() == Paint.GLASS).toList();
+        assertFalse(glass.isEmpty());
+        assertTrue(glass.stream().anyMatch(p -> p.name().startsWith("side to sill")), "the bridge glazed lower");
+        assertEquals(glass.stream().filter(p -> p.name().contains(" left ")).count(),
+                glass.stream().filter(p -> p.name().contains(" right ")).count());
     }
 
     @Test

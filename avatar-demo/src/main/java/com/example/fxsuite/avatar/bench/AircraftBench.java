@@ -78,6 +78,15 @@ public final class AircraftBench extends Application {
     private final java.util.Map<String, Slider> shapers = new java.util.LinkedHashMap<>();
     /** A slider for each control its hinges turn on (a duct's tilt, a turret's traverse). */
     private final VBox hinged = new VBox(6);
+    /** Each control's hinge, driven ({@link HydraulicOut}): its slider, and its button to open or shut it. */
+    private final java.util.Map<String, Slider> hingeSliders = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, javafx.scene.control.Button> hingeButtons = new java.util.LinkedHashMap<>();
+    /** How fast its hinges are driven, degrees a second. */
+    private final Slider hingeRate = new Slider(5, 120, Double.parseDouble(System.getProperty("aircraft.rate", "30")));
+    /** Its hinges' drive, and its sound: quiet if asked to be. */
+    private final HydraulicOut hydraulics = new HydraulicOut("true".equalsIgnoreCase(System.getProperty("aircraft.quiet")));
+    /** Whether a slider is being moved to follow its hinge, not by hand. */
+    private boolean following;
     private CraftModel model;
     private double whole = 5000;
     private double lastX;
@@ -172,6 +181,7 @@ public final class AircraftBench extends Application {
                         + " wings, fins, rotors, wheels and struts as solid pieces. An airship is both."),
                 new HBox(8, new Label("Size (m)"), size), shaping,
                 showDressed, showSkeleton, turning, new HBox(8, new Label("Power"), power), hinged,
+                new HBox(8, new Label("Hinge speed, °/s"), hingeRate),
                 showFloor, showPerson,
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -204,8 +214,11 @@ public final class AircraftBench extends Application {
                 if (model != null && turning.isSelected()) {
                     model.turn(seconds, power.getValue());
                 }
+                followHinges();
             }
         }.start();
+        hingeRate.valueProperty().addListener((o, was, now) -> hydraulics.rate(now.doubleValue()));
+        stage.setOnHidden(e -> hydraulics.close());
         stage.setTitle("Aircraft bench");
         stage.setScene(scene);
         stage.show();
@@ -306,15 +319,63 @@ public final class AircraftBench extends Application {
             }
         }
         hinged.getChildren().clear();
-        com.example.fxsuite.avatar.air.Hinge.controls(craft).forEach((control, range) -> {
-            final Slider slider = new Slider(range[0], range[1],
+        // where each stands now, if it was here before (rebuilt, as it is resized), or as asked
+        final java.util.Map<String, Double> at = new java.util.HashMap<>();
+        hingeSliders.forEach((control, slider) -> at.put(control, slider.getValue()));
+        hingeSliders.clear();
+        hingeButtons.clear();
+        final java.util.Map<String, double[]> controls = com.example.fxsuite.avatar.air.Hinge.controls(craft);
+        controls.forEach((control, range) -> {
+            final double start = at.getOrDefault(control,
                     Math.clamp(asked.getOrDefault(control.toLowerCase(Locale.ROOT), 0.0), range[0], range[1]));
-            slider.setPrefWidth(170);
-            slider.valueProperty().addListener((o, was, now) -> model.set(control, now.doubleValue()));
-            model.set(control, slider.getValue());
+            at.put(control, start);
+            final Slider slider = new Slider(range[0], range[1], start);
+            slider.setPrefWidth(150);
+            // moved by hand, it puts the hinge there; moved to follow it, nothing more
+            slider.valueProperty().addListener((o, was, now) -> {
+                model.set(control, now.doubleValue());
+                if (!following) {
+                    hydraulics.place(control, now.doubleValue());
+                }
+            });
+            model.set(control, start);
+            final javafx.scene.control.Button button = new javafx.scene.control.Button("Open");
+            button.setPrefWidth(64);
+            button.setOnAction(e -> hydraulics.ask(control, !opening(hydraulics.stage(control))));
+            hingeSliders.put(control, slider);
+            hingeButtons.put(control, button);
             hinged.getChildren().add(new HBox(8, new Label(Character.toUpperCase(control.charAt(0)) + control.substring(1)),
-                    slider));
+                    slider, button));
         });
+        hydraulics.hinges(controls, at, hingeRate.getValue());
+        // and one to start opening, if asked: -Daircraft.open=cabin door
+        final String open = System.getProperty("aircraft.open", "").toLowerCase(Locale.ROOT);
+        controls.keySet().stream().filter(c -> c.toLowerCase(Locale.ROOT).equals(open)).forEach(c -> hydraulics.ask(c, true));
+    }
+
+    /** Whether a hinge doing {@code stage} is open, or on its way to it: its button shuts it. */
+    private static boolean opening(final com.example.fxsuite.avatar.sim.Actuator.Stage stage) {
+        return switch (stage) {
+            case UNLOCKING, OPENING, OPEN -> true;
+            default -> false;
+        };
+    }
+
+    /** Each hinge drawn where its drive has it, its slider following, its button saying what it will do. */
+    private void followHinges() {
+        following = true;
+        hingeSliders.forEach((control, slider) -> {
+            final double angle = hydraulics.angle(control, slider.getValue());
+            if (Math.abs(angle - slider.getValue()) > 1e-6) {
+                slider.setValue(angle);
+            }
+            final String says = opening(hydraulics.stage(control)) ? "Close" : "Open";
+            final javafx.scene.control.Button button = hingeButtons.get(control);
+            if (!says.equals(button.getText())) {
+                button.setText(says);
+            }
+        });
+        following = false;
     }
 
     /** How many skins (0), pieces (1) or things turning (2) {@code craft} has, those on its hinges too. */

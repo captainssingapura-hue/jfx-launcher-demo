@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.air;
 
+import com.example.fxsuite.avatar.build.Door;
 import com.example.fxsuite.avatar.build.Point;
 
 import java.util.ArrayList;
@@ -169,6 +170,133 @@ public final class Bomber {
                 (band, along) -> Paint.CAR, new Mount(Point.ZERO, 90, 0, 0)).build();
     }
 
+    // ---------------------------------------------------------------- its control cabin
+
+    /** Its cabin's girders, from the middle of its floor round its right side to the middle of its roof. */
+    public static final List<String> CABIN_LINES = List.of("floor", "chine", "side", "sill", "eave", "roof");
+
+    /** Its cabin: from where to where under the hull, from its tail; how wide, and how deep below the hull, shares of its length. */
+    static final double CABIN_FROM = 0.52;
+    static final double CABIN_TO = 0.78;
+    static final double CABIN_WIDTH = 0.058;
+    static final double CABIN_DEPTH = 0.043;
+    /** How far up into the hull its roof is set, a share of its length: flush, its seam hidden. */
+    static final double CABIN_SET = 0.004;
+
+    /**
+     * Its cabin's section, its girders' places: across, a share of its half-width; up from its floor, a
+     * share of its depth below the hull. A flat floor, its chines chamfered; upright sides, drawn in a
+     * little toward the hull, its windows between its sill and its eave; its roof the hull's underside.
+     */
+    private static final double[][] CABIN_SECTION = {{0, 0}, {0.82, 0.03}, {1, 0.22}, {1, 0.42}, {0.93, 0.82}};
+
+    /**
+     * Its cabin's plan along it, from its tail (0) to its nose (1): how wide, how deep, shares of its
+     * most; a short tail faired to a point, a long even body, and at its front its bridge rounding to
+     * a blunt nose, a point a little below the middle of its depth.
+     */
+    private static final double[][] CABIN_PLAN = {{0, 0, 0.45}, {0.05, 0.55, 0.62}, {0.13, 0.92, 0.94}, {0.25, 1, 1},
+            {0.72, 1, 1}, {0.84, 0.98, 1}, {0.92, 0.88, 0.94}, {0.975, 0.6, 0.8}, {1, 0, 0.5}};
+
+    /**
+     * Its control cabin's lines, {@code length} long: under its keel, its roof the hull's underside (a
+     * little up into it), its floor a cabin's depth below; drawn to a point at its tail and its nose.
+     */
+    public static Lines cabin(final double length) {
+        final Lines hull = hull(length);
+        final double half = CABIN_WIDTH * length / 2;
+        final double deep = CABIN_DEPTH * length;
+        final List<Lines.Section> sections = new ArrayList<>();
+        for (final double[] plan : CABIN_PLAN) {
+            final double along = (CABIN_FROM + plan[0] * (CABIN_TO - CABIN_FROM) - 0.5) * length;
+            // the hull's underside here, between its keel and its bilge, a little up into it
+            final Point keel = hull.on("keel", along);
+            final Point bilge = hull.on("bilge", along);
+            final double set = CABIN_SET * length;
+            final double roof = keel.up() + set;
+            final double floor = roof - set - deep * plan[2];
+            final List<double[]> points = new ArrayList<>();
+            if (plan[1] == 0) {
+                // an end, drawn to a point, as far up from its floor as its plan says
+                final double up = keel.up() - deep * (1 - plan[2]);
+                for (int i = 0; i < CABIN_LINES.size(); i++) {
+                    points.add(new double[] {0, up});
+                }
+            } else {
+                for (final double[] p : CABIN_SECTION) {
+                    points.add(new double[] {p[0] * half * plan[1], floor + p[1] * (roof - set - floor)});
+                }
+                // its eave up to the hull, where the hull is that far out; its roof on its keel
+                final double eave = CABIN_SECTION[4][0] * half * plan[1];
+                points.set(4, new double[] {eave, keel.up() + (bilge.up() - keel.up()) * eave / bilge.across() + set});
+                points.add(new double[] {0, roof});
+            }
+            sections.add(new Lines.Section(along, points));
+        }
+        return new Lines("cabin", CABIN_LINES, sections, true, 2);
+    }
+
+    /** Where its windows begin, along its cabin; and its bridge, glazed all round its front. */
+    private static final double WINDOWS = 0.18;
+    private static final double BRIDGE = 0.8;
+
+    /**
+     * Its cabin's door: where its forward edge is, along its cabin, its hinge there; how wide, a share
+     * of its length; how high up its side toward the hull, a share; how thick; how far it opens.
+     */
+    static final double DOOR_AT = 0.42;
+    static final double DOOR_WIDE = 0.013;
+    static final double DOOR_HIGH = 0.8;
+    static final double DOOR_THICK = 0.0008;
+    public static final double DOOR_OPENS = 100;
+    /** The control its doors open by, both together. */
+    public static final String DOOR = "cabin door";
+
+    /** Where its cabin's door's forward edge is along it, {@code length} long. */
+    static double doorAt(final double length) {
+        return (CABIN_FROM + DOOR_AT * (CABIN_TO - CABIN_FROM) - 0.5) * length;
+    }
+
+    /**
+     * Its cabin's door, on its right side, {@code length} long ({@link Door}): standing up its side from
+     * its side girder, leaning in with it toward the hull, flush on it; hung at its forward edge,
+     * opening outward ({@link #DOOR}); its frame picked out.
+     */
+    static Craft cabinDoor(final double length) {
+        final Lines cabin = cabin(length);
+        final double along = doorAt(length);
+        final Point side = cabin.on("side", along);
+        final Point eave = cabin.on("eave", along);
+        final double rise = eave.up() - side.up();
+        final double lean = Math.atan2(side.across() - eave.across(), rise);
+        final double thick = DOOR_THICK * length;
+        final Door door = Door.single(DOOR, DOOR_WIDE * length, DOOR_HIGH * rise / Math.cos(lean), thick, DOOR_OPENS);
+        // its width aft along the cabin, its face outward: yawed a quarter; then leant in, as the side is
+        return Doors.of(door, DOOR, Paint.TRIM, Paint.CAR).placed(new Mount(Point.ZERO, 90, 0, 0))
+                .placed(new Mount(new Point(side.across() + thick, along, side.up()), 0, 0, -Math.toDegrees(lean)));
+    }
+
+    /**
+     * How its cabin is dressed: a row of windows down each side, between its sill and its eave; at its
+     * front, its bridge, glazed from its side up to its eave, all round its nose; its floor darker.
+     */
+    static Lines.Dress cabinDress(final double length) {
+        final double windows = (CABIN_FROM + WINDOWS * (CABIN_TO - CABIN_FROM) - 0.5) * length;
+        final double bridge = (CABIN_FROM + BRIDGE * (CABIN_TO - CABIN_FROM) - 0.5) * length;
+        final double doorFront = doorAt(length);
+        final double doorBack = doorFront - DOOR_WIDE * length;
+        return (band, along) -> along < doorFront && along > doorBack
+                && (band.equals("side to sill") || band.equals("sill to eave"))
+                // behind its door, its doorway: dark, seen as it opens
+                ? Paint.DARK
+                : switch (band) {
+            case "sill to eave" -> along > windows ? Paint.GLASS : Paint.CAR;
+            case "side to sill" -> along > bridge ? Paint.GLASS : Paint.CAR;
+            case "floor to chine", "chine to side" -> Paint.DARK;
+            default -> Paint.CAR;
+        };
+    }
+
     /** How its hull is dressed: its skin, and a darker band down its keel, where its gondola and bay hang. */
     static Lines.Dress dress() {
         return (band, along) -> band.equals("keel to bilge") ? Paint.CAR : Paint.SKIN;
@@ -182,6 +310,9 @@ public final class Bomber {
     public static Craft body(final double length) {
         final Lines hull = hull(length);
         final Craft.Builder body = Craft.named("Heavy bomber airship body").lines(hull, dress(), Mount.at(Point.ZERO));
+        // its control cabin, flush under its keel; a door each side of it
+        body.lines(cabin(length), cabinDress(length), Mount.at(Point.ZERO));
+        body.withPair(cabinDoor(length), Mount.at(Point.ZERO));
         body.lines(shroud(length, true), (band, along) -> Paint.CAR, Mount.at(Point.ZERO));
         body.lines(shroud(length, false), (band, along) -> Paint.DARK, Mount.at(Point.ZERO));
         // the vanes: their roots a little into the hull where the middle of their chord is, their tips

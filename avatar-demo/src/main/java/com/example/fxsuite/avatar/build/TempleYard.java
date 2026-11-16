@@ -101,6 +101,24 @@ public final class TempleYard {
     /** Where it stands: on the middle line, in the front wall, its passage running in. */
     public static final Place GATE = new Place(0, FRONT, 0, 0);
 
+    /** Its gate's leaves: how thick; how far they open, into the yard; and how far they stand open, for now. */
+    public static final double GATE_THICK = 12;
+    public static final double GATE_SWINGS = 95;
+    public static final double GATE_OPEN = 90;
+
+    /**
+     * Its gate ({@link Door}): a pair of leaves filling its passage across, up to where its arch springs,
+     * one hung at each side, meeting in its middle, opening into the yard.
+     */
+    public static Door gateDoor() {
+        return Door.pair("temple gate", 2 * PASSAGE, SPRING, GATE_THICK, GATE_SWINGS);
+    }
+
+    /** {@code corners}, each moved by {@code by}. */
+    private static List<Point> moved(final List<Point> corners, final Point by) {
+        return corners.stream().map(p -> p.plus(by)).toList();
+    }
+
     /** The passage's outline across: up its sides to its springing, round its arch. */
     public static List<Vec2> passage() {
         final List<Vec2> arch = new ArrayList<>(List.of(new Vec2(-PASSAGE, 0), new Vec2(PASSAGE, 0)));
@@ -144,6 +162,24 @@ public final class TempleYard {
             final Vec2 b = arch.get(k);
             solids.add(block("gate, over the arch " + k, Role.WALL, red, a.x(), b.x(), GATE_DEEP, a.z(), GATE_HIGH,
                     b.z(), GATE_HIGH));
+        }
+        // its gate: a pair of leaves in the passage, under its arch, hung at its sides; standing open, into
+        // the yard, until it can be shut and opened again
+        final Door gate = gateDoor();
+        final Material leaves = WALLED.of(Role.FRAME);
+        final Material infill = WALLED.of(Role.DRESSING);
+        final Point jamb = new Point(-PASSAGE, 0, 0);
+        for (int k = 0; k < gate.leaves(); k++) {
+            final String leaf = "gate, " + (k == 0 ? "left" : "right") + " leaf, ";
+            for (final Door.Member member : gate.members(k)) {
+                solids.add(new Solid(leaf + member.name(), Role.FRAME, leaves,
+                        moved(gate.corners(k, member, gate.thick(), GATE_OPEN), jamb)));
+            }
+            int panel = 0;
+            for (final List<Point> corners : gate.infills(k)) {
+                solids.add(new Solid(leaf + "infill " + panel++, Role.FRAME, infill,
+                        moved(gate.corners(k, corners, Door.INFILL * gate.thick(), GATE_OPEN), jamb)));
+            }
         }
         // its hip roof: a box whose top is its ridge
         final double wide = GATE_WIDE + GATE_EAVES;

@@ -1108,6 +1108,17 @@ without the floor (to look up at it from under it) and the person;
 `-Daircraft.set=turret traverse=40,turret elevation=-30` sets its hinges' controls to start with.
 `-Daircraft.skeleton=true` starts with its skeleton shown, `-Daircraft.dressed=false` undressed.
 
+What turns on a hinge can be driven, not only set (`Actuator`): beside each hinge's slider, a button
+opens it or shuts it, at the rate the hinge speed slider says (degrees a second), hydraulically, in
+stages, each heard (`HydraulicVoice`): its pump starts and spools up, its lock pin is drawn (a metallic
+click), its valve opens (a thump and a burst of hiss), it moves, its fluid hissing as it flows and
+its pump whining under the load, it is cushioned near its end (the hiss tightening), it stops (a thud);
+shut, its lock drops in (a clunk and a click); its pump runs down. Asked back part-way, its valve
+switches over and it turns back. Moving a slider by hand puts the hinge there, held. The bomber's
+cabin doors open so (`Door`, `Doors`: a door or a pair of leaves, framed, each on its hinge; the
+temple yard's gate is one, standing open). `-Daircraft.open=cabin door` starts one opening,
+`-Daircraft.rate=60` sets the hinge speed, `-Daircraft.quiet=true` keeps it silent.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the
