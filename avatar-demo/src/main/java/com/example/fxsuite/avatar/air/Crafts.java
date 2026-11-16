@@ -111,7 +111,7 @@ public final class Crafts {
             final double size = metres * 100;
             return switch (this) {
                 case AIRSHIP -> airship(size);
-                case BOMBER -> bomber(size);
+                case BOMBER -> Bomber.of(size);
                 case BOMBER_HULL -> Bomber.body(size);
                 case QUADCOPTER -> quadcopter(size);
                 case HELICOPTER -> helicopter(size);
@@ -209,54 +209,6 @@ public final class Crafts {
         craft.withPair(fan.build(), Mount.at(fanAt));
         craft.pair(Parts.strut("outrigger", Paint.METAL, gondola.surface(-0.3 * gl, 0).plus(gMount.at()),
                 fanAt.plus(new Point(-0.43 * fan.diameter(), 0, 0)), 0.035 * length));
-        return craft.build();
-    }
-
-    /**
-     * A heavy bomber airship, {@code length} long: a dark, fatter envelope, red bands round its nose;
-     * a long armoured gondola, its bridge glazed round its nose and a bomb bay in its belly; six
-     * engines on pylons down its lower flanks; a gun blister on its back and another under its tail.
-     */
-    public static Craft bomber(final double length) {
-        final double d = length / 4;
-        final Fuselage envelope = Fuselage.envelope("envelope", Paint.SKIN, length, d);
-        final Craft.Builder craft = Craft.named("Heavy bomber airship").body(envelope, Mount.at(Point.ZERO));
-        frames(craft, envelope, length, 6);
-        // red bands round its nose, its marks
-        for (final double at : new double[] {0.3 * length, 0.33 * length}) {
-            craft.parts(Parts.patch("band", Paint.TRIM, envelope, at, at + 0.012 * length, 0, 360, 0.002 * d, 1, 28),
-                    Mount.at(Point.ZERO));
-        }
-        fins(craft, envelope, length, 0.1 * length, 0.15 * length, 0.07 * length);
-        // the gondola: long, low, armoured
-        final double gl = 0.42 * length;
-        final double gw = 0.24 * d;
-        final double gh = 0.17 * d;
-        final BoxBody gondola = new BoxBody("gondola", Paint.CAR, gl, gw, gh, Math.min(gw, gh) * 0.2, 0.35, 0.3);
-        final double gAlong = 0.08 * length;
-        final double gUp = -(d / 2 + gh / 2 - 0.02 * d);
-        final Mount gMount = Mount.at(0, gAlong, gUp);
-        craft.body(gondola, gMount);
-        windows(craft, gondola, gMount, 5, 0.32);
-        // its armour: plates down its sides; its bomb bay's doors in its belly
-        craft.parts(Parts.patch("armour", Paint.FRAME, gondola, -0.3 * gl, 0.1 * gl, -25, 25, 0.004 * d, 6, 2), gMount);
-        craft.parts(Parts.patch("armour", Paint.FRAME, gondola, -0.3 * gl, 0.1 * gl, 155, 205, 0.004 * d, 6, 2), gMount);
-        craft.parts(Parts.patch("bomb bay", Paint.DARK, gondola, -0.32 * gl, 0.05 * gl, 250, 290, 0.002 * d, 4, 2),
-                gMount);
-        hangers(craft, envelope, gondola, gMount, gl, 0.02 * d);
-        // six radial engines: three either side, on pylons from the envelope's lower flanks
-        final Engine radial = Engine.radial(0.05 * length);
-        for (int k = 0; k < 3; k++) {
-            final Point flank = envelope.surface((0.22 - 0.2 * k) * length, 330);
-            final Point engineAt = flank.plus(new Point(0.18 * d, 0, -0.12 * d));
-            craft.withPair(radial.build(), Mount.at(engineAt));
-            craft.pair(Parts.strut("pylon", Paint.METAL, engineAt.plus(new Point(-0.3 * radial.diameter(), 0,
-                    0.2 * radial.diameter())), flank, 0.4 * radial.length()));
-        }
-        // a gun blister on its back, and one under its tail
-        final Fuselage blister = Fuselage.spinner("blister", Paint.CAR, 0.08 * d, 0.1 * d);
-        craft.body(blister, new Mount(envelope.surface(0.15 * length, 90).plus(new Point(0, 0, -0.01 * d)), 0, 90, 0));
-        craft.body(blister, new Mount(envelope.surface(-0.25 * length, 270).plus(new Point(0, 0, 0.01 * d)), 0, -90, 0));
         return craft.build();
     }
 

@@ -365,6 +365,44 @@ class AircraftTest {
     }
 
     @Test
+    void theHeavyBomberIsDrivenByItsGiantCoaxialPropellerAndSteeredByATurbopropEitherSide() {
+        final double l = 7000;
+        final Craft ship = Bomber.of(l);
+        final List<Spinner> onAxis = ship.spinners().stream().filter(s -> Math.abs(s.hub().across()) < 1e-6).toList();
+        final List<Spinner> sides = ship.spinners().stream().filter(s -> Math.abs(s.hub().across()) >= 1e-6).toList();
+        // its propeller: two on its axis, turning opposite ways, pulling it ahead
+        assertEquals(2, onAxis.size());
+        assertEquals(-onAxis.get(0).rate(), onAxis.get(1).rate(), 1e-9);
+        final Lines inside = Bomber.shroud(l, false);
+        final double vanesTrail = (Bomber.VANES_LEAD - Bomber.VANE_CHORD - 0.5) * l;
+        for (final Spinner spinner : onAxis) {
+            assertEquals(new Point(0, 1, 0), spinner.axis());
+            for (final Panel panel : spinner.panels()) {
+                for (final Point p : panel.corners()) {
+                    assertTrue(Math.hypot(p.across(), p.up()) < inside.on("beam", p.along()).across(),
+                            "inside its shroud: " + p);
+                    // (its spinners' cones run on forward inside the hull's hub, out of sight; its blades are what clear the vanes)
+                    if (Math.hypot(p.across(), p.up()) > Bomber.HUB * Bomber.DIAMETER * l / 2) {
+                        assertTrue(p.along() < vanesTrail, "behind its vanes: " + p);
+                    }
+                }
+            }
+        }
+        // its steering: a turboprop either side, pulling ahead, their propellers clear of its hull
+        assertEquals(2, sides.size());
+        assertEquals(-sides.get(0).hub().across(), sides.get(1).hub().across(), 1e-6);
+        final double widest = Bomber.DIAMETER * l / 2;
+        for (final Spinner spinner : sides) {
+            assertEquals(1, spinner.axis().along(), 1e-9, "pulling ahead");
+            for (final Panel panel : spinner.panels()) {
+                for (final Point p : panel.corners()) {
+                    assertTrue(Math.hypot(p.across(), p.up()) > widest, "clear of its hull: " + p);
+                }
+            }
+        }
+    }
+
+    @Test
     void theGunshipFlownInTheWorldIsAsBigAsItIsDrawnItsWheelsWhereTheyAre() {
         final Extent drawn = Gunship.of(1600, Gunship.Lift.TWIN_PROPELLERS).extent();
         final com.example.fxsuite.avatar.sim.Course.Section box = com.example.fxsuite.avatar.sim.Course.GUNSHIP.room();

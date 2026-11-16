@@ -134,7 +134,7 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
             engine.part(Piece.bar("exhaust", Paint.DARK, on.plus(out.times(-0.05 * r)),
                     on.plus(out.times(0.16 * r)).plus(new Point(0, -0.14 * length, 0)), 0.12 * r, 0.12 * r));
         }
-        propeller(engine, h + 0.05 * length, 1.15 * diameter, 0.24 * diameter, 30, 0.42 * diameter, 0.4 * diameter);
+        propeller(engine, h + 0.05 * length, 1.15 * diameter);
     }
 
     private void turboprop(final Craft.Builder engine) {
@@ -166,7 +166,7 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
         // an exhaust stub either side, raked back and out
         engine.pair(Piece.bar("exhaust", Paint.DARK, new Point(0.8 * r, -0.05 * h, -0.15 * r),
                 new Point(1.22 * r, -0.32 * h, -0.08 * r), 0.2 * r, 0.2 * r));
-        propeller(engine, h + 0.04 * diameter, 1.35 * diameter, 0.2 * diameter, 32, 0.6 * diameter, 0.52 * diameter);
+        propeller(engine, h + 0.04 * diameter, 1.35 * diameter);
     }
 
     private void ductedFan(final Craft.Builder engine) {
@@ -275,11 +275,8 @@ public record Engine(Kind kind, double length, double diameter, int blades) {
      * {@code chord} at their broadest pitched {@code pitch} at the root; and a spinner over its hub,
      * {@code spinnerLength} long and {@code spinnerDiameter} across.
      */
-    private void propeller(final Craft.Builder engine, final double at, final double radius, final double chord,
-                           final double pitch, final double spinnerLength, final double spinnerDiameter) {
-        engine.spinner("propeller", Parts.propeller("propeller", Paint.DARK, Paint.METAL, blades, radius, chord, pitch),
-                List.of(), new Mount(new Point(0, at, 0), 0, -90, 0), PROPELLER_RATE);
-        engine.body(Fuselage.spinner("spinner", Paint.TRIM, spinnerLength, spinnerDiameter),
-                Mount.at(0, at - 0.05 * spinnerLength + spinnerLength / 2, 0));
+    private void propeller(final Craft.Builder engine, final double at, final double radius) {
+        // the common propeller ({@link Propeller}), as many blades as the engine has, its hub {@code at} its nose
+        engine.with(Propeller.of(2 * radius).blades(blades).build(), Mount.at(0, at, 0));
     }
 }

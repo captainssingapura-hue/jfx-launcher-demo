@@ -198,4 +198,44 @@ public final class Bomber {
         body.with(vane(tip - keel, chord, VANE_THICK), new Mount(new Point(0, lead, -keel), 0, 0, 90));
         return body.build();
     }
+
+    // ---------------------------------------------------------------- made whole
+
+    /** Its giant coaxial propeller: where, from its tail, the middle of the pair; how far apart the two, a share of its diameter. */
+    static final double PROPELLER_AT = 0.066;
+    static final double APART = 0.08;
+    /** How near its tips come to its shroud: its diameter this share of the shroud's inside where it turns. */
+    static final double TIPS = 0.95;
+    /** Its steering engines: each turboprop this long, a share of its length; where, from its tail; how far out from its beam its pylon holds it. */
+    static final double STEERING = 0.09;
+    static final double STEERING_AT = 0.56;
+    static final double PYLON = 0.035;
+
+    /**
+     * The heavy bomber airship, {@code length} long, whole: its body ({@link #body}); in its shroud,
+     * behind its vanes and round its hub, a giant coaxial propeller ({@link Propeller#coaxial}) driving
+     * it, its blades' roots in its hub, their tips just inside the shroud; and a turboprop either side,
+     * a little ahead of its middle, out from its beam on a stub pylon, for steering only: one pulling
+     * harder than the other turns it.
+     */
+    public static Craft of(final double length) {
+        final Craft.Builder ship = Craft.named("Heavy bomber airship").with(body(length), Mount.at(Point.ZERO));
+        // the propeller: as big as turns inside the shroud where the two of it are
+        final Lines inside = shroud(length, false);
+        final double at = (PROPELLER_AT - 0.5) * length;
+        final double near = Math.min(inside.on("beam", at - 0.01 * length).across(),
+                inside.on("beam", at + 0.01 * length).across());
+        final Propeller propeller = Propeller.of(2 * TIPS * near);
+        ship.with(propeller.coaxial(APART), Mount.at(0, at, 0));
+        // the steering engines, either side, each on a pylon from its beam, by its lines as the vanes are
+        final Engine turboprop = Engine.turboprop(STEERING * length);
+        final double along = (STEERING_AT - 0.5) * length;
+        final double beam = hull(length).on("beam", along).across();
+        final double out = beam + PYLON * length + turboprop.diameter() / 2;
+        ship.withPair(turboprop.build(), Mount.at(out, along, 0));
+        final double root = 0.97 * beam;
+        final double pylon = 0.55 * turboprop.length();
+        ship.withPair(vane(out - root, pylon, VANE_THICK), Mount.at(root, along + pylon / 2, 0));
+        return ship.build();
+    }
 }
