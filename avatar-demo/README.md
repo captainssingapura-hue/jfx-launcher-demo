@@ -346,7 +346,7 @@ vehicle or gun (`PLATFORM`, `AIRSHIP`, `FLYOVER`, `GUNS`), are not offered, but 
 same way.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, the aircraft bench with `--aircraft`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, the aircraft bench with `--aircraft`, the terrain bench with `--terrain`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -1097,6 +1097,55 @@ at that section; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
 plan tab to start with.
 
+### Terrain bench
+
+Land is drawn as a topographical map, on a bench of its own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --terrain
+```
+
+A `Terrain` is a map: contour loops (`Contour`), each a closed line of points at a height, and spot
+heights where the ground tops out between them. Loops never cross, so they nest: one inside a lower
+one is a hill, inside a higher one a hollow. A flat loop holds the ground inside it level at its
+height, a pad to build a village or a town on. Outside every loop the ground is at the base height,
+met at the world's edge. A fine roughness, worked from a seed, is laid over all but the flat ground.
+
+It is written as text, in metres:
+
+```
+terrain "valley" reach=1000m every=5m base=40m seed=7
+noise height=1m apart=50m octaves=3
+contour 30m 953,0 932,131 864,251 ...
+contour 12m 255,-115 237,-91 213,-76 ...
+spot 18m at=190,-118
+contour 0m flat -240,60 -140,60 -140,160 -240,160
+```
+
+What is wrong with a map is told, as a floor plan's is: loops that cross, or cross themselves; a
+loop at the height of the loop round it; anything inside a flat loop; anything off the map; and a
+cliff, steeper than 60° between two loops.
+
+The land is worked out from the map into a `Survey`: heights on a grid, `every` apart, read
+smoothly between them (`height`, `slope`, `rise`). Each point takes the heights of the loop round it
+and the loops and spot heights just inside that, each weighed by how near it is, so between two
+loops the ground goes straight from one height to the other; a top with nothing marked on it rises
+on by half its last step, to the point deepest inside it. Two light passes round off the creases
+along the loops, flat ground and spot heights left as they are, and the roughness goes on last. The
+whole 5 km world, a height every 10 m, is surveyed in about 0.2 s. Contour lines are drawn back out
+of the heights (`Survey.lines`), and come out where the loops were.
+
+On the bench, the land is shaded in relief, lit from the north-west, tinted from green low down to
+pale stone high up, with contour lines drawn out of it every so far up, each fifth bold; over it,
+the map: its loops, each labelled with its height, the flat ones dashed, and its spot heights. Drag
+a point or a spot height to move it, to the metre; double click a loop's line to put a point in it;
+right click a point to take it out; drag elsewhere to move the map, and the wheel zooms. The map's
+text is beside it, to write in and apply, open and save; picking a loop picks its line. Each change
+is surveyed again apart from the screen, and what is wrong with it, how high and low the land goes,
+and how long that took are said under the text. `-Dterrain.file=path` opens a map's text to start
+with (else the valley, `Terrains.VALLEY`); `-Dterrain.lines=2` draws the contour lines every so many
+metres.
+
 ### Aircraft bench
 
 Aircraft are shaped on a bench of their own:
@@ -1285,14 +1334,14 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops) and as heights worked out from it (`Survey`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
 | `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
-| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`), the aircraft bench (`AircraftBench`) and the WAV renderer (`Render`) |
+| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`), the aircraft bench (`AircraftBench`), the terrain bench (`TerrainBench`, its map drawn by `TerrainMap`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
 All but the drawing, the devices and the app is unit-tested, and a test (`LayersTest`) keeps
