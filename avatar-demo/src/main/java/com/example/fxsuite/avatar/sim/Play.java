@@ -87,15 +87,13 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** The same, a siege set as {@code siege}, if {@code demo} is one: its airships yet to come, the temple as tough as it says. */
     public static Play start(final Demo demo, final boolean pack, final Siege siege) {
+        final Course course = new Course(demo, siege);
+        final Avatar avatar = new Avatar(Body.standing(course.start(), demo.startYaw()), pack);
         if (demo == Demo.SIEGE) {
-            final Damage damage = siege.damage(new Course(demo, siege));
-            return new Play(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), damage, siege.sky(damage));
+            final Damage damage = siege.damage(course);
+            return new Play(avatar, damage, siege.sky(damage));
         }
-        return start(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), demo);
-    }
-
-    private static Play start(final Avatar avatar, final Demo demo) {
-        return new Play(avatar, Damage.of(new Course(demo)));
+        return new Play(avatar, Damage.of(course));
     }
 
     /**

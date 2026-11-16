@@ -896,8 +896,16 @@ through, and one loaded until a pillar gives and it falls.
   one, its footprint stood up to its ridge.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
+- **The world** (`Body.EDGE`): a square 10 km across, 5 km each way from its middle, where the town
+  stands (`Town.start`: the avatar starts 230 m south of the temple, as it always has before the
+  town); up to 400 m high. Its edge is too far to be seen: round the camera, wherever it goes, a sky
+  (`Horizon`), a dome 4 km round lit by itself, deep blue overhead paling to a haze at the horizon;
+  and from 1.2 km out a ring of ground over the ground, its grass as the sun lights it fading into
+  the same haze, so the land runs into the sky with no line between. The camera draws out to the sky.
+  The ground's grid is drawn only within 600 m of the middle, where all there is stands. Only the
+  ground is hazed: what stands far off stays clear.
 - **The temple siege** (`Siege`, `Demo.SIEGE`): the town, and enemy airships, heavy bombers, coming
-  in without end to bomb the temple's main hall until it falls. Each comes from the edge of the world,
+  in without end to bomb the temple's main hall until it falls. Each comes from 1.2 km out (`Siege.ENTRY`),
   from a heading of its own, high over the tallest building, makes straight for the temple and circles
   over it at a crawl, sinking to a height of its own (each slot clear of the next), bombing whenever
   its bomb would land on the hall; passing over another building on its way it may, by chance, drop a

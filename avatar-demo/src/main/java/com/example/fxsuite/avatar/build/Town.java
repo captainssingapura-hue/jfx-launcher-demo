@@ -15,7 +15,8 @@ import java.util.function.Supplier;
 
 /**
  * The town: its buildings, each on a site of its own along streets, a grid of three by three 150 m
- * apart, ahead of the start, each facing back down the way to it; and in the middle of the grid, where
+ * apart, its middle the world's, the start ({@link #start}) before it, each facing back down the way to the
+ * start; and in the middle of the grid, where
  * a building would stand, the temple ({@link TempleYard}), its gate to the start, in a round park:
  *
  * <ul>
@@ -170,9 +171,31 @@ public final class Town {
         return Math.max(1, STREETS * scale);
     }
 
-    /** Where on the grid {@code column}, {@code row} is, at the town's scale: facing back toward the start. */
+    /**
+     * Where on the grid {@code column}, {@code row} is, at the town's scale: its middle the world's,
+     * facing back toward the start.
+     */
     private static Place grid(final int column, final int row) {
-        return new Place((column - 1) * APART * streets(), (AHEAD + row * APART) * streets(), 0, 180);
+        return new Place((column - 1) * APART * streets(), (row - 1) * APART * streets(), 0, 180);
+    }
+
+    /**
+     * Where the avatar starts, at the town's scale: on its middle line, before its first row, as far
+     * ({@link #AHEAD}) as that from the start: the town's middle the world's, the start south of it.
+     */
+    public static Vec3 start() {
+        return new Vec3(0, 0, -(AHEAD + APART) * streets());
+    }
+
+    /**
+     * Tells the simulation, which knows nothing of how a building is designed, all of the town: what
+     * stands in it, what is set out on its decks and who is there, where the avatar starts, and where
+     * the guns on its towers stand.
+     */
+    public static void tell() {
+        Course.town(Town::pieces, Town::things, Town::people);
+        Course.townStart(Town::start);
+        Course.guns(Town::guns);
     }
 
     /** Where site {@code k} is, at the town's scale: turned to face back toward the start, its front to the street. */

@@ -50,7 +50,7 @@ class SiegeTest {
 
     @BeforeAll
     static void town() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
     }
 
     /** {@code play}, {@code seconds} on, unattended; each step's events into {@code events}. */
@@ -99,7 +99,7 @@ class SiegeTest {
                 .map(Event.Arrived.class::cast).toList();
         assertEquals(QUICK.ships(), arrived.size());
         for (final Event.Arrived came : arrived) {
-            assertEquals(Siege.ENTRY, Math.max(Math.abs(came.at().x()), Math.abs(came.at().z())), 1, "on the edge");
+            assertEquals(Siege.ENTRY, Math.hypot(came.at().x(), came.at().z()), 1, "far off");
             assertTrue(-came.at().y() > siege.tallest() + Siege.CLEAR, "over the tallest building");
             assertFalse(play.damage().broken(came.piece()), "in the world");
             assertEquals(Damage.AIRSHIP * QUICK.shipToughness(), play.damage().health(came.piece()), 1e-6, "whole");

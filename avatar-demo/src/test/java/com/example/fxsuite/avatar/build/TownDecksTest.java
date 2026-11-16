@@ -71,7 +71,7 @@ class TownDecksTest {
 
     @Test
     void inTheGameItAllStaysOnTheDeck() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
         Play play = Play.start(Demo.TOWN, false);
         final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
         final List<Prop> before = play.props().stream().filter(p -> p.place().height() > 1000).toList();

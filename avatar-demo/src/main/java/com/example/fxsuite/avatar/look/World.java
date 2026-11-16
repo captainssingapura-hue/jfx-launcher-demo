@@ -51,9 +51,17 @@ import java.util.TreeMap;
  */
 public final class World {
 
-    public static final Color SKY = Color.web("#9fb8c9");
-    private static final double GROUND = Body.EDGE + 1000;
+    public static final Color SKY = Horizon.HAZY;
+    /** The ground: as far as the world goes, and as far again as the sky round the camera, there; its grass. */
+    private static final double GROUND = Body.EDGE + Horizon.FAR;
+    public static final Color GRASS = Color.web("#66775c");
+    /** Its grid's lines, so far apart; only so far out from the middle, where all there is stands. */
     private static final double GRID = 500;
+    private static final double GRID_REACH = 60_000;
+    /** The light: all round, and the sun's, coming this way. */
+    public static final Color AMBIENT = Color.web("#8b939c");
+    public static final Color SUNLIGHT = Color.web("#a8a49a");
+    public static final Point3D SUN = new Point3D(0.35, 1, 0.45);
     /** Worn right down, a piece is this much of the way to scorched. */
     private static final double CHAR = 0.55;
     private static final Color SCORCHED = Color.web("#2a2118");
@@ -79,6 +87,8 @@ public final class World {
     private final Color[] colours;
     private final double[] shown;
     private final int[] cracked;
+    /** The sky and the far ground, round the camera. */
+    private final Horizon horizon;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
     private final Map<Integer, List<Node>> marks = new HashMap<>();
     private final double[] struckAt;
@@ -122,13 +132,15 @@ public final class World {
         ground.setTranslateY(1);
         ground.setMaterial(BoxRig.matte("#66775c"));
         root.getChildren().add(ground);
+        horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
+        root.getChildren().add(horizon.node());
 
         // the grid's lines, but under a lawn: nothing lies under one, to flicker through it far off
         final PhongMaterial line = BoxRig.matte("#56664d");
         final List<Block> lawns = course.pieces().stream()
                 .filter(p -> p.kind() == Course.Kind.GARDEN && p.tint() == Course.GARDEN_LAWN).map(Course.Piece::block)
                 .toList();
-        for (double at = -GROUND; at <= GROUND; at += GRID) {
+        for (double at = -GRID_REACH; at <= GRID_REACH; at += GRID) {
             for (final double[] run : gridRuns(at, lawns, false)) {
                 root.getChildren().add(flat(new Box(4, 1, run[1] - run[0]), at, (run[0] + run[1]) / 2, line));
             }
@@ -202,10 +214,15 @@ public final class World {
             root.getChildren().add(bars[i].node);
         }
 
-        final AmbientLight ambient = new AmbientLight(Color.web("#8b939c"));
-        final DirectionalLight sun = new DirectionalLight(Color.web("#a8a49a"));
-        sun.setDirection(new Point3D(0.35, 1, 0.45));
+        final AmbientLight ambient = new AmbientLight(AMBIENT);
+        final DirectionalLight sun = new DirectionalLight(SUNLIGHT);
+        sun.setDirection(SUN);
         root.getChildren().addAll(ambient, sun);
+    }
+
+    /** The sky and the far ground, to follow the camera. */
+    public Horizon horizon() {
+        return horizon;
     }
 
     public Node node() {
@@ -639,15 +656,15 @@ public final class World {
         }
         gaps.sort(java.util.Comparator.comparingDouble(g -> g[0]));
         final List<double[]> runs = new ArrayList<>();
-        double from = -GROUND;
+        double from = -GRID_REACH;
         for (final double[] gap : gaps) {
             if (gap[0] > from) {
                 runs.add(new double[] {from, gap[0]});
             }
             from = Math.max(from, gap[1]);
         }
-        if (from < GROUND) {
-            runs.add(new double[] {from, GROUND});
+        if (from < GRID_REACH) {
+            runs.add(new double[] {from, GRID_REACH});
         }
         return runs;
     }

@@ -1208,6 +1208,8 @@ public final class Course {
     private final List<Gate> gates = new ArrayList<>();
     /** Who stands on the ground at the start, not on a platform. */
     private final List<Cast> ground = new ArrayList<>();
+    /** Where the avatar starts: the world's middle, unless the course says otherwise (the town's, before it). */
+    private Vec3 start = Vec3.ZERO;
 
     /** The playground: everything at once. */
     public Course() {
@@ -1251,14 +1253,31 @@ public final class Course {
      * so its board faces the start.
      */
     private void townDemo() {
+        start = townStart.get();
         pieces.addAll(town.get());
         // and its towers' void decks' bars and stalls, and the people at them
         pieces.addAll(townThings.get());
         ground.addAll(townPeople.get());
-        pieces.add(Piece.moving(BARGE.shape(), new Place(1100, 2600, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        // the platforms, just ahead of the start
+        pieces.add(Piece.moving(BARGE.shape(), new Place(start.x() + 1100, start.z() + 2600, LIFT_LOW, 0), Kind.PLATFORM,
+                0, null));
         stall(pieces.size() - 1);
-        pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
+        pieces.add(Piece.moving(MEETING.shape(), new Place(start.x() - 1100, start.z() + 2400, LIFT_LOW, 180),
+                Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
+    }
+
+    /** Where the avatar starts in the town: until told, the world's middle. */
+    private static java.util.function.Supplier<Vec3> townStart = () -> Vec3.ZERO;
+
+    /** Says where the avatar starts in the town: before it, its buildings ahead. */
+    public static void townStart(final java.util.function.Supplier<Vec3> where) {
+        townStart = where;
+    }
+
+    /** Where the avatar starts, on the ground: the world's middle, or as the course has it. */
+    public Vec3 start() {
+        return start;
     }
 
     /**

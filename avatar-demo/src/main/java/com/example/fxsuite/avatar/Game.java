@@ -10,6 +10,7 @@ import com.example.fxsuite.avatar.look.Pose;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.Stall;
+import com.example.fxsuite.avatar.look.Horizon;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
@@ -124,9 +125,7 @@ public final class Game {
     static {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
-        com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces,
-                com.example.fxsuite.avatar.build.Town::things, com.example.fxsuite.avatar.build.Town::people);
-        com.example.fxsuite.avatar.sim.Course.guns(com.example.fxsuite.avatar.build.Town::guns);
+        com.example.fxsuite.avatar.build.Town.tell();
     }
 
     private static final double FIELD_OF_VIEW = 48;
@@ -382,7 +381,7 @@ public final class Game {
         world = new World(course);
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
-        avatar = startedAt(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()),
+        avatar = startedAt(new Avatar(Body.standing(course.start(), demo.startYaw()),
                 replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")));
         before = avatar;
         seen = avatar;
@@ -422,7 +421,8 @@ public final class Game {
     /** Plays it in {@code stage}. */
     private void start(final Stage stage) {
         eye.setNearClip(NEAR);
-        eye.setFarClip(150_000);
+        // as far as the sky round the camera, and a little more
+        eye.setFarClip(Horizon.FAR * 1.25);
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
 
@@ -772,6 +772,7 @@ public final class Game {
         eye.setNearClip(nearClip(cockpit != null));
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
+        world.horizon().follow(at);
         eyeAt.setY(at.y());
         eyeAt.setZ(at.z());
         eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());

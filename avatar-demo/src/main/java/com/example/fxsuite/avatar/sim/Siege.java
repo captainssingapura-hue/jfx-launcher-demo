@@ -9,7 +9,7 @@ import java.util.SplittableRandom;
 import java.util.function.IntPredicate;
 
 /**
- * The temple under siege: airships come in from the edge of the world without end, each from
+ * The temple under siege: airships come in from far off ({@link #ENTRY}) without end, each from
  * somewhere of its own, and make for the temple; over its main hall they circle and bomb it until
  * it falls or they are shot down. On their way in, passing over another building, now and then
  * one lets a few bombs go at it.
@@ -120,8 +120,8 @@ public record Siege(int ships, double every, double faster, double speed, double
     public static final double SETTLE = 8;
     /** How many bombs a stick dropped on a building passed over. */
     public static final int STICK = 3;
-    /** How far in from the edge of the world each comes from. */
-    public static final double ENTRY = Body.EDGE - 3000;
+    /** How far out from the world's middle (the town's) each comes from: as far as the eye reaches, into the haze. */
+    public static final double ENTRY = 120_000;
     /** How far over the tallest building they come in, at least, and how much higher, at most, besides. */
     public static final double CLEAR = 2500;
     public static final double HIGHER = 3000;
@@ -328,15 +328,13 @@ public record Siege(int ships, double every, double faster, double speed, double
                     rerouted, bays, drops, events);
         }
 
-        /** Where arrival {@code n} comes from: a heading of its own from the target, as far as the edge of the world, at the height it comes in at. */
+        /** Where arrival {@code n} comes from: a heading of its own, {@link #ENTRY} out from the world's middle, at the height it comes in at. */
         private Place entry(final long n) {
             final SplittableRandom random = new SplittableRandom(Num.mix(siege.seed(), n));
             final double heading = random.nextDouble() * 360;
-            final Vec3 way = Num.heading(heading);
-            // out from the world's middle to the square's edge that way
-            final double reach = ENTRY / Math.max(Math.abs(way.x()), Math.abs(way.z()));
+            final Vec3 way = Num.heading(heading).multiply(ENTRY);
             // (how high, not yet known: as high as it comes in)
-            return new Place(way.x() * reach, way.z() * reach, Double.NaN, Num.wrap(heading + 180));
+            return new Place(way.x(), way.z(), Double.NaN, Num.wrap(heading + 180));
         }
 
         /**

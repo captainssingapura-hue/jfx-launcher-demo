@@ -74,10 +74,10 @@ class TownTest {
                 }
             }
             for (final Block part : one.solid()) {
-                assertFalse(part.covers(0, 0, 100), one.kind() + " " + one.tint() + " on the start");
+                assertFalse(part.covers(Town.start().x(), Town.start().z(), 100), one.kind() + " " + one.tint() + " on the start");
             }
             for (final Volume part : one.volumes()) {
-                assertFalse(part.covers(0, 0, 100), one.kind() + " " + one.tint() + " on the start");
+                assertFalse(part.covers(Town.start().x(), Town.start().z(), 100), one.kind() + " " + one.tint() + " on the start");
             }
         }
     }
@@ -132,6 +132,22 @@ class TownTest {
     }
 
     @Test
+    void theTownInTheMiddleOfAWorldFarBiggerThanItTheStartBeforeIt() {
+        Town.tell();
+        assertEquals(0, Town.middle().x(), 1e-9);
+        assertEquals(0, Town.middle().z(), 1e-9);
+        final Course course = new Course(Demo.TOWN);
+        assertEquals(Town.start(), course.start(), "the avatar starts where the town says");
+        assertTrue(course.start().z() < -Town.PARK, "before the town, south of its park");
+        // all of it far in from the edge of the world, every way
+        for (final Course.Piece piece : course.pieces()) {
+            final Block box = piece.block();
+            final double reach = Math.max(Math.abs(box.x()), Math.abs(box.z())) + Math.hypot(box.halfWidth(), box.halfDepth());
+            assertTrue(reach < Body.EDGE - 400_000, piece.kind() + " " + piece.tint() + " " + reach);
+        }
+    }
+
+    @Test
     void thePyramidsAtTheEdgeOfTown() {
         final List<Course.Piece> pyramids = Town.pieces().stream().filter(p -> p.tint() >= Pyramids.KEYS
                 && p.tint() < Pavilions.KEYS).toList();
@@ -161,7 +177,7 @@ class TownTest {
 
     @Test
     void everyVehicleParkedInTheTemplesCourtyardClearOfEverything() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
         final Play play = Play.start(Demo.TOWN, false);
         final Place yard = Town.temple();
         final List<Lift> vehicles = play.lifts().stream()
@@ -189,8 +205,7 @@ class TownTest {
 
     @Test
     void aGatlingGunOnTopOfEveryTowersEveryCore() {
-        Course.town(Town::pieces, Town::things, Town::people);
-        Course.guns(Town::guns);
+        Town.tell();
         final Play play = Play.start(Demo.TOWN, false);
         final List<Turret> guns = play.turrets().stream().filter(t -> t.mount() == Course.MOUNTED_GUN).toList();
         int cores = 0;
@@ -215,7 +230,7 @@ class TownTest {
 
     @Test
     void theTownDemoAlsoHasTheStallAndTheStandUpBeforeIt() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
         final Play play = Play.start(Demo.TOWN, false);
         final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
         assertEquals(Town.pieces(), pieces.subList(0, Town.pieces().size()), "what stands in the town first");

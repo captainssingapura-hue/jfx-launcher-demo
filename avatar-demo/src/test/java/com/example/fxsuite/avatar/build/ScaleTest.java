@@ -72,7 +72,9 @@ class ScaleTest {
             for (final double k : new double[] {Town.SMALLEST, 1.5, Town.LARGEST}) {
                 Town.scale(k);
                 Course.town(Town::pieces);
-                final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
+                Course.townStart(Town::start);
+                final Course course = new Course(Demo.TOWN);
+                final List<Course.Piece> pieces = course.pieces();
                 for (int a = 0; a < Town.SITES.size(); a++) {
                     final Block box = pieces.get(a).block();
                     assertTrue(box.top() + Body.TALL < Body.CEILING, Town.SITES.get(a).name() + " at " + k);
@@ -84,7 +86,8 @@ class ScaleTest {
                     for (final Course.Piece other : pieces.subList(Town.SITES.size(), pieces.size())) {
                         assertFalse(box.overlaps(other.block()), Town.SITES.get(a).name() + " on " + other + " at " + k);
                     }
-                    assertFalse(box.covers(0, 0, 100), Town.SITES.get(a).name() + " on the start at " + k);
+                    assertFalse(box.covers(course.start().x(), course.start().z(), 100),
+                            Town.SITES.get(a).name() + " on the start at " + k);
                 }
             }
             Town.scale(1.5);

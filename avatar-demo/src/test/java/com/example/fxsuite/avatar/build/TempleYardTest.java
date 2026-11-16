@@ -59,7 +59,7 @@ class TempleYardTest {
 
     @Test
     void threeMonksAtTheirStandUpInTheCourtyardInTheMiddleOfTown() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
         final Set<Person.Role> monks = Set.of(Person.Role.SMALL_MONK, Person.Role.TALL_MONK, Person.Role.STOUT_MONK);
         final List<Person> there = Play.start(Demo.TOWN, false).people().stream()
                 .filter(p -> monks.contains(p.role())).toList();
