@@ -904,6 +904,17 @@ through, and one loaded until a pillar gives and it falls.
   the same haze, so the land runs into the sky with no line between. The camera draws out to the sky.
   The ground's grid is drawn only within 600 m of the middle, where all there is stands. Only the
   ground is hazed: what stands far off stays clear.
+- **Detail by distance** (`Detail`, `BuildingModel.levels`): each building drawn in three levels, by
+  what each solid does and how big it is: its body (walls, base, structure, roofs, spire, glass: its
+  shape) always; what dresses it and its frames, 10 cm thick or more, within 800 m; the finest
+  (mullions, glazing bars, trims, thinner than 10 cm, and anything under 60 cm every way: plants,
+  fittings) within 150 m. Each frame the world measures how far the camera is from each building's
+  nearest point and shows or hides its levels (`World.seenFrom`); gone, each comes back a tenth nearer
+  than it went, so one seen from just that far does not flicker in and out. The park's path and bridges
+  go as what dresses a building does. Far off, what lay a few centimetres proud of a face, too fine to
+  tell apart in depth and smaller than a pixel, is no longer drawn to flicker through it: the round
+  tower, 300,000 triangles near, is under half that far off. Only drawing: what is solid, struck and
+  broken is the whole building, always.
 - **The temple siege** (`Siege`, `Demo.SIEGE`): the town, and enemy airships, heavy bombers, coming
   in without end to bomb the temple's main hall until it falls. Each comes from 1.2 km out (`Siege.ENTRY`),
   from a heading of its own, high over the tallest building, makes straight for the temple and circles

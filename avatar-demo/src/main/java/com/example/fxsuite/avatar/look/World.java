@@ -9,6 +9,7 @@ import com.example.fxsuite.avatar.sim.Frames;
 import com.example.fxsuite.avatar.sim.Fruit;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Vec3;
 
 import javafx.geometry.Point3D;
 import javafx.scene.AmbientLight;
@@ -87,6 +88,11 @@ public final class World {
     private final Color[] colours;
     private final double[] shown;
     private final int[] cracked;
+    /** Each building drawn in its levels ({@link Detail}), by its piece; and which of them are shown, as last seen. */
+    private final Map<Integer, BuildingModel.Leveled> leveled = new HashMap<>();
+    private final Map<Integer, boolean[]> levelsShown = new HashMap<>();
+    /** What lies on a lawn, a path or a bridge, by its piece, and whether it is shown, as last seen: hidden far off as detail is. */
+    private final Map<Integer, Boolean> lying = new HashMap<>();
     /** The sky and the far ground, round the camera. */
     private final Horizon horizon;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
@@ -198,7 +204,7 @@ public final class World {
                 case CAR -> chassis(i, part);
                 case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
-                case BUILDING, WALL_UNIT -> building(part, block, piece.tint());
+                case BUILDING, WALL_UNIT -> building(i, part, block, piece.tint());
                 case AIRCRAFT -> aircraft(i, part);
                 case GARDEN -> garden(part, block, piece.tint(), pieces);
             };
@@ -207,6 +213,14 @@ public final class World {
             shown[i] = 1;
             struckAt[i] = Double.NEGATIVE_INFINITY;
             root.getChildren().add(part);
+        }
+        // a garden's paving that lies on its lawn (a path, a bridge), not where the lawn is open for it: detail
+        for (int i = 0; i < pieces.size(); i++) {
+            final Course.Piece piece = pieces.get(i);
+            if (piece.kind() == Course.Kind.GARDEN && piece.tint() == Course.GARDEN_PAVING
+                    && lawns.stream().noneMatch(lawn -> piece.block().covers(lawn.x(), lawn.z(), 0))) {
+                lying.put(i, true);
+            }
         }
 
         for (int i = 0; i < BARS; i++) {
@@ -499,11 +513,63 @@ public final class World {
      * A building in the town ({@code build.Town}) or the temple's courtyard, or a unit of its wall, by its key {@code site}: dressed as it is, a mesh a material
      * ({@link BuildingModel}), standing on the ground at the foot of its box.
      */
-    private static Shape3D building(final Group part, final Block block, final int site) {
-        final Group dressed = BuildingModel.of(com.example.fxsuite.avatar.build.Sites.drawn(site));
-        dressed.setTranslateY((block.top() - block.bottom()) / 2);
-        part.getChildren().add(dressed);
-        return (Shape3D) dressed.getChildren().getFirst();
+    private Shape3D building(final int piece, final Group part, final Block block, final int site) {
+        final BuildingModel.Leveled drawn = BuildingModel.levels(com.example.fxsuite.avatar.build.Sites.drawn(site));
+        drawn.node().setTranslateY((block.top() - block.bottom()) / 2);
+        part.getChildren().add(drawn.node());
+        leveled.put(piece, drawn);
+        levelsShown.put(piece, new boolean[] {true, true, true});
+        // what it is worn on: the first of its body, its material its own (the rest share theirs with every building)
+        final Shape3D worn = drawn.levels().values().stream().flatMap(g -> g.getChildren().stream())
+                .filter(Shape3D.class::isInstance).map(Shape3D.class::cast).findFirst().orElseThrow();
+        final PhongMaterial was = (PhongMaterial) worn.getMaterial();
+        final PhongMaterial own = new PhongMaterial(was.getDiffuseColor());
+        own.setSpecularColor(was.getSpecularColor());
+        own.setSpecularPower(was.getSpecularPower());
+        worn.setMaterial(own);
+        return worn;
+    }
+
+    /**
+     * Each building's levels shown or hidden as it is seen from {@code eye}, where the camera now is
+     * ({@link Detail}): by how far its nearest point is.
+     */
+    public void seenFrom(final Vec3 eye) {
+        for (final Map.Entry<Integer, BuildingModel.Leveled> each : leveled.entrySet()) {
+            final Block box = pieces.get(each.getKey()).block();
+            final double away = away(box, eye);
+            final boolean[] shown = levelsShown.get(each.getKey());
+            for (final Detail.Level level : Detail.Level.values()) {
+                final boolean now = Detail.shown(level, away, shown[level.ordinal()]);
+                if (now != shown[level.ordinal()]) {
+                    shown[level.ordinal()] = now;
+                    each.getValue().levels().get(level).setVisible(now);
+                }
+            }
+        }
+        // and what lies on a lawn, as what dresses a building
+        for (final Map.Entry<Integer, Boolean> each : lying.entrySet()) {
+            final boolean now = Detail.shown(Detail.Level.DETAIL, away(pieces.get(each.getKey()).block(), eye),
+                    each.getValue());
+            if (now != each.getValue()) {
+                each.setValue(now);
+                bodies[each.getKey()].setVisible(now);
+            }
+        }
+    }
+
+    /** How far {@code eye} is from the nearest point of {@code box} (turned its way), the world's y down. */
+    static double away(final Block box, final Vec3 eye) {
+        final double c = Math.cos(Math.toRadians(box.yaw()));
+        final double s = Math.sin(Math.toRadians(box.yaw()));
+        final double dx = eye.x() - box.x();
+        final double dz = eye.z() - box.z();
+        // into the box's frame, as Block.push turns it
+        final double across = Math.abs(dx * c - dz * s) - box.halfWidth();
+        final double along = Math.abs(dx * s + dz * c) - box.halfDepth();
+        final double height = -eye.y();
+        final double up = height > box.top() ? height - box.top() : height < box.bottom() ? box.bottom() - height : 0;
+        return Math.sqrt(Math.max(0, across) * Math.max(0, across) + Math.max(0, along) * Math.max(0, along) + up * up);
     }
 
     private static Shape3D bunker(final Group part) {
