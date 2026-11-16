@@ -8,6 +8,7 @@ import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.River;
+import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,8 @@ class VillageTest {
         Village.tell();
         final Course course = new Course(Demo.VILLAGE);
         assertEquals(1, course.rivers().size());
+        assertTrue(course.land() != null, "the meadow's land, as surveyed");
+        assertTrue(new Course(Demo.TOWN).land() == null, "the town's ground level");
         assertFalse(course.grid(), "open country, no grid ruled on it");
         assertEquals(Village.start(), course.start());
     }
@@ -81,6 +84,23 @@ class VillageTest {
                 (Village.WELL.z() - Village.riverAt(0)) / 2 - Village.RIVER, 0, 0, 300);
         assertTrue(pieces.stream().filter(p -> p.kind() != Course.Kind.GARDEN).noneMatch(p -> p.block().overlaps(way)),
                 "the way to the bridge clear");
+    }
+
+    @Test
+    void itsTreesStandOnItsLandNoneClearOfIt() {
+        final Survey land = Village.land();
+        boolean up = false;
+        for (final Course.Piece tree : Village.pieces().stream().filter(p -> p.kind() == Course.Kind.TREE).toList()) {
+            final Block trunk = tree.block();
+            for (final double dx : new double[] {-trunk.halfWidth(), trunk.halfWidth()}) {
+                for (final double dz : new double[] {-trunk.halfDepth(), trunk.halfDepth()}) {
+                    assertTrue(trunk.bottom() <= land.height(trunk.x() + dx, trunk.z() + dz) + 1e-6, "into the ground, or on it");
+                }
+            }
+            assertEquals(land.height(trunk.x(), trunk.z()), trunk.bottom(), 30, "not sunk far");
+            up |= trunk.bottom() > 100;
+        }
+        assertTrue(up, "some up the slopes");
     }
 
     @Test

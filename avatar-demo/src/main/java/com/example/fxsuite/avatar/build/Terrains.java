@@ -141,7 +141,7 @@ public final class Terrains {
         loops.add(round(6_000, BEACON, beacon * 0.45, 16, 2.3));
         // the hollow, between the 3 m and 10 m lines, sinking to 1 m
         loops.add(round(400, HOLLOW, Math.min(6_000, room(1, HOLLOW.x()) * 0.25), 14, 0.9));
-        return new Terrain("meadow", Body.EDGE, 1_000, MOORS, 11, new Terrain.Noise(60, 4_000, 3), loops,
+        return new Terrain("meadow", Body.EDGE, 1_000, MOORS, 11, new Terrain.Noise(40, 8_000, 2), loops,
                 List.of(new Terrain.Spot(KNOLL, 3_400), new Terrain.Spot(BEACON, 6_600)));
     }
 }

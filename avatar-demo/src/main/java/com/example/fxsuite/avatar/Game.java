@@ -449,6 +449,8 @@ public final class Game {
         hud.setMaxSize(VBox.USE_PREF_SIZE, VBox.USE_PREF_SIZE);
         hud.setStyle("-fx-background-color: rgba(20, 24, 30, 0.55); -fx-background-radius: 6;");
         hud.setMouseTransparent(true);
+        // none at all, if asked: for a picture of the world alone
+        hud.setVisible(!"false".equalsIgnoreCase(System.getProperty("avatar.hud")));
 
         // the menu bar along the top, and under it the world, the HUD over it
         menus();

@@ -36,6 +36,8 @@ public final class Horizon {
     public static final double HAZE = 120_000;
     /** How far over the ground the far ground lies: enough to be told from it, that far off. */
     private static final double OVER = 100;
+    /** How far out the far ground goes: just short of the sky. */
+    private static final double OUTER = FAR * 0.995;
 
     /** Overhead; at the horizon, the haze. */
     public static final Color ZENITH = Color.web("#6f9cc6");
@@ -50,7 +52,7 @@ public final class Horizon {
         dome = new Sphere(FAR, 96);
         dome.setCullFace(CullFace.NONE);
         dome.setMaterial(glowing(sky()));
-        ground = ring(HAZE, FAR * 0.995);
+        ground = ring(HAZE, OUTER);
         ground.setMaterial(glowing(fading(times(grass, lit), HAZY)));
         ground.setTranslateY(-OVER);
         root.getChildren().addAll(ground, dome);
@@ -110,15 +112,23 @@ public final class Horizon {
         return image;
     }
 
+    /**
+     * How much of the haze there is over ground {@code away} from the camera, across the ground: none
+     * within {@link #HAZE}; then gently at first, thickening, and all of it short of the sky. The far
+     * ground fades so, and the land ({@link TerrainModel}) as far as it goes.
+     */
+    public static double haze(final double away) {
+        final double t = Math.clamp((away - HAZE) / (OUTER - HAZE) / 0.85, 0, 1);
+        return t * t * (3 - 2 * t);
+    }
+
     /** The far ground, from its inner edge to its outer: {@code from}, easing into {@code to}. */
     private static WritableImage fading(final Color from, final Color to) {
         final int long_ = 256;
         final WritableImage image = new WritableImage(long_, 4);
         final PixelWriter writer = image.getPixelWriter();
         for (int x = 0; x < long_; x++) {
-            // gently at first, from just what the ground is, the haze thickening, then all of it short of the sky
-            final double t = Math.min(1, (x + 0.5) / long_ / 0.85);
-            final Color colour = from.interpolate(to, t * t * (3 - 2 * t));
+            final Color colour = from.interpolate(to, haze(HAZE + (OUTER - HAZE) * (x + 0.5) / long_));
             for (int y = 0; y < 4; y++) {
                 writer.setColor(x, y, colour);
             }

@@ -103,6 +103,8 @@ public final class World {
     private final Map<Integer, Boolean> smallShown = new HashMap<>();
     /** The sky and the far ground, round the camera. */
     private final Horizon horizon;
+    /** The land, where it rises and falls; null where it is level. */
+    private final TerrainModel land;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
     private final Map<Integer, List<Node>> marks = new HashMap<>();
     private final double[] struckAt;
@@ -149,7 +151,11 @@ public final class World {
                 .toList();
         final PhongMaterial grass = BoxRig.matte("#66775c");
         final Block hole = lawns.stream().max(java.util.Comparator.comparingDouble(Block::halfWidth)).orElse(null);
-        if (hole == null) {
+        // or, where the land rises and falls, the land as surveyed
+        land = course.land() == null ? null : new TerrainModel(course.land(), Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
+        if (land != null) {
+            root.getChildren().add(land.node());
+        } else if (hole == null) {
             final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
             ground.setTranslateY(1);
             ground.setMaterial(grass);
@@ -600,6 +606,9 @@ public final class World {
      * ({@link Detail}): by how far its nearest point is.
      */
     public void seenFrom(final Vec3 eye) {
+        if (land != null) {
+            land.seenFrom(eye);
+        }
         for (final Map.Entry<Integer, BuildingModel.Leveled> each : leveled.entrySet()) {
             final Block box = pieces.get(each.getKey()).block();
             final double away = away(box, eye);

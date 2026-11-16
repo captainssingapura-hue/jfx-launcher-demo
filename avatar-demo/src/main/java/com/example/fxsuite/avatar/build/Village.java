@@ -6,6 +6,7 @@ import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Prism;
 import com.example.fxsuite.avatar.sim.River;
+import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 
@@ -156,9 +157,18 @@ public final class Village {
         return new Vec3(0, 0, riverAt(0) - 3_000);
     }
 
-    /** Tells the simulation all of the meadow village: what stands in it, its river, where the avatar starts. */
+    /** The meadow's land ({@link Terrains#meadow}), surveyed: worked out once, when first wanted. */
+    public static Survey land() {
+        return Land.SURVEY;
+    }
+
+    private static final class Land {
+        static final Survey SURVEY = Terrains.meadow().survey();
+    }
+
+    /** Tells the simulation all of the meadow village: what stands in it, its river, where the avatar starts, its land. */
     public static void tell() {
-        Course.village(Village::pieces, Village::rivers, Village::start);
+        Course.village(Village::pieces, Village::rivers, Village::start, Village::land);
     }
 
     /** What stands in the meadow: its houses, each one piece; the well; the footbridge; the trees. */
@@ -231,6 +241,8 @@ public final class Village {
     private static final double WOODED = 80_000;
     private static final double ALONG = 2_500;
     private static final int MEADOW_TREES = 30;
+    /** How wide a tree's trunk is. */
+    private static final double TRUNK = 36;
 
     /**
      * Its trees: along both banks, every so far, a little in and out; and across the meadow here and there;
@@ -262,7 +274,14 @@ public final class Village {
             if (wet || byTheBridge || byAHouse || byTheWell) {
                 continue;
             }
-            final Block trunk = Block.standing(t.x(), t.z(), 36, 36, 320, 0);
+            // standing on the ground there: its foot as low as the ground under it goes, so it is never clear of it
+            double foot = Double.POSITIVE_INFINITY;
+            for (final double dx : new double[] {-TRUNK / 2, TRUNK / 2}) {
+                for (final double dz : new double[] {-TRUNK / 2, TRUNK / 2}) {
+                    foot = Math.min(foot, land().height(t.x() + dx, t.z() + dz));
+                }
+            }
+            final Block trunk = new Block(t.x(), t.z(), TRUNK / 2, TRUNK / 2, 0, foot, foot + 320);
             trees.add(new Course.Piece(trunk, Course.Kind.TREE, k++ % 2, List.of(trunk)));
         }
         return trees;

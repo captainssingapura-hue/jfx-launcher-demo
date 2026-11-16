@@ -1219,6 +1219,8 @@ public final class Course {
     /** Its rivers; and whether its ground is ruled with a grid. */
     private final List<River> rivers = new ArrayList<>();
     private boolean grid = true;
+    /** Its land, as surveyed: null if level. */
+    private Survey land;
 
     /** The playground: everything at once. */
     public Course() {
@@ -1299,21 +1301,30 @@ public final class Course {
         start = villageStart.get();
         pieces.addAll(village.get());
         rivers.addAll(villageRivers.get());
+        land = villageLand.get();
         grid = false;
     }
 
-    /** What stands in the meadow village, its rivers, and where the avatar starts there: until told, nothing, none, the middle. */
+    /** What stands in the meadow village, its rivers, where the avatar starts there, and its land: until told, nothing, none, the middle, level. */
     private static java.util.function.Supplier<List<Piece>> village = List::of;
     private static java.util.function.Supplier<List<River>> villageRivers = List::of;
     private static java.util.function.Supplier<Vec3> villageStart = () -> Vec3.ZERO;
+    private static java.util.function.Supplier<Survey> villageLand = () -> null;
 
-    /** Says what stands in the meadow village, its rivers, and where the avatar starts there. */
+    /** Says what stands in the meadow village, its rivers, where the avatar starts there, and its land, surveyed. */
     public static void village(final java.util.function.Supplier<List<Piece>> what,
                                final java.util.function.Supplier<List<River>> rivers,
-                               final java.util.function.Supplier<Vec3> start) {
+                               final java.util.function.Supplier<Vec3> start,
+                               final java.util.function.Supplier<Survey> land) {
         village = what;
         villageRivers = rivers;
         villageStart = start;
+        villageLand = land;
+    }
+
+    /** Its land, surveyed ({@link Terrain}); null where the ground is level at 0, as it is everywhere but in open country. */
+    public Survey land() {
+        return land;
     }
 
     /** Its rivers: where water runs across the world. */
