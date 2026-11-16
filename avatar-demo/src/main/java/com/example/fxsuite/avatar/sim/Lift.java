@@ -338,7 +338,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             }
         }
         // what is shaped more closely: its highest top under the footing, felt for a metre or less apart over it
-        for (int i = 0; i < world.volumes().size(); i++) {
+        for (final int i : world.volumesNear(below.x(), below.z(), Math.hypot(below.halfWidth(), below.halfDepth()))) {
             final int other = world.volumePieces().get(i);
             final Volume volume = world.volumes().get(i);
             if (other == piece || aboard.contains(other) || volume.low() > underside + 0.5 || !volume.overlaps(below)) {
@@ -634,7 +634,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                     return others.pieces().get(there);
                 }
                 // what is shaped more closely, solid there between a kerb over the ground and its top
-                for (int i = 0; i < others.volumes().size(); i++) {
+                for (final int i : others.volumesNear(x, z, 1)) {
                     if (others.volumes().get(i).push(x, z, 1, ground + KERB, over) != null) {
                         return others.volumePieces().get(i);
                     }
@@ -740,7 +740,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             }
         }
         // and of what is shaped more closely: a tower's curve, a pyramid's slope, a wall
-        for (int i = 0; i < world.volumes().size(); i++) {
+        for (final int i : world.volumesNear(room.x(), room.z(), Math.hypot(room.halfWidth(), room.halfDepth()))) {
             final int other = world.volumePieces().get(i);
             if (other != piece && !aboard.contains(other) && world.volumes().get(i).overlaps(room)) {
                 return false;

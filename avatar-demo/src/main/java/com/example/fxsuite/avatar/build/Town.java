@@ -14,16 +14,30 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 /**
- * The town: every building put up on a site of its own along streets, a grid of three by three
- * 120 m apart, ahead of the start, each facing back down the way to it; and the boxer motorcycle by
- * the start to ride between them. Each building in the world is one piece ({@link Course.Kind#BUILDING}),
- * dressed in its own way and its first palette; its solid blocks its parts' boxes (its nave, its
- * tower, its roof; its podium, its shaft), so it is solid where it stands and open between;
- * broken as a whole.
+ * The town: its buildings, each on a site of its own along streets, a grid of three by three 150 m
+ * apart, ahead of the start, each facing back down the way to it; and in the middle of the grid, where
+ * a building would stand, the temple ({@link TempleYard}), its gate to the start, in a round park:
  *
- * <p>All of it can be scaled ({@link #scale(double)}): every building so many times as big every
- * way, its doors and windows with it, and the streets wider, enough to keep them apart and no
- * nearer the start, but not as much wider: a town built bigger looks it.
+ * <ul>
+ *   <li><b>the park</b>, a lawn 100 m round the temple's middle, a path across it from its edge to the
+ *       temple's gate; a pond either side of the temple, its water in a stone rim, an island in its middle
+ *       and a pavilion on that, a bridge out to it; and round the park, the rest of the pavilions, one of
+ *       each kind ({@link Pavilions}), each facing the temple;</li>
+ *   <li><b>in the temple's courtyard</b>, the monks at their stand-up; and parked along its sides, facing in,
+ *       every land vehicle, the cars and the truck on one side and the motorcycles on the other; and before
+ *       the monks, the gunship, its nose to the gate;</li>
+ *   <li><b>at the edge of the town</b>, east of its middle, the pyramids ({@link Pyramids});</li>
+ *   <li><b>on top of each tower</b>, on each of its cores, a mounted Gatling gun ({@link #guns}).</li>
+ * </ul>
+ *
+ * <p>Each building in the world is one piece ({@link Course.Kind#BUILDING}), dressed in its own way and
+ * its first palette; its solid blocks its parts' boxes (its nave, its tower, its roof; its podium, its
+ * shaft), so it is solid where it stands and open between; broken as a whole.
+ *
+ * <p>Its buildings can be scaled ({@link #scale(double)}): every building so many times as big every
+ * way, its doors and windows with it, and the streets wider, enough to keep them apart and no nearer
+ * the start, but not as much wider: a town built bigger looks it. The temple, its park and the pyramids
+ * stay as they are, the streets round them wider.
  */
 public final class Town {
 
@@ -36,8 +50,11 @@ public final class Town {
     }
 
     /** Its streets' grid: so far apart, the first row so far ahead, at its own scale. */
-    private static final double APART = 12_000;
+    private static final double APART = 15_000;
     private static final double AHEAD = 8_000;
+    /** Where on the grid the temple stands, in its park: its middle. */
+    public static final int TEMPLE_COLUMN = 1;
+    public static final int TEMPLE_ROW = 1;
     /** How much it may be scaled: from a quarter as big, to twice as big. */
     public static final double SMALLEST = 0.25;
     public static final double LARGEST = 2;
@@ -50,36 +67,38 @@ public final class Town {
 
     /**
      * One of its towers: which ({@code tower}, with its void deck), the pavilion on its roof (its
-     * footprint, its roof, what each is of), and its palette.
+     * footprint, its roof, what each is of), its palette, and where on the grid.
      */
     private record TowerSite(String name, Supplier<Tower> tower, Pavilion.Footprint footprint, Pavilion.Roof roof,
-                             Material roofing, Material pillars, Palette palette) {
+                             Material roofing, Material pillars, Palette palette, int column, int row) {
     }
 
-    /** Where its towers come in its sites: after the church, the temple hall and the apartments. */
-    public static final int FIRST_TOWER = 3;
+    /** Where its towers come in its sites: after the church and the apartments. */
+    public static final int FIRST_TOWER = 2;
 
     /**
      * Its towers, each with a void deck part way up: the round, oval and rounded ones open all round
      * (full); the setback tower's, the L block's and the bow-front tower's with a wing at one end
-     * enclosed (partial), the L block's its north arm.
+     * enclosed (partial), the L block's its north arm. The round tower, the tallest, at the front
+     * corner, where it is seen from the start; the rest round the temple.
      */
     private static final List<TowerSite> TOWERS = List.of(
             new TowerSite("setback tower", () -> Towers.withDeck(Towers.setback(), 1, 12, 760,
                     Towers.enclosed(-2000, -2000, 2 * Towers.BAY, 4000)), Pavilion.Footprint.SQUARE, Pavilion.Roof.PYRAMID,
-                    Material.GLAZED, Material.LACQUER, Palette.STONE),
+                    Material.GLAZED, Material.LACQUER, Palette.STONE, 0, 1),
             new TowerSite("round tower", () -> Towers.withDeck(Towers.round(), 0, 22, 800, null), Pavilion.Footprint.ROUND,
-                    Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER, Palette.CONCRETE),
+                    Pavilion.Roof.PYRAMID, Material.GREEN_GLAZED, Material.LACQUER, Palette.CONCRETE, 0, 0),
             new TowerSite("oval tower", () -> Towers.withDeck(Towers.oval(), 0, 20, 760, null), Pavilion.Footprint.OCTAGON,
-                    Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE, Palette.CONCRETE),
+                    Pavilion.Roof.PYRAMID, Material.GREY_TILE, Material.STONE, Palette.CONCRETE, 2, 1),
             new TowerSite("rounded tower", () -> Towers.withDeck(Towers.rounded(), 0, 18, 840, null),
-                    Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER, Palette.PRECAST),
+                    Pavilion.Footprint.RECTANGLE, Pavilion.Roof.HIP, Material.GREEN_GLAZED, Material.LACQUER, Palette.PRECAST,
+                    0, 2),
             new TowerSite("L block on a podium", () -> Towers.withDeck(Towers.lBlock(), 1, 8, 720,
                     Towers.enclosed(-2400, -400, 2 * Towers.BAY, 2400)), Pavilion.Footprint.HEXAGON, Pavilion.Roof.PYRAMID,
-                    Material.GLAZED, Material.LACQUER, Palette.CONCRETE),
+                    Material.GLAZED, Material.LACQUER, Palette.CONCRETE, 1, 2),
             new TowerSite("bow-front tower", () -> Towers.withDeck(Towers.bowFront(), 0, 15, 760,
                     Towers.enclosed(-2400, -1600, 2 * Towers.BAY, 3200)), Pavilion.Footprint.RECTANGLE, Pavilion.Roof.FLAT,
-                    Material.CONCRETE, Material.METAL, Palette.CONCRETE));
+                    Material.CONCRETE, Material.METAL, Palette.CONCRETE, 2, 2));
 
     /** Each tower, its roof garden and its deck's garden, by its site: worked out once, when first wanted. */
     private static final Map<Integer, Tower> TOWER = new java.util.concurrent.ConcurrentHashMap<>();
@@ -104,31 +123,20 @@ public final class Town {
         return DECK.computeIfAbsent(k, i -> DeckGarden.of(tower(i)));
     }
 
-    /** Its sites, row by row from the start. */
+    /** Its sites: the church, on the front row's middle, before the temple; the apartments; and the towers. */
     public static final List<Site> SITES = sites();
 
     private static List<Site> sites() {
         final List<Site> sites = new ArrayList<>();
-        final List<Object[]> buildings = List.of(
-                new Object[] {"town church", (Supplier<Building>) () -> Church.standard().building(), Palette.STONE,
-                        (Supplier<List<Volume>>) () -> Church.standard().shape()},
-                new Object[] {"temple hall", (Supplier<Building>) () -> Temple.standard().building(), Temple.LACQUERED,
-                        (Supplier<List<Volume>>) () -> Temple.standard().shape()},
-                new Object[] {"brutalist apartments", (Supplier<Building>) Apartments::building, Palette.CONCRETE});
-        for (int k = 0; k < buildings.size(); k++) {
-            final Object[] b = buildings.get(k);
-            @SuppressWarnings("unchecked")
-            final Supplier<Building> make = (Supplier<Building>) b[1];
-            @SuppressWarnings("unchecked")
-            final Supplier<List<Volume>> shape = b.length > 3 ? (Supplier<List<Volume>>) b[3] : null;
-            sites.add(new Site((String) b[0], make, (Palette) b[2], k % 3, k / 3, shape));
-        }
+        sites.add(new Site("town church", () -> Church.standard().building(), Palette.STONE, 1, 0,
+                () -> Church.standard().shape()));
+        sites.add(new Site("brutalist apartments", Apartments::building, Palette.CONCRETE, 2, 0, null));
         // and the towers, each with its garden on its roof and its void deck, and a garden on that
         for (int t = 0; t < TOWERS.size(); t++) {
-            final int k = buildings.size() + t;
+            final int k = FIRST_TOWER + t;
             final TowerSite tower = TOWERS.get(t);
             sites.add(new Site(tower.name(), () -> deckGarden(k).on(roofGarden(k).on(TowerBuildings.of(tower(k)))),
-                    tower.palette(), k % 3, k / 3,
+                    tower.palette(), tower.column(), tower.row(),
                     () -> deckGarden(k).on(roofGarden(k).on(TowerBuildings.shape(tower(k))))));
         }
         return List.copyOf(sites);
@@ -157,12 +165,41 @@ public final class Town {
         scale = k;
     }
 
+    /** How much wider its streets are, at its scale. */
+    private static double streets() {
+        return Math.max(1, STREETS * scale);
+    }
+
+    /** Where on the grid {@code column}, {@code row} is, at the town's scale: facing back toward the start. */
+    private static Place grid(final int column, final int row) {
+        return new Place((column - 1) * APART * streets(), (AHEAD + row * APART) * streets(), 0, 180);
+    }
+
     /** Where site {@code k} is, at the town's scale: turned to face back toward the start, its front to the street. */
     public static Place place(final int k) {
         final Site site = SITES.get(k);
-        final double streets = Math.max(1, STREETS * scale);
-        return new Place((site.column() - 1) * APART * streets, (AHEAD + site.row() * APART) * streets, 0, 180);
+        return grid(site.column(), site.row());
     }
+
+    /** The town's middle, at its scale: the middle of the temple's courtyard, and of its park. */
+    public static Place middle() {
+        final Place at = grid(TEMPLE_COLUMN, TEMPLE_ROW);
+        return new Place(at.x(), at.z(), 0, 0);
+    }
+
+    /** Where the temple's courtyard is laid out from ({@link TempleYard}'s own origin): its middle on the town's, its gate to the start. */
+    public static Place temple() {
+        final Place middle = middle();
+        return new Place(middle.x(), middle.z() - (TempleYard.FRONT + TempleYard.BACK) / 2, 0, 0);
+    }
+
+    /** Where the pyramids are laid out from ({@link Pyramids}' own origin): east of the town, the great one level with its middle. */
+    public static Place pyramids() {
+        return new Place(PYRAMIDS_OUT * streets(), middle().z() - Pyramids.GREAT.z(), 0, 0);
+    }
+
+    /** How far east of the town's middle line the great pyramid stands: past its east column's widest tower and some. */
+    public static final double PYRAMIDS_OUT = 31_500;
 
     /** Site {@code k}'s building, dressed as it is: its own way, in its palette, at the town's scale. */
     public static List<Solid> solids(final int k) {
@@ -183,7 +220,7 @@ public final class Town {
     }
 
     /** Who is on its towers' void decks: at each bar, its bartender and two sat at it; at each stall, its stallholder and a customer. */
-    public static List<Course.Cast> people() {
+    public static List<Course.Cast> onDecks() {
         final List<Course.Cast> people = new ArrayList<>();
         for (int k = FIRST_TOWER; k < SITES.size(); k++) {
             people.addAll(DeckScene.at(deckGarden(k), place(k), scale).people());
@@ -191,14 +228,174 @@ public final class Town {
         return people;
     }
 
-    /** What stands in the town: each building, one piece, and the boxer motorcycle by the start. */
+    /** Who is in it: those on its towers' void decks ({@link #onDecks}); and in the temple's courtyard, the monks at their stand-up. */
+    public static List<Course.Cast> people() {
+        final List<Course.Cast> people = new ArrayList<>(onDecks());
+        final Place temple = temple();
+        Course.MONKS.forEach(monk -> people.add(monk.within(temple)));
+        return people;
+    }
+
+    /**
+     * What stands in the town: each building, one piece; the temple's halls, its wall and its gate; its
+     * park, its lawn, its path, its ponds and its pavilions; the pyramids; and the vehicles parked in the
+     * temple's courtyard.
+     */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int k = 0; k < SITES.size(); k++) {
             pieces.add(piece(k));
         }
-        pieces.add(Course.Piece.vehicle(Course.BOXER, null, new Place(300, 600, Course.BOXER.ride(), 0), 0));
+        final Place temple = temple();
+        TempleYard.pieces().forEach(p -> pieces.add(p.within(temple)));
+        pieces.addAll(park());
+        final Place pyramids = pyramids();
+        Pyramids.pieces().forEach(p -> pieces.add(p.within(pyramids)));
+        pieces.addAll(parked());
         return pieces;
+    }
+
+    /** The park round the temple: so far round its middle; a path across it to the gate, so wide. */
+    public static final double PARK = 10_000;
+    public static final double PATH = 600;
+    /** Each pond: its middle so far out from the temple's, either side; its water so far round; its rim so wide. */
+    public static final double POND_OUT = 7_600;
+    public static final double POND = 1_800;
+    public static final double RIM = 100;
+    /** The island in its middle, so far round; the bridge out to it, so wide. */
+    public static final double ISLAND = 750;
+    public static final double BRIDGE = 300;
+    /**
+     * How high each lies, each drawn over what it lies on: the lawn; the courtyard's paving and the path;
+     * the rim, under the water, showing round it; the water; the island and the bridge over it.
+     */
+    private static final double LAWN_TOP = 2;
+    private static final double COURTYARD_TOP = 4;
+    private static final double PATH_TOP = 5;
+    private static final double RIM_TOP = 8;
+    private static final double WATER_TOP = 12;
+    private static final double ISLAND_TOP = 16;
+    private static final double BRIDGE_TOP = 18;
+    /** The pavilions round the park, but those on the islands: so far out from its middle. */
+    public static final double PAVILIONS_OUT = 8_300;
+
+    /**
+     * Which pavilion ({@link Pavilions#PRESETS}) stands where: on the west pond's island, the round
+     * one; on the east's, the octagonal one; behind the temple, the long gallery; and round the
+     * corners, the square, the hexagonal, the gable and the modern ones. Headings from the park's
+     * middle, as {@link Num#heading} has them, 0 straight back from the start.
+     */
+    private static final int[][] PAVILION_AT = {{3, -90}, {2, 90}, {4, 0}, {1, 45}, {5, -45}, {0, 135}, {6, -135}};
+
+    /**
+     * The park, all of it in no one's way ({@link Course.Kind#GARDEN}), but for its pavilions: its lawn, the
+     * temple's courtyard paved, its path, each pond's rim, water, island and bridge; and its pavilions, each
+     * facing the temple.
+     */
+    public static List<Course.Piece> park() {
+        final Place middle = middle();
+        final List<Course.Piece> park = new ArrayList<>();
+        park.add(garden(middle.x(), middle.z(), PARK, PARK, 0, LAWN_TOP, Course.GARDEN_LAWN));
+        // the temple's courtyard paved within its wall, up to where its back corners round, and between them
+        final Place temple = temple();
+        final double round = TempleYard.BACK - TempleYard.ROUNDED;
+        park.add(garden(temple.x(), temple.z() + (TempleYard.FRONT + round) / 2, TempleYard.FLANK,
+                (round - TempleYard.FRONT) / 2, 0, COURTYARD_TOP, Course.GARDEN_PAVING));
+        park.add(garden(temple.x(), temple.z() + (round + TempleYard.BACK) / 2, TempleYard.FLANK - TempleYard.ROUNDED,
+                TempleYard.ROUNDED / 2, 0, COURTYARD_TOP, Course.GARDEN_PAVING));
+        // the path, from the park's edge before the temple up to its gate
+        final double edge = middle.z() - PARK;
+        final double gate = temple.z() + TempleYard.GATE.z();
+        park.add(garden(middle.x(), (edge + gate) / 2, PATH / 2, (gate - edge) / 2, 0, PATH_TOP, Course.GARDEN_PAVING));
+        for (final double side : new double[] {-1, 1}) {
+            final double x = middle.x() + side * POND_OUT;
+            park.add(garden(x, middle.z(), POND + RIM, POND + RIM, 0, RIM_TOP, Course.GARDEN_STONE));
+            park.add(garden(x, middle.z(), POND, POND, 0, WATER_TOP, Course.GARDEN_WATER));
+            park.add(garden(x, middle.z(), ISLAND, ISLAND, 0, ISLAND_TOP, Course.GARDEN_STONE));
+            // the bridge, out from the island across the water to the rim, on the side away from the temple
+            final double from = ISLAND - RIM;
+            final double to = POND + RIM + RIM;
+            park.add(garden(x + side * (from + to) / 2, middle.z(), (to - from) / 2, BRIDGE / 2, 0, BRIDGE_TOP,
+                    Course.GARDEN_PAVING));
+        }
+        for (final int[] at : PAVILION_AT) {
+            final double out = Math.abs(at[1]) == 90 ? POND_OUT : PAVILIONS_OUT;
+            final Vec3 way = Num.heading(at[1]);
+            final double x = middle.x() + way.x() * out;
+            final double z = middle.z() + way.z() * out;
+            park.add(Pavilions.piece(at[0], new Place(x, z, 0, Num.wrap(at[1] + 180))));
+        }
+        return park;
+    }
+
+    /** A garden's piece, {@code tint} its kind, about ({@code x}, {@code z}), so far each way, turned {@code yaw}, so high. */
+    private static Course.Piece garden(final double x, final double z, final double across, final double along,
+                                       final double yaw, final double top, final int tint) {
+        return new Course.Piece(new Block(x, z, across, along, yaw, 0, top), Course.Kind.GARDEN, tint, List.of());
+    }
+
+    /** How far in from the temple's side walls the parked vehicles' backs are; how far apart side by side; where the first is. */
+    private static final double PARKED_IN = 2_200;
+    private static final double PARKED_APART = 150;
+    private static final double PARKED_FROM = 300;
+    /** Where the gunship stands in the courtyard, in its frame: on its middle line, before the monks. */
+    public static final Place GUNSHIP = new Place(0, 1_100, 0, 180);
+
+    /**
+     * The vehicles parked in the temple's courtyard, in its frame and then where it is: along its west
+     * side, facing in, the truck, the pickup, the van and the roadster; along its east side, facing in, the
+     * motorcycles, the scooter, the sport bike, the cruiser, the boxer and the boxers with a sidecar and with
+     * an ice cream cart; and on its middle line before the monks, the gunship, its nose to the gate.
+     */
+    public static List<Course.Piece> parked() {
+        final Place temple = temple();
+        final List<Course.Piece> parked = new ArrayList<>();
+        final Object[][] west = {{Course.TRUCK_CHASSIS, Course.TRUCK_CAB, 1}, {Course.PICKUP_CHASSIS, Course.PICKUP_BODY, 2},
+                {Course.CAR_CHASSIS, Course.VAN, 3}, {Course.CAR_CHASSIS, Course.ROADSTER, 0}};
+        final Object[][] east = {{Course.SCOOTER, null, 0}, {Course.SPORT_BIKE, null, 0}, {Course.CRUISER, null, 0},
+                {Course.BOXER, null, 0}, {Course.BOXER_SIDECAR, null, 0}, {Course.BOXER_ICE_CREAM, null, 0}};
+        for (final double side : new double[] {-1, 1}) {
+            double along = PARKED_FROM;
+            for (final Object[] v : side < 0 ? west : east) {
+                final Course.Chassis chassis = (Course.Chassis) v[0];
+                final Course.Bodywork body = (Course.Bodywork) v[1];
+                final Course.Section box = chassis.shape(body).box();
+                final double wide = box.halfAcross() + Math.abs(box.across());
+                along += wide;
+                final Place at = new Place(side * (PARKED_IN - chassis.length() / 2), along, chassis.ride(), -side * 90);
+                parked.add(Course.Piece.vehicle(chassis, body, Course.Piece.within(at, temple), (Integer) v[2]));
+                along += wide + PARKED_APART;
+            }
+        }
+        final Place gunship = Course.Piece.within(new Place(GUNSHIP.x(), GUNSHIP.z(), Course.GUNSHIP.standing(),
+                GUNSHIP.yaw()), temple);
+        parked.add(Course.Piece.moving(Course.GUNSHIP.shape(), gunship, Course.Kind.AIRCRAFT, 0, null));
+        return parked;
+    }
+
+    /**
+     * Where the guns mounted on {@code building} stand ({@link Course#guns(Course.Piece)}): if it is one of
+     * the town's towers, on top of each of its cores, over its roof, where its lift overrun ends
+     * ({@link TowerBuildings#OVERRUN}), in the middle of it, facing out from the town's middle; on
+     * anything else, none.
+     */
+    public static List<Place> guns(final Course.Piece building) {
+        final int k = building.tint();
+        if (building.kind() != Course.Kind.BUILDING || k < FIRST_TOWER || k >= SITES.size() || building.place() == null) {
+            return List.of();
+        }
+        final Tower tower = tower(k);
+        final Place at = building.place();
+        final Place middle = middle();
+        final List<Place> guns = new ArrayList<>();
+        for (final List<Plan.Pt> core : tower.structure().cores()) {
+            final double across = core.stream().mapToDouble(Plan.Pt::x).average().orElse(0) * scale;
+            final double along = core.stream().mapToDouble(Plan.Pt::y).average().orElse(0) * scale;
+            final Vec3 there = place(at, across, along);
+            final double out = Math.toDegrees(Math.atan2(there.x() - middle.x(), there.z() - middle.z()));
+            guns.add(new Place(there.x(), there.z(), (tower.height() + TowerBuildings.OVERRUN) * scale, out));
+        }
+        return guns;
     }
 
     /**

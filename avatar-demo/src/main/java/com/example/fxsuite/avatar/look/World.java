@@ -178,6 +178,7 @@ public final class World {
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
                 case BUILDING, WALL_UNIT -> building(part, block, piece.tint());
                 case AIRCRAFT -> aircraft(i, part);
+                case GARDEN -> garden(part, block, piece.tint());
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -512,6 +513,34 @@ public final class World {
     private static Shape3D track(final Group part, final Block block, final PhongMaterial material) {
         final Shape3D body = block.sloped() ? wedge(block) : new Box(block.halfWidth() * 2,
                 block.top() - block.bottom(), block.halfDepth() * 2);
+        body.setMaterial(material);
+        part.getChildren().add(body);
+        return body;
+    }
+
+    /** How many sides a garden's round piece is drawn with: enough for a lawn a hundred metres across to look round. */
+    private static final int GARDEN_SIDES = 120;
+
+    /**
+     * A garden's piece, lying on the ground ({@link Course.Kind#GARDEN}): a lawn, a pond's water, its
+     * stone rim or an island in it, each a disc as wide as its box; or paving, a path or a bridge, as
+     * its box. The water a little glossy, the sky in it.
+     */
+    private static Shape3D garden(final Group part, final Block block, final int tint) {
+        final double high = block.top() - block.bottom();
+        final Shape3D body = tint == Course.GARDEN_PAVING
+                ? new Box(block.halfWidth() * 2, high, block.halfDepth() * 2)
+                : new Cylinder(block.halfWidth(), high, GARDEN_SIDES);
+        final PhongMaterial material = BoxRig.matte(switch (tint) {
+            case Course.GARDEN_LAWN -> "#5d8a40";
+            case Course.GARDEN_WATER -> "#3b6f8c";
+            case Course.GARDEN_STONE -> "#b3ab9b";
+            default -> "#c8c0ae";
+        });
+        if (tint == Course.GARDEN_WATER) {
+            material.setSpecularColor(Color.web("#c8dcea"));
+            material.setSpecularPower(40);
+        }
         body.setMaterial(material);
         part.getChildren().add(body);
         return body;

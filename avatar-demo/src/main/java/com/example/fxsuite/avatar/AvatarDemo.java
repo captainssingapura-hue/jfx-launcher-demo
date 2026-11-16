@@ -70,7 +70,7 @@ public final class AvatarDemo extends Application {
             }
         }
         if (System.getProperty("avatar.script") != null || System.getProperty("avatar.snapshot") != null) {
-            return Demo.PLAYGROUND;
+            return Demo.TOWN;
         }
         return null;
     }
@@ -102,7 +102,7 @@ public final class AvatarDemo extends Application {
         final VBox list = new VBox(14, title, hint);
         list.setAlignment(Pos.CENTER);
         list.setPadding(new Insets(40));
-        final Demo[] demos = Demo.values();
+        final Demo[] demos = Demo.playable().toArray(Demo[]::new);
         for (int i = 0; i < demos.length; i++) {
             final Demo demo = demos[i];
             final Button card = new Button((i + 1) + "   " + demo.title() + "\n" + demo.description());

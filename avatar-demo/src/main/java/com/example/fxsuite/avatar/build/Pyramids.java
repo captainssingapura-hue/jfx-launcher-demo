@@ -27,7 +27,8 @@ import java.util.List;
  *       and what is a box, in one piece.</li>
  * </ul>
  *
- * <p>Each is one piece in the world ({@link Course.Kind#BUILDING}), broken as a whole.
+ * <p>Each is one piece in the world ({@link Course.Kind#BUILDING}), broken as a whole. Laid out about
+ * their own origin; put at the edge of the town ({@link Town#pyramids}).
  */
 public final class Pyramids {
 

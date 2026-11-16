@@ -26,6 +26,12 @@ import java.util.Random;
  */
 public final class Course {
 
+    /** What a garden's piece ({@link Kind#GARDEN}) is laid as, by its tint: a lawn, water, stone, each round; paving, as its box. */
+    public static final int GARDEN_LAWN = 0;
+    public static final int GARDEN_WATER = 1;
+    public static final int GARDEN_STONE = 2;
+    public static final int GARDEN_PAVING = 3;
+
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
         FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
@@ -34,7 +40,13 @@ public final class Course {
         /** A unit of a wall: one of a wall's many, each standing, worn down and broken on its own. */
         WALL_UNIT(true),
         /** An aircraft to be flown ({@link Aircraft}): a gunship, say. Not yet to be broken. */
-        AIRCRAFT(false);
+        AIRCRAFT(false),
+        /**
+         * Laid on the ground, in no one's way, walked and driven over: a park's lawn, a pond's water,
+         * its stone rim, an island in it, each drawn round (a disc as wide as its box); or paving, a
+         * path or a bridge, drawn as its box. Which, by its tint ({@link #GARDEN_LAWN} and on).
+         */
+        GARDEN(false);
 
         private final boolean breakable;
 
@@ -180,6 +192,29 @@ public final class Course {
         /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
         public Piece at(final double seconds) {
             return route == null ? this : placed(route.at(seconds));
+        }
+
+        /**
+         * The same piece, one that stays where it is, laid out about the world's origin, put
+         * {@code at}: moved there and turned with it, as a group of them is moved together (a
+         * temple's courtyard, its halls and its wall, put in the middle of a town).
+         */
+        public Piece within(final Place at) {
+            if (moves()) {
+                throw new IllegalArgumentException("only what stays where it is is moved so, not a " + kind);
+            }
+            return new Piece(block.within(at), kind, tint, solid.stream().map(b -> b.within(at)).toList(), null,
+                    place == null ? null : within(place, at), route, carrier, loose, body,
+                    volumes.stream().map(v -> Volume.placed(v, at, 1)).toList());
+        }
+
+        /** {@code place}, laid out about the world's origin, put {@code at}: moved there and turned with it. */
+        public static Place within(final Place place, final Place at) {
+            final Vec3 right = Num.right(at.yaw());
+            final Vec3 ahead = Num.heading(at.yaw());
+            return new Place(at.x() + right.x() * place.x() + ahead.x() * place.z(),
+                    at.z() + right.z() * place.x() + ahead.z() * place.z(), place.height() + at.height(),
+                    Num.wrap(place.yaw() + at.yaw()));
         }
     }
 
@@ -1068,6 +1103,15 @@ public final class Course {
         public boolean sitting() {
             return seat != null;
         }
+
+        /** Someone on the ground, laid out about the world's origin, put {@code at} ({@link Piece#within}). */
+        public Cast within(final Place at) {
+            if (deck != null) {
+                throw new IllegalArgumentException("only someone on the ground is moved so, not on a platform: " + role);
+            }
+            final Place there = Piece.within(new Place(across, along, up, facing), at);
+            return new Cast(role, null, there.x(), there.z(), there.yaw(), seat, there.height());
+        }
     }
 
     /**
@@ -1149,27 +1193,26 @@ public final class Course {
         pieces.addAll(these);
     }
 
-    /** The world of {@code demo}: the playground, or a simple one round a single vehicle. */
+    /** The world of {@code demo}: the town, the playground, the track; or a simple scene round a single vehicle. */
     public Course(final Demo demo) {
         switch (demo) {
+            case TOWN -> townDemo();
             case PLAYGROUND -> playground();
+            case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
             case AIRSHIP -> airshipDemo();
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
-            case TRACK -> trackDemo();
-            case TOWN -> townDemo();
-            case TEMPLE -> templeDemo();
-            case PYRAMID -> pieces.addAll(pyramids.get());
-            case PAVILION -> pieces.addAll(built(Demo.PAVILION));
         }
     }
 
     /**
-     * The town's demo: its buildings and the motorcycle ({@link #town}); on its towers' void decks,
-     * their bars and stalls and the people at them; and, on the open ground
-     * between the start and the first row, the melon stall on its barge off to one side, and the
-     * meeting platform, its stand-up under way, off to the other, turned so its board faces the start.
+     * The town's demo: all that stands in it ({@link #town}): its buildings, the temple in its
+     * middle and its park, the pyramids at its edge, the vehicles parked in the temple's courtyard;
+     * on its towers' void decks, their bars and stalls and the people at them, and the monks in the
+     * courtyard; and, on the open ground between the start and the first row, the melon stall on its
+     * barge off to one side, and the meeting platform, its stand-up under way, off to the other, turned
+     * so its board faces the start.
      */
     private void townDemo() {
         pieces.addAll(town.get());
@@ -1180,62 +1223,32 @@ public final class Course {
         stall(pieces.size() - 1);
         pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
-        // and the gunship, parked in the open off to the left of the start, its nose to the town, to fly over it
-        pieces.add(Piece.moving(GUNSHIP.shape(), new Place(-3200, 800, GUNSHIP.standing(), 0), Kind.AIRCRAFT, 0, null));
     }
 
     /**
-     * The temple's demo: its halls ({@link #temple}), and in the courtyard before the great hall,
-     * three monks at their stand-up ({@link #MONKS}), standing on the ground.
+     * Where the guns mounted on a building stand ({@link Turret#of}): on top of its cores, say. Its
+     * buildings are designed outside the simulation, as the town's are: whoever designs them says
+     * ({@link #guns}); until then, nowhere.
      */
-    private void templeDemo() {
-        pieces.addAll(temple.get());
-        ground.addAll(MONKS);
+    private static java.util.function.Function<Piece, List<Place>> guns = piece -> List.of();
+
+    /** Says where the guns mounted on each building stand. */
+    public static void guns(final java.util.function.Function<Piece, List<Place>> where) {
+        guns = where;
     }
 
-    /**
-     * What stands in the temple's courtyard: its halls, each one piece ({@link Kind#BUILDING}), put
-     * together outside the simulation, as the town's are; until it is told, nothing.
-     */
-    private static java.util.function.Supplier<List<Piece>> temple = List::of;
-
-    /** What stands among the pyramids: put together outside the simulation, as the town's are; until it is told, nothing. */
-    private static java.util.function.Supplier<List<Piece>> pyramids = List::of;
-
-    /** Says what stands among the pyramids. */
-    public static void pyramids(final java.util.function.Supplier<List<Piece>> what) {
-        pyramids = what;
+    /** Where the guns mounted on building {@code piece} stand, each its mount's base, facing its way: none, unless told. */
+    public static List<Place> guns(final Piece piece) {
+        return piece.kind() == Kind.BUILDING ? guns.apply(piece) : List.of();
     }
 
-    /**
-     * What is built in each demo whose buildings are put together outside the simulation, as it
-     * knows nothing of how a building is designed: told it ({@link #built(Demo, java.util.function.Supplier)}).
-     */
-    private static final java.util.Map<Demo, java.util.function.Supplier<List<Piece>>> BUILT =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    /** Says what is built in {@code demo}. */
-    public static void built(final Demo demo, final java.util.function.Supplier<List<Piece>> what) {
-        BUILT.put(demo, what);
-    }
-
-    /** What is built in {@code demo}: nothing, until it is told. */
-    private static List<Piece> built(final Demo demo) {
-        return BUILT.getOrDefault(demo, List::of).get();
-    }
-
-    /** Says what stands in the temple's courtyard: its halls. */
-    public static void temple(final java.util.function.Supplier<List<Piece>> what) {
-        temple = what;
-    }
-
-    /** Where the monks meet: in the courtyard, this far ahead of the start; how far round, each from its middle. */
+    /** Where the monks meet: in the courtyard, this far in from its gate; how far round, each from its middle. */
     public static final double MONKS_AHEAD = 2600;
     private static final double MONK_RING = 110;
 
     /**
-     * The monks at their stand-up, on the ground in the temple's courtyard (across and along the
-     * world's x and z): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
+     * The monks at their stand-up, on the ground in the temple's courtyard (across and along its own
+     * frame, its gate at the origin: put where it stands with it, {@link Cast#within}): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
      * each facing its middle: the stout one on its far side, facing the start; the other two either
      * side nearer it.
      */
@@ -1248,8 +1261,8 @@ public final class Course {
     }
 
     /**
-     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), and a
-     * motorcycle to ride between them. The buildings are put together outside the simulation, as it
+     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), the temple, its
+     * park, the pyramids, the vehicles parked; or, until told, a motorcycle to ride. The buildings are put together outside the simulation, as it
      * knows nothing of how a building is designed: whoever does says what stands there
      * ({@link #town}); until then, the motorcycle alone.
      */

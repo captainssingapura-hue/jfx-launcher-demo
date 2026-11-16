@@ -18,8 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * the great hall, nine bays across on a high platform, facing down the courtyard to the start; before
  * it, a smaller hall each side, five bays across, facing in across the courtyard to each other, their
  * roofs green where the great hall's are yellow. Each is one piece in the world
- * ({@link Course.Kind#BUILDING}), as the town's buildings are ({@link Town#building}). Its gate, at
- * the courtyard's front, is still to come: a building to pass through.
+ * ({@link Course.Kind#BUILDING}), as the town's buildings are ({@link Town#building}); round it, its
+ * wall, its gate in it at the front. Laid out about its own origin, its gate on it, the courtyard ahead;
+ * put in the middle of the town, its park round it ({@link Town#temple}).
  */
 public final class TempleYard {
 

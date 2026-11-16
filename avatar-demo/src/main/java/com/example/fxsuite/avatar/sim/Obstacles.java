@@ -78,6 +78,11 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 numbers.add(pieces.get(i));
             }
         }
+        // a piece shaped by no volume (a vehicle, leaving itself out of its own way) leaves the volumes as
+        // they are, the very same list: so where they are is not worked out again ({@link #volumesNear})
+        if (!volumePieces.contains(piece)) {
+            return new Obstacles(left, gates, numbers, volumes, volumePieces);
+        }
         final List<Volume> volumesLeft = new ArrayList<>();
         final List<Integer> volumeNumbers = new ArrayList<>();
         for (int i = 0; i < volumes.size(); i++) {
@@ -151,7 +156,8 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 }
             }
         }
-        for (final Volume volume : volumes) {
+        for (final int near : volumesNear(x, z, radius)) {
+            final Volume volume = volumes.get(near);
             if (volume.low() < within && volume.covers(x, z, radius)) {
                 final double top = volume.topAt(x, z, radius, within);
                 // too steep to stand on (rising more than a step from under the circle to as far again
@@ -209,7 +215,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 return pieces.get(i);
             }
         }
-        for (int i = 0; i < volumes.size(); i++) {
+        for (final int i : volumesNear(x, z, radius)) {
             final Volume volume = volumes.get(i);
             if (volume.covers(x, z, radius) && Math.abs(volume.topAt(x, z, radius, height + 0.5) - height) < 0.5) {
                 return volumePieces.get(i);
@@ -234,8 +240,8 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 ceiling = block.bottom();
             }
         }
-        for (final Volume volume : volumes) {
-            final double underside = volume.undersideAt(x, z, radius, from);
+        for (final int near : volumesNear(x, z, radius)) {
+            final double underside = volumes.get(near).undersideAt(x, z, radius, from);
             if (underside < ceiling && underside >= from) {
                 ceiling = underside;
             }
@@ -260,6 +266,9 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
      * a line from (ax, az) to (bx, bz), {@code radius} thick, such as a wing seen from above.
      * Says how far it moved, rather than where it ended up.
      */
+    /** How much further than its own size about a stroke a volume may be and yet push it, once pushed by others. */
+    private static final double SLACK = 200;
+
     public Shift slide(final double ax, final double az, final double bx, final double bz, double vx, double vz,
                        final double radius, final double feet, final double head) {
         double dx = 0;
@@ -291,7 +300,10 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                     vz -= nz * into;
                 }
             }
-            for (final Volume volume : volumes) {
+            // the volumes near the stroke where it now is, and as far again as it may yet be pushed
+            final double reach = Math.hypot(bx - ax, bz - az) / 2 + 4 * radius + SLACK;
+            for (final int near : volumesNear((ax + bx) / 2 + dx, (az + bz) / 2 + dz, reach)) {
+                final Volume volume = volumes.get(near);
                 final boolean point = ax == bx && az == bz;
                 final Vec2 push = point ? volume.push(ax + dx, az + dz, radius, feet, head)
                         : volume.push(ax + dx, az + dz, bx + dx, bz + dz, radius, feet, head);

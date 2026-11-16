@@ -324,22 +324,23 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
-airships, the flyovers, the four vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly), or one built round a
-single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
-platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
-oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
-motorcycle to ride between them, a void deck part way up each tower with a bar and a melon stall on it, and before
-them the melon stall and the stand-up, each on its platform; and the
-**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
-**pyramids**, each in the way as it is shaped; and the **pavilions**, round a lawn, to walk into (`Demo`).
-Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
+It opens on a choice of three demos (`Demo.playable`), the **town** first: its buildings round the
+temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
+park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
+the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
+in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
+tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
+on its platform. Then the **playground**, the rest at once (the course, its targets and the bombers,
+the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
+and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
+for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PAVILION`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=TOWN` (or `PLAYGROUND`, `TRACK`) goes straight to one; a script or a snapshot with
+none named runs in the town. The simple scenes the tests drive, fly and fire in, each round a single
+vehicle or gun (`PLATFORM`, `AIRSHIP`, `FLYOVER`, `GUNS`), are not offered, but go straight there the
+same way.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
 bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, the aircraft bench with `--aircraft`, or writes every sound to WAV files with `--sounds [folder]` (see
@@ -784,14 +785,14 @@ through, and one loaded until a pillar gives and it falls.
 - On the bench, the church's and the hall's **sizes** are set beside their options; each change
   builds it again, every joint checked, its plan tab with it; a size it cannot stand at said, and
   the building left as it was.
-- **The temple** (`TempleYard`, a demo of its own): a courtyard as a Chinese temple is laid out round
+- **The temple** (`TempleYard`, in the middle of the town, `Town.temple`): a courtyard as a Chinese temple is laid out round
   one. At its back, on its middle line, the great hall, built to a size of its own (nine bays across,
   the middle 7.2 m, five deep, its columns 6 m on a 2.4 m platform), facing down the courtyard to the
   start; before it, a smaller hall each side (five bays, 4 m columns), facing in across it, their roofs
   green where the great hall's are yellow. Each is one piece, as the town's buildings are. In the
   middle, on the ground, three monks at their stand-up: a small one in red, a tall one in blue and a
   stout one in yellow, robed, their heads shaved, each having the floor in turn while the other two
-  turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
+  turn to them.
   Round it all, its wall (below): red on a stone plinth, its coping green-tiled, open on its middle
   line at the front for the main entrance (9 m) and at the back for a small door (1.8 m) behind the
   great hall, its back corners rounded. In the entrance its main gate: a gatehouse 11 m wide and 7 m
@@ -822,11 +823,11 @@ through, and one loaded until a pillar gives and it falls.
   parapet strip. So a round tower is round (fly at it off its middle and slide round its curve), an
   L block is open in its corner down to its podium, a setback's terrace is stood on behind its
   parapet. The apartments still as their parts' boxes.
-- **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
+- **The pyramids** (`Pyramids`, at the east edge of the town, `Town.pyramids`): the great one, 60 m square and 40 m high, too steep
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
   front (a ramp): closely shaped and boxes in one piece.
-- **Pavilions** (`Pavilion`, and a demo of their own, `Pavilions`): buildings that are open, hollow but
+- **Pavilions** (`Pavilion`; one of each kind round the town's park, `Pavilions`): buildings that are open, hollow but
   for what holds them up, each part of its own and in the way as it is shaped: a platform, its steps
   up at its front (each rise under a body's step); a ring of pillars on it; beams tying their heads;
   a roof on those. Between them is open space: walked into up the steps, stood in under the roof
@@ -893,13 +894,26 @@ through, and one loaded until a pillar gives and it falls.
   one, its footprint stood up to its ridge.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
-- **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
-  three 120 m apart ahead of the start, each facing back down the street to it: the church, the
-  temple hall, the brutalist apartments, and the six towers, each dressed its own way. Each is one
+- **The town** (`Town`, the first demo): every building on a site of its own, a grid of three by
+  three 150 m apart ahead of the start, each facing back down the street to it: the church (on the
+  front row's middle), the brutalist apartments, and the six towers, each dressed its own way, the
+  round tower, the tallest, on the front corner. In the middle of the grid, where a building would
+  stand, the temple (below), its gate to the start, in a round park (`Town.park`): a lawn 100 m
+  across, a path over it up to the gate, a pond either side of the temple (its water in a stone rim,
+  an island in its middle with a pavilion on it, a bridge out to it), and the rest of the pavilions
+  round it, one of each kind, each facing the temple; the park's lawn, water and paving lie on the
+  ground in no one's way (`Course.Kind.GARDEN`), to be waded and driven over. In the temple's
+  courtyard (`Town.parked`), the cars, the pickup and the truck parked along its west side, the six
+  motorcycles along its east, all facing in, and the gunship on its middle line before the monks, its
+  nose to the gate. East of the town, the pyramids. On top of each tower, on each of its cores where
+  its lift overrun ends, a mounted Gatling gun (`Town.guns`, `Course.guns`), facing out from the
+  town's middle, to fly up to and man: seven in all, the rounded tower's two cores a gun each. The
+  temple, its park and the pyramids are laid out about their own origins and moved into place
+  together (`Course.Piece.within`). Each is one
   piece in the world (`Course.Kind.BUILDING`): its solid blocks a box round each of its parts as its
   solids name them (the nave, the tower, the spire; a tower's podium and shaft; the roof, the
   columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
-  ten bunkers. Besides them, the boxer motorcycle by the start, and on the open ground before the first
+  ten bunkers. Besides them, on the open ground before the first
   row the barge with its melon stall off to one side and the meeting platform with its stand-up off
   to the other, their people with them. Each tower has a void deck part way up (`Town.tower`): the
   round, oval and rounded towers' open all round; the setback tower's (in its shaft), the L block's
@@ -911,12 +925,14 @@ through, and one loaded until a pillar gives and it falls.
   those sat there leaning on it; the stall's table under its awning, watermelons on it and at its
   ends, two pineapples, the stallholder sat behind it and a customer before it. Loose things rest on
   a building's floors as they do on blocks (`Prop.support`), finding what is near through a grid of
-  the world's volumes (`VolumeGrid`), and people stand on them. Life size: on a town built smaller
+  the world's volumes (`VolumeGrid`), and people stand on them. So does all else: what is stood on, run
+  into and over a body or a vehicle (`Obstacles.footing`, `slide`, `ceiling`, `Lift.support`), so the
+  vehicles parked in the town cost no more than in the open. Life size: on a town built smaller
   than life, none. The simulation knows
   nothing of how a building is designed: the game tells it what stands in the town
   (`Course.town`). `-Dtown.scale=1.5` builds the town half as big again (from 0.25 to 2): every
   building, and the streets three quarters as much wider, enough to keep them apart, so a town built
-  bigger looks it. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
+  bigger looks it; the temple, its park and the pyramids as they are, the streets round them wider. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
 - **Scaled** (`Building.dressed(options, palette, scale)`, `Form.scaled`, `Solid.scaled`): a building
   made so many times as big every way about its origin, still on the ground, its skeleton, its curves
   and its solids alike: its doors, windows and floors with it, as a model is. (To make one bigger and

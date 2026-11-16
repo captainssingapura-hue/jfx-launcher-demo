@@ -118,16 +118,14 @@ import java.util.Set;
  */
 public final class Game {
 
-    // the town's buildings are designed outside the simulation: it is told what stands there, and how big
+    // the town's buildings are designed outside the simulation: it is told what stands there, how big, and where
+    // the guns on top of them stand
     static {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces,
                 com.example.fxsuite.avatar.build.Town::things, com.example.fxsuite.avatar.build.Town::people);
-        com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
-        com.example.fxsuite.avatar.sim.Course.pyramids(com.example.fxsuite.avatar.build.Pyramids::pieces);
-        com.example.fxsuite.avatar.sim.Course.built(com.example.fxsuite.avatar.sim.Demo.PAVILION,
-                com.example.fxsuite.avatar.build.Pavilions::pieces);
+        com.example.fxsuite.avatar.sim.Course.guns(com.example.fxsuite.avatar.build.Town::guns);
     }
 
     private static final double FIELD_OF_VIEW = 48;
@@ -1024,9 +1022,9 @@ public final class Game {
     private void menus() {
         final Menu demos = new Menu("Demo");
         final ToggleGroup which = new ToggleGroup();
-        final Demo[] all = Demo.values();
-        for (int i = 0; i < all.length; i++) {
-            final Demo other = all[i];
+        final java.util.List<Demo> all = Demo.playable();
+        for (int i = 0; i < all.size(); i++) {
+            final Demo other = all.get(i);
             final RadioMenuItem item = new RadioMenuItem((i + 1) + "   " + other.title());
             item.setToggleGroup(which);
             item.setSelected(other == demo);

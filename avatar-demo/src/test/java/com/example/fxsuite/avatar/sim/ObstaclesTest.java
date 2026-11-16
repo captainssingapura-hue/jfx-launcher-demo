@@ -11,6 +11,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ObstaclesTest {
 
+    @Test
+    void leavingOutAPieceShapedByNoVolumeKeepsTheVolumesAsTheyAreAndFindsTheSameNearThem() {
+        // a box (piece 0, a vehicle, say), and a prism far off and one near (pieces 1 and 2)
+        final Volume far = new Prism(List.of(new Vec2(50_000, 0), new Vec2(50_400, 0), new Vec2(50_400, 400),
+                new Vec2(50_000, 400)), 0, 300);
+        final Volume near = new Prism(List.of(new Vec2(300, -200), new Vec2(700, -200), new Vec2(700, 200),
+                new Vec2(300, 200)), 0, 300);
+        final Obstacles world = new Obstacles(List.of(new Block(0, 0, 100, 100, 0, 0, 100)), List.of(), List.of(0),
+                List.of(far, near), List.of(1, 2));
+        final Obstacles others = world.without(0);
+        assertTrue(others.blocks().isEmpty());
+        assertTrue(others.volumes() == world.volumes(), "the very same list: where they are is not worked out again");
+        // what is near a circle, by the grid, is what a look at every one finds: stood on, under, run into
+        assertEquals(300, others.floor(500, 0, 30, 1000), 1e-9);
+        assertEquals(0, others.floor(5_000, 0, 30, 1000), 1e-9);
+        assertEquals(2, others.under(500, 0, 30, 300));
+        assertTrue(others.slide(250, 0, 100, 0, 60, 0, 100).blocked(), "run into the near one");
+        assertFalse(others.slide(25_000, 0, 100, 0, 60, 0, 100).blocked());
+        final Obstacles over = new Obstacles(List.of(), List.of(), List.of(), List.of(new Prism(List.of(new Vec2(300, -200),
+                new Vec2(700, -200), new Vec2(700, 200), new Vec2(300, 200)), 500, 600)), List.of(2));
+        assertEquals(500, over.ceiling(500, 0, 30, 0), 1e-9, "its underside over it");
+        assertEquals(Double.POSITIVE_INFINITY, over.ceiling(5_000, 0, 30, 0), "open sky away from it");
+        // and leaving out a piece that is shaped, its volumes go with it
+        assertEquals(List.of(far), world.without(2).volumes());
+    }
+
     /** A 200 × 200 block, 100 tall, at the origin. */
     private static final Block CRATE = Block.standing(0, 0, 200, 200, 100, 0);
 

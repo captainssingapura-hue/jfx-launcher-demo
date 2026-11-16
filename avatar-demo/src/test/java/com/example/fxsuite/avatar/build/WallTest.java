@@ -182,8 +182,7 @@ class WallTest {
             assertFalse(TempleYard.drawn(unit.tint()).isEmpty());
         }
         // out through the gate's passage from the start; not through its piers, nor the wall beside it
-        Course.temple(TempleYard::pieces);
-        final Obstacles world = new Course(com.example.fxsuite.avatar.sim.Demo.TEMPLE).obstacles();
+        final Obstacles world = Course.of(TempleYard.pieces()).obstacles();
         assertTrue(walks(world, new Vec3(0, 0, 0), new Vec3(0, 0, -1500)) < TempleYard.FRONT - 300, "out the gate");
         assertTrue(walks(world, new Vec3(-400, 0, 0), new Vec3(-400, 0, -1500)) > TempleYard.FRONT, "its pier stops it");
         assertTrue(walks(world, new Vec3(-2000, 0, 0), new Vec3(-2000, 0, -1500)) > TempleYard.FRONT, "the wall stops it");
