@@ -26,7 +26,13 @@ public enum Furniture implements Loose {
     /** A bar's counter, its bottles and glasses on it and its back shelf with it: twenty-five rifle rounds; very heavy to push. */
     BAR("bar", 240, 70, 110, 250, 0.3, 1500, 0),
     /** A tall stool at a bar, a round seat on one leg: four rifle rounds; light. */
-    BAR_STOOL("bar stool", 36, 36, 75, 40, 0.9, 1400, 0);
+    BAR_STOOL("bar stool", 36, 36, 75, 40, 0.9, 1400, 0),
+    /** A park bench, its slats as high as a seat, its back over that: twelve rifle rounds; heavy-ish. */
+    BENCH("park bench", 180, 55, 45, 120, 0.5, 1500, 0),
+    /** A litter bin on its post: six rifle rounds; light. */
+    BIN("litter bin", 45, 45, 90, 60, 0.8, 1400, 0),
+    /** A stone planter, a shrub in it: thirty rifle rounds; very heavy to push. */
+    PLANTER("planter", 110, 110, 60, 300, 0.2, 1600, 0);
 
     private final String title;
     private final double length;
@@ -81,7 +87,8 @@ public enum Furniture implements Loose {
 
     /**
      * How heavy: the table of planks and pallets sixty kilograms, a stool four, the little scooter
-     * ninety, the board twenty-five; the bar's counter a hundred and twenty, a bar stool six.
+     * ninety, the board twenty-five; the bar's counter a hundred and twenty, a bar stool six; a park bench
+     * forty, a litter bin twelve, a stone planter two hundred and fifty.
      */
     @Override
     public double mass() {
@@ -92,6 +99,9 @@ public enum Furniture implements Loose {
             case BOARD -> 25;
             case BAR -> 120;
             case BAR_STOOL -> 6;
+            case BENCH -> 40;
+            case BIN -> 12;
+            case PLANTER -> 250;
         };
     }
 

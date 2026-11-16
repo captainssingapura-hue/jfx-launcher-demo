@@ -60,7 +60,11 @@ public final class Course {
          * its stone rim, an island in it, each drawn round (a disc as wide as its box); or paving, a
          * path or a bridge, drawn as its box. Which, by its tint ({@link #GARDEN_LAWN} and on).
          */
-        GARDEN(false);
+        GARDEN(false),
+        /** A tree: its trunk in the way, its crown over it not; felled, it is gone. */
+        TREE(true),
+        /** A lamp post: its post in the way; broken, it is gone. */
+        LAMP(true);
 
         private final boolean breakable;
 

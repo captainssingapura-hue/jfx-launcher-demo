@@ -42,6 +42,9 @@ public final class Damage {
     public static final double WALL_UNIT = 60;
     /** How tough a land vehicle is, bare as it is. */
     public static final double CAR = 800;
+    /** How tough a tree is, and a lamp post: a tree twice a car; a lamp post fifteen rifle rounds. */
+    public static final double TREE = 1600;
+    public static final double LAMP = 150;
     public static final double CRATE = 80;
     /** A crate's toughness grows by one for each this much of its volume, in cubic units. */
     public static final double CRATE_VOLUME = 30_000;
@@ -138,6 +141,8 @@ public final class Damage {
             // a land vehicle's body makes it the tougher by its armour
             case CAR -> piece.body() == null ? CAR : CAR * piece.body().armour();
             case PLATFORM -> PLATFORM;
+            case TREE -> TREE;
+            case LAMP -> LAMP;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case FRUIT, FURNITURE -> piece.loose().toughness();

@@ -85,7 +85,10 @@ public final class Wreckage {
         lastTime = time;
         for (final Event event : events) {
             if (event instanceof Event.Broke broke) {
-                burst(broke, world.material(broke.piece()));
+                // what simply vanishes, broken, leaves nothing behind
+                if (!world.vanishes(broke.piece())) {
+                    burst(broke, world.material(broke.piece()));
+                }
             } else if (event instanceof Event.Exploded exploded) {
                 explode(exploded);
             }

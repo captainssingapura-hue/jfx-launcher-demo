@@ -103,7 +103,13 @@ class TownTest {
         assertEquals(Town.PARK, garden.getFirst().block().halfWidth(), 1e-6);
         assertEquals(Course.GARDEN_LAWN, garden.getFirst().tint());
         assertEquals(2, garden.stream().filter(p -> p.tint() == Course.GARDEN_WATER).count(), "two ponds");
-        assertTrue(garden.stream().allMatch(p -> p.solid().isEmpty() && p.volumes().isEmpty()), "in no one's way");
+        // its lawn, its paving and its water in no one's way; its kerbs and islands in the way as they are shaped; its bridges as boxes
+        assertTrue(garden.stream().filter(p -> p.tint() == Course.GARDEN_LAWN || p.tint() == Course.GARDEN_WATER)
+                .allMatch(p -> p.solid().isEmpty() && p.volumes().isEmpty()), "in no one's way");
+        assertEquals(4, garden.stream().filter(p -> p.tint() == Course.GARDEN_STONE && !p.volumes().isEmpty()).count(),
+                "a kerb and an island in each pond, in the way");
+        assertEquals(2, garden.stream().filter(p -> p.tint() == Course.GARDEN_PAVING && !p.solid().isEmpty()).count(),
+                "a bridge in each, walked on");
         for (int k = 0; k < Town.SITES.size(); k++) {
             assertFalse(garden.getFirst().block().overlaps(pieces.get(k).block()), Town.SITES.get(k).name() + " in the park");
         }
@@ -120,10 +126,15 @@ class TownTest {
                 // a rim round its water round its island: rings, drawn one round the next
                 final boolean rings = garden.get(a).tint() != Course.GARDEN_PAVING && garden.get(b).tint() != Course.GARDEN_PAVING
                         && Math.hypot(one.x() - other.x(), one.z() - other.z()) < 1;
-                // the lawn open where the paving at its middle is, and where each pond is
-                final boolean holed = garden.get(a) == lawn && (other.covers(lawn.block().x(), lawn.block().z(), 0)
+                // the lawn open where the paving at its middle is, where the path runs to it, and where each pond is
+                final boolean holed = garden.get(a) == lawn && (garden.get(b).solid().isEmpty()
                         || garden.get(b).tint() != Course.GARDEN_PAVING);
-                if (!rings && !holed && one.overlaps(other)) {
+                // what is shaped (a kerb, an island) lies where its shape does, not its box
+                final boolean overlaps = !garden.get(a).volumes().isEmpty()
+                        ? garden.get(a).volumes().stream().anyMatch(v -> v.overlaps(other))
+                        : !garden.get(b).volumes().isEmpty()
+                        ? garden.get(b).volumes().stream().anyMatch(v -> v.overlaps(one)) : one.overlaps(other);
+                if (!rings && !holed && overlaps) {
                     assertTrue(Math.abs(one.top() - other.top()) >= Town.LAID_APART, a + " over " + b + ": " + one.top()
                             + " and " + other.top());
                 }

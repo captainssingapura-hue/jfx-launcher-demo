@@ -904,6 +904,17 @@ through, and one loaded until a pillar gives and it falls.
   the same haze, so the land runs into the sky with no line between. The camera draws out to the sky.
   The ground's grid is drawn only within 600 m of the middle, where all there is stands. Only the
   ground is hazed: what stands far off stays clear.
+- **The park** (`Town.park`), its floor at the ground and nothing over anything else: its lawn (the
+  ground itself open where it lies, `GardenMesh.ground`), open in turn where the courtyard's paving and
+  the path are, beside it. Each pond a real one: its kerb a low ring of stone in the way as it is shaped
+  (20 cm, stepped over), its water within it shallow, to wade; its island as high as the kerb, its
+  pavilion standing on it; a bridge out to it over the water, level with both, railed either side. What
+  stands about in it, each in the way and each to be broken, and broken simply gone: trees round its
+  edge (`Course.Kind.TREE`: a trunk in the way, a crown over it, of two kinds), lamp posts along the path
+  and at each bridge (`Course.Kind.LAMP`), and, loose, to be pushed about and knocked over: benches
+  along the path and by each pond, a litter bin by every other bench, a planter at each end of the path
+  (`Furniture.BENCH`, `BIN`, `PLANTER`). Far off, the furniture goes with the finest detail and the lamp
+  posts with what dresses a building; the trees stay.
 - **Detail by distance** (`Detail`, `BuildingModel.levels`): each building drawn in three levels, by
   what each solid does and how big it is: its body (walls, base, structure, roofs, spire, glass: its
   shape) always; what dresses it and its frames, 10 cm thick or more, within 800 m; the finest
@@ -941,7 +952,8 @@ through, and one loaded until a pillar gives and it falls.
   an island in its middle with a pavilion on it, a bridge out to it), and the rest of the pavilions
   round it, one of each kind, each facing the temple; the park's lawn, water and paving lie on the
   ground in no one's way (`Course.Kind.GARDEN`), to be waded and driven over. Drawn so that
-  none lies over another but well over it (`GardenMesh`): the lawn open where the courtyard's paving
+  none lies over another but well over it (`GardenMesh`): the ground open where the lawn is (a floor 3 m
+  down under it, seen only where the lawn meets what lies in it), the lawn open where the courtyard's paving
   and the ponds are, each pond's rim a ring round its water and its water round its island, the grid's
   lines stopped at the lawn's edge, the path and the bridges 6 cm over what they cross; and the camera
   draws from further off the further behind the avatar it is (`Game.nearClip`), the depth it tells

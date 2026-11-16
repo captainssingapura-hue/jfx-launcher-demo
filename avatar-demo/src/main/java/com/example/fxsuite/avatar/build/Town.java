@@ -281,28 +281,27 @@ public final class Town {
     /** The park round the temple: so far round its middle; a path across it to the gate, so wide. */
     public static final double PARK = 10_000;
     public static final double PATH = 600;
-    /** Each pond: its middle so far out from the temple's, either side; its water so far round; its rim so wide. */
+    /** Each pond: its middle so far out from the temple's, either side; its water so far round; its kerb so wide. */
     public static final double POND_OUT = 7_600;
     public static final double POND = 1_800;
     public static final double RIM = 100;
-    /** The island in its middle, so far round; the bridge out to it, so wide. */
+    /** The island in its middle, so far round; the bridge out to it, so wide; its railings so high and thick. */
     public static final double ISLAND = 750;
     public static final double BRIDGE = 300;
+    public static final double RAILING = 100;
+    public static final double RAILING_THICK = 8;
     /**
-     * How high each lies. The lawn, open where the courtyard's paving and the ponds are, and the paving,
-     * level with it; each pond's rim round its water, a little lower, and its island in it, each a ring
-     * round the next, none over another. What does lie over another, the path over the lawn and the
-     * bridge over the water, its rim and its island, at least {@link #LAID_APART} over it: so far off, they
-     * are still told apart, not flickering through each other.
+     * How high each lies. The lawn at the ground, open where the courtyard's paving, the path and the
+     * ponds are; the paving and the path, a hair over it, beside it. Each pond's kerb, a low stone wall
+     * round its water, to step over ({@link com.example.fxsuite.avatar.sim.Body#STEP}); its water a little
+     * lower within it, shallow, to wade; its island as high as the kerb; the bridge out to it a little over
+     * both, to walk out on. What lies over another (the bridge over the water) at least {@link #LAID_APART} over it.
      */
-    private static final double LAWN_TOP = 5;
-    private static final double COURTYARD_TOP = 5;
-    private static final double RIM_TOP = 12;
-    private static final double WATER_TOP = 9;
-    private static final double ISLAND_TOP = 14;
+    private static final double LAWN_TOP = 0;
+    private static final double PAVED_TOP = 1;
+    public static final double KERB_TOP = 20;
+    public static final double WATER_TOP = 12;
     public static final double LAID_APART = 6;
-    private static final double PATH_TOP = LAWN_TOP + LAID_APART;
-    private static final double BRIDGE_TOP = ISLAND_TOP + LAID_APART;
     /** The pavilions round the park, but those on the islands: so far out from its middle. */
     public static final double PAVILIONS_OUT = 8_300;
 
@@ -314,10 +313,29 @@ public final class Town {
      */
     private static final int[][] PAVILION_AT = {{3, -90}, {2, 90}, {4, 0}, {1, 45}, {5, -45}, {0, 135}, {6, -135}};
 
+    /** Its trees, round its edge, so far out, so far apart round; a tree's trunk so thick and so tall, and kept so far from the rest. */
+    public static final double TREES_OUT = 9_300;
+    private static final double TREES_EVERY = 10;
+    private static final double TRUNK = 36;
+    private static final double TRUNK_TALL = 320;
+    private static final double TREE_CLEAR = 1_100;
+    /** Its lamps along the path, so far out from its middle line, so far apart; a lamp post so thick and so tall. */
+    private static final double LAMPS_OUT = PATH / 2 + 80;
+    private static final double LAMPS_EVERY = 1_200;
+    private static final double POST = 12;
+    private static final double POST_TALL = 420;
+    /** Its benches along the path, so far out from its middle line; by each pond, so far out from its kerb. */
+    private static final double BENCHES_OUT = PATH / 2 + 160;
+    private static final double BY_THE_WATER = 220;
+
     /**
-     * The park, all of it in no one's way ({@link Course.Kind#GARDEN}), but for its pavilions: its lawn, the
-     * temple's courtyard paved, its path, each pond's rim, water, island and bridge; and its pavilions, each
-     * facing the temple.
+     * The park: its floor, nothing over anything else ({@link Course.Kind#GARDEN}): its lawn, the temple's
+     * courtyard paved, its path; each pond, its kerb and its island in the way as they are shaped, its
+     * water within, a bridge out to the island, railed; its pavilions, each facing the temple; and what
+     * stands about in it, each in the way, each to be broken: its trees round its edge, its lamp posts
+     * along the path and at each bridge; and loose ({@link com.example.fxsuite.avatar.sim.Furniture}), to be
+     * pushed about and knocked over: benches along the path and by the water, a litter bin by some,
+     * planters at each end of the path.
      */
     public static List<Course.Piece> park() {
         final Place middle = middle();
@@ -328,33 +346,144 @@ public final class Town {
         final Place temple = temple();
         final double round = TempleYard.BACK - TempleYard.ROUNDED;
         park.add(garden(temple.x(), temple.z() + (TempleYard.FRONT + round) / 2, TempleYard.FLANK,
-                (round - TempleYard.FRONT) / 2, 0, COURTYARD_TOP, Course.GARDEN_PAVING));
-        // the path, from the park's edge before the temple up to its gate
+                (round - TempleYard.FRONT) / 2, 0, PAVED_TOP, Course.GARDEN_PAVING));
+        // the path, from the park's edge before the temple up to its gate: the lawn open where it is
         final double edge = middle.z() - PARK;
         final double gate = temple.z() + TempleYard.GATE.z();
-        park.add(garden(middle.x(), (edge + gate) / 2, PATH / 2, (gate - edge) / 2, 0, PATH_TOP, Course.GARDEN_PAVING));
+        park.add(garden(middle.x(), (edge + gate) / 2, PATH / 2, (gate - edge) / 2, 0, PAVED_TOP, Course.GARDEN_PAVING));
         for (final double side : new double[] {-1, 1}) {
-            final double x = middle.x() + side * POND_OUT;
-            park.add(garden(x, middle.z(), POND + RIM, POND + RIM, 0, RIM_TOP, Course.GARDEN_STONE));
-            park.add(garden(x, middle.z(), POND, POND, 0, WATER_TOP, Course.GARDEN_WATER));
-            park.add(garden(x, middle.z(), ISLAND, ISLAND, 0, ISLAND_TOP, Course.GARDEN_STONE));
-            // the bridge, out from the island across the water to the rim, on the side away from the temple
-            final double from = ISLAND - RIM;
-            final double to = POND + RIM + RIM;
-            park.add(garden(x + side * (from + to) / 2, middle.z(), (to - from) / 2, BRIDGE / 2, 0, BRIDGE_TOP,
-                    Course.GARDEN_PAVING));
+            pond(park, middle.x() + side * POND_OUT, middle.z(), side);
         }
         for (final int[] at : PAVILION_AT) {
-            final double out = Math.abs(at[1]) == 90 ? POND_OUT : PAVILIONS_OUT;
+            final boolean island = Math.abs(at[1]) == 90;
+            final double out = island ? POND_OUT : PAVILIONS_OUT;
             final Vec3 way = Num.heading(at[1]);
             final double x = middle.x() + way.x() * out;
             final double z = middle.z() + way.z() * out;
-            park.add(Pavilions.piece(at[0], new Place(x, z, 0, Num.wrap(at[1] + 180))));
+            park.add(Pavilions.piece(at[0], new Place(x, z, island ? KERB_TOP : 0, Num.wrap(at[1] + 180))));
+        }
+        park.addAll(trees(middle));
+        park.addAll(alongThePath(middle, edge, gate));
+        for (final double side : new double[] {-1, 1}) {
+            // by each pond, a bench either side of it, on the lawn, facing the water; at the bridge's foot, a lamp either side
+            final double x = middle.x() + side * POND_OUT;
+            for (final double end : new double[] {-1, 1}) {
+                park.add(com.example.fxsuite.avatar.sim.Course.Piece.loose(com.example.fxsuite.avatar.sim.Furniture.BENCH,
+                        Course.Kind.FURNITURE, new Place(x, middle.z() + end * (POND + RIM + BY_THE_WATER), 0,
+                                end > 0 ? 180 : 0), 0));
+                park.add(lamp(x + side * (POND + RIM + 150), middle.z() + end * (BRIDGE / 2 + 120)));
+            }
         }
         return park;
     }
 
-    /** A garden's piece, {@code tint} its kind, about ({@code x}, {@code z}), so far each way, turned {@code yaw}, so high. */
+    /**
+     * A pond about ({@code x}, {@code z}): its kerb, a ring of stone in the way as it is shaped, low enough
+     * to step over; its water within, shallow, to wade; its island in its middle, as high as the kerb; and a
+     * bridge out to it from the kerb on the side away from the temple ({@code side}), railed over the water.
+     */
+    private static void pond(final List<Course.Piece> park, final double x, final double z, final double side) {
+        final double outer = POND + RIM;
+        park.add(Course.Piece.shaped(new Block(x, z, outer, outer, 0, 0, KERB_TOP), Course.Kind.GARDEN,
+                Course.GARDEN_STONE, List.of(), List.of(new com.example.fxsuite.avatar.sim.Prism(circle(x, z, outer),
+                        List.of(circle(x, z, POND)), 0, KERB_TOP)), new Place(x, z, 0, 0)));
+        park.add(garden(x, z, POND, POND, 0, WATER_TOP, Course.GARDEN_WATER));
+        park.add(Course.Piece.shaped(new Block(x, z, ISLAND, ISLAND, 0, 0, KERB_TOP), Course.Kind.GARDEN,
+                Course.GARDEN_STONE, List.of(), List.of(new com.example.fxsuite.avatar.sim.Prism(circle(x, z, ISLAND), 0,
+                        KERB_TOP)), new Place(x, z, 0, 0)));
+        // the bridge, over the water from the island's edge to the kerb's, level with both: walked on from one to the other
+        // (its corners within the kerb's inside, so it lies on none of it)
+        final double inside = POND * Math.cos(Math.PI / CIRCLE);
+        final double reach = Math.sqrt(inside * inside - BRIDGE * BRIDGE / 4) - 1;
+        final double start = ISLAND + 1;
+        final Block deck = new Block(x + side * (start + reach) / 2, z, (reach - start) / 2, BRIDGE / 2, 0, 0, KERB_TOP);
+        park.add(new Course.Piece(deck, Course.Kind.GARDEN, Course.GARDEN_PAVING, List.of(deck)));
+        // its railings, along both its sides, over the water
+        final double railed = (POND - ISLAND) / 2;
+        final double over = x + side * (ISLAND + POND) / 2;
+        for (final double edge : new double[] {-1, 1}) {
+            final Block railing = new Block(over, z + edge * (BRIDGE / 2 - RAILING_THICK / 2), railed, RAILING_THICK / 2,
+                    0, KERB_TOP, KERB_TOP + RAILING);
+            park.add(new Course.Piece(railing, Course.Kind.WALL, 0, List.of(railing)));
+        }
+    }
+
+    /** How many sides a circle is shaped with, in the way. */
+    private static final int CIRCLE = 48;
+
+    /** A circle about ({@code x}, {@code z}), {@code radius} round, as an outline: so many sides ({@link #CIRCLE}), its corners on it. */
+    private static List<com.example.fxsuite.avatar.sim.Vec2> circle(final double x, final double z, final double radius) {
+        final List<com.example.fxsuite.avatar.sim.Vec2> outline = new ArrayList<>();
+        final int sides = CIRCLE;
+        for (int k = 0; k < sides; k++) {
+            final double a = 2 * Math.PI * k / sides;
+            outline.add(new com.example.fxsuite.avatar.sim.Vec2(x + radius * Math.sin(a), z + radius * Math.cos(a)));
+        }
+        return outline;
+    }
+
+    /**
+     * Its trees, round its edge, every so far round, but none where the path comes in, by a pond, or by a
+     * pavilion: each its trunk, in the way; its crown over it, drawn; of two kinds, by turns.
+     */
+    private static List<Course.Piece> trees(final Place middle) {
+        final List<Vec3> clear = new ArrayList<>();
+        for (final int[] at : PAVILION_AT) {
+            final double out = Math.abs(at[1]) == 90 ? POND_OUT : PAVILIONS_OUT;
+            clear.add(Num.heading(at[1]).multiply(out));
+        }
+        final List<Course.Piece> trees = new ArrayList<>();
+        int k = 0;
+        for (double heading = 0; heading < 360; heading += TREES_EVERY) {
+            final Vec3 at = Num.heading(heading).multiply(TREES_OUT);
+            final boolean byThePath = at.z() < 0 && Math.abs(at.x()) < PATH / 2 + TREE_CLEAR;
+            final boolean byAPond = Math.abs(Math.abs(at.x()) - POND_OUT) < POND + RIM + TREE_CLEAR
+                    && Math.abs(at.z()) < POND + RIM + TREE_CLEAR;
+            final boolean byAPavilion = clear.stream().anyMatch(c -> Math.hypot(c.x() - at.x(), c.z() - at.z()) < TREE_CLEAR);
+            if (byThePath || byAPond || byAPavilion) {
+                continue;
+            }
+            final Block trunk = Block.standing(middle.x() + at.x(), middle.z() + at.z(), TRUNK, TRUNK, TRUNK_TALL, 0);
+            trees.add(new Course.Piece(trunk, Course.Kind.TREE, k++ % 2, List.of(trunk)));
+        }
+        return trees;
+    }
+
+    /** A lamp post at ({@code x}, {@code z}): its post, in the way; its lamp on top. */
+    private static Course.Piece lamp(final double x, final double z) {
+        final Block post = Block.standing(x, z, POST, POST, POST_TALL, 0);
+        return new Course.Piece(post, Course.Kind.LAMP, 0, List.of(post));
+    }
+
+    /**
+     * Along the path, either side: its lamp posts, every so far from the park's edge to the gate; between
+     * them, benches facing the path, a litter bin by every other; and at each end of it, a planter either side.
+     */
+    private static List<Course.Piece> alongThePath(final Place middle, final double edge, final double gate) {
+        final List<Course.Piece> along = new ArrayList<>();
+        for (final double side : new double[] {-1, 1}) {
+            int k = 0;
+            for (double z = edge + LAMPS_EVERY / 2; z < gate - 200; z += LAMPS_EVERY) {
+                along.add(lamp(middle.x() + side * LAMPS_OUT, z));
+                final double bench = z + LAMPS_EVERY / 2;
+                if (bench < gate - 400) {
+                    along.add(Course.Piece.loose(com.example.fxsuite.avatar.sim.Furniture.BENCH, Course.Kind.FURNITURE,
+                            new Place(middle.x() + side * BENCHES_OUT, bench, 0, side > 0 ? -90 : 90), 0));
+                    if (k++ % 2 == 0) {
+                        along.add(Course.Piece.loose(com.example.fxsuite.avatar.sim.Furniture.BIN, Course.Kind.FURNITURE,
+                                new Place(middle.x() + side * BENCHES_OUT, bench + 150, 0, 0), 0));
+                    }
+                }
+            }
+            for (final double end : new double[] {edge + 250, gate - TempleYard.GATE_DEEP - TempleYard.GATE_EAVES - 150}) {
+                along.add(Course.Piece.loose(com.example.fxsuite.avatar.sim.Furniture.PLANTER, Course.Kind.FURNITURE,
+                        new Place(middle.x() + side * (PATH / 2 + 120), end, 0, 0), 0));
+            }
+        }
+        return along;
+    }
+
+    /** A garden's piece, {@code tint} its kind, about ({@code x}, {@code z}), so far each way, turned {@code yaw}, so high: in no one's way. */
     private static Course.Piece garden(final double x, final double z, final double across, final double along,
                                        final double yaw, final double top, final int tint) {
         return new Course.Piece(new Block(x, z, across, along, yaw, 0, top), Course.Kind.GARDEN, tint, List.of());
@@ -471,9 +600,11 @@ public final class Town {
         for (final double[] box : parts.values()) {
             final Vec3 middle = place(at, (box[0] + box[1]) / 2, (box[2] + box[3]) / 2);
             solid.add(new Block(middle.x(), middle.z(), Math.max(1, (box[1] - box[0]) / 2),
-                    Math.max(1, (box[3] - box[2]) / 2), at.yaw(), Math.max(0, box[4]), Math.max(box[4] + 1, box[5])));
+                    Math.max(1, (box[3] - box[2]) / 2), at.yaw(), at.height() + Math.max(0, box[4]),
+                    at.height() + Math.max(box[4] + 1, box[5])));
         }
-        final Block block = new Block(at.x(), at.z(), whole[0], whole[1], at.yaw(), 0, whole[2]);
+        // as high as it stands: on the ground, or on what it is put on (a pavilion on its island)
+        final Block block = new Block(at.x(), at.z(), whole[0], whole[1], at.yaw(), at.height(), at.height() + whole[2]);
         if (!shape.isEmpty()) {
             return Course.Piece.shaped(block, Course.Kind.BUILDING, key, List.of(),
                     shape.stream().map(v -> Volume.placed(v, at, scale)).toList(), at);

@@ -59,6 +59,8 @@ public final class World {
     /** Its grid's lines, so far apart; only so far out from the middle, where all there is stands. */
     private static final double GRID = 500;
     private static final double GRID_REACH = 60_000;
+    /** How far down the floor under a lawn is, seen only through where the lawn meets what lies in it. */
+    private static final double UNDER = 300;
     /** The light: all round, and the sun's, coming this way. */
     public static final Color AMBIENT = Color.web("#8b939c");
     public static final Color SUNLIGHT = Color.web("#a8a49a");
@@ -93,6 +95,9 @@ public final class World {
     private final Map<Integer, boolean[]> levelsShown = new HashMap<>();
     /** What lies on a lawn, a path or a bridge, by its piece, and whether it is shown, as last seen: hidden far off as detail is. */
     private final Map<Integer, Boolean> lying = new HashMap<>();
+    /** What stands about and is small (furniture, a lamp post), by its piece: its level, and whether it is shown, as last seen. */
+    private final Map<Integer, Detail.Level> small = new HashMap<>();
+    private final Map<Integer, Boolean> smallShown = new HashMap<>();
     /** The sky and the far ground, round the camera. */
     private final Horizon horizon;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
@@ -134,18 +139,33 @@ public final class World {
      */
     public World(final Course course, final boolean frames) {
         this.frames = frames;
-        final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
-        ground.setTranslateY(1);
-        ground.setMaterial(BoxRig.matte("#66775c"));
-        root.getChildren().add(ground);
+        // the ground, but where the widest lawn is: nothing lies under it, to flicker through it far off; under
+        // that, a floor well below, so what shows through where the lawn meets what lies in it is grass
+        final List<Block> lawns = course.pieces().stream()
+                .filter(p -> p.kind() == Course.Kind.GARDEN && p.tint() == Course.GARDEN_LAWN).map(Course.Piece::block)
+                .toList();
+        final PhongMaterial grass = BoxRig.matte("#66775c");
+        final Block hole = lawns.stream().max(java.util.Comparator.comparingDouble(Block::halfWidth)).orElse(null);
+        if (hole == null) {
+            final Box ground = new Box(GROUND * 2, 2, GROUND * 2);
+            ground.setTranslateY(1);
+            ground.setMaterial(grass);
+            root.getChildren().add(ground);
+        } else {
+            final Shape3D ground = GardenMesh.ground(GROUND, hole.x(), hole.z(), hole.halfWidth());
+            ground.setMaterial(grass);
+            final Cylinder floor = new Cylinder(hole.halfWidth() + 100, 2, GardenMesh.SIDES);
+            floor.setTranslateX(hole.x());
+            floor.setTranslateY(UNDER + 1);
+            floor.setTranslateZ(hole.z());
+            floor.setMaterial(grass);
+            root.getChildren().addAll(ground, floor);
+        }
         horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         root.getChildren().add(horizon.node());
 
         // the grid's lines, but under a lawn: nothing lies under one, to flicker through it far off
         final PhongMaterial line = BoxRig.matte("#56664d");
-        final List<Block> lawns = course.pieces().stream()
-                .filter(p -> p.kind() == Course.Kind.GARDEN && p.tint() == Course.GARDEN_LAWN).map(Course.Piece::block)
-                .toList();
         for (double at = -GRID_REACH; at <= GRID_REACH; at += GRID) {
             for (final double[] run : gridRuns(at, lawns, false)) {
                 root.getChildren().add(flat(new Box(4, 1, run[1] - run[0]), at, (run[0] + run[1]) / 2, line));
@@ -197,6 +217,9 @@ public final class World {
                     case BOARD -> board(part, block);
                     case BAR -> bar(part, block);
                     case STOOL, BAR_STOOL -> stool(part, block);
+                    case BENCH -> ParkModels.bench(part, block);
+                    case BIN -> ParkModels.bin(part, block);
+                    case PLANTER -> ParkModels.planter(part, block);
                 };
                 case FRUIT -> fruit(part, piece.fruit());
                 case ROAD -> road(part, block, BoxRig.matte(asphalt[piece.tint() % asphalt.length]));
@@ -206,7 +229,9 @@ public final class World {
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
                 case BUILDING, WALL_UNIT -> building(i, part, block, piece.tint());
                 case AIRCRAFT -> aircraft(i, part);
-                case GARDEN -> garden(part, block, piece.tint(), pieces);
+                case GARDEN -> garden(part, piece, pieces);
+                case TREE -> ParkModels.tree(part, block, piece.tint());
+                case LAMP -> ParkModels.lamp(part, block);
             };
             colours[i] = ((PhongMaterial) bodies[i].getMaterial()).getDiffuseColor();
             parts[i] = part;
@@ -214,11 +239,18 @@ public final class World {
             struckAt[i] = Double.NEGATIVE_INFINITY;
             root.getChildren().add(part);
         }
-        // a garden's paving that lies on its lawn (a path, a bridge), not where the lawn is open for it: detail
+        // furniture, the finest; a lamp post, as what dresses a building
+        for (int i = 0; i < pieces.size(); i++) {
+            final Course.Kind kind = pieces.get(i).kind();
+            if (kind == Course.Kind.FURNITURE || kind == Course.Kind.LAMP) {
+                small.put(i, kind == Course.Kind.LAMP ? Detail.Level.DETAIL : Detail.Level.FINE);
+                smallShown.put(i, true);
+            }
+        }
+        // a garden's paving that stands over what is under it (a bridge over the water): detail
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
-            if (piece.kind() == Course.Kind.GARDEN && piece.tint() == Course.GARDEN_PAVING
-                    && lawns.stream().noneMatch(lawn -> piece.block().covers(lawn.x(), lawn.z(), 0))) {
+            if (piece.kind() == Course.Kind.GARDEN && piece.tint() == Course.GARDEN_PAVING && !piece.solid().isEmpty()) {
                 lying.put(i, true);
             }
         }
@@ -401,6 +433,19 @@ public final class World {
         glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
     }
 
+    /**
+     * Whether piece {@code piece}, broken, simply vanishes, leaving nothing behind: what stands about in a
+     * park, its trees and lamp posts, its benches, bins and planters.
+     */
+    public boolean vanishes(final int piece) {
+        final Course.Piece what = pieces.get(piece);
+        return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP
+                || what.kind() == Course.Kind.FURNITURE && switch (what.furniture()) {
+                    case BENCH, BIN, PLANTER -> true;
+                    default -> false;
+                };
+    }
+
     /** Piece {@code piece}, broken, made whole again: shown, its colour as it was, its cracks and fires gone. */
     private void revive(final int piece) {
         parts[piece].setVisible(true);
@@ -547,6 +592,16 @@ public final class World {
                 }
             }
         }
+        // what stands about and is small, as it is
+        for (final Map.Entry<Integer, Detail.Level> each : small.entrySet()) {
+            final int piece = each.getKey();
+            final boolean was = smallShown.get(piece);
+            final boolean now = Detail.shown(each.getValue(), away(pieces.get(piece).block(), eye), was);
+            if (now != was) {
+                smallShown.put(piece, now);
+                parts[piece].getChildren().forEach(node -> node.setVisible(now));
+            }
+        }
         // and what lies on a lawn, as what dresses a building
         for (final Map.Entry<Integer, Boolean> each : lying.entrySet()) {
             final boolean now = Detail.shown(Detail.Level.DETAIL, away(pieces.get(each.getKey()).block(), eye),
@@ -637,13 +692,18 @@ public final class World {
      * its island, its island a disc; or paving, a path or a bridge, as its box. The water a little
      * glossy, the sky in it.
      */
-    private static Shape3D garden(final Group part, final Block block, final int tint, final List<Course.Piece> all) {
+    private static Shape3D garden(final Group part, final Course.Piece piece, final List<Course.Piece> all) {
+        final Block block = piece.block();
+        final int tint = piece.tint();
         final double high = block.top() - block.bottom();
         final float top = (float) (-high / 2);
+        // what stands (a kerb, an island) walled down to the ground; what lies, its top alone
         final Shape3D body = tint == Course.GARDEN_PAVING
-                ? new Box(block.halfWidth() * 2, high, block.halfDepth() * 2)
-                : tint == Course.GARDEN_LAWN ? GardenMesh.lawn(block.halfWidth(), paved(block, all), ponds(block, all), top)
-                : GardenMesh.ring(within(block, all), block.halfWidth(), top);
+                ? new Box(block.halfWidth() * 2, Math.max(high, 0.1), block.halfDepth() * 2)
+                : tint == Course.GARDEN_LAWN ? GardenMesh.lawn(block.halfWidth(), paved(block, all), spokes(block, all),
+                ponds(block, all), top)
+                : piece.volumes().isEmpty() ? GardenMesh.ring(within(block, all), block.halfWidth(), top)
+                : GardenMesh.walled(within(block, all), block.halfWidth(), top, (float) (high / 2));
         final PhongMaterial material = BoxRig.matte(switch (tint) {
             case Course.GARDEN_LAWN -> "#5d8a40";
             case Course.GARDEN_WATER -> "#3b6f8c";
@@ -674,6 +734,23 @@ public final class World {
             }
         }
         return null;
+    }
+
+    /**
+     * The paving that runs out from the paving at {@code lawn}'s middle across it (a path to a gate), each
+     * from the lawn's middle: what lies on nothing, in no one's way.
+     */
+    private static List<Block> spokes(final Block lawn, final List<Course.Piece> all) {
+        final List<Block> spokes = new ArrayList<>();
+        for (final Course.Piece piece : all) {
+            final Block b = piece.block();
+            if (piece.kind() == Course.Kind.GARDEN && piece.tint() == Course.GARDEN_PAVING && piece.solid().isEmpty()
+                    && !b.covers(lawn.x(), lawn.z(), 0) && Math.hypot(b.x() - lawn.x(), b.z() - lawn.z()) < lawn.halfWidth()) {
+                spokes.add(new Block(b.x() - lawn.x(), b.z() - lawn.z(), b.halfWidth(), b.halfDepth(), b.yaw(), b.bottom(),
+                        b.top()));
+            }
+        }
+        return spokes;
     }
 
     /** The ponds in {@code lawn}: each round piece in it that no wider one round the same middle holds, from its middle. */
