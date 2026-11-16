@@ -31,6 +31,16 @@ public final class BuildingModel {
         LOOKS.put(Material.GRASS, BoxRig.matte("#6f9a4e"));
         LOOKS.put(Material.LEAVES, BoxRig.matte("#3d7a3c"));
         LOOKS.put(Material.BARK, BoxRig.matte("#5b4330"));
+        // earth: mud plaster a warm grey, red earth, a pale clay, sod darker, rammed earth an ochre; turf, thatch, reed
+        LOOKS.put(Material.MUD, BoxRig.matte("#a89c86"));
+        LOOKS.put(Material.RED_EARTH, BoxRig.matte("#a3654b"));
+        LOOKS.put(Material.PALE_CLAY, BoxRig.matte("#d6c7a6"));
+        LOOKS.put(Material.SOD, BoxRig.matte("#6d604c"));
+        LOOKS.put(Material.RAMMED_EARTH, BoxRig.matte("#b48a5a"));
+        LOOKS.put(Material.TURF, BoxRig.matte("#7a7650"));
+        LOOKS.put(Material.THATCH, BoxRig.matte("#b59a5f"));
+        LOOKS.put(Material.REED, BoxRig.matte("#9a8d68"));
+        LOOKS.put(Material.EARTH, BoxRig.matte("#8a7557"));
         LOOKS.put(Material.PRECAST, BoxRig.matte("#cfcac0"));
         LOOKS.put(Material.METAL, BoxRig.matte("#33373c"));
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));

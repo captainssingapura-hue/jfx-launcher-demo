@@ -61,6 +61,9 @@ public final class World {
     private static final double GRID_REACH = 60_000;
     /** How far down the floor under a lawn is, seen only through where the lawn meets what lies in it. */
     private static final double UNDER = 300;
+    /** A river's banks: so wide each side of its water, so high, mud. */
+    private static final double RIVER_BANK = com.example.fxsuite.avatar.build.Village.BANK;
+    private static final double BANK_TOP = com.example.fxsuite.avatar.build.Village.BANK_TOP;
     /** The light: all round, and the sun's, coming this way. */
     public static final Color AMBIENT = Color.web("#8b939c");
     public static final Color SUNLIGHT = Color.web("#a8a49a");
@@ -164,9 +167,25 @@ public final class World {
         horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         root.getChildren().add(horizon.node());
 
-        // the grid's lines, but under a lawn: nothing lies under one, to flicker through it far off
+        // its rivers: each its water between its banks, side by side, none over another
+        for (final com.example.fxsuite.avatar.sim.River river : course.rivers()) {
+            final double half = river.wide() / 2;
+            final javafx.scene.shape.MeshView water = GardenMesh.ribbon(river.line(), -half, half, (float) -river.top());
+            final PhongMaterial wet = BoxRig.matte("#3b6f8c");
+            wet.setSpecularColor(Color.web("#c8dcea"));
+            wet.setSpecularPower(40);
+            water.setMaterial(wet);
+            final PhongMaterial mud = BoxRig.matte("#7d6a4e");
+            final javafx.scene.shape.MeshView left = GardenMesh.ribbon(river.line(), -half - RIVER_BANK, -half, (float) -BANK_TOP);
+            final javafx.scene.shape.MeshView right = GardenMesh.ribbon(river.line(), half, half + RIVER_BANK, (float) -BANK_TOP);
+            left.setMaterial(mud);
+            right.setMaterial(mud);
+            root.getChildren().addAll(left, right, water);
+        }
+
+        // the grid's lines, but under a lawn: nothing lies under one, to flicker through it far off; none in open country
         final PhongMaterial line = BoxRig.matte("#56664d");
-        for (double at = -GRID_REACH; at <= GRID_REACH; at += GRID) {
+        for (double at = -GRID_REACH; at <= GRID_REACH && course.grid(); at += GRID) {
             for (final double[] run : gridRuns(at, lawns, false)) {
                 root.getChildren().add(flat(new Box(4, 1, run[1] - run[0]), at, (run[0] + run[1]) / 2, line));
             }
@@ -193,7 +212,7 @@ public final class World {
         // a race track's: its asphalt, the apron and pit road paler, and its white lines
         final String[] track = {"#3d4248", "#70757a", "#ecebe4"};
         // its outer wall, concrete; and the grandstands
-        final String[] wall = {"#cfcbc1", "#6f7f93"};
+        final String[] wall = {"#cfcbc1", "#6f7f93", "#5a4330"};
         for (int i = 0; i < pieces.size(); i++) {
             final Course.Piece piece = pieces.get(i);
             final Block block = piece.block();
@@ -440,6 +459,7 @@ public final class World {
     public boolean vanishes(final int piece) {
         final Course.Piece what = pieces.get(piece);
         return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP
+                || what.kind() == Course.Kind.BUILDING && what.tint() >= com.example.fxsuite.avatar.build.Village.KEYS
                 || what.kind() == Course.Kind.FURNITURE && switch (what.furniture()) {
                     case BENCH, BIN, PLANTER -> true;
                     default -> false;
@@ -698,8 +718,8 @@ public final class World {
         final double high = block.top() - block.bottom();
         final float top = (float) (-high / 2);
         // what stands (a kerb, an island) walled down to the ground; what lies, its top alone
-        final Shape3D body = tint == Course.GARDEN_PAVING
-                ? new Box(block.halfWidth() * 2, Math.max(high, 0.1), block.halfDepth() * 2)
+        final Shape3D body = tint == Course.GARDEN_PAVING || tint == Course.GARDEN_TIMBER
+                ? block.sloped() ? wedge(block) : new Box(block.halfWidth() * 2, Math.max(high, 0.1), block.halfDepth() * 2)
                 : tint == Course.GARDEN_LAWN ? GardenMesh.lawn(block.halfWidth(), paved(block, all), spokes(block, all),
                 ponds(block, all), top)
                 : piece.volumes().isEmpty() ? GardenMesh.ring(within(block, all), block.halfWidth(), top)
@@ -708,6 +728,7 @@ public final class World {
             case Course.GARDEN_LAWN -> "#5d8a40";
             case Course.GARDEN_WATER -> "#3b6f8c";
             case Course.GARDEN_STONE -> "#b3ab9b";
+            case Course.GARDEN_TIMBER -> "#6b5038";
             default -> "#c8c0ae";
         });
         if (tint == Course.GARDEN_WATER) {
@@ -721,7 +742,8 @@ public final class World {
 
     /** Whether {@code piece} is a garden's round piece: a lawn, water or stone, not paving. */
     private static boolean round(final Course.Piece piece) {
-        return piece.kind() == Course.Kind.GARDEN && piece.tint() != Course.GARDEN_PAVING;
+        return piece.kind() == Course.Kind.GARDEN && piece.tint() != Course.GARDEN_PAVING
+                && piece.tint() != Course.GARDEN_TIMBER;
     }
 
     /** The paving at {@code lawn}'s middle (a courtyard), its middle from the lawn's; null if none. */

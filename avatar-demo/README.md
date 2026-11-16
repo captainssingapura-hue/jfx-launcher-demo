@@ -324,14 +324,15 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of four demos (`Demo.playable`), the **town** first: its buildings round the
+It opens on a choice of five demos (`Demo.playable`), the **town** first: its buildings round the
 temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
 park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
 the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
 in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
 tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
 on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
-before it starts. Then the **playground**, the rest at once (the course, its targets and the bombers,
+before it starts. Then the **meadow village**: open country, a river winding across it, a footbridge over
+it, and a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
@@ -829,6 +830,30 @@ through, and one loaded until a pillar gives and it falls.
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
   front (a ramp): closely shaped and boxes in one piece.
+- **The meadow village** (`Village`, `Demo.VILLAGE`): open country, no grid ruled on its ground. A river
+  (`River`: where water runs, its middle line, how wide, its water's height, for the simulation to know)
+  winds across the whole world, two long gentle waves laid over each other, 12 m wide, its banks mud: its
+  water and its banks ribbons side by side (`GardenMesh.ribbon`), none over another; shallow, waded through.
+  A timber footbridge crosses it square where the village is, ramped up from each bank, railed. North of
+  it, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
+  woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
+  each simply gone. Trees along both banks, and across the meadow. The avatar starts south of the river,
+  the bridge and the village ahead.
+- **The earth house** (`EarthHouse`, on the buildings bench): round, as homesteaders on open plains
+  built them: its walls of earth, thick, battered a little and a little uneven, plastered smooth, their
+  tops rising inward to meet its roof; a low cone of a roof on them, its eave drooping no lower than its
+  walls (to be walked under), the ends of the poles that carry it showing under it, grass growing on it
+  if it is turf; a doorway in its front, posts and a lintel, a plank door (`Door`) standing open inward;
+  a window to one side, framed, shuttered or glazed; a mud chimney at its back and a stovepipe through
+  its roof. A whole house, inside and out: a floor of beaten earth, its walls as thick inside as out,
+  the poles overhead under its roof's underside; in the way as it is shaped (`EarthHouse.shape`),
+  walked into through its door, stood up in under its roof, kept out by its walls. Made to a size
+  (`EarthHouse.Size`): how wide, its walls' height and thickness, its roof's rise, its eave, its door
+  (over 2 m to walk in upright), its window (or none), a chimney or none, each a size control on the
+  bench; built of what is chosen, each its own colour: its walls mud plaster, red earth, pale clay,
+  sod, rammed earth or fieldstone; its roof turf, thatch or reed; its window shuttered or glazed; its
+  woodwork weathered or painted. The bench can leave any building's roof off, to look in from over it
+  (`-Dbuilding.roofless=true`).
 - **Pavilions** (`Pavilion`; one of each kind round the town's park, `Pavilions`): buildings that are open, hollow but
   for what holds them up, each part of its own and in the way as it is shaped: a platform, its steps
   up at its front (each rise under a body's step); a ring of pillars on it; beams tying their heads;

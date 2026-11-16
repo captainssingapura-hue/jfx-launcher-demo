@@ -68,6 +68,13 @@ class DetailTest {
     }
 
     @Test
+    void everyMaterialHasItsColour() {
+        for (final Material material : Material.values()) {
+            org.junit.jupiter.api.Assertions.assertNotNull(BuildingModel.look(material), material.name());
+        }
+    }
+
+    @Test
     void howFarIsFromItsNearestPoint() {
         // a box 20 by 10 m about (100 m, 0), 30 m tall, turned square to the way
         final Block box = new Block(10_000, 0, 1_000, 500, 90, 0, 3_000);

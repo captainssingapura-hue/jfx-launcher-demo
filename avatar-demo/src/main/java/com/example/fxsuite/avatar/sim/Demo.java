@@ -34,6 +34,10 @@ public enum Demo {
     SIEGE("Temple siege", "The town under siege: airships come in from every side without end to bomb the temple's"
             + " hall until it falls. Shoot them down from the tower guns, the vehicles' guns or your own. Set how"
             + " many, how fast, how tough before it starts.", 0, true),
+    /** A meadow, a river winding across it, and a small village of earth houses by its bank. */
+    VILLAGE("Meadow village", "A meadow with a river winding across it, a footbridge over it, and a small village of"
+            + " earth houses round a well by its bank, each its own size and finish: walk in, wade across, look round.",
+            0, true),
     /** Everything else at once: the course, the range, the airships going round, the platforms and the stall. */
     PLAYGROUND("Playground", "The course, the targets, the bombers, the stall, the flyovers, the vehicles,"
             + " the bunker, the gunship, and an airship to fly.",

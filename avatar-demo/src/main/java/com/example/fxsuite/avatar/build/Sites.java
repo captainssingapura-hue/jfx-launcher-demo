@@ -15,6 +15,9 @@ public final class Sites {
 
     /** Building {@code key}'s solids, about the middle of its box. */
     public static List<Solid> drawn(final int key) {
+        if (key >= Village.KEYS) {
+            return Village.solids(key - Village.KEYS);
+        }
         if (key >= Pavilions.KEYS) {
             return Pavilions.solids(key - Pavilions.KEYS);
         }

@@ -45,6 +45,7 @@ final class SizeControls extends VBox {
     private static final String CHURCH = "town church";
     private static final String TEMPLE = "temple hall";
     private static final String DECK = "void deck tower";
+    private static final String HOUSE = com.example.fxsuite.avatar.build.EarthHouse.NAME;
 
     private final Label problem = new Label();
     private final Map<String, List<Spinner<Double>>> kept = new HashMap<>();
@@ -60,7 +61,7 @@ final class SizeControls extends VBox {
 
     /** Whether {@code name} is built to a size here. */
     static boolean sized(final String name) {
-        return CHURCH.equals(name) || TEMPLE.equals(name) || DECK.equals(name);
+        return CHURCH.equals(name) || TEMPLE.equals(name) || DECK.equals(name) || HOUSE.equals(name);
     }
 
     /** Says who to hand each building built again to. */
@@ -83,7 +84,18 @@ final class SizeControls extends VBox {
     }
 
     private VBox panel(final String name) {
-        final List<Measure> measures = DECK.equals(name) ? List.of(
+        final com.example.fxsuite.avatar.build.EarthHouse.Size house = com.example.fxsuite.avatar.build.EarthHouse.Size.STANDARD;
+        final List<Measure> measures = HOUSE.equals(name) ? List.of(
+                new Measure("Wide (m)", "width", 3, 14, 0.1, house.width() / 100),
+                new Measure("Walls high (m)", "walls", 1.8, 4.5, 0.05, house.walls() / 100),
+                new Measure("Walls thick (m)", "thick", 0.25, 1, 0.05, house.thick() / 100),
+                new Measure("Roof rises (m)", "rise", 0.4, 6, 0.1, house.rise() / 100),
+                new Measure("Eave reaches (m)", "eaves", 0, 1.2, 0.05, house.eaves() / 100),
+                new Measure("Door wide (m)", "door", 0.6, 1.8, 0.05, house.door() / 100),
+                new Measure("Door high (m)", "doorhigh", 1.4, 4.3, 0.05, house.doorHigh() / 100),
+                new Measure("Window wide (m; 0, none)", "window", 0, 1.6, 0.05, house.window() / 100),
+                new Measure("Chimney (1, 0 none)", "chimney", 0, 1, 1, house.chimney() ? 1 : 0))
+                : DECK.equals(name) ? List.of(
                 new Measure("Deck at floor", "floor", 2, com.example.fxsuite.avatar.build.Towers.DECK_TOWER_FLOORS - 3, 1,
                         com.example.fxsuite.avatar.build.Towers.DECK_FLOOR),
                 new Measure("Deck high (m)", "deck", 3, 15, 0.2, com.example.fxsuite.avatar.build.Towers.DECK_HEIGHT / 100),
@@ -106,7 +118,11 @@ final class SizeControls extends VBox {
         final Map<String, Double> asked = asked();
         final List<Spinner<Double>> spinners = new ArrayList<>();
         final VBox panel = new VBox(6, EngineBench.heading("Its size"),
-                EngineBench.label(DECK.equals(name)
+                EngineBench.label(HOUSE.equals(name)
+                        ? "So wide across outside, its walls so high at the foot of its eave and so thick; its roof"
+                        + " rising so high over its eave, which reaches so far past its walls; its door so wide and so"
+                        + " high (to walk in upright, over 2 m); its window so wide, or none; a chimney or none."
+                        : DECK.equals(name)
                         ? "Its void deck: which floor it is, how high, and how many bays of it at its west end are"
                         + " enclosed (none: open all through). Open, its columns stand on the whole grid; round its"
                         + " edge a railing; on it, a pool and plants, as tall as it lets."
@@ -155,7 +171,14 @@ final class SizeControls extends VBox {
     private void build(final String name) {
         final List<Double> v = kept.get(name).stream().map(Spinner::getValue).toList();
         try {
-            if (DECK.equals(name)) {
+            if (HOUSE.equals(name)) {
+                final com.example.fxsuite.avatar.build.EarthHouse house = com.example.fxsuite.avatar.build.EarthHouse.of(
+                        new com.example.fxsuite.avatar.build.EarthHouse.Size(v.get(0) * 100, v.get(1) * 100,
+                                v.get(2) * 100, v.get(3) * 100, v.get(4) * 100, v.get(5) * 100, v.get(6) * 100,
+                                v.get(7) * 100, v.get(8) >= 0.5));
+                problem.setText("");
+                built.accept(new Built(name, null, house.building(), null, null));
+            } else if (DECK.equals(name)) {
                 final com.example.fxsuite.avatar.build.Tower tower = com.example.fxsuite.avatar.build.Towers.voidDeck(
                         (int) Math.round(v.get(0)), v.get(1) * 100, (int) Math.round(v.get(2)));
                 problem.setText("");
@@ -172,7 +195,7 @@ final class SizeControls extends VBox {
                 built.accept(new Built(name, temple.assembled(), temple.building(), temple.plans(), null));
             }
         } catch (IllegalArgumentException e) {
-            problem.setText("Cannot be built so: " + e.getMessage().replaceFirst("^an? (church|temple hall|void deck) ", "")
+            problem.setText("Cannot be built so: " + e.getMessage().replaceFirst("^an? (church|temple hall|void deck|earth house) ", "")
                     + ". Shown as it was.");
         }
     }

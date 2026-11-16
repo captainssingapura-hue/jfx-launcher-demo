@@ -123,6 +123,40 @@ final class GardenMesh {
     }
 
     /**
+     * A ribbon lying along {@code line} (x, z, in order), its top {@code y} (the world's, down): from
+     * {@code from} to {@code to} out to one side of the line (its right, as it runs; negative, its left),
+     * square to it at each of its points: a river's water, or one of its banks beside it.
+     */
+    static MeshView ribbon(final List<com.example.fxsuite.avatar.sim.Vec2> line, final double from, final double to,
+                           final float y) {
+        final TriangleMesh mesh = new TriangleMesh();
+        mesh.getTexCoords().addAll(0, 0);
+        for (int k = 0; k < line.size(); k++) {
+            // square to the way it runs there: between the points either side
+            final com.example.fxsuite.avatar.sim.Vec2 before = line.get(Math.max(0, k - 1));
+            final com.example.fxsuite.avatar.sim.Vec2 after = line.get(Math.min(line.size() - 1, k + 1));
+            final double dx = after.x() - before.x();
+            final double dz = after.z() - before.z();
+            final double length = Math.hypot(dx, dz);
+            // its right: turned a quarter clockwise, seen from over it
+            final double rx = dz / length;
+            final double rz = -dx / length;
+            final com.example.fxsuite.avatar.sim.Vec2 at = line.get(k);
+            mesh.getPoints().addAll((float) (at.x() + rx * from), y, (float) (at.z() + rz * from),
+                    (float) (at.x() + rx * to), y, (float) (at.z() + rz * to));
+        }
+        for (int k = 0; k + 1 < line.size(); k++) {
+            final int p = 2 * k;
+            final int q = 2 * (k + 1);
+            up(mesh, p, p + 1, q + 1);
+            up(mesh, p, q + 1, q);
+        }
+        final MeshView view = new MeshView(mesh);
+        view.setCullFace(CullFace.NONE);
+        return view;
+    }
+
+    /**
      * The ground's top, a square {@code half} each way about the world's middle, at the ground (y 0),
      * but where a lawn {@code radius} round ({@code x}, {@code z}) lies: open there, its edge meeting the
      * lawn's, ray for ray ({@link #SIDES}), so neither lies over the other nor leaves a gap.

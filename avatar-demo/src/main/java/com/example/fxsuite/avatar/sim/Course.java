@@ -31,6 +31,8 @@ public final class Course {
     public static final int GARDEN_WATER = 1;
     public static final int GARDEN_STONE = 2;
     public static final int GARDEN_PAVING = 3;
+    /** Timber laid as paving is: a footbridge's deck and ramps, drawn as their boxes, sloping if they do. */
+    public static final int GARDEN_TIMBER = 4;
 
     /**
      * The temple's pieces, by the keys they are drawn by ({@link Piece#tint}): from its main hall, its
@@ -1214,6 +1216,9 @@ public final class Course {
     private final List<Cast> ground = new ArrayList<>();
     /** Where the avatar starts: the world's middle, unless the course says otherwise (the town's, before it). */
     private Vec3 start = Vec3.ZERO;
+    /** Its rivers; and whether its ground is ruled with a grid. */
+    private final List<River> rivers = new ArrayList<>();
+    private boolean grid = true;
 
     /** The playground: everything at once. */
     public Course() {
@@ -1239,6 +1244,7 @@ public final class Course {
         switch (demo) {
             case TOWN -> townDemo();
             case SIEGE -> siegeDemo(siege);
+            case VILLAGE -> villageDemo();
             case PLAYGROUND -> playground();
             case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
@@ -1282,6 +1288,42 @@ public final class Course {
     /** Where the avatar starts, on the ground: the world's middle, or as the course has it. */
     public Vec3 start() {
         return start;
+    }
+
+    /**
+     * The meadow village's demo: a meadow, a river winding across it, a footbridge over it, and a small
+     * village of earth houses by its bank, as whoever designs them says ({@link #village}); no grid ruled
+     * on its ground.
+     */
+    private void villageDemo() {
+        start = villageStart.get();
+        pieces.addAll(village.get());
+        rivers.addAll(villageRivers.get());
+        grid = false;
+    }
+
+    /** What stands in the meadow village, its rivers, and where the avatar starts there: until told, nothing, none, the middle. */
+    private static java.util.function.Supplier<List<Piece>> village = List::of;
+    private static java.util.function.Supplier<List<River>> villageRivers = List::of;
+    private static java.util.function.Supplier<Vec3> villageStart = () -> Vec3.ZERO;
+
+    /** Says what stands in the meadow village, its rivers, and where the avatar starts there. */
+    public static void village(final java.util.function.Supplier<List<Piece>> what,
+                               final java.util.function.Supplier<List<River>> rivers,
+                               final java.util.function.Supplier<Vec3> start) {
+        village = what;
+        villageRivers = rivers;
+        villageStart = start;
+    }
+
+    /** Its rivers: where water runs across the world. */
+    public List<River> rivers() {
+        return List.copyOf(rivers);
+    }
+
+    /** Whether its ground is ruled with a grid: in all but the open country. */
+    public boolean grid() {
+        return grid;
     }
 
     /**
