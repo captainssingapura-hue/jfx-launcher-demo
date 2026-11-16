@@ -204,6 +204,8 @@ public final class Cues {
                 case Event.Exploded x -> plays.add(new Play(Sound.BOMB, 1, x.at()));
                 case Event.Dropped _ -> {
                 }
+                // a bomber's bomb bay, its hydraulics heard as it opens or shuts
+                case Event.Bay b -> plays.add(new Play(b.opening() ? Sound.BAY_OPEN : Sound.BAY_SHUT, 1, b.at()));
                 // a latch, taking hold of the controls and letting go
                 case Event.TookControls _ -> plays.add(new Play(Sound.PACK_ON, 1, hands(body, 0)));
                 case Event.LetGo _ -> plays.add(new Play(Sound.PACK_OFF, 1, hands(body, 0)));

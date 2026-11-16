@@ -102,7 +102,7 @@ class EngineTest {
     void dockedOnAnAirshipItGoesRoundWithItAndThePilotToo() {
         final int ship = Play.start(false).airships().isEmpty() ? -1 : Play.start(false).damage().flying().getFirst();
         final Course.Route route = course.pieces().get(ship).route();
-        final Block hull = Course.HULL.get(3).placed(route.at(0));
+        final Block hull = Course.part(course.pieces().get(ship), Course.HULL.get(3)).placed(route.at(0));
         // a little over the middle of its hull, the engine already cut
         final Lift over = new Lift(Play.start(false).lifts().getFirst().piece(), Course.CARPET,
                 new Place(hull.x(), hull.z(), hull.top() + Lift.THICK + 60, route.at(0).yaw()), 0, 0, 0, false, false);

@@ -71,6 +71,8 @@ public final class Arcade implements Profile {
             case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
+            case BAY_OPEN -> chip(HydraulicVoice.bay(true, variant));
+            case BAY_SHUT -> chip(HydraulicVoice.bay(false, variant));
             case ENGINE_V6 -> engine(false);
             case ENGINE_V8 -> engine(true);
             case GATLING_SPIN -> gatlingSpin();
@@ -488,6 +490,18 @@ public final class Arcade implements Profile {
      * An airship's engines: a deep triangle and a narrow pulse an octave under it, the volume
      * stepping up and down eight times a second as the propellers' blades go by.
      */
+    /**
+     * {@code clip}, as a chip would play it: its level held four samples at a time and stepped to one
+     * of sixteen, so its hiss and its clunks come out crunchy, in keeping.
+     */
+    private static Clip chip(final Clip clip) {
+        final float[] out = new float[clip.length()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = Math.round(clip.sample(i - i % 4) * 8) / 8f;
+        }
+        return new Clip(clip.name(), out, clip.loops());
+    }
+
     private static Clip airshipEngines() {
         final int length = samples(2);
         final double[] y = new double[length];

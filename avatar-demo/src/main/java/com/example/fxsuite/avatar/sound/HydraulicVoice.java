@@ -110,6 +110,38 @@ public final class HydraulicVoice {
         }
     }
 
+    /**
+     * A bomb bay's doors, as heard from under it: {@code opening} from shut, or shutting from open, as far
+     * and as fast as a bomber's are driven ({@link com.example.fxsuite.avatar.sim.Sky}); from a moment's
+     * silence, through its pump, its lock and its valve, its doors moving and stopping, to its pump run
+     * down, and silence again. Pure: the same for the same {@code variant}, another take for another.
+     */
+    public static Clip bay(final boolean opening, final int variant) {
+        final int block = 256;
+        final int lead = Clip.RATE / 50;
+        final float[] out = new float[6 * Clip.RATE];
+        final HydraulicVoice voice = new HydraulicVoice((opening ? 21 : 22) + 1000L * variant);
+        Actuator a = Actuator.shut(Actuator.Drive.HYDRAULIC, 0, com.example.fxsuite.avatar.sim.Sky.BAY_OPENS,
+                com.example.fxsuite.avatar.sim.Sky.BAY_RATE);
+        a = opening ? a : a.placed(com.example.fxsuite.avatar.sim.Sky.BAY_OPENS);
+        a = a.asked(opening);
+        int at = lead;
+        while (at + block <= out.length) {
+            final Actuator.Stepped stepped = a.step((double) block / Clip.RATE);
+            a = stepped.actuator();
+            stepped.events().forEach(voice::hit);
+            voice.set(a.spool(), a.flow(), a.cushion());
+            voice.render(out, at, block);
+            at += block;
+            if (!a.busy() && !voice.sounding()) {
+                break;
+            }
+        }
+        // and a little silence after
+        return new Clip(opening ? "bay-open" : "bay-shut", java.util.Arrays.copyOf(out, Math.min(out.length, at + lead)),
+                false);
+    }
+
     /** How long {@code event} sounds, seconds. */
     private static double length(final Actuator.Event event) {
         return switch (event) {

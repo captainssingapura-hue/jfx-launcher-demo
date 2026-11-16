@@ -91,6 +91,8 @@ public final class World {
     private final Map<Integer, Rig> rigs = new HashMap<>();
     /** Each land vehicle's wheels, steering wheel and body, by piece, to turn and tip as it drives. */
     private final Map<Integer, Wheels> wheeled = new HashMap<>();
+    /** The airships' models, their propellers turning as they fly. */
+    private final Map<Integer, CraftModel> airships = new HashMap<>();
     /** The aircraft, by piece: their models, pitched, banked, their rotors tilted and turning as they fly. */
     private final Map<Integer, Flown> flown = new HashMap<>();
     /** Whether the frames of what is built of rods are drawn. */
@@ -159,7 +161,7 @@ public final class World {
                 case GATE -> plain(part, block, BoxRig.glow(lit[piece.tint() % lit.length]));
                 case DUMMY -> dummy(part, block, BoxRig.matte(board[piece.tint() % board.length]));
                 case DRONE -> drone(part, block, BoxRig.matte(drone[piece.tint() % drone.length]));
-                case AIRSHIP -> airship(part, BoxRig.matte(hull[piece.tint() % hull.length]));
+                case AIRSHIP -> airship(i, part, piece, BoxRig.matte(hull[piece.tint() % hull.length]));
                 case PLATFORM -> platform(i, part);
                 case FURNITURE -> switch (piece.furniture()) {
                     case TABLE -> table(part, block);
@@ -197,6 +199,11 @@ public final class World {
 
     public Node node() {
         return root;
+    }
+
+    /** Each airship's bomb bay's doors drawn open as far as {@code angle} says for it, degrees, by its piece. */
+    public void bays(final java.util.function.IntToDoubleFunction angle) {
+        airships.forEach((piece, model) -> model.set(com.example.fxsuite.avatar.air.Bomber.BAY, angle.applyAsDouble(piece)));
     }
 
     /**
@@ -251,6 +258,9 @@ public final class World {
             if (aircraft != null) {
                 aircraft.show(lift, seconds);
             }
+        }
+        for (final CraftModel airship : airships.values()) {
+            airship.turn(seconds, 1);
         }
         for (final Rotate rotor : rotors) {
             rotor.setAngle((rotor.getAngle() + ROTORS * seconds) % 360);
@@ -415,16 +425,18 @@ public final class World {
      * box's middle {@link Course#AIRSHIP_BOX} above that.
      */
     private void fire(final int piece, final int n) {
-        final Course.Section middle = Course.HULL.get(3);
+        final Course.Section middle = Course.part(pieces.get(piece), Course.HULL.get(3));
+        final Course.Section box = pieces.get(piece).shape().box();
         final double along = (unit(piece, n, 1) - 0.5) * 1.6 * middle.halfAlong();
         final double round = (unit(piece, n, 2) - 0.5) * Math.PI * 1.2;
         // round the hull's square middle, from one side over the top to the other
         final double across = Math.sin(round) * middle.halfAcross();
         final double up = Math.cos(round) * middle.halfUp();
-        final Box burning = new Box(46, 54, 70);
+        final double big = Math.sqrt(Course.scale(pieces.get(piece)));
+        final Box burning = new Box(46 * big, 54 * big, 70 * big);
         burning.setMaterial(flame);
         burning.setTranslateX(Math.max(-middle.halfAcross(), Math.min(middle.halfAcross(), across * 1.3)));
-        burning.setTranslateY(-(Math.min(middle.halfUp(), up * 1.3) - Course.AIRSHIP_BOX.up()) - 20);
+        burning.setTranslateY(-(Math.min(middle.halfUp(), up * 1.3) - box.up()) - 20 * big);
         burning.setTranslateZ(along);
         fires.add(burning);
         parts[piece].getChildren().add(burning);
@@ -619,64 +631,56 @@ public final class World {
      * engines on their pylons with a propeller turning at the back of each, and lights
      * blinking at the nose and on the top fin.
      */
-    private Shape3D airship(final Group part, final PhongMaterial shell) {
-        final PhongMaterial dark = BoxRig.matte("#3b4148");
-        final PhongMaterial band = BoxRig.matte("#c9a227");
-        final PhongMaterial windows = BoxRig.glow("#ffe9a8");
-        final PhongMaterial blade = BoxRig.matte("#22262b");
-        Shape3D middle = null;
-        for (final Course.Section section : Course.HULL) {
-            final Box hull = section(part, section, shell);
-            if (section == Course.HULL.get(3)) {
-                middle = hull;
-            }
-        }
-        // two bands round the middle, a hair proud of it
-        for (final double along : new double[] {-260, 300}) {
-            final Course.Section m = Course.HULL.get(3);
-            section(part, new Course.Section(0, along, 0, m.halfAcross() + 1, 22, m.halfUp() + 1), band);
-        }
-        for (final Course.Section fin : Course.FINS) {
-            section(part, fin, dark);
-        }
-        final Course.Section gondola = Course.GONDOLA;
-        section(part, gondola, dark);
-        for (double along = gondola.along() - 150; along <= gondola.along() + 150; along += 50) {
-            for (final double side : new double[] {-1, 1}) {
-                section(part, new Course.Section(side * (gondola.halfAcross() + 0.5), along, gondola.up() + 12,
-                        1, 14, 12), windows);
-            }
-        }
-        for (final Course.Section pylon : Course.PYLONS) {
-            section(part, pylon, dark);
-        }
-        for (final Course.Section engine : Course.ENGINES) {
-            section(part, engine, shell);
-            // the propeller: two blades crossed, turning about the engine's length
-            final Group propeller = new Group();
-            final Rotate spin = new Rotate(30 * rotors.size(), Rotate.Z_AXIS);
-            propeller.getTransforms().add(spin);
-            rotors.add(spin);
-            for (final double turn : new double[] {0, 90}) {
-                final Box b = new Box(170, 12, 4);
-                b.setMaterial(blade);
-                b.getTransforms().add(new Rotate(turn, Rotate.Z_AXIS));
-                propeller.getChildren().add(b);
-            }
-            propeller.setTranslateX(engine.across());
-            propeller.setTranslateY(-(engine.up() - Course.AIRSHIP_BOX.up()));
-            propeller.setTranslateZ(engine.along() - engine.halfAlong() - 6);
-            part.getChildren().add(propeller);
-        }
+    /** How long an airship is drawn: its hull, nose to tail. */
+    private static final double AIRSHIP_LENGTH = 1800;
+
+    /**
+     * The airship as it is designed ({@code air.Bomber}): its hull by its lines, the coaxial propeller
+     * in the shroud at its tail, a turboprop either side to steer, its control cabin fitted to its
+     * gondola (its hatch, its gun and its bomb bay where they are); drawn once, an airship in each
+     * colour. Its red lights, at its nose and on its shroud, blink.
+     */
+    private static final java.util.Map<Integer, com.example.fxsuite.avatar.air.Craft> AIRSHIP_DRAWN =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static com.example.fxsuite.avatar.air.Craft airshipDrawn(final double scale) {
+        return AIRSHIP_DRAWN.computeIfAbsent((int) Math.round(scale * 1000), k -> {
+            final double l = AIRSHIP_LENGTH * scale;
+            final Course.Section g = Course.GONDOLA.scaled(scale);
+            final com.example.fxsuite.avatar.air.Bomber.Cabin cabin = com.example.fxsuite.avatar.air.Bomber.Cabin.fitted(l,
+                    g.along() - g.halfAlong(), g.along() + g.halfAlong(), 2 * g.halfAcross(), g.up() - g.halfUp());
+            return com.example.fxsuite.avatar.air.Bomber.of(l, cabin);
+        });
+    }
+
+    private Shape3D airship(final int index, final Group part, final Course.Piece piece, final PhongMaterial shell) {
+        // a heavy bomber going round, as big as it is built, in a bomber's colours; the one to fly, grey
+        final double scale = Course.scale(piece);
+        final CraftModel model = new CraftModel(airshipDrawn(scale), piece.flies()
+                ? com.example.fxsuite.avatar.air.Livery.BOMBER : com.example.fxsuite.avatar.air.Livery.GREY);
+        final Group body = new Group(model.node());
+        // its hull's axis, where it is: as far above its box's middle as that is below it
+        final Course.Section box = piece.shape().box();
+        body.getTransforms().add(new Translate(0, box.up(), 0));
+        part.getChildren().add(body);
+        airships.put(index, model);
         final PhongMaterial red = BoxRig.glow("#ff3b30");
-        final Course.Section nose = Course.HULL.getFirst();
-        final Course.Section fin = Course.FINS.getFirst();
+        final Course.Section nose = Course.part(piece, Course.HULL.getFirst());
+        final Course.Section top = Course.part(piece, Course.SHROUD.getFirst());
+        // a bigger one's lights bigger, though not as much bigger as it is
+        final double s = Math.sqrt(scale);
         for (final Course.Section light : new Course.Section[] {
-                new Course.Section(0, nose.along() + nose.halfAlong() + 4, 0, 10, 4, 10),
-                new Course.Section(0, fin.along() - fin.halfAlong() + 10, fin.up() + fin.halfUp() + 6, 8, 8, 6)}) {
-            lights.add(section(part, light, red));
+                new Course.Section(0, nose.along() + nose.halfAlong() + 4 * s, 0, 10 * s, 4 * s, 10 * s),
+                new Course.Section(0, top.along() - top.halfAlong() + 10 * s, top.up() + top.halfUp() + 6 * s, 8 * s, 8 * s,
+                        6 * s)}) {
+            lights.add(section(part, box, light, red));
         }
-        return middle;
+        // what is taken for its body, to be coloured as it is worn: a stand-in, out of sight
+        final Box stand = new Box(1, 1, 1);
+        stand.setMaterial(shell);
+        stand.setVisible(false);
+        part.getChildren().add(stand);
+        return stand;
     }
 
     /**

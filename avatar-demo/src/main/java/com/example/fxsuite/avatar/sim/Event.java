@@ -137,6 +137,10 @@ public sealed interface Event {
     record Dropped(Vec3 at, int from) implements Event {
     }
 
+    /** Airship {@code from}'s bomb bay began to open, {@code opening}, or to shut; its doors there at {@code at}. */
+    record Bay(int from, boolean opening, Vec3 at) implements Event {
+    }
+
     /**
      * A bomb went off at {@code at}, on the ground or a block. What it harmed comes after, each
      * piece struck ({@link Struck}, by {@link Weapon#BOMB}) and what broke.

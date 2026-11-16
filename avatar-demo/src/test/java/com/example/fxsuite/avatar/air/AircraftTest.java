@@ -432,6 +432,34 @@ class AircraftTest {
     }
 
     @Test
+    void theAirshipInTheWorldIsDrawnAsItIsShapedItsCabinOnItsGondola() {
+        final com.example.fxsuite.avatar.sim.Course.Section g = com.example.fxsuite.avatar.sim.Course.GONDOLA;
+        final double l = 1800;
+        final Bomber.Cabin cabin = Bomber.Cabin.fitted(l, g.along() - g.halfAlong(), g.along() + g.halfAlong(),
+                2 * g.halfAcross(), g.up() - g.halfUp());
+        final Craft drawn = Bomber.of(l, cabin);
+        final Extent e = drawn.extent();
+        final com.example.fxsuite.avatar.sim.Course.Section box = com.example.fxsuite.avatar.sim.Course.AIRSHIP_BOX;
+        // in its box, out to it nose to tail, from its gondola's floor to its back
+        assertEquals(box.along() - box.halfAlong(), e.minAlong(), 2, "its tail");
+        assertEquals(box.along() + box.halfAlong(), e.maxAlong(), 2, "its nose");
+        assertEquals(box.up() - box.halfUp(), e.minUp(), Bomber.BAY_THICK + 2, "its cabin's floor, its gondola's (its bay's doors just under it)");
+        assertTrue(e.maxUp() <= box.up() + box.halfUp() + 2, "its back");
+        assertTrue(e.maxAcross() <= box.across() + box.halfAcross() + 2, "its turboprops' propellers");
+        // its cabin as long and as wide as its gondola, where it is
+        final Extent c = Bomber.cabin(l, cabin).extent();
+        assertEquals(g.along() - g.halfAlong(), c.minAlong(), 1e-6);
+        assertEquals(g.along() + g.halfAlong(), c.maxAlong(), 1e-6);
+        assertEquals(2 * g.halfAcross(), c.width(), 0.02 * c.width());
+        // its turboprops on its engines' places, its shroud's ring on its shroud's
+        final com.example.fxsuite.avatar.sim.Course.Section engine = com.example.fxsuite.avatar.sim.Course.ENGINES.get(1);
+        assertTrue(drawn.spinners().stream().anyMatch(s -> Math.abs(s.hub().across() - engine.across()) < 30
+                && Math.abs(s.hub().along() - (engine.along() + engine.halfAlong())) < 40), "a turboprop where its engine is");
+        final com.example.fxsuite.avatar.sim.Course.Section ring = com.example.fxsuite.avatar.sim.Course.SHROUD.getFirst();
+        assertEquals(ring.up(), Bomber.shroud(l, true).on("spine", ring.along()).up(), 0.1 * ring.halfAcross(), "its ring");
+    }
+
+    @Test
     void theGunshipFlownInTheWorldIsAsBigAsItIsDrawnItsWheelsWhereTheyAre() {
         final Extent drawn = Gunship.of(1600, Gunship.Lift.TWIN_PROPELLERS).extent();
         final com.example.fxsuite.avatar.sim.Course.Section box = com.example.fxsuite.avatar.sim.Course.GUNSHIP.room();

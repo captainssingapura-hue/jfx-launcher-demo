@@ -208,12 +208,34 @@ public record Engine(String key, String name, String about, int strokes, double[
             950, 5750, 4300, 3300, new double[] {72, 205, 560}, 3.5, 6.5, 0.8, 250)
             .piped(new Exhaust(new int[] {1, 2}, new double[] {0.68, 0.68}, Exhaust.NONE));
 
+    // ---- aircraft
+
+    /**
+     * A big 60-degree V12, as the great piston engines that drove airships and bombers were: twelve
+     * big cylinders, one every 60 degrees of crank, the banks taking turns, so perfectly even; firing
+     * 1-12-5-8-3-10-6-7-2-11-4-9 into short stacks along each bank. Huge pistons and a heavy crank: it
+     * idles low and lazily, is done by 3,000, and revs up and falls back slowly. Long, heavy pulses
+     * and deep pipes: a deep, smooth, powerful drone, rising to a roar. Supercharged, as they were
+     * ({@link #with}).
+     */
+    public static final Engine V12 = new Engine("V12", "V12 60° (big, for airships)",
+            "Twelve big cylinders every 60°, the banks taking turns: a deep, smooth, powerful drone.", 4,
+            new double[] {0, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600, 660},
+            new int[] {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}, 0.9,
+            550, 3000, 2000, 1200, new double[] {58, 165, 450}, 3.5, 7.5, 1.0, 220)
+            .piped(new Exhaust(new int[] {1, 12, 5, 8, 3, 10, 6, 7, 2, 11, 4, 9},
+                    new double[] {0.30, 0.31, 0.32, 0.33, 0.34, 0.35, 0.30, 0.31, 0.32, 0.33, 0.34, 0.35},
+                    Exhaust.NONE));
+
+    /** The aircraft's engines: driving an airship's propellers; supercharged, or not ({@link #with}). */
+    public static final List<Engine> AIRCRAFT = List.of(V12);
+
     /** The cars' engines: any of them may be turbocharged or supercharged ({@link #with}). */
     public static final List<Engine> CARS = List.of(I4, I5, V6, V8, FLAT_V8);
 
-    /** All of them, as the bench offers them: the cars', then the scooters' and the motorcycles'. */
+    /** All of them, as the bench offers them: the cars', then the scooters' and the motorcycles', then the aircraft's. */
     public static final List<Engine> ALL = List.of(I4, I5, V6, V8, FLAT_V8,
-            SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN, BOXER);
+            SCOOTER_2T, SCOOTER, THUMPER, V_TWIN, L_TWIN, PARALLEL_TWIN, BOXER, V12);
 
     private static final Map<String, Engine> KEYS = new LinkedHashMap<>();
 
@@ -241,6 +263,11 @@ public record Engine(String key, String name, String about, int strokes, double[
     /** Whether it is a car's, which may be charged. */
     public boolean car() {
         return CARS.stream().anyMatch(e -> e.key.equals(key));
+    }
+
+    /** Whether something may blow its intake full of air: a car's, or an aircraft's. */
+    public boolean chargeable() {
+        return car() || AIRCRAFT.stream().anyMatch(e -> e.key.equals(key));
     }
 
     /** The same engine, with {@code fitted} blowing its intake; null, nothing. */

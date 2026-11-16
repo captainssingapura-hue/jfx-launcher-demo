@@ -213,15 +213,15 @@ class DamageTest {
     void anAirshipIsManyBlocksAllOnePieceAndGoesAllAtOnce() {
         final int airship = first(Course.Kind.AIRSHIP);
         final Course.Piece piece = course.pieces().get(airship);
-        final int parts = Course.HULL.size() + Course.FINS.size() + 1 + Course.PYLONS.size() + Course.ENGINES.size();
+        final int parts = Course.HULL.size() + Course.SHROUD.size() + 1 + Course.PYLONS.size() + Course.ENGINES.size();
         assertEquals(parts, piece.solid().size());
         final Obstacles world = course.obstacles();
         assertEquals(parts, world.pieces().stream().filter(n -> n == airship).count(), "each block numbered as it");
 
-        // a round up into the gondola, and one into a fin, both strike the airship
-        final Block gondola = piece.solid().get(Course.HULL.size() + Course.FINS.size());
-        final Block fin = piece.solid().get(Course.HULL.size());
-        for (final Block part : List.of(gondola, fin)) {
+        // a round up into the gondola, and one into its shroud, both strike the airship
+        final Block gondola = piece.solid().get(Course.HULL.size() + Course.SHROUD.size());
+        final Block shroud = piece.solid().get(Course.HULL.size());
+        for (final Block part : List.of(gondola, shroud)) {
             final Vec3 below = new Vec3(part.x(), -(part.bottom() - 500), part.z());
             assertEquals(airship, world.ray(below, new Vec3(0, -1, 0), 1000).piece());
         }

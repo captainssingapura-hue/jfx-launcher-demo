@@ -1119,6 +1119,12 @@ cabin doors open so (`Door`, `Doors`: a door or a pair of leaves, framed, each o
 temple yard's gate is one, standing open). `-Daircraft.open=cabin door` starts one opening,
 `-Daircraft.rate=60` sets the hinge speed, `-Daircraft.quiet=true` keeps it silent.
 
+The airships in the game (the ones going round, the one moored to fly) are this design too, drawn 18 m
+long (`World`): its hull by its lines, its coaxial propeller turning in its shroud, a turboprop either
+side, its control cabin fitted to the gondola it is boarded by (`Bomber.Cabin.fitted`), the hatch in
+its floor, its gun under it and its bomb bay where they were. What it is in the way as (`Course`) is
+shaped to match: its hull stepped as it is drawn, its shroud's ring, its turboprops on their pylons.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the

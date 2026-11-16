@@ -136,8 +136,9 @@ public final class Wreckage {
         }
         final Block block = broke.block();
         final boolean airship = broke.kind() == Course.Kind.AIRSHIP;
-        final Course.Section hull = Course.HULL.get(3);
-        // an airship comes apart along its hull, not out to its fins' tips
+        // (as big as it was built: a heavy bomber's hull bigger)
+        final Course.Section hull = Course.HULL.get(3).scaled(block.halfDepth() / Course.AIRSHIP_BOX.halfAlong());
+        // an airship comes apart along its hull, not out to its shroud's or its turboprops' reach
         final double width = airship ? hull.halfAcross() * 2 : block.halfWidth() * 2;
         final double depth = block.halfDepth() * 2;
         final double tall = airship ? hull.halfUp() * 2 : block.top() - block.bottom();

@@ -194,6 +194,11 @@ public final class Game {
     private final VehiclePanel panel = new VehiclePanel(this::panelPressed);
     private double engineLoad;
     private double lastAhead;
+    /** How fast the airship's V12 turns, as it is heard while it is flown: eased toward what its flying calls for. */
+    private double shipRpm = AIRSHIP_LOAFING;
+    /** Its V12 loafing, nothing asked of it; and how quickly it follows what is, a second. */
+    private static final double AIRSHIP_LOAFING = 700;
+    private static final double AIRSHIP_REVS = 1.5;
     /** The controls the last step was taken with: the throttle a driven engine is heard to have. */
     private Controls lastControls = Controls.NONE;
     private static final double GUN_REST = -4;
@@ -685,6 +690,8 @@ public final class Game {
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
+        // and each bomber's bomb bay, open as far as its doors are driven
+        world.bays(sky::bay);
         bombs.show(sky, behind);
         stall.show(people, peopleBefore, ticked.blend(), forStall.read().events(), seconds);
         // the gun the player fires: one manned, or one fixed to what it drives
@@ -708,7 +715,8 @@ public final class Game {
         // and so does one to be flown, while it stands
         final List<Course.Piece> droning = new ArrayList<>(now.airships());
         for (final Lift lift : lifts) {
-            if (lift.craft().closed() && !(lift.craft() instanceof Course.Aircraft) && !damage.broken(lift.piece())) {
+            if (lift.craft().closed() && !(lift.craft() instanceof Course.Aircraft) && !lift.held()
+                    && !damage.broken(lift.piece())) {
                 droning.add(damage.piece(lift.piece()).placed(lift.place()));
             }
         }
@@ -719,7 +727,8 @@ public final class Game {
                         gun.mount().gun().by() == Weapon.GIANT_GATLING || gun.mount().gun().by() == Weapon.RAPID_GATLING
                                 ? GIANT_PITCH : GUN_PITCH, gun.mount().gun().by()))
                         .orElse(null),
-                flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
+                flying.map(lift -> lift.craft() instanceof Course.Chassis ? motor(lift, seconds)
+                        : lift.craft() instanceof Course.Ship ? airshipMotor(lift, seconds) : null).orElse(null));
         // and its instruments, while one is driven
         instruments(flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null), seconds);
 
@@ -1161,6 +1170,22 @@ public final class Game {
      * gathers speed, the revs dropping at each change and the throttle cut as it changes, down
      * them as it slows; worked as hard as it is speeding up.
      */
+    /**
+     * The airship being flown, as heard: its big V12 ({@link Vehicle#AIRSHIP}), driving constant-speed
+     * propellers, so governed: loafing with nothing asked of it, and up to its governed revs as it is
+     * worked harder, going ahead, climbing, turning (less, going carefully); heard from where it is, in
+     * its hull toward its tail, where its propellers are.
+     */
+    private Cues.Motor airshipMotor(final Lift lift, final double seconds) {
+        final Controls c = lastControls;
+        final double asked = Math.max(Math.abs(c.forward()), Math.max(0.6 * Math.abs(c.lift()), 0.4 * Math.abs(c.sideways())));
+        final double work = Num.clamp(asked, 0, 1) * (c.run() ? 1 : 0.6);
+        shipRpm = Num.ease(shipRpm, AIRSHIP_LOAFING + (Vehicle.AIRSHIP.cvt() - AIRSHIP_LOAFING) * work, AIRSHIP_REVS,
+                seconds);
+        final Course.Section engines = Course.part(damage.piece(lift.piece()), Course.HULL.get(5));
+        return new Cues.Motor(Vehicle.AIRSHIP.engine(), shipRpm, work, work, lift.at(engines));
+    }
+
     private Cues.Motor motor(final Lift lift, final double seconds) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
         final Engine engine = engine(chassis);

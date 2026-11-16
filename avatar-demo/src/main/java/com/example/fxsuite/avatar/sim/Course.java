@@ -198,6 +198,11 @@ public final class Course {
             return box.placed(place);
         }
 
+        /** The same, {@code k} times as big every way, about its own origin: an airship built bigger. */
+        public Shape scaled(final double k) {
+            return new Shape(box.scaled(k), parts.stream().map(part -> part.scaled(k)).toList());
+        }
+
         /** Its solid parts, at {@code place}, in order. */
         public List<Block> solid(final Place place) {
             return parts.stream().map(part -> part.placed(place)).toList();
@@ -235,6 +240,11 @@ public final class Course {
             return new Block(at.x(), at.z(), halfAcross, halfAlong, yaw, height + up - halfUp, height + up + halfUp);
         }
 
+        /** The same, {@code k} times as big every way, about the frame's origin. */
+        public Section scaled(final double k) {
+            return new Section(across * k, along * k, up * k, halfAcross * k, halfAlong * k, halfUp * k);
+        }
+
         /** As a block, for an airship at {@code place}. */
         public Block placed(final Place place) {
             return placed(place.x(), place.height(), place.z(), place.yaw());
@@ -242,34 +252,37 @@ public final class Course {
     }
 
     /**
-     * An airship's hull: stepping out from a blunt nose to its full girth and back in to the
-     * tail, 18 m long and 4.4 m across. Then a cross of fins at the tail, a gondola under the
-     * middle, and an engine either side on a pylon. Each is solid.
+     * An airship's hull, as it is drawn ({@code air.Bomber}, 18 m long, 4.5 m round): stepping out from
+     * a blunt nose to its full girth, the long middle (the fourth, its deck), and in down its long tail
+     * to its slim hub; its belly a little flatter than its back. Then the shroud round its hub, a box at
+     * each side of its ring; a control gondola flush under its keel, forward of its middle; and a
+     * turboprop either side, a little ahead of its middle, on a pylon, to steer. Each is solid.
      */
     public static final List<Section> HULL = List.of(
-            new Section(0, 840, 0, 100, 60, 100),
-            new Section(0, 700, 0, 160, 80, 160),
-            new Section(0, 520, 0, 200, 100, 200),
-            new Section(0, 40, 0, 220, 380, 220),
-            new Section(0, -460, 0, 200, 120, 200),
-            new Section(0, -680, 0, 160, 100, 160),
-            new Section(0, -840, 0, 100, 60, 100));
-    public static final List<Section> FINS = List.of(
-            new Section(0, -760, 250, 8, 140, 130),
-            new Section(0, -760, -250, 8, 140, 130),
-            new Section(-250, -760, 0, 130, 140, 8),
-            new Section(250, -760, 0, 130, 140, 8));
-    public static final Section GONDOLA = new Section(0, 80, -275, 75, 190, 55);
+            new Section(0, 855, 0, 100, 45, 85),
+            new Section(0, 720, 0, 190, 90, 175),
+            new Section(0, 540, 8, 220, 90, 200),
+            new Section(0, 135, 17, 225, 315, 208),
+            new Section(0, -315, 10, 215, 135, 200),
+            new Section(0, -540, 0, 135, 90, 125),
+            new Section(0, -765, 0, 42, 135, 42));
+    /** The shroud round its hub at its tail: its ring's top, its bottom, and either side. */
+    public static final List<Section> SHROUD = List.of(
+            new Section(0, -747, 180, 130, 63, 9),
+            new Section(0, -747, -180, 130, 63, 9),
+            new Section(-180, -747, 0, 9, 63, 130),
+            new Section(180, -747, 0, 9, 63, 130));
+    public static final Section GONDOLA = new Section(0, 80, -260, 75, 190, 70);
     public static final List<Section> PYLONS = List.of(
-            new Section(-255, -60, -40, 40, 30, 7),
-            new Section(255, -60, -40, 40, 30, 7));
+            new Section(-266, 108, 0, 41, 25, 4),
+            new Section(266, 108, 0, 41, 25, 4));
     public static final List<Section> ENGINES = List.of(
-            new Section(-330, -60, -40, 40, 80, 40),
-            new Section(330, -60, -40, 40, 80, 40));
-    /** All of an airship's box: out to the fins' tips, nose to tail, gondola to the top fin. */
-    public static final Section AIRSHIP_BOX = new Section(0, 0, 25, 380, 900, 355);
-    /** An airship: its box, and each part solid: the hull, the fins, the gondola, the pylons and the engines. */
-    public static final Shape AIRSHIP = new Shape(AIRSHIP_BOX, java.util.stream.Stream.of(HULL, FINS, List.of(GONDOLA),
+            new Section(-307, 108, 0, 20, 81, 20),
+            new Section(307, 108, 0, 20, 81, 20));
+    /** All of an airship's box: out to its turboprops' propellers, nose to tail, its gondola's floor to its back. */
+    public static final Section AIRSHIP_BOX = new Section(0, 0, -52.5, 360, 900, 277.5);
+    /** An airship: its box, and each part solid: the hull, the shroud, the gondola, the pylons and the engines. */
+    public static final Shape AIRSHIP = new Shape(AIRSHIP_BOX, java.util.stream.Stream.of(HULL, SHROUD, List.of(GONDOLA),
             PYLONS, ENGINES).flatMap(List::stream).toList());
 
     /**
@@ -1092,12 +1105,14 @@ public final class Course {
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
-     * minutes, the middle one going round the other way.
+     * minutes, the middle one going round the other way; and how many times as big as the one to fly
+     * each is built ({@link #AIRSHIP}): heavy bombers, 45 to 54 m long, high enough to clear the tallest
+     * pillar with their gondolas.
      */
     private static final double[][] AIRSHIPS = {
-            {70, 6500, 3100, 400},
-            {190, 7500, 3300, -350},
-            {300, 5500, 3500, 300},
+            {70, 6500, 4100, 400, 2.5},
+            {190, 7500, 4500, -350, 3},
+            {300, 5500, 4000, 300, 2.5},
     };
 
     /** The heading the avatar starts on: the staircase lies along it. */
@@ -1631,7 +1646,7 @@ public final class Course {
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];
             final Route route = new Route(a[0], a[1], a[2], a[3]);
-            pieces.add(Piece.moving(AIRSHIP, route.at(0), Kind.AIRSHIP, i % 2, route));
+            pieces.add(Piece.moving(AIRSHIP.scaled(a[4]), route.at(0), Kind.AIRSHIP, i % 2, route));
         }
 
         // and the platforms, standing at their lowest, each heading out from the start
@@ -1713,7 +1728,18 @@ public final class Course {
 
     /** How high the airships' hulls run, each one's line through the middle of its hull: for the graphics. */
     public static double hullHeight(final Piece airship) {
-        return airship.block().bottom() + AIRSHIP_BOX.halfUp() - AIRSHIP_BOX.up();
+        final Section box = airship.shape().box();
+        return airship.block().bottom() + box.halfUp() - box.up();
+    }
+
+    /** How many times as big as {@link #AIRSHIP} an airship is built: 1, the one to fly; more, a heavy bomber. */
+    public static double scale(final Piece airship) {
+        return airship.shape().box().halfAlong() / AIRSHIP_BOX.halfAlong();
+    }
+
+    /** {@code part} of {@link #AIRSHIP} (its gondola, its hull's middle), as it is on {@code airship}, built as big as it is. */
+    public static Section part(final Piece airship, final Section part) {
+        return part.scaled(scale(airship));
     }
 
     /**

@@ -85,6 +85,8 @@ public final class Robot implements Profile {
             case FRUIT -> fruit(amount, variant);
             case BREAK_AIRSHIP -> breakAirship(variant);
             case AIRSHIP_ENGINES -> airshipEngines();
+            case BAY_OPEN -> HydraulicVoice.bay(true, variant);
+            case BAY_SHUT -> HydraulicVoice.bay(false, variant);
             case ENGINE_V6 -> engine(false);
             case ENGINE_V8 -> engine(true);
             case GATLING_SPIN -> gatlingSpin();
@@ -782,29 +784,30 @@ public final class Robot implements Profile {
     }
 
     /**
-     * An airship's engines, heard from below: two big propellers a little out of step, a deep
-     * throb that beats slowly between them, pulsing with each blade's pass, over a low rumble
-     * of the motors. Every tone turns a whole number of times in the loop, so it joins seamlessly.
+     * An airship's engines, heard from below: its big supercharged V12 at cruise, as the engine bench
+     * makes it ({@link EngineVoice}), a deep, smooth drone, its giant propellers beating over it; the
+     * engine's own sound cross-faded into its start, the beat a whole number of times round, so the loop
+     * joins seamlessly.
      */
     public static Clip airshipEngines() {
+        // its big V12 ({@link Engine#V12}), supercharged, at cruise: turning 1,800, worked hard, settled first
         final int length = samples(2);
-        final Noise noise = new Noise(9700);
-        final Filter rumble = new Filter(140, 0.7);
-        final double[] raw = new double[length + samples(0.25)];
-        for (int i = 0; i < raw.length; i++) {
-            raw[i] = rumble.push(noise.next()).low;
+        final EngineVoice voice = new EngineVoice(Vehicle.AIRSHIP.engine(), 12);
+        voice.set(1800, 0.7, 0.7);
+        final float[] settling = new float[samples(0.5)];
+        voice.render(settling, 0, settling.length);
+        final float[] made = new float[length + samples(0.25)];
+        voice.render(made, 0, made.length);
+        final double[] raw = new double[made.length];
+        for (int i = 0; i < made.length; i++) {
+            raw[i] = made[i];
         }
-        final double[] low = Dsp.seamless(raw, length);
+        final double[] engine = Dsp.seamless(raw, length);
         final double[] y = new double[length];
         for (int i = 0; i < length; i++) {
-            final double t = time(i);
-            double throb = 0;
-            for (final double f : new double[] {36, 37.5}) {
-                // a blunt pulse: the tone and its first few overtones
-                throb += Math.sin(TAU * f * t) + 0.5 * Math.sin(TAU * 2 * f * t) + 0.25 * Math.sin(TAU * 3 * f * t);
-            }
-            final double blades = 0.65 + 0.35 * Math.sin(TAU * 12 * t);
-            y[i] = 0.5 * throb * blades + 4 * low[i];
+            // and its propellers' beat over it, a whole number of times round the loop
+            final double blades = 0.82 + 0.18 * Math.sin(TAU * 12 * time(i));
+            y[i] = engine[i] * blades;
         }
         return new Clip("airship-engines", Dsp.normalized(y, 0.7), true);
     }

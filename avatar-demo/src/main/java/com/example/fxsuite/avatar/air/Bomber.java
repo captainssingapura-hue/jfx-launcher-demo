@@ -180,6 +180,43 @@ public final class Bomber {
     static final double CABIN_TO = 0.78;
     static final double CABIN_WIDTH = 0.058;
     static final double CABIN_DEPTH = 0.043;
+
+    /**
+     * Where its control cabin is, and how big: {@code from} and {@code to} along it, from its tail;
+     * {@code width} across and {@code depth} below its keel; all shares of its length.
+     */
+    public record Cabin(double from, double to, double width, double depth) {
+
+        public Cabin {
+            if (!(0 < from && from < to && to < 1 && width > 0 && depth > 0)) {
+                throw new IllegalArgumentException("a cabin from " + from + " to " + to + ", " + width + " by " + depth);
+            }
+        }
+
+        /**
+         * A cabin fitted to a gondola, on a hull {@code length} long: from {@code back} to {@code front} along
+         * it, {@code width} across, its floor at {@code floor} (up from its axis), all centimetres; as deep
+         * below its keel as that leaves.
+         */
+        public static Cabin fitted(final double length, final double back, final double front, final double width,
+                                   final double floor) {
+            final double keel = hull(length).on("keel", (back + front) / 2).up();
+            return new Cabin(back / length + 0.5, front / length + 0.5, width / length, (keel - floor) / length);
+        }
+
+        /** How long it is, a share of its length. */
+        double length() {
+            return to - from;
+        }
+
+        /** Where {@code share} of the way along it is, from its tail, {@code length} long. */
+        double along(final double share, final double length) {
+            return (from + share * (to - from) - 0.5) * length;
+        }
+    }
+
+    /** Its cabin as it is drawn: a long one, forward of its middle. */
+    public static final Cabin CABIN = new Cabin(CABIN_FROM, CABIN_TO, CABIN_WIDTH, CABIN_DEPTH);
     /** How far up into the hull its roof is set, a share of its length: flush, its seam hidden. */
     static final double CABIN_SET = 0.004;
 
@@ -203,12 +240,17 @@ public final class Bomber {
      * little up into it), its floor a cabin's depth below; drawn to a point at its tail and its nose.
      */
     public static Lines cabin(final double length) {
+        return cabin(length, CABIN);
+    }
+
+    /** The same, {@code cabin} where and as big as it says. */
+    public static Lines cabin(final double length, final Cabin cabin) {
         final Lines hull = hull(length);
-        final double half = CABIN_WIDTH * length / 2;
-        final double deep = CABIN_DEPTH * length;
+        final double half = cabin.width() * length / 2;
+        final double deep = cabin.depth() * length;
         final List<Lines.Section> sections = new ArrayList<>();
         for (final double[] plan : CABIN_PLAN) {
-            final double along = (CABIN_FROM + plan[0] * (CABIN_TO - CABIN_FROM) - 0.5) * length;
+            final double along = cabin.along(plan[0], length);
             // the hull's underside here, between its keel and its bilge, a little up into it
             final Point keel = hull.on("keel", along);
             final Point bilge = hull.on("bilge", along);
@@ -241,39 +283,34 @@ public final class Bomber {
     private static final double BRIDGE = 0.8;
 
     /**
-     * Its cabin's door: where its forward edge is, along its cabin, its hinge there; how wide, a share
-     * of its length; how high up its side toward the hull, a share; how thick; how far it opens.
+     * Its bomb bay, in its cabin's floor: from where to where along its cabin, shares of it; how wide,
+     * a share of its cabin's width; its doors how thick; how far they open.
      */
-    static final double DOOR_AT = 0.42;
-    static final double DOOR_WIDE = 0.013;
-    static final double DOOR_HIGH = 0.8;
-    static final double DOOR_THICK = 0.0008;
-    public static final double DOOR_OPENS = 100;
-    /** The control its doors open by, both together. */
-    public static final String DOOR = "cabin door";
-
-    /** Where its cabin's door's forward edge is along it, {@code length} long. */
-    static double doorAt(final double length) {
-        return (CABIN_FROM + DOOR_AT * (CABIN_TO - CABIN_FROM) - 0.5) * length;
-    }
+    static final double BAY_FROM = 0.2;
+    static final double BAY_TO = 0.6;
+    static final double BAY_WIDE = 0.7;
+    static final double BAY_THICK = 5;
+    public static final double BAY_OPENS = 90;
+    /** The control its bomb bay's doors open by, both together. */
+    public static final String BAY = "bomb bay";
 
     /**
-     * Its cabin's door, on its right side, {@code length} long ({@link Door}): standing up its side from
-     * its side girder, leaning in with it toward the hull, flush on it; hung at its forward edge,
-     * opening outward ({@link #DOOR}); its frame picked out.
+     * Its bomb bay's doors, {@code length} long, in its cabin's floor ({@link Door}): a pair, each hung
+     * along one of the bay's long edges, meeting down its middle, flush under its floor, finished as
+     * its floor is; swinging down to face the ground as they open ({@link #BAY}), the bombs then free
+     * to drop.
      */
-    static Craft cabinDoor(final double length) {
-        final Lines cabin = cabin(length);
-        final double along = doorAt(length);
-        final Point side = cabin.on("side", along);
-        final Point eave = cabin.on("eave", along);
-        final double rise = eave.up() - side.up();
-        final double lean = Math.atan2(side.across() - eave.across(), rise);
-        final double thick = DOOR_THICK * length;
-        final Door door = Door.single(DOOR, DOOR_WIDE * length, DOOR_HIGH * rise / Math.cos(lean), thick, DOOR_OPENS);
-        // its width aft along the cabin, its face outward: yawed a quarter; then leant in, as the side is
-        return Doors.of(door, DOOR, Paint.TRIM, Paint.CAR).placed(new Mount(Point.ZERO, 90, 0, 0))
-                .placed(new Mount(new Point(side.across() + thick, along, side.up()), 0, 0, -Math.toDegrees(lean)));
+    static Craft bayDoors(final double length, final Cabin size) {
+        final Lines cabin = cabin(length, size);
+        final double back = size.along(BAY_FROM, length);
+        final double front = size.along(BAY_TO, length);
+        final double half = BAY_WIDE * size.width() * length / 2;
+        final double floor = cabin.on("floor", (back + front) / 2).up();
+        final Door doors = Door.pair(BAY, 2 * half, front - back, BAY_THICK, BAY_OPENS);
+        // its leaves' length along the cabin, their faces down: pitched down a quarter, so they open
+        // downward; from the bay's left edge and its back, just under the floor
+        return Doors.of(doors, BAY, Paint.DARK, Paint.DARK)
+                .placed(new Mount(new Point(-half, back, floor - BAY_THICK / 2 - 0.5), 0, -90, 0));
     }
 
     /**
@@ -281,17 +318,17 @@ public final class Bomber {
      * front, its bridge, glazed from its side up to its eave, all round its nose; its floor darker.
      */
     static Lines.Dress cabinDress(final double length) {
-        final double windows = (CABIN_FROM + WINDOWS * (CABIN_TO - CABIN_FROM) - 0.5) * length;
-        final double bridge = (CABIN_FROM + BRIDGE * (CABIN_TO - CABIN_FROM) - 0.5) * length;
-        final double doorFront = doorAt(length);
-        final double doorBack = doorFront - DOOR_WIDE * length;
-        return (band, along) -> along < doorFront && along > doorBack
-                && (band.equals("side to sill") || band.equals("sill to eave"))
-                // behind its door, its doorway: dark, seen as it opens
-                ? Paint.DARK
-                : switch (band) {
+        return cabinDress(length, CABIN);
+    }
+
+    /** The same, for {@code cabin}. */
+    static Lines.Dress cabinDress(final double length, final Cabin cabin) {
+        final double windows = cabin.along(WINDOWS, length);
+        final double bridge = cabin.along(BRIDGE, length);
+        return (band, along) -> switch (band) {
             case "sill to eave" -> along > windows ? Paint.GLASS : Paint.CAR;
             case "side to sill" -> along > bridge ? Paint.GLASS : Paint.CAR;
+            // its floor and its bomb bay in it: dark
             case "floor to chine", "chine to side" -> Paint.DARK;
             default -> Paint.CAR;
         };
@@ -308,11 +345,16 @@ public final class Bomber {
      * in it yet.
      */
     public static Craft body(final double length) {
+        return body(length, CABIN);
+    }
+
+    /** The same, its cabin where and as big as {@code cabin} says. */
+    public static Craft body(final double length, final Cabin cabin) {
         final Lines hull = hull(length);
         final Craft.Builder body = Craft.named("Heavy bomber airship body").lines(hull, dress(), Mount.at(Point.ZERO));
-        // its control cabin, flush under its keel; a door each side of it
-        body.lines(cabin(length), cabinDress(length), Mount.at(Point.ZERO));
-        body.withPair(cabinDoor(length), Mount.at(Point.ZERO));
+        // its control cabin, flush under its keel; its bomb bay's doors in its floor
+        body.lines(cabin(length, cabin), cabinDress(length, cabin), Mount.at(Point.ZERO));
+        body.with(bayDoors(length, cabin), Mount.at(Point.ZERO));
         body.lines(shroud(length, true), (band, along) -> Paint.CAR, Mount.at(Point.ZERO));
         body.lines(shroud(length, false), (band, along) -> Paint.DARK, Mount.at(Point.ZERO));
         // the vanes: their roots a little into the hull where the middle of their chord is, their tips
@@ -350,7 +392,12 @@ public final class Bomber {
      * harder than the other turns it.
      */
     public static Craft of(final double length) {
-        final Craft.Builder ship = Craft.named("Heavy bomber airship").with(body(length), Mount.at(Point.ZERO));
+        return of(length, CABIN);
+    }
+
+    /** The same, its cabin where and as big as {@code cabin} says. */
+    public static Craft of(final double length, final Cabin cabin) {
+        final Craft.Builder ship = Craft.named("Heavy bomber airship").with(body(length, cabin), Mount.at(Point.ZERO));
         // the propeller: as big as turns inside the shroud where the two of it are
         final Lines inside = shroud(length, false);
         final double at = (PROPELLER_AT - 0.5) * length;

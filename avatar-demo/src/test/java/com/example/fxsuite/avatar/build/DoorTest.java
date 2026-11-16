@@ -98,12 +98,27 @@ class DoorTest {
         final Craft pair = Doors.of(GATE, "gate", Paint.TRIM, Paint.CAR);
         assertEquals(2, pair.hinges().size());
         assertEquals(-pair.hinges().get(0).sense(), pair.hinges().get(1).sense(), 1e-9, "turning opposite ways, both out");
-        // the bomber's cabin: a door each side, both on the one control, opening as far as they go
+        // the bomber's bomb bay: a pair of doors in its cabin's floor, on the one control, swinging down
         final Map<String, double[]> controls = Hinge.controls(Bomber.body(7000));
-        assertTrue(controls.containsKey(Bomber.DOOR));
-        assertEquals(0, controls.get(Bomber.DOOR)[0], 1e-9);
-        assertEquals(Bomber.DOOR_OPENS, controls.get(Bomber.DOOR)[1], 1e-9);
-        assertEquals(2, Bomber.body(7000).hinges().size(), "one each side");
+        assertTrue(controls.containsKey(Bomber.BAY));
+        assertEquals(0, controls.get(Bomber.BAY)[0], 1e-9);
+        assertEquals(Bomber.BAY_OPENS, controls.get(Bomber.BAY)[1], 1e-9);
+        final List<Hinge> bay = Bomber.body(7000).hinges();
+        assertEquals(2, bay.size(), "a pair");
+        for (final Hinge leaf : bay) {
+            assertEquals(1, Math.abs(leaf.axis().along()), 1e-9, "hung along the bay's long edges");
+            // its leaf's free edge, turned the way it opens, goes down
+            final Point free = leaf.part().pieces().stream().flatMap(p -> p.corners().stream())
+                    .max(java.util.Comparator.comparingDouble(p -> Math.abs(p.across() - leaf.pivot().across()))).orElseThrow();
+            final double a = Math.toRadians(30 * leaf.sense());
+            final Point r = free.plus(leaf.pivot().times(-1));
+            final Point k = leaf.axis();
+            // turned about its axis the right-hand way (Rodrigues), as it is drawn
+            final double dot = k.across() * r.across() + k.along() * r.along() + k.up() * r.up();
+            final double up = r.up() * Math.cos(a) + (k.across() * r.along() - k.along() * r.across()) * Math.sin(a)
+                    + k.up() * dot * (1 - Math.cos(a));
+            assertTrue(up < r.up() - 1, "swinging down to face the ground");
+        }
     }
 
     @Test
