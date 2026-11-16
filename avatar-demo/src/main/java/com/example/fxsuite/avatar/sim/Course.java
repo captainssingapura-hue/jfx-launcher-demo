@@ -32,6 +32,20 @@ public final class Course {
     public static final int GARDEN_STONE = 2;
     public static final int GARDEN_PAVING = 3;
 
+    /**
+     * The temple's pieces, by the keys they are drawn by ({@link Piece#tint}): from its main hall, its
+     * other halls, its gate and its wall's units, up to the pyramids'. Its main hall what a siege
+     * ({@link Siege}) is to bring down.
+     */
+    public static final int MAIN_HALL = 100;
+    public static final int TEMPLE_ENDS = 300;
+
+    /** Whether {@code piece} is the temple's: one of its halls, its gate, a unit of its wall. */
+    public static boolean temple(final Piece piece) {
+        return (piece.kind() == Kind.BUILDING || piece.kind() == Kind.WALL_UNIT) && piece.tint() >= MAIN_HALL
+                && piece.tint() < TEMPLE_ENDS;
+    }
+
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
         FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
@@ -189,6 +203,12 @@ public final class Course {
             return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier, loose, body);
         }
 
+        /** The same airship, going its way along {@code another} instead, where that has it at the start. */
+        public Piece routed(final Route another) {
+            final Place at = another.at(0);
+            return new Piece(shape.box(at), kind, tint, shape.solid(at), shape, at, another, carrier, loose, body);
+        }
+
         /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
         public Piece at(final double seconds) {
             return route == null ? this : placed(route.at(seconds));
@@ -245,13 +265,23 @@ public final class Course {
     }
 
     /**
-     * The way an airship goes: round the start, {@code radius} out, at {@code height}, from
-     * {@code heading} at the start, at {@code speed} (units a second; round the other way when
-     * negative), nose first along its way.
+     * The way an airship goes of itself, where it is at each moment: round the start
+     * ({@link Circling}); or in from the edge of the world to a target, and round over it ({@link Raid}).
      */
-    public record Route(double heading, double radius, double height, double speed) {
+    public sealed interface Route permits Circling, Raid {
 
         /** Where along it, {@code seconds} after the start. */
+        Place at(double seconds);
+    }
+
+    /**
+     * Round the start, {@code radius} out, at {@code height}, from {@code heading} at the start, at
+     * {@code speed} (units a second; round the other way when negative), nose first along its way.
+     */
+    public record Circling(double heading, double radius, double height, double speed) implements Route {
+
+        /** Where along it, {@code seconds} after the start. */
+        @Override
         public Place at(final double seconds) {
             final double angle = heading + Math.toDegrees(speed * seconds / radius);
             final Vec3 at = Num.heading(angle).multiply(radius);
@@ -1195,8 +1225,14 @@ public final class Course {
 
     /** The world of {@code demo}: the town, the playground, the track; or a simple scene round a single vehicle. */
     public Course(final Demo demo) {
+        this(demo, Siege.STANDARD);
+    }
+
+    /** The same, a siege set as {@code siege} ({@link Siege}), if {@code demo} is one. */
+    public Course(final Demo demo, final Siege siege) {
         switch (demo) {
             case TOWN -> townDemo();
+            case SIEGE -> siegeDemo(siege);
             case PLAYGROUND -> playground();
             case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
@@ -1223,6 +1259,20 @@ public final class Course {
         stall(pieces.size() - 1);
         pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
+    }
+
+    /**
+     * The temple under siege ({@link Siege}): the town; and, last, an airship for each slot of the siege,
+     * {@code siege}'s size, each a heavy bomber, waiting off the edge of the world until it comes (broken
+     * until then: {@link Siege#damage}).
+     */
+    private void siegeDemo(final Siege siege) {
+        townDemo();
+        final Shape ship = AIRSHIP.scaled(siege.size());
+        final Raid waiting = new Raid(0, new Place(0, -Siege.ENTRY, 30_000, 0), 30_000, 0, 0, 30_000, 1_000, 800);
+        for (int k = 0; k < siege.ships(); k++) {
+            pieces.add(Piece.moving(ship, waiting.at(0), Kind.AIRSHIP, k % 2, waiting));
+        }
     }
 
     /**
@@ -1658,7 +1708,7 @@ public final class Course {
         // and the airships, high over everything else, going slowly round far out
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];
-            final Route route = new Route(a[0], a[1], a[2], a[3]);
+            final Route route = new Circling(a[0], a[1], a[2], a[3]);
             pieces.add(Piece.moving(AIRSHIP.scaled(a[4]), route.at(0), Kind.AIRSHIP, i % 2, route));
         }
 

@@ -23,7 +23,8 @@ import java.util.TreeMap;
  * avatar-inputs 1                 the format
  * rules 1                         the rules the world was stepped by ({@link Play#RULES})
  * start pack=false demo=AIRSHIP   where it started ({@link Play#start}): with the pack on or not, in
- *                                 which demo (the playground if it does not say)
+ *                                 which demo (the playground if it does not say); and a siege, as it
+ *                                 was set (siege=..., {@link Siege#written})
  * 61 1.0 0.0 0.0 0.0 true false 0.0 false JUMP DRAW:RIFLES
  *                                 from step 61: ahead, sideways, turn, lift, run, trigger, aim,
  *                                 the other button (which a line kept before there was one leaves
@@ -47,15 +48,17 @@ public final class Recording {
     private final int rules;
     private final boolean pack;
     private final Demo demo;
+    private final Siege siege;
     private final NavigableMap<Long, Controls> lines;
     private final Map<Long, Long> checks;
     private final long length;
 
-    private Recording(final int rules, final boolean pack, final Demo demo, final NavigableMap<Long, Controls> lines,
-                      final Map<Long, Long> checks, final long length) {
+    private Recording(final int rules, final boolean pack, final Demo demo, final Siege siege,
+                      final NavigableMap<Long, Controls> lines, final Map<Long, Long> checks, final long length) {
         this.rules = rules;
         this.pack = pack;
         this.demo = demo;
+        this.siege = siege;
         this.lines = lines;
         this.checks = checks;
         this.length = length;
@@ -68,6 +71,7 @@ public final class Recording {
         int rules = -1;
         Boolean pack = null;
         Demo demo = Demo.PLAYGROUND;
+        Siege siege = Siege.STANDARD;
         final NavigableMap<Long, Controls> lines = new TreeMap<>();
         final Map<Long, Long> checks = new TreeMap<>();
         long end = 0;
@@ -98,6 +102,9 @@ public final class Recording {
                         if (words.length > 2) {
                             demo = Demo.valueOf(words[2].substring("demo=".length()));
                         }
+                        if (words.length > 3) {
+                            siege = Siege.read(words[3].substring("siege=".length()));
+                        }
                     }
                     case "check" -> checks.put(Long.parseLong(words[1]), Long.parseUnsignedLong(words[2], 16));
                     case "end" -> end = Long.parseLong(words[1]);
@@ -118,7 +125,7 @@ public final class Recording {
             throw new IllegalArgumentException("a recording starts with its format, its rules and its start");
         }
         final long checked = checks.keySet().stream().mapToLong(Long::longValue).max().orElse(0);
-        return new Recording(rules, pack, demo, lines, checks, Math.max(end, Math.max(last, checked)));
+        return new Recording(rules, pack, demo, siege, lines, checks, Math.max(end, Math.max(last, checked)));
     }
 
     /** The rules it was stepped by; another than {@link Play#RULES} may not replay the same. */
@@ -136,9 +143,14 @@ public final class Recording {
         return demo;
     }
 
+    /** How its siege was set, if it was made in one; as a siege starts, if not. */
+    public Siege siege() {
+        return siege;
+    }
+
     /** The world it started from. */
     public Play start() {
-        return Play.start(demo, pack);
+        return Play.start(demo, pack, siege);
     }
 
     /** The last step it covers. */
@@ -212,10 +224,15 @@ public final class Recording {
 
         /** Starts a recording, in {@code out}, of a run from {@link Play#start} in {@code demo} with the pack on or not. */
         public Recorder(final Writer out, final boolean pack, final Demo demo) {
+            this(out, pack, demo, Siege.STANDARD);
+        }
+
+        /** The same, a siege set as {@code siege}, if {@code demo} is one. */
+        public Recorder(final Writer out, final boolean pack, final Demo demo, final Siege siege) {
             this.out = out;
             write(MAGIC + " " + FORMAT);
             write("rules " + Play.RULES);
-            write("start pack=" + pack + " demo=" + demo.name());
+            write("start pack=" + pack + " demo=" + demo.name() + (demo == Demo.SIEGE ? " siege=" + siege.written() : ""));
         }
 
         /** Keeps step {@code step}'s inputs, and the world after it, {@code after}, when it is time for a check. */

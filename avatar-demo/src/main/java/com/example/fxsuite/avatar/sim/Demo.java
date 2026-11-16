@@ -27,6 +27,13 @@ public enum Demo {
             + " pavilions; the pyramids at the edge of town; every vehicle and the gunship parked in the temple's"
             + " courtyard, where the monks hold their stand-up; the melon stall and the meeting before it.",
             0, true),
+    /**
+     * The temple under siege ({@link Siege}): the town, and airships coming in without end from the edge
+     * of the world to bomb its temple's main hall until it falls; set before it starts.
+     */
+    SIEGE("Temple siege", "The town under siege: airships come in from every side without end to bomb the temple's"
+            + " hall until it falls. Shoot them down from the tower guns, the vehicles' guns or your own. Set how"
+            + " many, how fast, how tough before it starts.", 0, true),
     /** Everything else at once: the course, the range, the airships going round, the platforms and the stall. */
     PLAYGROUND("Playground", "The course, the targets, the bombers, the stall, the flyovers, the vehicles,"
             + " the bunker, the gunship, and an airship to fly.",

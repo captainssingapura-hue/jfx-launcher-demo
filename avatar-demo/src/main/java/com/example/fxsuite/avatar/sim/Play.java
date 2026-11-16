@@ -82,7 +82,20 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** The world of {@code demo} at the start: the avatar standing at the start, facing its way, with the pack on or not. */
     public static Play start(final Demo demo, final boolean pack) {
-        return new Play(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), Damage.of(new Course(demo)));
+        return start(demo, pack, Siege.STANDARD);
+    }
+
+    /** The same, a siege set as {@code siege}, if {@code demo} is one: its airships yet to come, the temple as tough as it says. */
+    public static Play start(final Demo demo, final boolean pack, final Siege siege) {
+        if (demo == Demo.SIEGE) {
+            final Damage damage = siege.damage(new Course(demo, siege));
+            return new Play(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), damage, siege.sky(damage));
+        }
+        return start(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()), pack), demo);
+    }
+
+    private static Play start(final Avatar avatar, final Demo demo) {
+        return new Play(avatar, Damage.of(new Course(demo)));
     }
 
     /**
@@ -316,7 +329,15 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 ? seatedAt(acted.avatar(), turned.get(gunning))
                 : gunning >= 0 && !turned.get(gunning).mount().closed()
                 ? acted.avatar().facing(turned.get(gunning).heading()) : acted.avatar();
-        return new Stepped(new Play(shown, taken.damage(), fell.sky(), loaded, pushed, shoved, turned),
+        // and under siege, its airships come or sent another way, the hall rebuilt
+        Damage after = taken.damage();
+        for (final Map.Entry<Integer, Course.Piece> made : fell.revived().entrySet()) {
+            after = after.revived(made.getKey(), made.getValue());
+        }
+        for (final Map.Entry<Integer, Course.Piece> sent : fell.rerouted().entrySet()) {
+            after = after.rerouted(sent.getKey(), sent.getValue());
+        }
+        return new Stepped(new Play(shown, after, fell.sky(), loaded, pushed, shoved, turned),
                 happened);
     }
 

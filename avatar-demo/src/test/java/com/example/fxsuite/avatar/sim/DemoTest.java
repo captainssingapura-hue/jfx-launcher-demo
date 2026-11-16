@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DemoTest {
 
     @Test
-    void theTownFirstThenThePlaygroundAndTheTrackAlone() {
-        assertEquals(List.of(Demo.TOWN, Demo.PLAYGROUND, Demo.TRACK), Demo.playable());
+    void theTownFirstThenItsSiegeThePlaygroundAndTheTrackAlone() {
+        assertEquals(List.of(Demo.TOWN, Demo.SIEGE, Demo.PLAYGROUND, Demo.TRACK), Demo.playable());
         for (final Demo demo : Demo.values()) {
             assertEquals(Demo.playable().contains(demo), demo.offered(), demo.title());
         }

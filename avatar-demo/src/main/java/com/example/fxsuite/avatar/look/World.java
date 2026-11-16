@@ -79,6 +79,8 @@ public final class World {
     private final Color[] colours;
     private final double[] shown;
     private final int[] cracked;
+    /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
+    private final Map<Integer, List<Node>> marks = new HashMap<>();
     private final double[] struckAt;
     private final List<Rotate> rotors = new ArrayList<>();
     private final List<Node> lights = new ArrayList<>();
@@ -296,6 +298,11 @@ public final class World {
                 struckAt[i] = Double.NEGATIVE_INFINITY;
                 continue;
             }
+            if (!parts[i].isVisible()) {
+                // made whole again: an airship come back, a hall rebuilt
+                revive(i);
+                continue;
+            }
             struckAt[i] = time;
             wear(i, left);
         }
@@ -363,6 +370,18 @@ public final class World {
         glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
     }
 
+    /** Piece {@code piece}, broken, made whole again: shown, its colour as it was, its cracks and fires gone. */
+    private void revive(final int piece) {
+        parts[piece].setVisible(true);
+        material(piece).setDiffuseColor(colours[piece]);
+        for (final Node mark : marks.getOrDefault(piece, List.of())) {
+            parts[piece].getChildren().remove(mark);
+            fires.remove(mark);
+        }
+        marks.remove(piece);
+        cracked[piece] = 0;
+    }
+
     /** Darkened as far as it is worn (each piece has a material of its own), and cracked at each step down. */
     private void wear(final int piece, final double left) {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
@@ -426,6 +445,7 @@ public final class World {
         }
         line.setMaterial(crack);
         parts[piece].getChildren().add(line);
+        marks.computeIfAbsent(piece, k -> new ArrayList<>()).add(line);
     }
 
     /**
@@ -449,6 +469,7 @@ public final class World {
         burning.setTranslateZ(along);
         fires.add(burning);
         parts[piece].getChildren().add(burning);
+        marks.computeIfAbsent(piece, k -> new ArrayList<>()).add(burning);
     }
 
     /** 0 to 1, the same for the same piece, crack and salt. */

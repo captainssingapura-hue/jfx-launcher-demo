@@ -113,7 +113,7 @@ class SkyTest {
         final List<Course.Piece> airships = course.pieces().stream().filter(Course.Piece::flies).toList();
         assertEquals(3, airships.size());
         for (final Course.Piece airship : airships) {
-            final Course.Route route = airship.route();
+            final Course.Circling route = (Course.Circling) airship.route();
             assertEquals(airship, airship.at(0), "where it was built is where its route starts");
             final Place now = route.at(10);
             final Place soon = route.at(10.01);
@@ -144,7 +144,7 @@ class SkyTest {
     @Test
     void standingOnAnAirshipItIsCarriedAlongAndTurnedWithIt() {
         final int airship = firstAirship();
-        final Course.Route route = course.pieces().get(airship).route();
+        final Course.Circling route = (Course.Circling) course.pieces().get(airship).route();
         final Place start = route.at(0);
         final Block deck = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(start);
         // on the deck, a little off the middle, facing across it
@@ -166,7 +166,7 @@ class SkyTest {
     @Test
     void walkingOnTheDeckIsWalkingAsWellAsBeingCarried() {
         final int airship = firstAirship();
-        final Course.Route route = course.pieces().get(airship).route();
+        final Course.Circling route = (Course.Circling) course.pieces().get(airship).route();
         final Place start = route.at(0);
         final Block deck = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(start);
         // at the tail end of the middle of the hull, walking toward the nose

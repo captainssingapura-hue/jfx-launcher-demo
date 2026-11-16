@@ -195,7 +195,13 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 first = hit.on(pieces.get(i));
             }
         }
-        for (int i = 0; i < volumes.size(); i++) {
+        // a short ray (a falling bomb's step, say): only the volumes near it; a long one, all of them
+        final boolean near = reach <= SHORT_RAY;
+        final int[] which = near ? volumesNear(from.x() + direction.x() * reach / 2, from.z() + direction.z() * reach / 2,
+                reach / 2 + 1) : null;
+        final int count = near ? which.length : volumes.size();
+        for (int k = 0; k < count; k++) {
+            final int i = near ? which[k] : k;
             final Hit hit = volumes.get(i).ray(from, direction, first == null ? reach : first.distance());
             if (hit != null && (first == null || hit.distance() < first.distance())) {
                 first = hit.on(volumePieces.get(i));
@@ -203,6 +209,9 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         }
         return first;
     }
+
+    /** A ray no longer than this looks only among the volumes near it ({@link #volumesNear}): a few grid cells' worth. */
+    private static final double SHORT_RAY = 4 * VolumeGrid.CELL;
 
     /**
      * Which piece a body standing at ({@code x}, {@code z}), {@code height} up, stands on: the

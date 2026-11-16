@@ -34,6 +34,7 @@ import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Prop;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Script;
+import com.example.fxsuite.avatar.sim.Siege;
 import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -137,6 +138,8 @@ public final class Game {
     private final BoxRig rig = new BoxRig();
     /** Which demo this is, and its world. */
     private final Demo demo;
+    /** How its siege is set, if it is one ({@link Siege}). */
+    private final Siege siege;
     private final Course course;
     /** Back to the choice of demos. */
     private final Runnable back;
@@ -352,11 +355,24 @@ public final class Game {
      */
     public Game(final Stage stage, final Demo demo, final Runnable back,
                 final java.util.function.Consumer<Demo> switchTo) {
+        this(stage, demo, Siege.STANDARD, back, switchTo);
+    }
+
+    /**
+     * The same, a siege set as {@code siege}, if {@code demo} is one ({@link Siege}): its airships yet
+     * to come, the temple as tough as it says. A replay's siege is the one it was recorded in.
+     */
+    public Game(final Stage stage, final Demo demo, final Siege siege, final Runnable back,
+                final java.util.function.Consumer<Demo> switchTo) {
         this.demo = demo;
         this.back = back;
         this.switchTo = switchTo;
-        course = new Course(demo);
-        damage = Damage.of(course);
+        this.siege = replay != null ? replay.siege() : siege;
+        course = new Course(demo, this.siege);
+        damage = demo == Demo.SIEGE ? this.siege.damage(course) : Damage.of(course);
+        if (demo == Demo.SIEGE) {
+            sky = this.siege.sky(damage);
+        }
         lifts = Lift.of(damage);
         people = Person.of(damage, lifts);
         peopleBefore = people;
@@ -366,7 +382,8 @@ public final class Game {
         world = new World(course);
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
-        avatar = startedAt(Play.start(demo, replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")).avatar());
+        avatar = startedAt(new Avatar(Body.standing(Vec3.ZERO, demo.startYaw()),
+                replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")));
         before = avatar;
         seen = avatar;
         // the camera: behind, at its usual distance, or -Davatar.zoom times it (0.5 twice as near)
@@ -486,7 +503,8 @@ public final class Game {
         final String inputs = System.getProperty("avatar.inputs");
         if (inputs != null) {
             try {
-                recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack(), demo);
+                recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack(), demo,
+                        siege);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -888,6 +906,28 @@ public final class Game {
         };
     }
 
+    /**
+     * How the siege stands, a line of its own: how many airships have come, are in the air and have been
+     * shot down, and how much the hall has left; or, the hall fallen, how long it held.
+     */
+    private String siegeStatus() {
+        final Siege.State siege = sky.siege();
+        final double time = sky.time();
+        final String held = String.format("%d:%02d", (int) time / 60, (int) time % 60);
+        if (siege.lost()) {
+            return String.format("THE TEMPLE HAS FALLEN · it held %s · %d airships shot down of %d ·"
+                    + " Demo menu: start again", held, siege.downed(), siege.arrivals());
+        }
+        final String hall = damage.broken(siege.target())
+                ? String.format("the hall fallen: rebuilt in %.0f s", Math.max(0,
+                siege.fell() + siege.siege().rebuildAfter() - time))
+                : String.format("%s %.0f%%", siege.target() == siege.hall() ? "temple hall" : "their target",
+                100 * damage.left(siege.target()));
+        final String next = siege.arrivals() == 0 ? String.format(" · first in %.0f s", siege.next() - time) : "";
+        return String.format("Siege %s · %s · %d in the air · %d shot down · %d come%s", held, hall,
+                siege.flying(), siege.downed(), siege.arrivals(), next);
+    }
+
     private void showStatus() {
         final Body body = seen.body();
         final double metres = body.groundSpeed() / 100;
@@ -905,10 +945,13 @@ public final class Game {
         // an airship to be flown is a vehicle, not a target: its own state is shown at its controls
         final List<Lift> ships = lifts.stream().filter(l -> damage.piece(l.piece()).kind() == Course.Kind.AIRSHIP)
                 .toList();
+        // under siege, its airships are counted as it counts them, not as targets
+        final boolean besieged = sky.siege() != null;
         final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE)
-                + damage.count(Course.Kind.AIRSHIP) - ships.size();
+                + (besieged ? 0 : damage.count(Course.Kind.AIRSHIP) - ships.size());
         final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE)
-                + damage.broken(Course.Kind.AIRSHIP) - (int) ships.stream().filter(l -> damage.broken(l.piece())).count();
+                + (besieged ? 0 : damage.broken(Course.Kind.AIRSHIP)
+                - (int) ships.stream().filter(l -> damage.broken(l.piece())).count());
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = (targets == 0 ? "" : String.format(" · targets down %d of %d", down, targets))
                 + String.format("%s",
@@ -939,9 +982,10 @@ public final class Game {
                 .orElse(String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                         body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
                         weapon, reach, score, sound, run, free));
-        if (!text.equals(shown)) {
-            shown = text;
-            status.setText(text);
+        final String line = besieged ? siegeStatus() + System.lineSeparator() + text : text;
+        if (!line.equals(shown)) {
+            shown = line;
+            status.setText(line);
         }
         // the gun on the vehicle at whose controls the avatar is, if it has one, under control or not
         final Optional<Turret> vehicleGun = flown.flatMap(lift -> turrets.stream()

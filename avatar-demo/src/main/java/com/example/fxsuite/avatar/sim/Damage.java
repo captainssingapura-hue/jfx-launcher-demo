@@ -50,16 +50,19 @@ public final class Damage {
     private final double[] toughness;
     private final double[] health;
     private final Obstacles obstacles;
+    /** What was in the way as the course was laid out, all of it: to put back what is made whole again. */
+    private final Obstacles whole;
     /** Who stands on the ground at the start, as the course was laid out. */
     private final List<Course.Cast> ground;
 
     private Damage(final List<Course.Piece> pieces, final double[] toughness, final double[] health,
-                   final Obstacles obstacles, final List<Course.Cast> ground) {
+                   final Obstacles obstacles, final Obstacles whole, final List<Course.Cast> ground) {
         this.ground = ground;
         this.pieces = pieces;
         this.toughness = toughness;
         this.health = health;
         this.obstacles = obstacles;
+        this.whole = whole;
     }
 
     /** The course unharmed. */
@@ -69,7 +72,51 @@ public final class Damage {
         for (int i = 0; i < toughness.length; i++) {
             toughness[i] = toughness(pieces.get(i));
         }
-        return new Damage(pieces, toughness, toughness.clone(), course.obstacles(), course.ground());
+        final Obstacles laid = course.obstacles();
+        return new Damage(pieces, toughness, toughness.clone(), laid, laid, course.ground());
+    }
+
+    /** The same, each piece {@code which} picks {@code k} times as tough, and as whole as it was. */
+    public Damage toughened(final java.util.function.IntPredicate which, final double k) {
+        final double[] tougher = toughness.clone();
+        final double[] left = health.clone();
+        for (int i = 0; i < tougher.length; i++) {
+            if (which.test(i) && Double.isFinite(tougher[i])) {
+                tougher[i] *= k;
+                left[i] *= k;
+            }
+        }
+        return new Damage(pieces, tougher, left, obstacles, whole, ground);
+    }
+
+    /** The same, piece {@code piece} taken out of the world, broken without a blow: one waiting to come ({@link Siege}). */
+    public Damage retired(final int piece) {
+        final double[] left = health.clone();
+        left[piece] = 0;
+        return new Damage(pieces, toughness, left, obstacles.without(piece), whole, ground);
+    }
+
+    /** The same, piece {@code piece} {@code now} instead, and whole again, back in the world: an airship come, a hall rebuilt. */
+    public Damage revived(final int piece, final Course.Piece now) {
+        final List<Course.Piece> changed = new ArrayList<>(pieces);
+        changed.set(piece, now);
+        final double[] left = health.clone();
+        left[piece] = toughness[piece];
+        // in the way as it was laid out (what moves, put where it is as the world is stepped), less what is still broken
+        Obstacles standing = whole;
+        for (int i = 0; i < left.length; i++) {
+            if (left[i] <= 0) {
+                standing = standing.without(i);
+            }
+        }
+        return new Damage(List.copyOf(changed), toughness, left, standing, whole, ground);
+    }
+
+    /** The same, piece {@code piece} {@code now} instead, as worn as it was: an airship sent another way. */
+    public Damage rerouted(final int piece, final Course.Piece now) {
+        final List<Course.Piece> changed = new ArrayList<>(pieces);
+        changed.set(piece, now);
+        return new Damage(List.copyOf(changed), toughness, health, obstacles, whole, ground);
     }
 
     /** Who stood on the ground at the start, as the course was laid out: not on a platform. */
@@ -154,7 +201,7 @@ public final class Damage {
             }
         }
         return left == null ? new Taken(this, happened)
-                : new Taken(new Damage(pieces, toughness, left, standing, ground), happened);
+                : new Taken(new Damage(pieces, toughness, left, standing, whole, ground), happened);
     }
 
     /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */

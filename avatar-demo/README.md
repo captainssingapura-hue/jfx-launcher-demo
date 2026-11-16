@@ -324,20 +324,22 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of three demos (`Demo.playable`), the **town** first: its buildings round the
+It opens on a choice of four demos (`Demo.playable`), the **town** first: its buildings round the
 temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
 park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
 the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
 in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
 tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
-on its platform. Then the **playground**, the rest at once (the course, its targets and the bombers,
+on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
+before it starts. Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=TOWN` (or `PLAYGROUND`, `TRACK`) goes straight to one; a script or a snapshot with
+`-Davatar.demo=TOWN` (or `SIEGE`, `PLAYGROUND`, `TRACK`) goes straight to one, a siege set as
+`-Davatar.siege` says (as a recording writes it); a script or a snapshot with
 none named runs in the town. The simple scenes the tests drive, fly and fire in, each round a single
 vehicle or gun (`PLATFORM`, `AIRSHIP`, `FLYOVER`, `GUNS`), are not offered, but go straight there the
 same way.
@@ -894,6 +896,23 @@ through, and one loaded until a pillar gives and it falls.
   one, its footprint stood up to its ridge.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
+- **The temple siege** (`Siege`, `Demo.SIEGE`): the town, and enemy airships, heavy bombers, coming
+  in without end to bomb the temple's main hall until it falls. Each comes from the edge of the world,
+  from a heading of its own, high over the tallest building, makes straight for the temple and circles
+  over it at a crawl, sinking to a height of its own (each slot clear of the next), bombing whenever
+  its bomb would land on the hall; passing over another building on its way it may, by chance, drop a
+  stick of three on it (`Raid`, a way worked out afresh for any moment: up to its cruise, a run in
+  meeting its circle square on, slowing, then round for good). So many fly at once, each in a slot of
+  its own: one of the airships built in for it, out of the world until its turn; shot down, its slot is
+  free for the next once its wreck has fallen. Its settings, before it starts (`SiegeSettings`): how
+  many at once (1 to 16), how often one comes and how much sooner each time, their speed and size, how
+  often they bomb and how likely they are to bomb other buildings, how tough the temple is and how
+  tough they are, what comes of the hall falling (the siege lost; the hall rebuilt in so many seconds;
+  or they go for the next building), and the seed their ways are drawn from: the same seed, the same
+  siege. A line over the status says how it stands: how long it has held, how much the hall has left,
+  how many are in the air, shot down and come. Their bombs fall past each other, and a blast now
+  harms what is shaped more closely than a box (a hall, a tower) as well as what is a box. Sixteen in
+  the air, bombing, run at 60 frames a second. A recording keeps how its siege was set.
 - **The town** (`Town`, the first demo): every building on a site of its own, a grid of three by
   three 150 m apart ahead of the start, each facing back down the street to it: the church (on the
   front row's middle), the brutalist apartments, and the six towers, each dressed its own way, the

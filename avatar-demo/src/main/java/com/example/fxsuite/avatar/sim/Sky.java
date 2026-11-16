@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.sim;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -17,18 +18,22 @@ import java.util.Set;
  *       While they are open, its bombs just drop, one every {@link #STICK}, from under its gondola,
  *       going as fast as the airship was; shut, none. Carpet bombing: it drops wherever it is, whatever
  *       is under it.</li>
+ *   <li><b>Under siege</b> ({@code siege}, null for none: {@link Siege}), the siege's airships instead
+ *       come and go as it says, and open their bays and drop their bombs when it says: over their
+ *       target, or a building they chance to bomb. Their bombs fall past each other.</li>
  *   <li><b>A bomb falls</b> as everything does ({@link Body#GRAVITY}), and goes off at the first
  *       thing in its way, a block or the ground. Every piece that can break within
- *       {@link #BLAST} of it takes a blow ({@link Weapon#BOMB}). It does nothing to the avatar,
- *       which takes no harm yet: it falls through it.</li>
+ *       {@link #BLAST} of it takes a blow ({@link Weapon#BOMB}), whether a box or shaped more closely.
+ *       It does nothing to the avatar, which takes no harm yet: it falls through it.</li>
  * </ul>
  *
  * @param time    seconds since the start
  * @param bombs   those falling
  * @param dropped how many have been dropped, each bomb numbered by it
  * @param bays    each airship's bomb bay's doors, by its piece, as they are driven
+ * @param siege   the siege, as it stands; null, none
  */
-public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Integer, Actuator> bays) {
+public record Sky(double time, List<Bomb> bombs, long dropped, Map<Integer, Actuator> bays, Siege.State siege) {
 
     /** The sky at the start: the airships where their routes begin, and nothing falling. */
     public static final Sky START = new Sky(0, List.of(), 0);
@@ -47,12 +52,17 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
 
     public Sky {
         bombs = List.copyOf(bombs);
-        bays = java.util.Map.copyOf(bays);
+        bays = Map.copyOf(bays);
+    }
+
+    /** No siege. */
+    public Sky(final double time, final List<Bomb> bombs, final long dropped, final Map<Integer, Actuator> bays) {
+        this(time, bombs, dropped, bays, null);
     }
 
     /** No bomb bay driven yet: each as it starts, shut. */
     public Sky(final double time, final List<Bomb> bombs, final long dropped) {
-        this(time, bombs, dropped, java.util.Map.of());
+        this(time, bombs, dropped, Map.of());
     }
 
     /** How far airship {@code piece}'s bomb bay's doors are open, degrees: shut, 0, if it has none driven. */
@@ -65,12 +75,24 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
     public record Bomb(long number, Vec3 at, Vec3 velocity, int from) {
     }
 
-    /** The sky after a step, what happened in it, and the blows its bombs dealt, for the world to take. */
-    public record Stepped(Sky sky, List<Event> events, List<Blow> blows) {
+    /**
+     * The sky after a step, what happened in it, and the blows its bombs dealt, for the world to take;
+     * and, under siege, the pieces it made whole again as they now are ({@code revived}: an airship come,
+     * the hall rebuilt), and the airships it sent another way ({@code rerouted}).
+     */
+    public record Stepped(Sky sky, List<Event> events, List<Blow> blows, Map<Integer, Course.Piece> revived,
+                          Map<Integer, Course.Piece> rerouted) {
 
         public Stepped {
             events = List.copyOf(events);
             blows = List.copyOf(blows);
+            revived = Map.copyOf(revived);
+            rerouted = Map.copyOf(rerouted);
+        }
+
+        /** Nothing made whole, none sent another way. */
+        public Stepped(final Sky sky, final List<Event> events, final List<Blow> blows) {
+            this(sky, events, blows, Map.of(), Map.of());
         }
     }
 
@@ -78,7 +100,7 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
     public Sky dropped(final Vec3 at, final Vec3 velocity, final int from) {
         final List<Bomb> falling = new ArrayList<>(bombs);
         falling.add(new Bomb(dropped, at, velocity, from));
-        return new Sky(time, falling, dropped + 1, bays);
+        return new Sky(time, falling, dropped + 1, bays, siege);
     }
 
     /**
@@ -88,15 +110,23 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
      */
     public Stepped step(final double seconds, final Damage damage, final Obstacles world) {
         final double to = time + seconds;
-        final List<Bomb> falling = new ArrayList<>();
         final List<Event> events = new ArrayList<>();
         final List<Blow> blows = new ArrayList<>();
+        // the siege's own: they fall past each other
+        Obstacles past = world;
+        if (siege != null) {
+            for (final Siege.Raider raider : siege.raiders()) {
+                past = past.without(raider.piece());
+            }
+        }
+        final List<Bomb> falling = new ArrayList<>();
         for (final Bomb bomb : bombs) {
             final Vec3 velocity = bomb.velocity().add(0, Body.GRAVITY * seconds, 0);
             // the average of the two: exact under constant gravity
             final Vec3 move = bomb.velocity().add(velocity).multiply(seconds / 2);
             final double reach = move.magnitude();
-            final Hit hit = reach > 0 ? world.ray(bomb.at(), move.multiply(1 / reach), reach) : null;
+            final Obstacles through = siege != null && siege.raider(bomb.from()) ? past : world;
+            final Hit hit = reach > 0 ? through.ray(bomb.at(), move.multiply(1 / reach), reach) : null;
             if (hit == null) {
                 falling.add(new Bomb(bomb.number(), bomb.at().add(move), velocity, bomb.from()));
             } else {
@@ -105,8 +135,42 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
             }
         }
         long count = dropped;
-        final java.util.Map<Integer, Actuator> driven = new java.util.HashMap<>();
+        final Map<Integer, Actuator> driven = new java.util.HashMap<>();
+        // under siege: its airships come, and bomb as it says
+        Siege.State besieged = siege;
+        Map<Integer, Course.Piece> revived = Map.of();
+        Map<Integer, Course.Piece> rerouted = Map.of();
+        if (siege != null) {
+            final Siege.State.Stepped orders = siege.step(time, seconds, damage, piece -> {
+                final Actuator bay = bays.get(piece);
+                return bay != null && bay.stage() == Actuator.Stage.OPEN;
+            });
+            besieged = orders.state();
+            revived = orders.revived();
+            rerouted = orders.rerouted();
+            events.addAll(orders.events());
+            for (final Map.Entry<Integer, Boolean> asked : orders.bays().entrySet()) {
+                final int piece = asked.getKey();
+                final Course.Piece ship = rerouted.getOrDefault(piece, damage.piece(piece));
+                final Actuator was = bays.get(piece);
+                final Actuator bay = (was != null ? was : Actuator.shut(Actuator.Drive.HYDRAULIC, 0, BAY_OPENS, BAY_RATE))
+                        .asked(asked.getValue()).step(seconds).actuator();
+                driven.put(piece, bay);
+                if (was == null ? asked.getValue() : was.open() != asked.getValue()) {
+                    events.add(new Event.Bay(piece, asked.getValue(), under(ship, to)));
+                }
+            }
+            for (final int piece : orders.drops()) {
+                final Course.Piece ship = rerouted.getOrDefault(piece, damage.piece(piece));
+                final Vec3 at = under(ship, to).add(0, BELOW, 0);
+                falling.add(new Bomb(count++, at, going(ship, seconds), piece));
+                events.add(new Event.Dropped(at, piece));
+            }
+        }
         for (final int piece : damage.flying()) {
+            if (siege != null && siege.raider(piece)) {
+                continue;
+            }
             // each in its turn, a third of a run apart, by its number: its bay asked open for the first
             // part of each run, then shut
             final double offset = RUN * (piece % 3) / 3;
@@ -119,28 +183,37 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
             driven.put(piece, bay);
             // heard: its bay asked to open, or to shut, its doors under its gondola
             if (was != null && was.open() != open) {
-                final Block under = Course.part(damage.piece(piece), Course.GONDOLA)
-                        .placed(damage.piece(piece).route().at(to));
-                events.add(new Event.Bay(piece, open, new Vec3(under.x(), -under.bottom(), under.z())));
+                events.add(new Event.Bay(piece, open, under(damage.piece(piece), to)));
             }
             // open, its bombs just drop
             if (bay.stage() == Actuator.Stage.OPEN
                     && Math.floor((to + offset) / STICK) > Math.floor((time + offset) / STICK)) {
-                final Course.Route route = damage.piece(piece).route();
-                final Place now = route.at(to);
-                final Place before = route.at(time);
-                final Block gondola = Course.part(damage.piece(piece), Course.GONDOLA).placed(now);
-                final Vec3 at = new Vec3(gondola.x(), -(gondola.bottom() - BELOW), gondola.z());
-                final Vec3 going = seconds > 0
-                        ? new Vec3(now.x() - before.x(), 0, now.z() - before.z()).multiply(1 / seconds) : Vec3.ZERO;
-                falling.add(new Bomb(count++, at, going, piece));
+                final Course.Piece ship = damage.piece(piece);
+                final Vec3 at = under(ship, to).add(0, BELOW, 0);
+                falling.add(new Bomb(count++, at, going(ship, seconds), piece));
                 events.add(new Event.Dropped(at, piece));
             }
         }
-        return new Stepped(new Sky(to, falling, count, driven), events, blows);
+        return new Stepped(new Sky(to, falling, count, driven, besieged), events, blows, revived, rerouted);
     }
 
-    /** A blow on each piece that can still break within {@link #BLAST} of {@code at}. */
+    /** Where under airship {@code ship}'s gondola its bay is, {@code seconds} after the start: the world's y down. */
+    private static Vec3 under(final Course.Piece ship, final double seconds) {
+        final Block gondola = Course.part(ship, Course.GONDOLA).placed(ship.route().at(seconds));
+        return new Vec3(gondola.x(), -gondola.bottom(), gondola.z());
+    }
+
+    /** How fast airship {@code ship} goes, across the ground, over the last {@code seconds} before {@link #time}'s next. */
+    private Vec3 going(final Course.Piece ship, final double seconds) {
+        if (seconds <= 0) {
+            return Vec3.ZERO;
+        }
+        final Place now = ship.route().at(time + seconds);
+        final Place before = ship.route().at(time);
+        return new Vec3(now.x() - before.x(), 0, now.z() - before.z()).multiply(1 / seconds);
+    }
+
+    /** A blow on each piece that can still break within {@link #BLAST} of {@code at}: a box, or shaped more closely. */
     private static void blast(final Vec3 at, final Damage damage, final Obstacles world, final List<Blow> blows) {
         final double height = -at.y();
         final Set<Integer> reached = new HashSet<>();
@@ -152,6 +225,18 @@ public record Sky(double time, List<Bomb> bombs, long dropped, java.util.Map<Int
             final Block block = world.blocks().get(i);
             if (height >= block.bottom() - BLAST && height <= block.top() + BLAST
                     && block.covers(at.x(), at.z(), BLAST)) {
+                reached.add(piece);
+                blows.add(new Blow(at, new Vec3(0, -1, 0), Surface.BLOCK, Weapon.BOMB, piece));
+            }
+        }
+        // what is shaped more closely: a hall, a tower, a pyramid, a wall
+        final Block round = new Block(at.x(), at.z(), BLAST, BLAST, 0, height - BLAST, height + BLAST);
+        for (final int i : world.volumesNear(at.x(), at.z(), BLAST)) {
+            final int piece = world.volumePieces().get(i);
+            if (reached.contains(piece) || !damage.piece(piece).kind().breakable() || damage.broken(piece)) {
+                continue;
+            }
+            if (world.volumes().get(i).overlaps(round)) {
                 reached.add(piece);
                 blows.add(new Blow(at, new Vec3(0, -1, 0), Surface.BLOCK, Weapon.BOMB, piece));
             }
