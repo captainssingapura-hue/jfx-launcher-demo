@@ -1165,6 +1165,8 @@ public final class Course {
         stall(pieces.size() - 1);
         pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
+        // and the gunship, parked in the open off to the left of the start, its nose to the town, to fly over it
+        pieces.add(Piece.moving(GUNSHIP.shape(), new Place(-3200, 800, GUNSHIP.standing(), 0), Kind.AIRCRAFT, 0, null));
     }
 
     /**

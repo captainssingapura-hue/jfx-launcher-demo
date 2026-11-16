@@ -75,7 +75,7 @@ class TownTest {
     }
 
     @Test
-    void theTownDemoIsItsBuildingsTheMotorcycleTheStallAndTheStandUp() {
+    void theTownDemoIsItsBuildingsTheMotorcycleTheStallTheStandUpAndTheGunship() {
         Course.town(Town::pieces);
         final Play play = Play.start(Demo.TOWN, false);
         final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
@@ -83,6 +83,9 @@ class TownTest {
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft() == Course.BOXER), "the boxer, to ride");
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.BARGE)), "the barge");
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.MEETING)), "the meeting platform");
+        final com.example.fxsuite.avatar.sim.Lift gunship = play.lifts().stream().filter(l -> l.craft() == Course.GUNSHIP)
+                .findFirst().orElseThrow(() -> new AssertionError("the gunship, to fly over it"));
+        assertTrue(gunship.clear(gunship.place(), play.obstacles(), List.of()), "parked clear of everything");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.FRUIT), "melons on the stall");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.FURNITURE), "the table, the stool, the scooter, the scrum board");
         assertEquals(Course.CAST.size(), play.people().size(), "the stallholder, their customers and the stand-up");

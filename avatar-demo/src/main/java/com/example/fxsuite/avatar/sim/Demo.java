@@ -26,10 +26,10 @@ public enum Demo {
     /** A race track: a NASCAR-style oval, banked in its turns, and every land vehicle on pit road to take round it. */
     TRACK("Track", "A NASCAR-style oval, a mile round, banked 24° in its turns; the cars, the truck and the bikes on"
             + " pit road, to take round it flat out.", 105),
-    /** The buildings, put up along streets; the boxer motorcycle to ride between them; the melon stall and the stand-up. */
+    /** The buildings, put up along streets; the boxer motorcycle to ride between them; the melon stall and the stand-up; the gunship. */
     TOWN("Town", "The buildings: the brutalist apartments, the towers, the church and the temple hall, along streets;"
-            + " the boxer motorcycle to ride between them; and before them, the melon stall and the stand-up, each on"
-            + " its platform.", 0),
+            + " the boxer motorcycle to ride between them; before them, the melon stall and the stand-up, each on"
+            + " its platform; and the gunship, to fly over it all.", 0),
     /** A temple's courtyard: its great hall at the back, a smaller hall each side, three monks at their stand-up. */
     TEMPLE("Temple", "A temple's courtyard: its great hall at the back, a smaller hall facing in from each side, and"
             + " three monks at their stand-up in the middle. (Its gate is to come.)", 0),
