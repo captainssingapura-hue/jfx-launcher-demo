@@ -18,11 +18,13 @@ import java.util.List;
  *
  * <p>Solid {@link Obstacles} stop it: to the avatar they are an upright cylinder,
  * {@link #RADIUS} round and {@link #TALL} high. It stands on whatever is under its feet, the
- * ground or the top of a block; steps up onto a ledge its feet come within {@link #STEP} of,
- * so a jump onto a crate lands on it; falls when it walks off an edge; stops climbing when its
- * head meets an underside; and slides along whatever it runs into, losing the speed that went
- * into it. Each step moves in sub-steps of at most {@link #SUBSTEP}, so not even a boost at a
- * slow frame rate carries it through a thin bar.
+ * ground ({@link Land}, rising and falling) or the top of a block; steps up onto a ledge its feet
+ * come within {@link #STEP} of, so a jump onto a crate lands on it; falls when it walks off an edge;
+ * stops climbing when its head meets an underside; and slides along whatever it runs into, losing
+ * the speed that went into it. The land is walked up and down; where it rises steeper than
+ * {@link #CLIMB}, 45°, it is in the way, and the body goes along the slope instead of up it. Each
+ * step moves in sub-steps of at most {@link #SUBSTEP}, so not even a boost at a slow frame rate
+ * carries it through a thin bar.
  *
  * <p>A jump is a state of its own, from leaving its feet to landing, whether by jumping, walking
  * off an edge or dropping out of flight. Its momentum then keeps to the heading it left on,
@@ -69,6 +71,10 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
     public static final double TALL = 200;
     /** A ledge no higher than this above the feet is stepped up onto. */
     public static final double STEP = 20;
+    /** How steep the land it climbs, at most: rise over run, 45°. */
+    public static final double CLIMB = 1;
+    /** How far either side it looks to tell which way the land rises, turned aside by a slope too steep to climb. */
+    static final double STEEP = 25;
     /** How far the feet must reach onto a top to stand on it: less than the full radius, so it slips off edges. */
     public static final double FOOTING = 16;
     /** The most it moves in one sub-step, in any direction. */
@@ -220,8 +226,25 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
         Surface underfoot = Surface.GROUND;
         for (int i = 0; i < substeps; i++) {
             final double before = height;
+            final double wasX = x;
+            final double wasZ = z;
             x = Num.clamp(x + vx * dt, -EDGE, EDGE);
             z = Num.clamp(z + vz * dt, -EDGE, EDGE);
+            // the land rising ahead of the feet steeper than can be climbed: in the way, as a wall is. Back
+            // where it was, going along the slope, not up it
+            if (world.land().height(x, z) - before > CLIMB * Math.hypot(x - wasX, z - wasZ) + 1e-9) {
+                final Vec2 up = world.land().rise(wasX, wasZ, STEEP);
+                final double steep = up.magnitude();
+                if (steep > 0) {
+                    final double into = (vx * up.x() + vz * up.z()) / steep;
+                    if (into > 0) {
+                        vx -= into * up.x() / steep;
+                        vz -= into * up.z() / steep;
+                    }
+                }
+                x = wasX;
+                z = wasZ;
+            }
             height += rise * dt;
 
             // the head meets an underside it was below

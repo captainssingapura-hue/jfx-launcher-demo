@@ -152,7 +152,7 @@ public final class World {
         final PhongMaterial grass = BoxRig.matte("#66775c");
         final Block hole = lawns.stream().max(java.util.Comparator.comparingDouble(Block::halfWidth)).orElse(null);
         // or, where the land rises and falls, the land as surveyed
-        land = course.land() == null ? null : new TerrainModel(course.land(), Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
+        land = course.land().level() ? null : new TerrainModel(course.land(), Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         if (land != null) {
             root.getChildren().add(land.node());
         } else if (hole == null) {
@@ -173,8 +173,10 @@ public final class World {
         horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         root.getChildren().add(horizon.node());
 
-        // its rivers: each its water between its banks, side by side, none over another
-        for (final com.example.fxsuite.avatar.sim.River river : course.rivers()) {
+        // its rivers: each its water between its banks, side by side, none over another; on level ground
+        // only, for now: where the land is laid out, its channel is cut into it, as yet dry
+        for (final com.example.fxsuite.avatar.sim.River river : land == null ? course.rivers()
+                : List.<com.example.fxsuite.avatar.sim.River>of()) {
             final double half = river.wide() / 2;
             final javafx.scene.shape.MeshView water = GardenMesh.ribbon(river.line(), -half, half, (float) -river.top());
             final PhongMaterial wet = BoxRig.matte("#3b6f8c");

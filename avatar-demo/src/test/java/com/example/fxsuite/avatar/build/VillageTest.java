@@ -8,7 +8,7 @@ import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.River;
-import com.example.fxsuite.avatar.sim.Survey;
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import org.junit.jupiter.api.Test;
@@ -45,8 +45,8 @@ class VillageTest {
         Village.tell();
         final Course course = new Course(Demo.VILLAGE);
         assertEquals(1, course.rivers().size());
-        assertTrue(course.land() != null, "the meadow's land, as surveyed");
-        assertTrue(new Course(Demo.TOWN).land() == null, "the town's ground level");
+        assertFalse(course.land().level(), "the meadow's land, laid out");
+        assertTrue(new Course(Demo.TOWN).land().level(), "the town's ground level");
         assertFalse(course.grid(), "open country, no grid ruled on it");
         assertEquals(Village.start(), course.start());
     }
@@ -87,8 +87,28 @@ class VillageTest {
     }
 
     @Test
+    void aCarAndAMotorcycleParkedByTheStartFacingTheRiver() {
+        final List<Course.Piece> parked = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.CAR).toList();
+        assertEquals(2, parked.size());
+        assertTrue(parked.get(0).block().halfWidth() > 2 * parked.get(1).block().halfWidth(), "a car, and a motorcycle beside it");
+        final Vec3 start = Village.start();
+        final River river = Village.rivers().getFirst();
+        for (final Course.Piece vehicle : parked) {
+            final Block box = vehicle.block();
+            assertTrue(Math.hypot(box.x() - start.x(), box.z() - start.z()) < 1_000, "by the start");
+            assertTrue(box.z() < Village.riverAt(box.x()) - river.wide(), "short of the river");
+            assertEquals(0, box.yaw(), 1e-9, "facing it");
+        }
+        // and nothing else where they are
+        final List<Course.Piece> rest = Village.pieces().stream().filter(p -> p.kind() != Course.Kind.CAR).toList();
+        for (final Course.Piece vehicle : parked) {
+            assertTrue(rest.stream().noneMatch(p -> p.block().overlaps(vehicle.block())), "clear");
+        }
+    }
+
+    @Test
     void itsTreesStandOnItsLandNoneClearOfIt() {
-        final Survey land = Village.land();
+        final Land land = Village.land();
         boolean up = false;
         for (final Course.Piece tree : Village.pieces().stream().filter(p -> p.kind() == Course.Kind.TREE).toList()) {
             final Block trunk = tree.block();

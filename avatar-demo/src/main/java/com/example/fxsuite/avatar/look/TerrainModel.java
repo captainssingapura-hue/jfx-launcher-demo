@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.look;
 
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -27,19 +28,28 @@ import java.util.List;
  * <p>Its base colour is lit by the sun and the sky; its tint, a little mottled, and the haze, are in one
  * picture lit by itself ({@link #picture}).
  *
- * <p>Drawn in tiles, {@link #TILE} heights a side, each as fine as it is near: every height near the
- * camera, every second, fifth, tenth, then twenty-fifth further off ({@link #STEPS}, {@link #OUT}), a
- * tile changing only once it is well past where it should ({@link #BACK}), so it does not flick back and
- * forth. A skirt hangs from each tile's edges, so where a fine tile meets a coarse one no gap shows
- * between them. Each tile's haze is worked out again, height by height, as the camera moves; those near
+ * <p>Drawn in tiles, {@link #TILE} of the survey's heights a side, each as fine as it is near
+ * ({@link #OUT}), a tile changing only once it is well past where it should ({@link #BACK}), so it does
+ * not flick back and forth. As fine as the land needs and no finer ({@link LandSheet}): near, within
+ * {@link #TOLERANCE} 3 cm of it, an open meadow in squares tens of metres across and a river's bank in
+ * squares of half a metre; further off, less closely. A skirt hangs from each tile's edges, so where a
+ * fine tile meets a coarse one no gap shows between them. Each tile's haze is worked out again, height by height, as the camera moves; those near
  * enough to have none are left alone.
  */
 public final class TerrainModel {
 
     /** Heights along a tile's side, less one: 500 m, at 10 m apart. */
     static final int TILE = 50;
-    /** Each height, or every so many, as a tile is further off. */
-    static final int[] STEPS = {1, 2, 5, 10, 25};
+    /**
+     * How close to the land each level of a tile keeps, nearest first; its smallest squares, its biggest, and
+     * its biggest where a feature of the land lies.
+     */
+    static final double[] TOLERANCE = {3, 10, 30, 100, 300};
+    static final double[] FINEST = {50, 100, 400, 1_000, 2_500};
+    static final double[] LARGEST = {4_000, 8_000, 16_000, 31_250, 50_000};
+    static final double[] FEATURED = {400, 800, 1_600, 3_200, 6_400};
+    /** How many levels a tile has. */
+    static final int LEVELS = TOLERANCE.length;
     /** Beyond each of these, across the ground from the camera to a tile's nearest point, the next coarser step. */
     static final double[] OUT = {100_000, 200_000, 350_000, 600_000};
     /** How much nearer than where it went coarser a tile must come to go finer again. */
@@ -55,6 +65,8 @@ public final class TerrainModel {
     private static final int HAZES = 64;
     /** How much each height's tint is moved up or down, at random: the grass mottled. */
     private static final double MOTTLE = 0.025;
+    /** How far apart the mottle's spots are. */
+    private static final double MOTTLED = 100;
 
     /**
      * The land's base colour, shaded by the sun as its slopes face it: no brighter than any of its tints,
@@ -62,11 +74,17 @@ public final class TerrainModel {
      */
     static final Color BASE = Color.web("#55644d");
 
+    /** Bare earth, where no grass grows ({@link Land#bare}): a channel's bed and banks; and how many of the picture's columns are it. */
+    static final Color EARTH = Color.web("#7d6a4e");
+    static final int EARTHY = 16;
+
     /** The land's tints, low to high. */
     private static final Color[] RAMP = {Color.web("#66775c"), Color.web("#6c7e55"), Color.web("#7b8857"),
             Color.web("#857f58"), Color.web("#8a7d66")};
 
-    private final Survey land;
+    private final Land land;
+    /** The land's lie, as surveyed: its tiles are so many of its heights a side. */
+    private final Survey lie;
     private final Group root = new Group();
     private final List<Tile> tiles = new ArrayList<>();
     private final double low;
@@ -83,12 +101,12 @@ public final class TerrainModel {
         final int j0;
         final int j1;
         final MeshView view = new MeshView();
-        final TriangleMesh[] meshes = new TriangleMesh[STEPS.length];
-        final float[][] coords = new float[STEPS.length][];
-        final float[][] places = new float[STEPS.length][];
+        final TriangleMesh[] meshes = new TriangleMesh[LEVELS];
+        final float[][] coords = new float[LEVELS][];
+        final float[][] places = new float[LEVELS][];
         /** Which way each height's ground faces, as the land has it; and as shown, turned up by the haze laid over it. */
-        final float[][] facing = new float[STEPS.length][];
-        final float[][] shown = new float[STEPS.length][];
+        final float[][] facing = new float[LEVELS][];
+        final float[][] shown = new float[LEVELS][];
         int level = -1;
         /** Whether it has any haze on it; whether that is to be worked out again, the camera having moved. */
         boolean hazed;
@@ -105,10 +123,10 @@ public final class TerrainModel {
 
         /** How far {@code eye} is across the ground from its nearest point, and from its furthest. */
         double[] away(final Vec3 eye) {
-            final double minX = land.x(i0);
-            final double maxX = land.x(i1);
-            final double minZ = land.z(j0);
-            final double maxZ = land.z(j1);
+            final double minX = lie.x(i0);
+            final double maxX = lie.x(i1);
+            final double minZ = lie.z(j0);
+            final double maxZ = lie.z(j1);
             final double dx = Math.max(0, Math.max(minX - eye.x(), eye.x() - maxX));
             final double dz = Math.max(0, Math.max(minZ - eye.z(), eye.z() - maxZ));
             final double fx = Math.max(Math.abs(eye.x() - minX), Math.abs(eye.x() - maxX));
@@ -118,17 +136,22 @@ public final class TerrainModel {
     }
 
     /**
-     * The land as surveyed, lit as {@code lit} lights level ground, each channel ({@link Horizon#lighting}): its
-     * base colour shaded by the sun as its slopes face it, all else in one picture lit by itself (see {@link #picture}).
+     * The land, its lie surveyed, lit as {@code lit} lights level ground, each channel ({@link Horizon#lighting}):
+     * its base colour shaded by the sun as its slopes face it, all else in one picture lit by itself (see
+     * {@link #picture}).
      */
-    public TerrainModel(final Survey land, final double[] lit) {
+    public TerrainModel(final Land land, final double[] lit) {
+        if (land.base() == null) {
+            throw new IllegalArgumentException("the land drawn is surveyed");
+        }
         this.land = land;
+        this.lie = land.base();
         this.low = land.lowest();
         this.span = Math.max(1, land.highest() - low);
         material = new PhongMaterial(BASE);
         material.setSpecularColor(Color.BLACK);
         material.setSelfIlluminationMap(picture(lit));
-        final int last = land.size() - 1;
+        final int last = lie.size() - 1;
         for (int j = 0; j < last; j += TILE) {
             for (int i = 0; i < last; i += TILE) {
                 final Tile tile = new Tile(i, Math.min(last, i + TILE), j, Math.min(last, j + TILE));
@@ -214,116 +237,40 @@ public final class TerrainModel {
         return level;
     }
 
-    /** From {@code from} to {@code to}, every {@code step}: and {@code to}, whether it falls on a step or not. */
-    static int[] along(final int from, final int to, final int step) {
-        final List<Integer> at = new ArrayList<>();
-        for (int k = from; k < to; k += step) {
-            at.add(k);
-        }
-        at.add(to);
-        return at.stream().mapToInt(Integer::intValue).toArray();
-    }
-
-    /** Tile {@code tile} at step {@code level}: its sheet, and its skirt hanging from its four edges. */
+    /**
+     * Tile {@code tile} at level {@code level}: the land over it as fine as that level needs ({@link LandSheet}),
+     * and its skirt hanging from its edges; each point tinted by how high it is, a little mottled, no haze yet.
+     */
     private void build(final Tile tile, final int level) {
-        final int[] is = along(tile.i0, tile.i1, STEPS[level]);
-        final int[] js = along(tile.j0, tile.j1, STEPS[level]);
-        final List<int[]> top = new ArrayList<>();
-        for (final int j : js) {
-            for (final int i : is) {
-                top.add(new int[] {i, j});
-            }
-        }
-        // the skirt: each edge's heights again, hanging below them
-        final List<int[]> edges = new ArrayList<>();
-        edges.add(edge(is, js, 0, true));
-        edges.add(edge(is, js, js.length - 1, true));
-        edges.add(edge(is, js, 0, false));
-        edges.add(edge(is, js, is.length - 1, false));
-        int count = top.size();
-        for (final int[] e : edges) {
-            count += e.length;
-        }
-        final float[] points = new float[3 * count];
-        final float[] normals = new float[3 * count];
-        final float[] coords = new float[2 * count];
-        int v = 0;
-        for (final int[] at : top) {
-            put(points, normals, coords, v++, at[0], at[1], 0);
-        }
-        final int[] hung = new int[edges.size()];
-        for (int e = 0; e < edges.size(); e++) {
-            hung[e] = v;
-            for (final int index : edges.get(e)) {
-                put(points, normals, coords, v++, top.get(index)[0], top.get(index)[1], SKIRT);
-            }
+        final LandSheet.Made made = LandSheet.of(land, lie.x(tile.i0), lie.z(tile.j0), lie.x(tile.i1), lie.z(tile.j1),
+                TOLERANCE[level], FINEST[level], LARGEST[level], FEATURED[level], lie.every(), SKIRT);
+        final float[] coords = new float[2 * made.size()];
+        final float[] points = made.points();
+        for (int v = 0; v < made.size(); v++) {
+            final long x = Math.round(points[3 * v] / MOTTLED);
+            final long z = Math.round(points[3 * v + 2] / MOTTLED);
+            final double tint = (made.heights()[v] - low) / span + MOTTLE * (2 * Num.hash(x, z) - 1);
+            coords[2 * v] = (float) ((column(land.bare(points[3 * v], points[3 * v + 2]), tint) + 0.5) / TINTS);
+            coords[2 * v + 1] = (float) (0.5 / HAZES);
         }
         final TriangleMesh mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
         mesh.getPoints().setAll(points);
-        mesh.getNormals().setAll(normals);
+        mesh.getNormals().setAll(made.normals());
         mesh.getTexCoords().setAll(coords);
-        final int nx = is.length;
-        final List<Integer> faces = new ArrayList<>();
-        for (int b = 0; b + 1 < js.length; b++) {
-            for (int a = 0; a + 1 < nx; a++) {
-                final int p = b * nx + a;
-                // wound so its face is up, the world's y down
-                triangle(faces, p, p + 1, p + nx);
-                triangle(faces, p + 1, p + nx + 1, p + nx);
-            }
+        // each corner's point, the way it faces and its tint, all by the same number
+        final int[] corners = made.triangles();
+        final int[] faces = new int[3 * corners.length];
+        for (int k = 0; k < corners.length; k++) {
+            faces[3 * k] = corners[k];
+            faces[3 * k + 1] = corners[k];
+            faces[3 * k + 2] = corners[k];
         }
-        for (int e = 0; e < edges.size(); e++) {
-            final int[] edge = edges.get(e);
-            for (int k = 0; k + 1 < edge.length; k++) {
-                triangle(faces, edge[k], edge[k + 1], hung[e] + k);
-                triangle(faces, edge[k + 1], hung[e] + k + 1, hung[e] + k);
-            }
-        }
-        mesh.getFaces().setAll(faces.stream().mapToInt(Integer::intValue).toArray());
+        mesh.getFaces().setAll(faces);
         tile.meshes[level] = mesh;
         tile.coords[level] = coords;
         tile.places[level] = points;
-        tile.facing[level] = normals;
-        tile.shown[level] = normals.clone();
-    }
-
-    /** The numbers, among a tile's heights, of those along one of its edges: a row ({@code across}) or a column. */
-    private static int[] edge(final int[] is, final int[] js, final int at, final boolean across) {
-        final int[] edge = new int[across ? is.length : js.length];
-        for (int k = 0; k < edge.length; k++) {
-            edge[k] = across ? at * is.length + k : k * is.length + at;
-        }
-        return edge;
-    }
-
-    private static void triangle(final List<Integer> faces, final int a, final int b, final int c) {
-        for (final int p : new int[] {a, b, c}) {
-            faces.add(p);
-            faces.add(p);
-            faces.add(p);
-        }
-    }
-
-    /** Height ({@code i}, {@code j}) as point {@code v}, {@code down} below it: where, which way its ground faces, its tint. */
-    private void put(final float[] points, final float[] normals, final float[] coords, final int v, final int i, final int j,
-                     final double down) {
-        final double h = land.at(i, j);
-        points[3 * v] = (float) land.x(i);
-        points[3 * v + 1] = (float) -(h - down);
-        points[3 * v + 2] = (float) land.z(j);
-        final int n = land.size();
-        final double dx = (land.at(Math.min(n - 1, i + 1), j) - land.at(Math.max(0, i - 1), j))
-                / (land.x(Math.min(n - 1, i + 1)) - land.x(Math.max(0, i - 1)));
-        final double dz = (land.at(i, Math.min(n - 1, j + 1)) - land.at(i, Math.max(0, j - 1)))
-                / (land.z(Math.min(n - 1, j + 1)) - land.z(Math.max(0, j - 1)));
-        final double length = Math.sqrt(dx * dx + 1 + dz * dz);
-        // up the world's y is down
-        normals[3 * v] = (float) (-dx / length);
-        normals[3 * v + 1] = (float) (-1 / length);
-        normals[3 * v + 2] = (float) (-dz / length);
-        final double tint = (h - low) / span + MOTTLE * (2 * Num.hash(i, j) - 1);
-        coords[2 * v] = (float) ((Math.clamp(tint, 0, 1) * (TINTS - 1) + 0.5) / TINTS);
-        coords[2 * v + 1] = (float) (0.5 / HAZES);
+        tile.facing[level] = made.normals();
+        tile.shown[level] = made.normals().clone();
     }
 
     /**
@@ -367,7 +314,7 @@ public final class TerrainModel {
         for (int y = 0; y < HAZES; y++) {
             final double haze = y / (HAZES - 1.0);
             for (int x = 0; x < TINTS; x++) {
-                final Color tint = tint(x / (TINTS - 1.0));
+                final Color tint = colour(x);
                 writer.setColor(x, y, Color.color(
                         glow(tint.getRed(), BASE.getRed(), Horizon.HAZY.getRed(), lit[0], haze),
                         glow(tint.getGreen(), BASE.getGreen(), Horizon.HAZY.getGreen(), lit[1], haze),
@@ -380,6 +327,21 @@ public final class TerrainModel {
     /** One channel of the picture: the tint as lit, less as hazed, the haze, less what the base colour lit gives already. */
     static double glow(final double tint, final double base, final double hazy, final double lit, final double haze) {
         return Math.clamp(tint * lit * (1 - haze) + hazy * haze - base * lit, 0, 1);
+    }
+
+    /**
+     * The picture's column for ground so {@code bare} (0 grassed, 1 bare earth), {@code t} of the way from the land's lowest to its highest:
+     * bare earth in the first few, then the grass's tints, low to high, so between bare ground and the
+     * grass beside it the one goes into the other.
+     */
+    static double column(final double bare, final double t) {
+        final double grass = EARTHY + Math.clamp(t, 0, 1) * (TINTS - 1 - EARTHY);
+        return grass + (EARTHY / 2.0 - grass) * Math.clamp(bare, 0, 1);
+    }
+
+    /** The colour of the picture's column {@code x}: bare earth, or a tint of the grass. */
+    static Color colour(final int x) {
+        return x < EARTHY ? EARTH : tint((x - EARTHY) / (double) (TINTS - 1 - EARTHY));
     }
 
     /** The land's tint {@code t} of the way from its lowest to its highest. */

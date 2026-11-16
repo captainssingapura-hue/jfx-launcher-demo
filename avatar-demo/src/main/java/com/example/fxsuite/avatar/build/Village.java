@@ -1,7 +1,9 @@
 package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Channel;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Prism;
@@ -21,13 +23,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <ul>
  *   <li><b>The river</b> ({@link River}): across the whole world, east to west, its middle two long
- *       gentle waves laid over each other; so wide, its banks mud; shallow, waded through.</li>
+ *       gentle waves laid over each other; its channel cut into the land ({@link Channel}), dry as yet.</li>
  *   <li><b>A footbridge</b> over it where the village is, square across it: a timber deck on the level,
  *       ramped up to from each bank, railed along both sides.</li>
  *   <li><b>The village</b>, north of the river: earth houses ({@link EarthHouse}) round a stone well,
  *       each facing it, each its own size and finish, as its seed has them: its walls, its roof, its
  *       window, its woodwork.</li>
  *   <li><b>Trees</b> along both banks, and here and there across the meadow.</li>
+ *   <li><b>A car and a motorcycle</b>, parked just ahead of where the avatar starts, facing the river.</li>
  * </ul>
  *
  * <p>The avatar starts south of the river, before the bridge, the village beyond it. Its houses are
@@ -157,13 +160,30 @@ public final class Village {
         return new Vec3(0, 0, riverAt(0) - 3_000);
     }
 
-    /** The meadow's land ({@link Terrains#meadow}), surveyed: worked out once, when first wanted. */
-    public static Survey land() {
-        return Land.SURVEY;
+    /**
+     * The river's channel, cut into the meadow: its bed so wide, level, and so deep; its banks rising from
+     * it to the meadow as far out as the river and its banks go.
+     */
+    public static final double BED = 900;
+    public static final double DEPTH = 150;
+
+    /**
+     * The meadow's land: its lie ({@link Terrains#meadow}), surveyed, and the river's channel cut into it
+     * ({@link Channel}); worked out once, when first wanted.
+     */
+    public static Land land() {
+        return Meadow.LAND;
     }
 
-    private static final class Land {
-        static final Survey SURVEY = Terrains.meadow().survey();
+    /** The meadow's lie alone, surveyed, under its river's channel. */
+    public static Survey lie() {
+        return Meadow.LIE;
+    }
+
+    private static final class Meadow {
+        static final Survey LIE = Terrains.meadow().survey();
+        static final Land LAND = new Land(LIE, List.of(
+                new Channel(rivers().getFirst().line(), BED, RIVER / 2 + BANK - BED / 2, DEPTH)));
     }
 
     /** Tells the simulation all of the meadow village: what stands in it, its river, where the avatar starts, its land. */
@@ -181,7 +201,31 @@ public final class Village {
         pieces.addAll(well());
         pieces.addAll(bridge());
         pieces.addAll(trees());
+        pieces.addAll(parked());
         return pieces;
+    }
+
+    /** Where the car and the motorcycle are parked: so far either side of the start, so far ahead of it. */
+    private static final double CAR_ASIDE = -500;
+    private static final double BIKE_ASIDE = 400;
+    private static final double PARKED_AHEAD = 400;
+
+    /**
+     * A car (the roadster) and a motorcycle (the sport bike), parked side by side just ahead of where the
+     * avatar starts, facing the river: on the land, as high as it is there.
+     */
+    public static List<Course.Piece> parked() {
+        final Vec3 start = start();
+        final List<Course.Piece> parked = new ArrayList<>();
+        final Object[][] vehicles = {{Course.CAR_CHASSIS, Course.ROADSTER, CAR_ASIDE}, {Course.SPORT_BIKE, null, BIKE_ASIDE}};
+        for (final Object[] v : vehicles) {
+            final Course.Chassis chassis = (Course.Chassis) v[0];
+            final double x = start.x() + (double) v[2];
+            final double z = start.z() + PARKED_AHEAD;
+            parked.add(Course.Piece.vehicle(chassis, (Course.Bodywork) v[1],
+                    new Place(x, z, land().height(x, z) + chassis.ride(), 0), 0));
+        }
+        return parked;
     }
 
     /** The well: a ring of stone in the way, its water within; two posts and a beam over it. */

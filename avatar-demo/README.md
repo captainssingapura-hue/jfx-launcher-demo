@@ -832,19 +832,21 @@ through, and one loaded until a pillar gives and it falls.
   front (a ramp): closely shaped and boxes in one piece.
 - **The meadow village** (`Village`, `Demo.VILLAGE`): open country, no grid ruled on its ground. A river
   (`River`: where water runs, its middle line, how wide, its water's height, for the simulation to know)
-  winds across the whole world, two long gentle waves laid over each other, 12 m wide, its banks mud: its
-  water and its banks ribbons side by side (`GardenMesh.ribbon`), none over another; shallow, waded through.
+  winds across the whole world, two long gentle waves laid over each other, 12 m wide with its banks. Its
+  channel is cut into the land (`Channel`): a level bed 9 m wide and 1.5 m deep, its banks easing up from it
+  to the meadow over 4 m each side, no steeper than 30°, bare earth, the grass thinning out over their tops.
+  It is dry for now, walked down into and along and up out of: its water is to come.
   A timber footbridge crosses it square where the village is, ramped up from each bank, railed. North of
   it, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
   woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
   each simply gone. Trees along both banks, and across the meadow, each standing on the land where it
   grows, its foot as low as the ground under it goes. The avatar starts south of the river, the bridge and
   the village ahead.
-  Its land is the meadow's map (`Terrains.meadow`, on the terrain bench), surveyed once (`Village.land`)
-  and drawn (`TerrainModel`, see the [terrain bench](#terrain-bench)): the river's valley across the world,
-  its floor level where the river runs and the village stands, up gently north past a knoll and a hollow
-  to a beacon hill, more steeply south to a ridge, moors at 100 m round the edge. The avatar does not yet
-  walk on it: on foot it keeps to the level, so up the slopes it goes under the land.
+  Its land (`Village.land`) is the meadow's map (`Terrains.meadow`, on the terrain bench), surveyed once,
+  the river's channel laid over it, drawn (`TerrainModel`, see the [terrain bench](#terrain-bench)): the
+  river's valley across the world, its floor level where the river runs and the village stands, up gently
+  north past a knoll and a hollow to a beacon hill, more steeply south to a ridge, moors at 100 m round
+  the edge. The avatar walks on it.
 - **The earth house** (`EarthHouse`, on the buildings bench): round, as homesteaders on open plains
   built them: its walls of earth, thick, battered a little and a little uneven, plastered smooth, their
   tops rising inward to meet its roof; a low cone of a roof on them, its eave drooping no lower than its
@@ -1152,13 +1154,29 @@ and how long that took are said under the text. `-Dterrain.file=path` opens a ma
 with (else the valley, `Terrains.VALLEY`), or `-Dterrain.map=meadow` one of the maps drawn so far,
 also picked on the bench; `-Dterrain.lines=2` draws the contour lines every so many metres.
 
-In the game, a course's land (`Course.land`, the survey; level where there is none) is drawn by
-`TerrainModel`, in place of the flat ground: its heights as triangles, in tiles 500 m a side, each
-as fine as it is near (every height within 1 km, then every second, fifth, tenth and twenty-fifth
-further off, coming back finer a little nearer than it went coarser), a skirt hanging from each
-tile's edges so no gap shows where a fine tile meets a coarse one. It is shaded by the sun as its
-slopes face it and tinted by height, a little mottled: the meadow's grass low down, drier grass up
-the slopes, moor on the heights. From 1.2 km out it fades into the haze as the far ground round the
+In the game, a course's land is a `Land` (`Course.land`; level, at 0, where there is none): its lie,
+surveyed, and over it its features, each a layer of its own (`Land.Layer`), worked out apart from the
+rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`, its line
+kept by where it is on a grid of cells, so a point far from it is told so at once); in time, paths,
+ditches, the edges of level pads. The survey's 10 m between heights is plenty for the lie, which is
+smooth by nature; the detail is in the features.
+
+Everything that goes over the ground stands on it: the world (`Obstacles`) holds it, and what the feet,
+a vehicle's wheels, a person or a loose thing stand on (`footing`) is the land, or a block's top over it;
+a ray meets it, striding along as far as it is over it and closing in by halves once under. The avatar
+walks up it and down it; where it rises steeper than 45° (`Body.CLIMB`), it is in the way as a wall is,
+and the avatar goes along the slope instead.
+
+It is drawn by `TerrainModel`, in place of the flat ground, in tiles 500 m a side, each as fine as it
+is near, coming back finer a little nearer than it went coarser; and each as fine as the land needs and
+no finer (`LandSheet`): a square of it split in four, and those again, only where its corners alone
+would put the land more than so far out (3 cm near, a few metres far off), or where a feature lies;
+squares beside each other never more than twice the other's size, the bigger's side broken where the
+smaller's corners are, so no crack shows; so open meadow comes out in squares of tens of metres, a
+river's bank in squares of half a metre. A skirt hangs from each tile's edges so no gap shows where a
+fine tile meets a coarse one. It is shaded by the sun as its slopes face it and tinted by height, a
+little mottled: the meadow's grass low down, drier grass up the slopes, moor on the heights; bare
+earth where a feature leaves it so (`Land.bare`), the grass thinning out into it. From 1.2 km out it fades into the haze as the far ground round the
 camera does (`Horizon.haze`), its slopes lit more and more as level ground is, so the hills at the
 world's edge go into the sky with no line between them; each tile's haze is worked out again as the
 camera moves, height by height, and those near enough to have none are left alone. Its tint and its
@@ -1355,10 +1373,10 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops) and as heights worked out from it (`Survey`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops), as heights worked out from it (`Survey`), and as it is gone over (`Land`, its features laid over it, such as a river's `Channel`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land) and `Horizon` (the sky and the far ground) draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`) and `Horizon` (the sky and the far ground) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

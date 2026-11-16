@@ -1219,8 +1219,8 @@ public final class Course {
     /** Its rivers; and whether its ground is ruled with a grid. */
     private final List<River> rivers = new ArrayList<>();
     private boolean grid = true;
-    /** Its land, as surveyed: null if level. */
-    private Survey land;
+    /** Its land: level, but where it is laid out otherwise. */
+    private Land land = Land.LEVEL;
 
     /** The playground: everything at once. */
     public Course() {
@@ -1309,21 +1309,21 @@ public final class Course {
     private static java.util.function.Supplier<List<Piece>> village = List::of;
     private static java.util.function.Supplier<List<River>> villageRivers = List::of;
     private static java.util.function.Supplier<Vec3> villageStart = () -> Vec3.ZERO;
-    private static java.util.function.Supplier<Survey> villageLand = () -> null;
+    private static java.util.function.Supplier<Land> villageLand = () -> Land.LEVEL;
 
-    /** Says what stands in the meadow village, its rivers, where the avatar starts there, and its land, surveyed. */
+    /** Says what stands in the meadow village, its rivers, where the avatar starts there, and its land. */
     public static void village(final java.util.function.Supplier<List<Piece>> what,
                                final java.util.function.Supplier<List<River>> rivers,
                                final java.util.function.Supplier<Vec3> start,
-                               final java.util.function.Supplier<Survey> land) {
+                               final java.util.function.Supplier<Land> land) {
         village = what;
         villageRivers = rivers;
         villageStart = start;
         villageLand = land;
     }
 
-    /** Its land, surveyed ({@link Terrain}); null where the ground is level at 0, as it is everywhere but in open country. */
-    public Survey land() {
+    /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */
+    public Land land() {
         return land;
     }
 
@@ -1928,7 +1928,7 @@ public final class Course {
                 each.add(i);
             }
         }
-        return new Obstacles(blocks, gates, numbers, volumes, each);
+        return new Obstacles(blocks, gates, numbers, volumes, each, land);
     }
 
     /**

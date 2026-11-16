@@ -7,7 +7,8 @@ import java.util.stream.IntStream;
 /**
  * Everything solid, and the three questions {@link Body#step} asks of it each sub-step: what
  * the feet can stand on, what the head bumps into, and how to slide clear of whatever is in
- * the way. The ground itself, at height 0, is always there underneath. Pure maths.
+ * the way. The ground itself is always there underneath: level at 0, or the {@link Land}, rising and
+ * falling, laid out as it is. Pure maths.
  *
  * <p>And the gates' openings, which are not solid at all, for telling when the avatar flies
  * through one.
@@ -19,7 +20,7 @@ import java.util.stream.IntStream;
  * each listing the blocks over it, would take over if the world grew a hundredfold.
  */
 public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> pieces, List<Volume> volumes,
-                        List<Integer> volumePieces) {
+                        List<Integer> volumePieces, Land land) {
 
     /** Open ground and nothing else. */
     public static final Obstacles NONE = new Obstacles(List.of());
@@ -36,6 +37,20 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         if (volumePieces.size() != volumes.size()) {
             throw new IllegalArgumentException(volumes.size() + " volumes but " + volumePieces.size() + " piece numbers");
         }
+        if (land == null) {
+            throw new IllegalArgumentException("the ground is there, if level");
+        }
+    }
+
+    /** As much, on level ground. */
+    public Obstacles(final List<Block> blocks, final List<Gate> gates, final List<Integer> pieces, final List<Volume> volumes,
+                     final List<Integer> volumePieces) {
+        this(blocks, gates, pieces, volumes, volumePieces, Land.LEVEL);
+    }
+
+    /** The same, on {@code ground}. */
+    public Obstacles on(final Land ground) {
+        return new Obstacles(blocks, gates, pieces, volumes, volumePieces, ground);
     }
 
     /** Blocks, each its piece's number, and gates: nothing shaped more closely ({@link Volume}). */
@@ -49,7 +64,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         all.addAll(more);
         final List<Integer> each = new ArrayList<>(volumePieces);
         each.addAll(numbers);
-        return new Obstacles(blocks, gates, pieces, all, each);
+        return new Obstacles(blocks, gates, pieces, all, each, land);
     }
 
     /** Blocks and gates, the blocks numbered in order from 0. */
@@ -81,7 +96,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         // a piece shaped by no volume (a vehicle, leaving itself out of its own way) leaves the volumes as
         // they are, the very same list: so where they are is not worked out again ({@link #volumesNear})
         if (!volumePieces.contains(piece)) {
-            return new Obstacles(left, gates, numbers, volumes, volumePieces);
+            return new Obstacles(left, gates, numbers, volumes, volumePieces, land);
         }
         final List<Volume> volumesLeft = new ArrayList<>();
         final List<Integer> volumeNumbers = new ArrayList<>();
@@ -91,7 +106,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 volumeNumbers.add(volumePieces.get(i));
             }
         }
-        return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers);
+        return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers, land);
     }
 
     /**
@@ -106,7 +121,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 moved.set(i, now.get(k++));
             }
         }
-        return new Obstacles(moved, gates, pieces, volumes, volumePieces);
+        return new Obstacles(moved, gates, pieces, volumes, volumePieces, land);
     }
 
     /** What there is to stand on: how high, and what it is. */
@@ -146,7 +161,9 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
     }
 
     public Footing footing(final double x, final double z, final double radius, final double within) {
-        double floor = 0;
+        // the land, however high: what is steeper than a step is kept out of by whatever moves ({@link Body})
+        final double ground = land.height(x, z);
+        double floor = ground;
         for (final Block block : blocks) {
             if (block.bottom() < within && block.covers(x, z, radius)) {
                 // a ramp's top where the circle stands on it
@@ -170,7 +187,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 }
             }
         }
-        return new Footing(floor, floor > 0 ? Surface.BLOCK : Surface.GROUND);
+        return new Footing(floor, floor > ground ? Surface.BLOCK : Surface.GROUND);
     }
 
     /**
@@ -179,9 +196,9 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
      * for open sky.
      */
     public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
-        Hit first = null;
+        Hit first = land.level() ? null : landed(from, direction, reach);
         // the ground, at height 0 (y down), from above
-        if (direction.y() > 1e-12 && from.y() < 0) {
+        if (land.level() && direction.y() > 1e-12 && from.y() < 0) {
             final double t = -from.y() / direction.y();
             if (t <= reach) {
                 final Vec3 down = from.add(direction.multiply(t));
@@ -208,6 +225,56 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
             }
         }
         return first;
+    }
+
+    /** The shortest and the longest stride a ray takes over the land, looking for where it meets it. */
+    private static final double STRIDE = 50;
+    private static final double LONGEST_STRIDE = 2_000;
+
+    /**
+     * Where a ray from {@code from} along {@code direction} first meets the land, within {@code reach}; null if
+     * it does not, or starts under it. It strides along, each stride as long as it is high over the land
+     * (the land rising no steeper than its run, it cannot be stepped over), and, once under, closes in on
+     * where it went in by halves.
+     */
+    private Hit landed(final Vec3 from, final Vec3 direction, final double reach) {
+        if (-from.y() < land.height(from.x(), from.z())) {
+            return null;
+        }
+        final double top = land.highest();
+        double t = 0;
+        double stride = 0;
+        while (t <= reach) {
+            final Vec3 at = from.add(direction.multiply(t));
+            final double over = -at.y() - land.height(at.x(), at.z());
+            if (over < 0) {
+                double low = Math.max(0, t - stride);
+                double high = t;
+                for (int k = 0; k < 20; k++) {
+                    final double mid = (low + high) / 2;
+                    final Vec3 m = from.add(direction.multiply(mid));
+                    if (-m.y() - land.height(m.x(), m.z()) < 0) {
+                        high = mid;
+                    } else {
+                        low = mid;
+                    }
+                }
+                final Vec3 hit = from.add(direction.multiply(high));
+                final Vec2 rise = land.rise(hit.x(), hit.z(), STRIDE);
+                return new Hit(new Vec3(hit.x(), -land.height(hit.x(), hit.z()), hit.z()),
+                        new Vec3(-rise.x(), -1, -rise.z()).normalize(), Surface.GROUND, high);
+            }
+            // going up, and over the highest of the land: it never comes down to it
+            if (direction.y() <= 0 && -at.y() > top) {
+                return null;
+            }
+            if (t == reach) {
+                break;
+            }
+            stride = Math.min(Num.clamp(over, STRIDE, LONGEST_STRIDE), reach - t);
+            t += stride;
+        }
+        return null;
     }
 
     /** A ray no longer than this looks only among the volumes near it ({@link #volumesNear}): a few grid cells' worth. */
