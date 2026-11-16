@@ -126,10 +126,12 @@ public final class AircraftBench extends Application {
             }
         });
         final String wanted = System.getProperty("aircraft.pick", "").toLowerCase(Locale.ROOT);
-        kinds.setValue(java.util.Arrays.stream(Crafts.Kind.values())
-                .filter(k -> !wanted.isEmpty() && (k.title().toLowerCase(Locale.ROOT).startsWith(wanted)
-                        || k.title().toLowerCase(Locale.ROOT).contains(" " + wanted))).findFirst()
-                .orElse(Crafts.Kind.AIRSHIP));
+        // its whole title first, then the start of it, then the start of any word in it
+        final java.util.List<java.util.function.Predicate<String>> matches = java.util.List.of(
+                title -> title.equals(wanted), title -> title.startsWith(wanted), title -> title.contains(" " + wanted));
+        kinds.setValue(matches.stream().flatMap(match -> java.util.Arrays.stream(Crafts.Kind.values())
+                        .filter(k -> !wanted.isEmpty() && match.test(k.title().toLowerCase(Locale.ROOT))))
+                .findFirst().orElse(Crafts.Kind.AIRSHIP));
         final String paint = System.getProperty("aircraft.livery", "").toLowerCase(Locale.ROOT);
         liveries.setValue(Livery.all().stream()
                 .filter(l -> !paint.isEmpty() && l.name().toLowerCase(Locale.ROOT).startsWith(paint)).findFirst()

@@ -1080,6 +1080,14 @@ coaxial ducts, tilting together (`"tilt"`, hovering to flying); a pylon and a ma
 ducted fan at its tail; or a pylon and two coaxial rotors. Its body alone, its bay empty, is on the
 bench too, and its fuselage alone, to be shaped by its style's sliders.
 
+A propeller for wherever one turns in the open (`Propeller`), made to any size, every part a share
+of its diameter: its blades drawn by their lines, an aerofoil section out along the span, widest a
+little inside the middle, narrowing and thinning to a rounded tip, twisted for a steady pitch (steep
+at the root, flat at the tip); a round spinner over its hub. More blades the bigger it is (two below
+1.5 m, three, four, five from 8 m up), turning as fast as its tips allow; or a coaxial pair, the one
+behind turning the other way, its blades the other hand. What turns (`Spinner`) can now carry lines,
+its skeleton turning with it.
+
 Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
 fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an
 outrigger), a heavy bomber airship (a fatter, dark envelope, red bands round its nose, a long

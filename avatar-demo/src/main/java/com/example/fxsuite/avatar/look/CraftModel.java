@@ -76,7 +76,12 @@ public final class CraftModel {
             }
         }
         for (final Spinner spinner : craft.spinners()) {
-            final Group turning = dressed ? meshes(spinner.skins(), spinner.pieces(), List.of(), livery) : new Group();
+            final Group turning = dressed ? meshes(spinner.skins(), spinner.pieces(), spinner.panels(), livery) : new Group();
+            if (lines) {
+                for (final com.example.fxsuite.avatar.sim.Form skeleton : spinner.skeletons()) {
+                    turning.getChildren().add(FormModel.of(skeleton, thickness, LEANS, false, BoxRig.matte("#d8323a")));
+                }
+            }
             final Rotate turn = about(spinner.hub(), spinner.axis());
             turning.getTransforms().add(turn);
             turns.add(turn);

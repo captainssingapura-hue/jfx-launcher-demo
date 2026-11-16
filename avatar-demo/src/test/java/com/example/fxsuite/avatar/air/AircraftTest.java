@@ -314,6 +314,57 @@ class AircraftTest {
     }
 
     @Test
+    void aPropellerIsMadeToAnySizeItsBladesByItsLinesTwistedForASteadyPitch() {
+        // more blades the bigger, turning no faster than can be seen
+        assertEquals(2, Propeller.of(100).blades());
+        assertEquals(3, Propeller.of(300).blades());
+        assertEquals(4, Propeller.of(600).blades());
+        assertEquals(5, Propeller.of(1400).blades());
+        assertEquals(Propeller.MOST_RATE, Propeller.of(300).rate(), 1e-9);
+        assertEquals(Propeller.TIPS / (Math.PI * 1400), Propeller.of(1400).rate(), 1e-9, "a giant's, by its tips");
+        for (final double d : new double[] {50, 300, 1400}) {
+            final Propeller propeller = Propeller.of(d);
+            final Lines blade = propeller.blade();
+            assertEquals(d / 2, blade.extent().maxAlong(), 1e-6, "out to its tip");
+            // (a model's, half a metre across, is thinner than a millimetre just short of its tip: one point, to
+            // a graph made for buildings; its lines are whole all the same)
+            if (d >= 300) {
+                assertTrue(blade.skeleton().problems().isEmpty(), blade.skeleton().problems().toString());
+            }
+            // twisted: its chord steep at its root, flatter at its tip; at three quarters out, set for its pitch
+            assertTrue(chordAngle(blade, 0) > 60 && chordAngle(blade, 5) < 20, chordAngle(blade, 0) + " to " + chordAngle(blade, 5));
+            final double r = 0.82 * d / 2;
+            assertEquals(Math.toDegrees(Math.atan(Propeller.PITCH * d / (2 * Math.PI * r))), chordAngle(blade, 4), 1e-6);
+            // whole: all of it turning, about +along, its spinner and each blade by its lines
+            final Craft whole = propeller.build();
+            assertEquals(1, whole.spinners().size());
+            final Spinner turning = whole.spinners().getFirst();
+            assertEquals(new Point(0, 1, 0), turning.axis());
+            assertTrue(turning.rate() > 0);
+            assertEquals(1 + propeller.blades(), turning.skeletons().size(), "its spinner and its blades");
+            assertTrue(whole.panels().isEmpty() && whole.pieces().isEmpty(), "nothing still");
+            final Extent e = whole.extent();
+            assertEquals(d / 2, e.maxUp(), 0.01 * d, "its first blade straight up");
+            assertTrue(e.length() < 0.25 * d, "thin, along its axis");
+        }
+        // a coaxial pair: one behind the other, turning opposite ways, its blades the other hand
+        final Craft pair = Propeller.of(1400).coaxial(0.16);
+        assertEquals(2, pair.spinners().size());
+        final Spinner ahead = pair.spinners().get(0);
+        final Spinner behind = pair.spinners().get(1);
+        assertEquals(0.16 * 1400, ahead.hub().along() - behind.hub().along(), 1e-6);
+        assertEquals(-ahead.rate(), behind.rate(), 1e-9);
+    }
+
+    /** How steeply blade {@code blade}'s {@code k}th section's chord is set to its turning, degrees: leading edge to trailing. */
+    private static double chordAngle(final Lines blade, final int k) {
+        final double[] lead = blade.sections().get(k).points().get(0);
+        final double[] trail = blade.sections().get(k).points().get(3);
+        // across the way it turns, and up back against its pull: so the leading edge is ahead and pulled forward
+        return Math.toDegrees(Math.atan2(-(lead[1] - trail[1]), lead[0] - trail[0]));
+    }
+
+    @Test
     void theGunshipFlownInTheWorldIsAsBigAsItIsDrawnItsWheelsWhereTheyAre() {
         final Extent drawn = Gunship.of(1600, Gunship.Lift.TWIN_PROPELLERS).extent();
         final com.example.fxsuite.avatar.sim.Course.Section box = com.example.fxsuite.avatar.sim.Course.GUNSHIP.room();
@@ -349,7 +400,10 @@ class AircraftTest {
                 // helicopter, its rotors out of it)
                 // an aircraft or an engine as long (or as wide) as it was made; a weapon or a body, any size it is
                 if (kind.category() == Crafts.Category.AIRCRAFT || kind.engine()) {
-                    final double made = kind == Crafts.Kind.QUADCOPTER || kind == Crafts.Kind.DUCTED_FAN
+                    // (a propeller by its disc: its blades' reach, up or across, as they stand)
+                    final double made = kind == Crafts.Kind.PROPELLER || kind == Crafts.Kind.COAXIAL_PROPELLER
+                            ? Math.max(e.width(), e.height())
+                            : kind == Crafts.Kind.QUADCOPTER || kind == Crafts.Kind.DUCTED_FAN
                             || kind == Crafts.Kind.COAXIAL_DUCT ? e.width() : still.length();
                     final double within = kind == Crafts.Kind.COAXIAL_DUCT ? 0.3 : kind.engine() ? 0.4 : 0.25;
                     assertEquals(size * 100, made, size * 100 * within, what + ": its size");

@@ -38,6 +38,9 @@ public final class Crafts {
         DUCTED_FAN("Ducted fan", 1.8, 0.3, 8, Category.ENGINE),
         TURBOSHAFT("Turboshaft engine", 2.4, 0.6, 6, Category.ENGINE),
         COAXIAL_DUCT("Coaxial ducted rotor", 3, 1, 8, Category.ENGINE),
+        /** Propellers on their own ({@link Propeller}), by their diameter: one, and a coaxial pair. */
+        PROPELLER("Propeller", 3, 0.3, 20, Category.ENGINE),
+        COAXIAL_PROPELLER("Coaxial propeller", 14, 1, 30, Category.ENGINE),
         /** Weapons on their own ({@link Weapons}), by their length; a turret by its ball. */
         ROCKET_POD("Rocket pod", 1.8, 0.6, 4, Category.WEAPON),
         ROTARY_CANNON("Rotary cannon", 1.6, 0.5, 4, Category.WEAPON),
@@ -125,6 +128,8 @@ public final class Crafts {
                 case DUCTED_FAN -> Engine.ductedFan(size).build();
                 case TURBOSHAFT -> Engine.turboshaft(size).build();
                 case COAXIAL_DUCT -> Engine.coaxialDuct(size).build();
+                case PROPELLER -> Propeller.of(size).build();
+                case COAXIAL_PROPELLER -> Propeller.of(size).coaxial(0.16);
                 case ROCKET_POD -> Weapons.rocketPod(size);
                 case ROTARY_CANNON -> Weapons.rotaryCannon(size);
                 case MISSILE -> Weapons.missile(size);

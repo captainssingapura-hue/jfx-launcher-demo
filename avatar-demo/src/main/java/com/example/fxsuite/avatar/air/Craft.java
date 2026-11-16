@@ -52,6 +52,7 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
         for (final Spinner spinner : spinners) {
             spinner.skins().forEach(s -> all.addAll(s.points()));
             spinner.pieces().forEach(p -> all.addAll(p.corners()));
+            spinner.panels().forEach(p -> all.addAll(p.corners()));
         }
         hinges.forEach(h -> all.addAll(h.part().points()));
         panels.forEach(p -> all.addAll(p.corners()));
@@ -222,6 +223,12 @@ public record Craft(String name, List<Skin> skins, List<Piece> pieces, List<Spin
         public Builder pair(final Piece part) {
             pieces.add(part);
             pieces.add(part.mirrored());
+            return this;
+        }
+
+        /** What turns, made whole ({@link Spinner#of}), as it is. */
+        public Builder spinner(final Spinner spinner) {
+            spinners.add(spinner);
             return this;
         }
 
