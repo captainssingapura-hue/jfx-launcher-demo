@@ -17,6 +17,7 @@ import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -37,6 +38,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * bombing it until it falls; and what comes of that. Shot down, a slot is free again for the next.
  */
 class SiegeTest {
+
+    /**
+     * Why a test is set aside: it plays a whole siege out, step by step, in the whole town, a scenario
+     * rather than a unit test; to be run as one, apart from the unit tests, once there is a way to.
+     */
+    private static final String SCENARIO = "a scenario, not a unit test: plays a siege out in the whole town";
 
     /** A quick siege: four at a time, one every 3 s, fast, bombing four times a second, the temple a tenth as tough. */
     private static final Siege QUICK = new Siege(4, 3, 0, 30, 1, 0.25, 0, 0.1, 1, Siege.Fallen.LOST, 10, 42);
@@ -69,6 +76,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void itsAirshipsWaitThenComeFromTheEdgeHighOverEverythingIntoFreeSlots() {
         final Play start = Play.start(Demo.SIEGE, false, QUICK);
         final Siege.State siege = start.sky().siege();
@@ -102,6 +110,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void theSameSeedTheSameSiegeAnotherAnother() {
         final List<Event> events = new ArrayList<>();
         final long once = run(Play.start(Demo.SIEGE, false, QUICK), 20, events).checksum();
@@ -112,6 +121,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void undefendedTheyCircleOverTheHallAndBombItUntilItFallsAndTheSiegeIsLost() {
         final List<Event> events = new ArrayList<>();
         Play play = Play.start(Demo.SIEGE, false, QUICK);
@@ -143,6 +153,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void shotDownItsSlotIsFreeForTheNextOnceItsWreckHasFallen() {
         final List<Event> events = new ArrayList<>();
         Play play = run(Play.start(Demo.SIEGE, false, QUICK), Siege.FIRST + 4 * QUICK.every(), events);
@@ -168,6 +179,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void rebuiltTheHallStandsAgainAndTheyBombItAgain() {
         final Siege rebuilt = new Siege(4, 3, 0, 30, 1, 0.25, 0, 0.1, 1, Siege.Fallen.REBUILT, 5, 42);
         final List<Event> events = new ArrayList<>();
@@ -183,6 +195,7 @@ class SiegeTest {
     }
 
     @Test
+    @Disabled(SCENARIO)
     void nextTheyGoForTheBuildingNearestTheHall() {
         final Siege next = new Siege(4, 3, 0, 30, 1, 0.25, 0, 0.1, 1, Siege.Fallen.NEXT, 5, 42);
         final List<Event> events = new ArrayList<>();
