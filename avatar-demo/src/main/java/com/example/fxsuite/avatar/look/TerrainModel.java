@@ -48,6 +48,8 @@ public final class TerrainModel {
     static final double SKIRT = 500;
     /** How far the camera moves before the haze is worked out again. */
     static final double MOVED = 2_500;
+    /** How many heights' worth of tiles a frame sends again to be drawn, at most (or one tile, if more). */
+    static final int BUDGET = 3_000;
     /** How many tints, low to high, and how many shades of the haze, none to all, the land's picture has. */
     private static final int TINTS = 256;
     private static final int HAZES = 64;
@@ -71,6 +73,8 @@ public final class TerrainModel {
     private final double span;
     private final PhongMaterial material;
     private Vec3 hazedFrom;
+    /** The tile whose haze is looked at next. */
+    private int next;
 
     /** A tile: from height {@code i0} to {@code i1} across, {@code j0} to {@code j1} along, each way inclusive. */
     private final class Tile {
@@ -86,7 +90,9 @@ public final class TerrainModel {
         final float[][] facing = new float[STEPS.length][];
         final float[][] shown = new float[STEPS.length][];
         int level = -1;
+        /** Whether it has any haze on it; whether that is to be worked out again, the camera having moved. */
         boolean hazed;
+        boolean stale;
 
         Tile(final int i0, final int i1, final int j0, final int j1) {
             this.i0 = i0;
@@ -130,35 +136,70 @@ public final class TerrainModel {
                 root.getChildren().add(tile.view);
             }
         }
-        seenFrom(Vec3.ZERO);
+        // all of it at once, to start with
+        seenFrom(Vec3.ZERO, Integer.MAX_VALUE);
     }
 
     public Node node() {
         return root;
     }
 
-    /** Each tile as fine as it should be, seen from {@code eye}, where the camera now is; its haze, if the camera has moved. */
+    /**
+     * Each tile as fine as it should be, seen from {@code eye}, where the camera now is; its haze, if the
+     * camera has moved. A frame does no more than {@link #BUDGET} heights' worth: what a tile changes, the
+     * whole of it is sent again to be drawn, and all of them at once would hold the frame up. So the tiles
+     * that should be finer or coarser go first, then the haze, round the tiles in turn, a few each frame:
+     * so far off, it hardly moves while it waits.
+     */
     public void seenFrom(final Vec3 eye) {
-        final boolean moved = hazedFrom == null || Math.hypot(eye.x() - hazedFrom.x(), eye.z() - hazedFrom.z()) > MOVED;
-        if (moved) {
+        seenFrom(eye, BUDGET);
+    }
+
+    private void seenFrom(final Vec3 eye, final int budget) {
+        if (hazedFrom == null || Math.hypot(eye.x() - hazedFrom.x(), eye.z() - hazedFrom.z()) > MOVED) {
             hazedFrom = eye;
+            for (final Tile tile : tiles) {
+                tile.stale = true;
+            }
         }
+        int left = budget;
         for (final Tile tile : tiles) {
-            final double[] away = tile.away(eye);
-            final int level = level(away[0], tile.level);
-            final boolean changed = level != tile.level;
-            if (changed) {
+            if (left <= 0) {
+                break;
+            }
+            final int level = level(tile.away(eye)[0], tile.level);
+            if (level != tile.level) {
                 if (tile.meshes[level] == null) {
                     build(tile, level);
                 }
                 tile.level = level;
                 tile.view.setMesh(tile.meshes[level]);
-            }
-            if ((moved || changed) && (away[1] > Horizon.HAZE || tile.hazed)) {
-                haze(tile, eye);
-                tile.hazed = away[1] > Horizon.HAZE;
+                left -= hazed(tile, eye, true);
             }
         }
+        for (int k = 0; k < tiles.size() && left > 0; k++) {
+            final Tile tile = tiles.get(next);
+            next = (next + 1) % tiles.size();
+            left -= hazed(tile, eye, false);
+        }
+    }
+
+    /**
+     * Tile {@code tile}'s haze worked out again from {@code eye}, if it is out of date ({@code anyway}, if it has
+     * just changed how fine it is), and it has any or had: how many heights that took.
+     */
+    private int hazed(final Tile tile, final Vec3 eye, final boolean anyway) {
+        if (!tile.stale && !anyway) {
+            return 0;
+        }
+        tile.stale = false;
+        final boolean far = tile.away(eye)[1] > Horizon.HAZE;
+        if (!far && !tile.hazed && !anyway) {
+            return 0;
+        }
+        haze(tile, eye);
+        tile.hazed = far;
+        return tile.coords[tile.level].length / 2;
     }
 
     /**
