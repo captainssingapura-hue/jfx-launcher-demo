@@ -102,13 +102,41 @@ public final class SkyHull {
     }
 
     private final Size size;
+    /** Where its deck is left open, laid out straight, from station to station: a pool sunk in it, how deep. */
+    private final List<Box> holes;
 
-    private SkyHull(final Size size) {
+    private SkyHull(final Size size, final List<Box> holes) {
         this.size = size;
+        this.holes = List.copyOf(holes);
     }
 
     public static SkyHull of(final Size size) {
-        return new SkyHull(size);
+        return new SkyHull(size, List.of());
+    }
+
+    /**
+     * The same hull, its deck left open where each of {@code holes} is (across, along, from station to station; down
+     * to its low): its deck plating and its deck beams stopped at its sides, no stanchion in it, its bulkheads stopped
+     * under it. What is sunk in it (a pool, {@link SkyPark}) is laid in it, not by the hull.
+     */
+    public SkyHull opened(final List<Box> holes) {
+        return new SkyHull(size, holes);
+    }
+
+    /** The station nearest {@code along}: where an opening in its deck begins and ends. */
+    public double snapped(final double along) {
+        final double space = size.length() / size.spaces();
+        return station((int) Math.round((along + size.length() / 2) / space));
+    }
+
+    /** The opening its deck has from {@code y0} to {@code y1} along it, if it has one there; else null. */
+    private Box hole(final double y0, final double y1) {
+        for (final Box h : holes) {
+            if (h.minZ() <= y0 + 1e-6 && y1 <= h.maxZ() + 1e-6) {
+                return h;
+            }
+        }
+        return null;
     }
 
     public static SkyHull standard() {
@@ -412,9 +440,22 @@ public final class SkyHull {
             final double d = size.depth();
             final double h0 = half(y0);
             final double h1 = half(y1);
-            solids.add(hexa("deck " + i, Role.ROOF, palette.of(Role.ROOF), new double[][] {
-                    {-h0, y0, d}, {h0, y0, d}, {-h1, y1, d}, {h1, y1, d},
-                    {-h0, y0, d + DECK}, {h0, y0, d + DECK}, {-h1, y1, d + DECK}, {h1, y1, d + DECK}}));
+            final Box open = hole(y0, y1);
+            if (open == null) {
+                solids.add(hexa("deck " + i, Role.ROOF, palette.of(Role.ROOF), new double[][] {
+                        {-h0, y0, d}, {h0, y0, d}, {-h1, y1, d}, {h1, y1, d},
+                        {-h0, y0, d + DECK}, {h0, y0, d + DECK}, {-h1, y1, d + DECK}, {h1, y1, d + DECK}}));
+            } else {
+                // open: its plating each side of the opening, from its edge to the opening's
+                solids.add(hexa("deck " + i + ", port", Role.ROOF, palette.of(Role.ROOF), new double[][] {
+                        {-h0, y0, d}, {open.minX(), y0, d}, {-h1, y1, d}, {open.minX(), y1, d},
+                        {-h0, y0, d + DECK}, {open.minX(), y0, d + DECK}, {-h1, y1, d + DECK},
+                        {open.minX(), y1, d + DECK}}));
+                solids.add(hexa("deck " + i + ", starboard", Role.ROOF, palette.of(Role.ROOF), new double[][] {
+                        {open.maxX(), y0, d}, {h0, y0, d}, {open.maxX(), y1, d}, {h1, y1, d},
+                        {open.maxX(), y0, d + DECK}, {h0, y0, d + DECK}, {open.maxX(), y1, d + DECK},
+                        {h1, y1, d + DECK}}));
+            }
         }
         for (int i = 1; i < n; i++) {
             final double y = station(i);
@@ -433,11 +474,23 @@ public final class SkyHull {
             // its deck beam, across under its deck
             final double h = half(y) - PLATE;
             final double under = size.depth() - BEAM / 2;
-            solids.add(member("deck beam " + i, -h, y, under, h, y, under, BEAM, Role.STRUCTURE, steel));
-            // a stanchion each side under every few, from its inner bottom to its beam
+            final Box over = hole(y, y);
+            if (over == null) {
+                solids.add(member("deck beam " + i, -h, y, under, h, y, under, BEAM, Role.STRUCTURE, steel));
+            } else {
+                // under an opening, its beam each side of it
+                solids.add(member("deck beam " + i + ", port", -h, y, under, over.minX(), y, under, BEAM, Role.STRUCTURE,
+                        steel));
+                solids.add(member("deck beam " + i + ", starboard", over.maxX(), y, under, h, y, under, BEAM,
+                        Role.STRUCTURE, steel));
+            }
+            // a stanchion each side under every few, from its inner bottom to its beam; none under an opening
             if (i % STANCHIONS == 0) {
                 for (final int side : new int[] {-1, 1}) {
                     final double x = side * half(y) / 3;
+                    if (over != null && x > over.minX() - STANCHION && x < over.maxX() + STANCHION) {
+                        continue;
+                    }
                     solids.add(member("stanchion " + i + ", " + (side > 0 ? "starboard" : "port"), x, y,
                             keel(y) + size.bottom() + SHEET, x, y, size.depth() - BEAM, STANCHION, Role.STRUCTURE,
                             steel));
@@ -453,7 +506,8 @@ public final class SkyHull {
                     for (final int side : new int[] {-1, 1}) {
                         final double y0 = y - SHEET / 2;
                         final double y1 = y + SHEET / 2;
-                        final double top = size.depth();
+                        // up to its deck, or, under an opening, to under what is sunk in it
+                        final double top = over == null ? size.depth() : over.low() - SHEET;
                         solids.add(hexa("bulkhead " + i + ", " + (side > 0 ? "starboard " : "port ") + j, Role.BASE,
                                 palette.of(Role.BASE), new double[][] {
                                         {flip(side, s[j][0]), y0, s[j][1]}, {flip(side, s[j + 1][0]), y0, s[j + 1][1]},

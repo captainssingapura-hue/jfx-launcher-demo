@@ -46,9 +46,11 @@ public final class TowerMap {
 
     private static final WallTower TOWER = WallTower.standard();
     /** The hull lying on their roofs, bent round the curve they stand on. */
-    private static final SkyHull HULL = SkyHull.of(SkyHull.Size.STANDARD);
-    /** The park on its deck: a pitch, a pool, a court, a garden. */
-    private static final List<Solid> PARK = new SkyPark(HULL).solids();
+    private static final SkyHull SHAPE = SkyHull.of(SkyHull.Size.STANDARD);
+    /** The park on its deck: a pitch, a pool, a court, a garden; its deck opened for the pool sunk in it. */
+    private static final SkyPark LAID_OUT = new SkyPark(SHAPE);
+    private static final SkyHull HULL = SHAPE.opened(LAID_OUT.holes());
+    private static final List<Solid> PARK = LAID_OUT.solids();
     private static List<Solid> drawn;
     private static List<Solid> hullDrawn;
     private static List<WallTower.Opening> openings;

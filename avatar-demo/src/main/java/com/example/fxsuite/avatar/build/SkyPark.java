@@ -40,6 +40,13 @@ public final class SkyPark {
     static final double POOL_DEEP = 130;
     static final double WATER = 120;
     static final double POOL_WALL = 30;
+    /** How far under its rim the pool's water lies; how thick its floor is. */
+    static final double SURFACE = 15;
+    static final double FLOOR = 10;
+    /** Its steps up out of it: each no higher than this, so deep, so wide. */
+    static final double STEP_UP = 19;
+    static final double TREAD = 35;
+    static final double STEPS_WIDE = 200;
     /** A path between what is laid out, how wide. */
     static final double PATH = 300;
 
@@ -75,11 +82,20 @@ public final class SkyPark {
         return pitch().grown(RUN_OFF, 0);
     }
 
-    /** The pool: to the stern of the pitch, along its port side. */
+    /**
+     * The pool: to the stern of the pitch, along its port side; from station to station of the hull, so its deck is
+     * opened for it plate by whole plate; sunk in it, its rim the deck, its floor as deep as the pool.
+     */
     public Box pool() {
-        final double north = grass().minZ() - 2 * PATH;
+        final double north = hull.snapped(grass().minZ() - 2 * PATH);
         final double half = hull.size().beam() / 2;
-        return new Box(-half + CLEAR, half * 0.3, north - 9_500, north, deck, deck + POOL_DEEP);
+        return new Box(-half + CLEAR, half * 0.3, hull.snapped(north - 9_500), north, deck - POOL_DEEP, deck);
+    }
+
+    /** Where its hull's deck is left open for what is sunk in it ({@link SkyHull#opened}): the pool, down to under its floor. */
+    public List<Box> holes() {
+        final Box p = pool();
+        return List.of(new Box(p.minX(), p.maxX(), p.minZ(), p.maxZ(), p.low() - FLOOR, p.high()));
     }
 
     /** The deck to lie by the pool: beside it, to starboard. */
@@ -184,22 +200,35 @@ public final class SkyPark {
         solids.add(member(name + ", back", -half, back, up + post / 2, half, back, up + post / 2, post / 2));
     }
 
-    /** The pool: its floor, its walls, its water; the west wall at the water, an edge it seems to flow over. */
+    /**
+     * The pool, sunk in the deck, its rim flush with it, to be stepped or jumped into from anywhere round it: its
+     * floor, its walls, its water a sheet a little under the rim, its edges in under the walls, so no face of it lies on
+     * another's; its west wall just over the water, an edge it seems to flow over; steps up out of it in its north-east
+     * corner, each no higher than a step.
+     */
     private void pool(final List<Solid> solids) {
         final Box p = pool();
-        solids.add(slab("pool floor", Role.STRUCTURE, Material.POOL_TILE, p.minX(), p.maxX(), p.minZ(), p.maxZ(), deck,
-                deck + 10));
+        final double low = p.low();
+        solids.add(slab("pool floor", Role.STRUCTURE, Material.POOL_TILE, p.minX(), p.maxX(), p.minZ(), p.maxZ(),
+                low - FLOOR, low));
         final double t = POOL_WALL;
+        final double surface = deck - SURFACE;
         solids.add(slab("pool west wall", Role.STRUCTURE, Material.POOL_TILE, p.minX(), p.minX() + t, p.minZ(),
-                p.maxZ(), deck, deck + WATER));
+                p.maxZ(), low, surface + 1));
         solids.add(slab("pool east wall", Role.STRUCTURE, Material.POOL_TILE, p.maxX() - t, p.maxX(), p.minZ(),
-                p.maxZ(), deck, deck + POOL_DEEP));
-        solids.add(slab("pool south wall", Role.STRUCTURE, Material.POOL_TILE, p.minX(), p.maxX(), p.minZ(),
-                p.minZ() + t, deck, deck + POOL_DEEP));
-        solids.add(slab("pool north wall", Role.STRUCTURE, Material.POOL_TILE, p.minX(), p.maxX(), p.maxZ() - t,
-                p.maxZ(), deck, deck + POOL_DEEP));
-        solids.add(slab("pool water", Role.GLAZING, Material.WATER, p.minX() + t, p.maxX() - t, p.minZ() + t,
-                p.maxZ() - t, deck + 10, deck + WATER));
+                p.maxZ(), low, deck));
+        solids.add(slab("pool south wall", Role.STRUCTURE, Material.POOL_TILE, p.minX() + t, p.maxX() - t, p.minZ(),
+                p.minZ() + t, low, deck));
+        solids.add(slab("pool north wall", Role.STRUCTURE, Material.POOL_TILE, p.minX() + t, p.maxX() - t,
+                p.maxZ() - t, p.maxZ(), low, deck));
+        solids.add(slab("pool water", Role.GLAZING, Material.WATER, p.minX() + t / 2, p.maxX() - t / 2,
+                p.minZ() + t / 2, p.maxZ() - t / 2, surface - 1, surface));
+        final int steps = (int) Math.ceil(POOL_DEEP / STEP_UP);
+        for (int k = 1; k <= steps; k++) {
+            solids.add(slab("pool step " + k, Role.STRUCTURE, Material.POOL_TILE, p.maxX() - t - STEPS_WIDE,
+                    p.maxX() - t, p.maxZ() - t - (steps + 1 - k) * TREAD, p.maxZ() - t, low,
+                    low + POOL_DEEP * k / steps));
+        }
         // the deck to lie by it, its loungers in two rows, palms along its far side
         final Box d = lounge();
         solids.add(slab("lounge deck", Role.STRUCTURE, Material.TIMBER, d.minX(), d.maxX(), d.minZ(), d.maxZ(), deck,

@@ -60,10 +60,8 @@ public final class BuildingModel {
         glass.setSpecularColor(Color.web("#d8e6f0"));
         glass.setSpecularPower(40);
         LOOKS.put(Material.GLASS, glass);
-        final PhongMaterial water = new PhongMaterial(Color.web("#3f9fd0", 0.6));
-        water.setSpecularColor(Color.web("#e8f4fb"));
-        water.setSpecularPower(60);
-        LOOKS.put(Material.WATER, water);
+        // water as the rivers' and the ponds' is: the same look, lit as they are
+        LOOKS.put(Material.WATER, WaterModel.look(Horizon.lighting(World.AMBIENT, World.SUNLIGHT, World.SUN)));
         LOOKS.put(Material.POOL_TILE, BoxRig.matte("#8fd0dc"));
     }
 

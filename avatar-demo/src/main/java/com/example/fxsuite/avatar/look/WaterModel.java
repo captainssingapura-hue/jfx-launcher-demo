@@ -45,9 +45,7 @@ public final class WaterModel {
     private double hazedReach;
 
     public WaterModel(final Land land, final List<River> rivers, final List<Pond> ponds, final double[] lit) {
-        final PhongMaterial material = new PhongMaterial(BASE);
-        material.setSpecularColor(Color.BLACK);
-        material.setSelfIlluminationMap(picture(lit));
+        final PhongMaterial material = look(lit);
         for (final River river : rivers) {
             add(river(land, river), material);
         }
@@ -184,6 +182,18 @@ public final class WaterModel {
             corners[3 * k + 2] = (k + 1) % n + 1;
         }
         return new float[][] {points, corners};
+    }
+
+    /**
+     * How water looks, lit as {@code lit} says: its base colour lit by the sun, dull, the rest lit by itself, hazed
+     * down its picture. What a river's and a pond's water is drawn in, and a pool's in a building ({@link
+     * BuildingModel}), whose meshes take the top of its picture: the water as it is near, before the haze.
+     */
+    static PhongMaterial look(final double[] lit) {
+        final PhongMaterial material = new PhongMaterial(BASE);
+        material.setSpecularColor(Color.BLACK);
+        material.setSelfIlluminationMap(picture(lit));
+        return material;
     }
 
     /** Its picture, lit by itself: one colour, the haze down it ({@link TerrainModel#glow}). */

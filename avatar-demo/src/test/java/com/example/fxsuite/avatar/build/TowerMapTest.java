@@ -97,7 +97,8 @@ class TowerMapTest {
                     "its bottom on tower " + i + "'s roof");
             final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
             final double on = world.footing(t.x(), t.z(), 32, deck + 20).height();
-            assertTrue(on >= deck && on <= deck + 10, "its deck over tower " + i + ", or what is laid on it: " + (on - deck));
+            assertTrue(on >= deck - SkyPark.POOL_DEEP && on <= deck + 10, "its deck over tower " + i
+                    + ", what is laid on it, or the pool sunk in it: " + (on - deck));
             // and its full beam there: its deck reaching past the roof each side
             final Vec3 out = Num.right(t.yaw());
             for (final double side : new double[] {-1, 1}) {

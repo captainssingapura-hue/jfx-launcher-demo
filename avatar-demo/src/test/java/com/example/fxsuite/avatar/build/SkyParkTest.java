@@ -1,12 +1,16 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Box;
+import com.example.fxsuite.avatar.sim.Clock;
+import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Placed;
+import com.example.fxsuite.avatar.sim.Vec3;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -72,7 +76,8 @@ class SkyParkTest {
         for (final Solid s : SOLIDS) {
             for (final Point p : s.corners()) {
                 assertTrue(Math.abs(p.across()) <= HULL.half(p.along()) + 1e-6, "on the deck: " + s.name());
-                assertTrue(p.up() >= PARK.deck() - 1e-9, "on it, not in it: " + s.name());
+                final double lowest = s.name().startsWith("pool") ? PARK.pool().low() - SkyPark.FLOOR : PARK.deck();
+                assertTrue(p.up() >= lowest - 1e-9, "on it, not in it, but the pool sunk in it: " + s.name());
             }
         }
         // trees and hedges only in the garden
@@ -106,12 +111,49 @@ class SkyParkTest {
                 placed.z(middle.across(), middle.along()), 32, deck + 20).height(), 1e-6, "on the pitch");
         final Box pool = PARK.pool();
         final Point swim = HULL.bent(new Point((pool.minX() + pool.maxX()) / 2, (pool.minZ() + pool.maxZ()) / 2, 0));
-        assertEquals(deck + 10, world.footing(placed.x(swim.across(), swim.along()), placed.z(swim.across(),
-                swim.along()), 32, deck + SkyPark.WATER + 20).height(), 1e-6, "in the pool, on its floor");
+        assertEquals(deck - SkyPark.POOL_DEEP, world.footing(placed.x(swim.across(), swim.along()),
+                placed.z(swim.across(), swim.along()), 32, deck + 20).height(), 1e-6, "into the pool, to its floor");
         // and kept from the edge by the rail
         final Point edge = HULL.bent(new Point(HULL.size().beam() / 2 - 20, -6_000, 0));  // against its rail
         final Obstacles.Contact c = world.slide(placed.x(edge.across(), edge.along()),
                 placed.z(edge.across(), edge.along()), 0, 0, 32, deck + 20, deck + 200);
         assertTrue(c.blocked(), "the rail in the way");
+    }
+
+    @Test
+    void jumpedIntoFromTheDeckWalkedOutUpItsSteps() {
+        TowerMap.tell();
+        final Obstacles world = new Course(Demo.WALL_TOWER).obstacles();
+        final Placed placed = ((Interior) world.volumes().get(TowerMap.TOWERS)).placed();
+        final double deck = TowerMap.hullAt().height() + PARK.deck();
+        final Box pool = PARK.pool();
+        // which way is ahead, toward its bow, on the deck where the pool is
+        final double along = (pool.minZ() + pool.maxZ()) / 2;
+        final Point a = HULL.bent(new Point(0, along, 0));
+        final Point b = HULL.bent(new Point(0, along + 100, 0));
+        final double bow = Math.toDegrees(Math.atan2(placed.x(b.across(), b.along()) - placed.x(a.across(), a.along()),
+                placed.z(b.across(), b.along()) - placed.z(a.across(), a.along())));
+        final double west = bow - 90;
+        // stood on the deck beside it, walking toward it: over its rim, and down to its floor
+        final double x0 = pool.minX() + 400;
+        final Point beside = HULL.bent(new Point(x0, pool.minZ() - 150, 0));
+        Body body = Body.standing(new Vec3(placed.x(beside.across(), beside.along()), -deck,
+                placed.z(beside.across(), beside.along())), bow);
+        final Controls walk = new Controls(1, 0, 0, 0, false, false, 0);
+        for (int n = 0; n < 240; n++) {
+            body = body.step(walk, Clock.STEP, world);
+        }
+        assertEquals(deck - SkyPark.POOL_DEEP, body.height(), 1e-6, "in the pool, on its floor");
+        // from its floor, at the foot of its steps, walking up them toward its bow: out, on the deck
+        final double x1 = pool.maxX() - SkyPark.POOL_WALL - SkyPark.STEPS_WIDE / 2;
+        final Point foot = HULL.bent(new Point(x1, pool.maxZ() - SkyPark.POOL_WALL - 400, 0));
+        body = Body.standing(new Vec3(placed.x(foot.across(), foot.along()), -(deck - SkyPark.POOL_DEEP),
+                placed.z(foot.across(), foot.along())), bow);
+        for (int n = 0; n < 600; n++) {
+            body = body.step(walk, Clock.STEP, world);
+        }
+        assertTrue(body.height() >= deck && body.height() <= deck + 10, "up its steps, out on the deck, or what is on it: "
+                + (body.height() - deck));
+        assertTrue(Double.isFinite(west));
     }
 }

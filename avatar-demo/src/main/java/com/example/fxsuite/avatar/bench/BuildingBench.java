@@ -136,9 +136,10 @@ public final class BuildingBench extends Application {
         COMPOSED.put(com.example.fxsuite.avatar.build.SkyHull.NAME,
                 com.example.fxsuite.avatar.build.SkyHull.standard().building());
         // and the park on its deck: a pitch, a pool, a court, a garden
+        final com.example.fxsuite.avatar.build.SkyPark park = new com.example.fxsuite.avatar.build.SkyPark(
+                com.example.fxsuite.avatar.build.SkyHull.standard());
         COMPOSED.put(com.example.fxsuite.avatar.build.SkyPark.NAME, com.example.fxsuite.avatar.build.SkyHull.standard()
-                .building(com.example.fxsuite.avatar.build.SkyPark.NAME, new com.example.fxsuite.avatar.build.SkyPark(
-                        com.example.fxsuite.avatar.build.SkyHull.standard()).solids()));
+                .opened(park.holes()).building(com.example.fxsuite.avatar.build.SkyPark.NAME, park.solids()));
         // the earth house, as homesteaders built them
         COMPOSED.put(com.example.fxsuite.avatar.build.EarthHouse.NAME,
                 com.example.fxsuite.avatar.build.EarthHouse.standard().building());
