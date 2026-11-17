@@ -1,6 +1,5 @@
 package com.example.fxsuite.avatar.build;
 
-import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Contour;
 import com.example.fxsuite.avatar.sim.Terrain;
 import com.example.fxsuite.avatar.sim.Vec2;
@@ -59,12 +58,13 @@ public final class Terrains {
         }
 
         Contour contour(final int outward) {
-            final double reach = Body.EDGE + PAST * (outward + 1);
+            final double west = Village.WEST - PAST * (outward + 1);
+            final double east = Village.EAST + PAST * (outward + 1);
             final List<Vec2> loop = new ArrayList<>();
-            for (double x = -reach; x <= reach; x += ALONG) {
+            for (double x = west; x <= east; x += ALONG) {
                 loop.add(metre(x, Village.riverAt(x) + northAt(x)));
             }
-            for (double x = reach; x >= -reach; x -= ALONG) {
+            for (double x = east; x >= west; x -= ALONG) {
                 loop.add(metre(x, Village.riverAt(x) - southAt(x)));
             }
             return new Contour(height, loop, flat);
@@ -94,6 +94,18 @@ public final class Terrains {
         final double near = BANDS.get(inner).northAt(x);
         final double far = BANDS.get(inner + 1).northAt(x);
         return metre(x, Village.riverAt(x) + near + (far - near) * between);
+    }
+
+    /** As {@link #between}, southward. */
+    private static Vec2 south(final int inner, final double x, final double between) {
+        final double near = BANDS.get(inner).southAt(x);
+        final double far = BANDS.get(inner + 1).southAt(x);
+        return metre(x, Village.riverAt(x) - near - (far - near) * between);
+    }
+
+    /** As {@link #room}, southward. */
+    private static double southRoom(final int inner, final double x) {
+        return BANDS.get(inner + 1).southAt(x) - BANDS.get(inner).southAt(x);
     }
 
     /** The room between band {@code inner}'s line and the next one's, northward, at {@code x}. */
@@ -131,6 +143,13 @@ public final class Terrains {
     public static final Vec2 KNOLL = between(2, -90_000, 0.5);
     public static final Vec2 BEACON = between(3, 150_000, 0.5);
     public static final Vec2 HOLLOW = between(1, 45_000, 0.45);
+
+    /** West of the village: a spur of the hills on the north slope, 6 km west; a pair of hills on the south slope, 9 and
+     * 10.5 km west; a long hill on the north slope, 12.5 km west. */
+    public static final Vec2 SPUR = between(3, -600_000, 0.5);
+    public static final Vec2 TWIN_EAST = south(1, -900_000, 0.5);
+    public static final Vec2 TWIN_WEST = south(1, -1_050_000, 0.55);
+    public static final Vec2 FAR_HILL = between(3, -1_250_000, 0.45);
 
     /**
      * The church's hill, north-west of the village, a few hundred metres up the slope from it: its foot so far
@@ -172,7 +191,20 @@ public final class Terrains {
         loops.add(circle(600, CHURCH_HILL, CHURCH_HILL_FOOT, 28, false));
         loops.add(circle(900, CHURCH_HILL, CHURCH_HILL_SHOULDER, 24, false));
         loops.add(circle(CHURCHYARD_LEVEL, CHURCH_HILL, CHURCHYARD, 20, true));
-        return new Terrain("meadow", Body.EDGE, 1_000, MOORS, 11, new Terrain.Noise(40, 8_000, 2), loops,
-                List.of(new Terrain.Spot(KNOLL, 3_400), new Terrain.Spot(BEACON, 6_600)));
+        // and west of the village, along the valley: a ridge spur on the north slope, a pair of hills on the south
+        // slope, and a long hill further west on the north
+        final double spur = Math.min(35_000, room(3, SPUR.x()) * 0.3);
+        loops.add(round(5_500, SPUR, spur, 24, 0.6));
+        loops.add(round(6_200, SPUR, spur * 0.4, 16, 1.1));
+        for (final Vec2 hill : List.of(TWIN_EAST, TWIN_WEST)) {
+            loops.add(round(2_000, hill, Math.min(14_000, southRoom(1, hill.x()) * 0.35), 18, hill.x() / 10_000));
+        }
+        final double far = Math.min(45_000, room(3, FAR_HILL.x()) * 0.35);
+        loops.add(round(5_500, FAR_HILL, far, 26, 2.9));
+        loops.add(round(6_500, FAR_HILL, far * 0.5, 18, 0.2));
+        return new Terrain("meadow", Village.WEST, Village.SOUTH, Village.EAST, Village.NORTH, 1_000, MOORS, 11,
+                new Terrain.Noise(40, 8_000, 2), loops, List.of(new Terrain.Spot(KNOLL, 3_400), new Terrain.Spot(BEACON, 6_600),
+                new Terrain.Spot(SPUR, 7_000), new Terrain.Spot(TWIN_EAST, 2_600), new Terrain.Spot(TWIN_WEST, 2_900),
+                new Terrain.Spot(FAR_HILL, 7_400)));
     }
 }

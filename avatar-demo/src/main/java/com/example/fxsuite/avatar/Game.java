@@ -5,6 +5,7 @@ import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.Bombs;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
+import com.example.fxsuite.avatar.look.Sight;
 import com.example.fxsuite.avatar.look.Guns;
 import com.example.fxsuite.avatar.look.Pose;
 import com.example.fxsuite.avatar.look.Impacts;
@@ -51,10 +52,12 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.SubScene;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.Label;
@@ -87,6 +90,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,6 +234,26 @@ public final class Game {
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
+    /**
+     * The near layer: from high up, what the camera follows (the avatar, the aircraft it flies, its flames) drawn in a
+     * view of its own over the world's, its camera moved as the world's is; so the world's may start drawing further
+     * off, as far as its height asks, and tell far things apart, and what it follows is not cut away. Below
+     * {@link #LOW}, all of it the world's again, so nothing near shows through what stands in front of it.
+     */
+    private final PerspectiveCamera nearEye = new PerspectiveCamera(true);
+    private final Translate nearAt = new Translate();
+    private final Rotate nearYaw = new Rotate(0, Rotate.Y_AXIS);
+    private final Rotate nearPitch = new Rotate(0, Rotate.X_AXIS);
+    private final Group nearRoot = new Group();
+    private final List<Node> lifted = new ArrayList<>();
+    private final Map<Node, Group> homes = new IdentityHashMap<>();
+    private boolean high;
+    /** Over this height the near layer is used, and under {@link #LOW} it is not; how far it draws. */
+    private static final double HIGH = 6_000;
+    private static final double LOW = 4_000;
+    private static final double NEAR_LAYER = 200_000;
+    /** How much of the camera's height over the ground the world's layer starts drawing at, high up. */
+    private static final double NEAR_PER_HEIGHT = 0.01;
     private final Label status = new Label();
     /** The keys, for whatever the avatar is doing: on foot, or at the controls of each kind of vehicle. */
     private final Label help = new Label();
@@ -347,6 +371,9 @@ public final class Game {
     /** A bomb let go once, from the control panel, at the next step. */
     private boolean bombOnce;
     private double fieldOfView = FIELD_OF_VIEW;
+    /** How far the camera sees, smoothed as its height changes; and how much further than that it draws. */
+    private final Sight sight = new Sight();
+    private static final double FAR_CLIP = 1.25;
     /** Where the world is drawn: how wide it is to how high, for what the camera takes in. */
     private SubScene screen;
     private String shown = "";
@@ -433,6 +460,42 @@ public final class Game {
         return Math.toDegrees(Math.atan(Math.tan(Math.toRadians(fieldOfView / 2)) * aspect));
     }
 
+    /**
+     * The layers, the camera {@code over} the ground, seen from the eyes ({@code eyes}) or from behind:
+     * from over {@link #HIGH} till under {@link #LOW}, what it follows in the near layer, and the world's drawn from
+     * so much of its height on; else all of it the world's, drawn from as near as ever.
+     */
+    private void layers(final double over, final boolean eyes) {
+        high = high ? over > LOW : over > HIGH;
+        final List<Node> wanted = new ArrayList<>();
+        if (high) {
+            wanted.add(rig.node());
+            wanted.add(rig.effects());
+            final Node part = world.part(lifts.stream().filter(Lift::held).findFirst().map(Lift::piece).orElse(-1));
+            if (part != null) {
+                wanted.add(part);
+            }
+        }
+        for (final Node node : new ArrayList<>(lifted)) {
+            if (!wanted.contains(node)) {
+                nearRoot.getChildren().remove(node);
+                homes.remove(node).getChildren().add(node);
+                lifted.remove(node);
+            }
+        }
+        for (final Node node : wanted) {
+            if (!lifted.contains(node) && node.getParent() instanceof Group home) {
+                home.getChildren().remove(node);
+                homes.put(node, home);
+                nearRoot.getChildren().add(node);
+                lifted.add(node);
+            }
+        }
+        final double near = nearClip(eyes);
+        nearEye.setNearClip(near);
+        eye.setNearClip(high ? Math.max(near, over * NEAR_PER_HEIGHT) : near);
+    }
+
     /** How near the camera it draws, seen from the eyes ({@code eyes}) or from behind. */
     private double nearClip(final boolean eyes) {
         return eyes ? NEAR : Num.clamp(chase.distance() * NEAR_SHARE, NEAR, NEAR_MOST);
@@ -442,9 +505,23 @@ public final class Game {
     private void start(final Stage stage) {
         eye.setNearClip(NEAR);
         // as far as the sky round the camera, and a little more
-        eye.setFarClip(Horizon.FAR * 1.25);
+        eye.setFarClip(Horizon.FAR * FAR_CLIP);
         eye.setFieldOfView(FIELD_OF_VIEW);
         eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
+        nearEye.getTransforms().addAll(nearAt, nearYaw, nearPitch);
+        // moved and turned as the world's camera is, and as wide
+        nearAt.xProperty().bind(eyeAt.xProperty());
+        nearAt.yProperty().bind(eyeAt.yProperty());
+        nearAt.zProperty().bind(eyeAt.zProperty());
+        nearYaw.angleProperty().bind(eyeYaw.angleProperty());
+        nearPitch.angleProperty().bind(eyePitch.angleProperty());
+        nearEye.fieldOfViewProperty().bind(eye.fieldOfViewProperty());
+        nearEye.setNearClip(NEAR);
+        nearEye.setFarClip(NEAR_LAYER);
+        final javafx.scene.AmbientLight nearAmbient = new javafx.scene.AmbientLight(World.AMBIENT);
+        final javafx.scene.DirectionalLight nearSun = new javafx.scene.DirectionalLight(World.SUNLIGHT);
+        nearSun.setDirection(World.SUN);
+        nearRoot.getChildren().addAll(nearAmbient, nearSun, nearEye);
 
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
                 bombs.node(), stall.node(), guns.node(),
@@ -458,6 +535,10 @@ public final class Game {
             zoomTo = Double.NaN;
             chase = chase.zoomed(Math.pow(1.0015, -e.getDeltaY()));
         });
+        final SubScene nearView = new SubScene(nearRoot, 0, 0, true, SceneAntialiasing.BALANCED);
+        nearView.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        nearView.setCamera(nearEye);
+        nearView.setMouseTransparent(true);
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
         help.setText(ON_FOOT_HELP);
@@ -474,7 +555,7 @@ public final class Game {
 
         // the menu bar along the top, and under it the world, the HUD over it
         menus();
-        final StackPane shown = new StackPane(view, hud, dashboard.node(), panel.node());
+        final StackPane shown = new StackPane(view, nearView, hud, dashboard.node(), panel.node());
         // a vehicle's controls, low on the left, to click with the mouse freed
         StackPane.setAlignment(panel.node(), Pos.BOTTOM_LEFT);
         StackPane.setMargin(panel.node(), new Insets(0, 0, 20, 24));
@@ -487,6 +568,8 @@ public final class Game {
         StackPane.setMargin(dashboard.node(), new Insets(0, 24, 20, 0));
         view.widthProperty().bind(shown.widthProperty());
         view.heightProperty().bind(shown.heightProperty());
+        nearView.widthProperty().bind(shown.widthProperty());
+        nearView.heightProperty().bind(shown.heightProperty());
 
         final Scene scene = new Scene(root, 1280, 800);
         this.scene = scene;
@@ -536,8 +619,9 @@ public final class Game {
         movedNow = new Play(avatar, damage, sky, lifts, people, props, turrets).moving();
         movedBefore = movedNow;
         frame(0);
-        // unattended runs also print each second's frame times, for measuring without watching
-        final boolean logFrames = unattended || slowFrames != null;
+        // unattended runs also print each second's frame times, for measuring without watching; and so does the
+        // slow frames' log, while it is on
+        final boolean logFrames = unattended;
         timer = new AnimationTimer() {
             private long last = -1;
 
@@ -545,24 +629,25 @@ public final class Game {
             public void handle(final long now) {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
-                if (slowFrames != null) {
+                if (slowFrames.on()) {
                     final String slow = slowFrames.began(now, world.node());
                     if (slow != null) {
-                        System.out.println(slow);
+                        slowFrames.write(slow);
                     }
                 }
                 final long began = System.nanoTime();
                 frame(seconds);
                 final long work = System.nanoTime() - began;
-                if (slowFrames != null) {
+                if (slowFrames.on()) {
                     slowFrames.done(work, drawingNanos, world.landWork(), seenAt);
                 }
                 final FrameTimes.Summary summary = frameTimes.frame(now, work);
                 if (summary != null) {
                     showFrames(summary);
-                    if (logFrames) {
-                        System.out.println("frames: " + summary.text().replace('·', '|')
-                                + (slowFrames != null ? " | " + slowFrames.where() : ""));
+                    if (slowFrames.on()) {
+                        slowFrames.write("frames: " + summary.text().replace('·', '|') + " | " + slowFrames.where());
+                    } else if (logFrames) {
+                        System.out.println("frames: " + summary.text().replace('·', '|'));
                     }
                 }
             }
@@ -576,6 +661,7 @@ public final class Game {
             timer.stop();
             timer = null;
         }
+        slowFrames.on(false);
         if (look != null) {
             look.close();
             look = null;
@@ -806,9 +892,16 @@ public final class Game {
         eye.setNearClip(nearClip(cockpit != null));
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
-        world.horizon().follow(at);
+        // how far it sees, by how high it is over the ground under it ({@link Sight}): the sky, the haze and how far it
+        // draws as far as that
+        final double over = -at.y() - course.land().height(at.x(), at.z());
+        final double reach = sight.at(over, seconds);
+        world.horizon().follow(at, reach);
+        eye.setFarClip(reach * FAR_CLIP);
+        layers(over, cockpit != null);
         final long seeing = System.nanoTime();
-        world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways()), seconds);
+        world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(),
+                reach, Math.max(0, over)), seconds);
         drawingNanos = System.nanoTime() - seeing;
         seenAt = at;
         eyeAt.setY(at.y());
@@ -1116,7 +1209,7 @@ public final class Game {
     /**
      * The menu bar: the demos, each by name, this one ticked, to switch to (this one again starts it
      * over), and the choice of all of them (as Tab); the view, first person and the camera put back
-     * behind (as V and C); and the sound, muted and its profile (as M and P). The mouse is free
+     * behind (as V and C), and the slow frames' log on or off ({@link SlowFrames}); and the sound, muted and its profile (as M and P). The mouse is free
      * while a menu is open, to point with, and goes back to as it was after.
      */
     private void menus() {
@@ -1137,9 +1230,14 @@ public final class Game {
         choice.setOnAction(e -> back.run());
         demos.getItems().addAll(new SeparatorMenuItem(), again, choice);
         final Menu views = new Menu("View");
+        // and the slow frames' log, on or off, kept in a file
+        final CheckMenuItem log = new CheckMenuItem("Log slow frames to " + SlowFrames.FILE.getFileName());
+        log.setSelected(slowFrames.on());
+        log.setOnAction(e -> slowFrames.on(log.isSelected()));
         views.getItems().addAll(
                 item("First person   (V)", KeyCode.V),
-                item("Camera behind   (C)", KeyCode.C));
+                item("Camera behind   (C)", KeyCode.C),
+                new SeparatorMenuItem(), log);
         final Menu sounds = new Menu("Sound");
         sounds.getItems().addAll(
                 item("Mute or unmute   (M)", KeyCode.M),

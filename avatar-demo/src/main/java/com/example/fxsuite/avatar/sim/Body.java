@@ -60,8 +60,9 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
     public static final double GRAVITY = 2600;
     public static final double JUMP = 950;
     /**
-     * The world is a square this far from the centre each way, 5 km, the town in its middle, and this
-     * tall: well over the tallest tower, even in a town built twice as big.
+     * The world is a square this far from the centre each way, 5 km, the town in its middle, unless its land
+     * is surveyed, when it goes as far as that does ({@link Land#insideX}); and this tall, for one flying with a
+     * jet-pack: well over the tallest tower, even in a town built twice as big.
      */
     public static final double EDGE = 500_000;
     public static final double CEILING = 40_000;
@@ -228,8 +229,8 @@ public record Body(Vec3 position, double yaw, double travel, double speed, doubl
             final double before = height;
             final double wasX = x;
             final double wasZ = z;
-            x = Num.clamp(x + vx * dt, -EDGE, EDGE);
-            z = Num.clamp(z + vz * dt, -EDGE, EDGE);
+            x = world.land().insideX(x + vx * dt);
+            z = world.land().insideZ(z + vz * dt);
             // the land rising ahead of the feet steeper than can be climbed: in the way, as a wall is. Back
             // where it was, going along the slope, not up it
             if (world.land().height(x, z) - before > CLIMB * Math.hypot(x - wasX, z - wasZ) + 1e-9) {

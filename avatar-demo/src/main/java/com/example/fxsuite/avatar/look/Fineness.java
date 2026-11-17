@@ -4,8 +4,10 @@ import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 /**
- * How finely the land is drawn: a fineness from 1, the finest, to -1, the roughest, by how far it is from the
- * camera and how fast the camera moves ({@link #of}). At rest, falling evenly with the logarithm of distance
+ * How finely the land is drawn: a fineness from 1, the finest, to -1, the roughest near the ground, and on down to
+ * {@link #LEAST} far off, for what is seen from high up; by how far it is from the camera, height and all, and how
+ * fast the camera moves ({@link #of}). Speed never makes land rougher than -1: what is rougher still is so for
+ * being far. At rest, falling evenly with the logarithm of distance
  * ({@link #rest}); less the faster the camera goes, as the square of its speed ({@link #penalty}), and the
  * faster so; speed counting for nothing right round the camera, and less and less far off ({@link #weight}).
  *
@@ -27,8 +29,10 @@ public final class Fineness {
     /** Beyond this, speed counts less and less, as how fast the land moves on screen does. */
     static final double WANES = 80_000;
     /** How many levels the land is built at, and the edges of their bands, finest first. */
-    static final int LEVELS = 5;
-    private static final double[] EDGES = {0.75, 0.25, -0.25, -0.75};
+    static final int LEVELS = 7;
+    private static final double[] EDGES = {0.75, 0.25, -0.25, -0.75, -1.25, -1.75};
+    /** The roughest there is: 43 km off, at rest. */
+    static final double LEAST = -2;
     /** How far past a band's edge fineness must be for a tile to go finer again. */
     static final double HOLD = 0.1;
 
@@ -36,25 +40,29 @@ public final class Fineness {
     }
 
     /**
-     * How finely land {@code distance} across the ground from the camera is drawn, the camera moving at
-     * {@code speed}: and past {@link #WANES}, where speed counts less and less, never finer than there, so the
-     * land is never drawn finer for being further off.
+     * How finely land {@code distance} from the camera is drawn, the camera moving at {@code speed}: and past
+     * {@link #WANES}, where speed counts less and less, never finer than there, so the land is never drawn finer for
+     * being further off; and speed making it no rougher than -1, nor finer than it is at rest.
      */
     public static double of(final double distance, final double speed) {
         final double penalty = penalty(speed);
-        double fine = rest(distance) - weight(distance) * penalty;
+        final double rest = rest(distance);
+        double fine = rest - weight(distance) * penalty;
         if (distance > WANES) {
             fine = Math.min(fine, rest(WANES) - penalty);
         }
-        return Num.clamp(fine, -1, 1);
+        return Math.min(rest, Math.max(-1, fine));
     }
 
-    /** At rest: {@link #EDGE} at {@link #NEAR}, as much below 0 at {@link #FAR}, evenly in the logarithm between. */
+    /**
+     * At rest: {@link #EDGE} at {@link #NEAR}, as much below 0 at {@link #FAR}, evenly in the logarithm between, and on
+     * so, down to {@link #LEAST}.
+     */
     static double rest(final double distance) {
         if (distance <= 0) {
             return 1;
         }
-        return Num.clamp(EDGE - 2 * EDGE * Math.log(distance / NEAR) / Math.log(FAR / NEAR), -1, 1);
+        return Num.clamp(EDGE - 2 * EDGE * Math.log(distance / NEAR) / Math.log(FAR / NEAR), LEAST, 1);
     }
 
     /** What speed {@code speed} costs: none below {@link #FREE}, and then as the square of how much faster. */

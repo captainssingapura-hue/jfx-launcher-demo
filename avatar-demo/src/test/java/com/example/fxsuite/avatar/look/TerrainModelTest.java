@@ -23,7 +23,9 @@ class TerrainModelTest {
         assertEquals(0, TerrainModel.level(0, 0, -1));
         assertEquals(0, TerrainModel.level(25_000, 0, -1), "the finest within 300 m");
         assertEquals(1, TerrainModel.level(50_000, 0, -1));
-        assertEquals(TerrainModel.LEVELS - 1, TerrainModel.level(900_000, 0, -1));
+        assertEquals(4, TerrainModel.level(900_000, 0, -1), "9 km off");
+        assertEquals(5, TerrainModel.level(1_500_000, 0, -1), "15 km off");
+        assertEquals(TerrainModel.LEVELS - 1, TerrainModel.level(3_000_000, 0, -1), "the roughest, 30 km off");
         // gone coarser past 300 m, it stays so till well inside it
         assertEquals(1, TerrainModel.level(28_500, 0, 1));
         assertEquals(0, TerrainModel.level(24_000, 0, 1));

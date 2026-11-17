@@ -67,7 +67,7 @@ class PiecesTest {
         final Pieces.Piece<Integer> under = at(shown, eye.x(), eye.z());
         assertEquals(0, under.level, "the finest under the camera");
         assertEquals(Pieces.SMALLEST, under.x1 - under.x0, 1e-9, "125 m");
-        assertEquals(Pieces.LEVELS - 1, at(shown, -480_000, -480_000).level, "the roughest far off");
+        assertEquals(4, at(shown, -480_000, -480_000).level, "rough far off: as rough as 7 km off asks");
         // each as fine as fineness at its nearest point asks: or a level coarser, within its margin; or a level
         // finer, beside a nearer one of the four it was split into with
         for (final Pieces.Piece<Integer> p : shown) {
@@ -130,6 +130,18 @@ class PiecesTest {
         settle(fromNear, new Vec3(x0 + 12_500, 0, 12_500), 100);
         final Pieces.Piece<Integer> near = at(settle(fromNear, there, 100).shown(), x0 + 100, 12_500);
         assertEquals(0, near.level, "not coarser till fineness is under the edge");
+    }
+
+    @Test
+    void fromHighUpNothingUnderItFine() {
+        final Pieces<Integer> pieces = pieces(Runnable::run);
+        final Vec3 eye = new Vec3(1_000, -300_000, 1_000);
+        Pieces.Shown<Integer> shown = null;
+        for (int f = 0; f < 200; f++) {
+            shown = pieces.seenFrom(eye, 0, 300_000);
+        }
+        coversItAllOnce(shown.shown());
+        assertTrue(shown.shown().stream().allMatch(p -> p.level >= 3), "3 km up, nothing under it finer than 1 km pieces");
     }
 
     @Test

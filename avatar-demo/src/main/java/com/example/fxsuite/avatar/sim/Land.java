@@ -91,6 +91,19 @@ public final class Land {
         return base;
     }
 
+    /**
+     * {@code x} held within the world's edges west and east: its survey's, if it is surveyed; else
+     * {@link Body#EDGE} either way.
+     */
+    public double insideX(final double x) {
+        return base == null ? Num.clamp(x, -Body.EDGE, Body.EDGE) : Num.clamp(x, base.x(0), base.x(base.across() - 1));
+    }
+
+    /** {@code z} held within the world's edges south and north, as {@link #insideX} is. */
+    public double insideZ(final double z) {
+        return base == null ? Num.clamp(z, -Body.EDGE, Body.EDGE) : Num.clamp(z, base.z(0), base.z(base.along() - 1));
+    }
+
     public List<Layer> layers() {
         return layers;
     }

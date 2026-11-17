@@ -36,9 +36,27 @@ class SurveyTest {
     }
 
     @Test
+    void aRectangleOffTheMiddleItsHeightsWhereTheyAre() {
+        // 200 m west to east, from 150 m west to 50 m east; 100 m south to north; a hill 60 m west
+        final Contour hill = new Contour(1_000, circle(-6_000, 0, 2_000, 48));
+        final Survey land = new Terrain("long", -15_000, -5_000, 5_000, 5_000, 500, 0, 0, Terrain.Noise.NONE,
+                List.of(hill), List.of()).survey();
+        assertEquals(41, land.across());
+        assertEquals(21, land.along());
+        assertEquals(-15_000, land.x(0));
+        assertEquals(5_000, land.x(40));
+        assertEquals(5_000, land.z(20));
+        assertEquals(1_000, land.height(-4_000, 0), 60, "the hill's line where it is, off the middle");
+        assertEquals(0, land.height(-15_000, -5_000), 50, "the base at the edge, but for its smoothing");
+        assertEquals(0, land.height(5_000, 5_000), 50);
+        assertTrue(land.height(-6_000, 0) > land.height(0, 0), "higher on it than east of it");
+    }
+
+    @Test
     void levelWithNothingOnIt() {
         final Survey flat = Terrain.flat("flat", REACH, EVERY).survey();
-        assertEquals(101, flat.size());
+        assertEquals(101, flat.across());
+        assertEquals(101, flat.along());
         assertEquals(0, flat.lowest());
         assertEquals(0, flat.highest());
         assertEquals(-REACH, flat.x(0));
@@ -81,8 +99,8 @@ class SurveyTest {
         final Survey rough = survey(List.of(FOOT, pad), List.of(), noise, 7);
         final Survey smooth = survey(List.of(FOOT, pad), List.of());
         boolean bumped = false;
-        for (int j = 0; j < rough.size(); j++) {
-            for (int i = 0; i < rough.size(); i++) {
+        for (int j = 0; j < rough.along(); j++) {
+            for (int i = 0; i < rough.across(); i++) {
                 final double x = rough.x(i);
                 final double z = rough.z(j);
                 if (Math.abs(x) < 10_000 && Math.abs(z) < 10_000) {
@@ -96,8 +114,8 @@ class SurveyTest {
         final Survey again = survey(List.of(FOOT, pad), List.of(), noise, 7);
         final Survey other = survey(List.of(FOOT, pad), List.of(), noise, 8);
         boolean differs = false;
-        for (int j = 0; j < rough.size(); j++) {
-            for (int i = 0; i < rough.size(); i++) {
+        for (int j = 0; j < rough.along(); j++) {
+            for (int i = 0; i < rough.across(); i++) {
                 assertEquals(rough.at(i, j), again.at(i, j), "the same from the same seed");
                 differs |= rough.at(i, j) != other.at(i, j);
             }

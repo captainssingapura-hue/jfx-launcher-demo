@@ -7,8 +7,15 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.shape.MeshView;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import java.util.Locale;
 
 /**
@@ -21,11 +28,19 @@ import java.util.Locale;
  * what it did to the land, and the garbage collector's runs since; and what is left over is JavaFX's. What the
  * frame before that did to the land is said too.
  *
- * <p>On with {@code -Davatar.slow=20} (milliseconds); off by default.
+ * <p>Turned on and off as it runs ({@link #on}); each line written out ({@link #write}) to the console and to
+ * {@link #FILE}, kept from one run to the next, each time it is turned on marked. On from the start with
+ * {@code -Davatar.slow=20} (milliseconds, how slow is slow); else off, and {@link #SLOW} once turned on.
  */
 final class SlowFrames {
 
+    /** How slow a frame must be to be told of, unless said otherwise; and where the lines are kept. */
+    static final double SLOW = 20;
+    static final Path FILE = Path.of(System.getProperty("java.io.tmpdir"), "avatar-frames.log");
+
     private final double slow;
+    private boolean on;
+    private PrintWriter out;
     private long first = -1;
     private long last = -1;
     private String landBefore = "";
@@ -43,10 +58,56 @@ final class SlowFrames {
         collected();
     }
 
-    /** From {@code -Davatar.slow}, or null if it is not set. */
+    /** From {@code -Davatar.slow}: on, so slow, if it is set; else off, {@link #SLOW} once on. */
     static SlowFrames fromProperty() {
         final String ms = System.getProperty("avatar.slow");
-        return ms == null || ms.isBlank() ? null : new SlowFrames(Double.parseDouble(ms));
+        final boolean set = ms != null && !ms.isBlank();
+        final SlowFrames frames = new SlowFrames(set ? Double.parseDouble(ms) : SLOW);
+        frames.on(set);
+        return frames;
+    }
+
+    /** Whether it is on. */
+    boolean on() {
+        return on;
+    }
+
+    /**
+     * Turned on ({@code now}) or off. On, the file opened to add to, marked; the frames counted afresh, so the
+     * gap since it was last on is not taken for a slow one. Off, the file closed.
+     */
+    void on(final boolean now) {
+        if (now == on) {
+            return;
+        }
+        on = now;
+        if (now) {
+            first = -1;
+            last = -1;
+            collected();
+            try {
+                out = new PrintWriter(Files.newBufferedWriter(FILE, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND), true);
+            } catch (final IOException e) {
+                out = null;
+                System.err.println("frames: cannot write " + FILE + ": " + e.getMessage());
+            }
+            write("--- on at " + LocalDateTime.now().withNano(0) + ", frames slower than " + slow + " ms");
+        } else {
+            write("--- off at " + LocalDateTime.now().withNano(0));
+            if (out != null) {
+                out.close();
+                out = null;
+            }
+        }
+    }
+
+    /** A line written out: to the console, and to the file while it is on. */
+    void write(final String line) {
+        System.out.println(line);
+        if (out != null) {
+            out.println(line);
+        }
     }
 
     /**

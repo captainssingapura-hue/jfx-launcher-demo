@@ -22,9 +22,13 @@ import java.util.regex.Pattern;
  * contour 20m flat -100,-100 100,-100 100,100 -100,100
  * spot 34m at=900,-200
  * </pre>
+ * {@code reach=5000m} for a square round the middle; or, for any rectangle, {@code x=-15000..5000m z=-5000..5000m}.
  *
  * @param name     what it is called
- * @param reach    how far it goes from the middle each way, x and z, in centimetres: the world's edge
+ * @param x0       its west edge, in centimetres: the world's edge
+ * @param z0       its south edge
+ * @param x1       its east edge
+ * @param z1       its north edge
  * @param every    how far apart its survey's heights are, in centimetres
  * @param base     the ground's height outside every loop, met at the world's edge
  * @param seed     what its roughness is worked from
@@ -32,8 +36,8 @@ import java.util.regex.Pattern;
  * @param contours its loops, in no particular order
  * @param spots    its spot heights
  */
-public record Terrain(String name, double reach, double every, double base, long seed, Noise noise,
-                      List<Contour> contours, List<Spot> spots) {
+public record Terrain(String name, double x0, double z0, double x1, double z1, double every, double base, long seed,
+                      Noise noise, List<Contour> contours, List<Spot> spots) {
 
     /** The most heights along each side of its survey. */
     public static final int MOST = 4001;
@@ -69,23 +73,49 @@ public record Terrain(String name, double reach, double every, double base, long
         if (name == null || noise == null) {
             throw new IllegalArgumentException("a terrain has a name and a roughness, if none");
         }
-        if (!(reach > 0) || !(every > 0)) {
+        if (!(x1 > x0) || !(z1 > z0) || !(every > 0)) {
             throw new IllegalArgumentException("a terrain goes some way, its heights some way apart");
         }
-        final double steps = 2 * reach / every;
-        if (Math.abs(steps - Math.round(steps)) > 1e-6 || steps + 1 > MOST) {
-            throw new IllegalArgumentException("its heights go evenly across it, at most " + MOST + " of them each way");
+        for (final double steps : new double[] {(x1 - x0) / every, (z1 - z0) / every}) {
+            if (Math.abs(steps - Math.round(steps)) > 1e-6 || steps + 1 > MOST) {
+                throw new IllegalArgumentException("its heights go evenly across it, at most " + MOST + " of them each way");
+            }
         }
     }
 
-    /** Level ground everywhere, at 0. */
+    /** A square, {@code reach} from the middle each way. */
+    public Terrain(final String name, final double reach, final double every, final double base, final long seed,
+                   final Noise noise, final List<Contour> contours, final List<Spot> spots) {
+        this(name, -reach, -reach, reach, reach, every, base, seed, noise, contours, spots);
+    }
+
+    /** Level ground everywhere, at 0, a square {@code reach} from the middle each way. */
     public static Terrain flat(final String name, final double reach, final double every) {
         return new Terrain(name, reach, every, 0, 0, Noise.NONE, List.of(), List.of());
     }
 
-    /** How many heights along each side of its survey. */
-    public int size() {
-        return (int) Math.round(2 * reach / every) + 1;
+    /** How many heights across its survey, west to east; and along it, south to north. */
+    public int across() {
+        return (int) Math.round((x1 - x0) / every) + 1;
+    }
+
+    public int along() {
+        return (int) Math.round((z1 - z0) / every) + 1;
+    }
+
+    /** The same, over the same ground, its loops {@code loops} and its spot heights {@code marked}. */
+    public Terrain with(final List<Contour> loops, final List<Spot> marked) {
+        return new Terrain(name, x0, z0, x1, z1, every, base, seed, noise, loops, marked);
+    }
+
+    /** Whether it goes over the same ground as {@code other}. */
+    public boolean sameGround(final Terrain other) {
+        return x0 == other.x0 && z0 == other.z0 && x1 == other.x1 && z1 == other.z1;
+    }
+
+    /** Whether it is a square round the middle: written {@code reach=}. */
+    private boolean square() {
+        return x0 == z0 && x1 == z1 && x0 == -x1;
     }
 
     /** Works out its heights. */
@@ -194,7 +224,7 @@ public record Terrain(String name, double reach, double every, double base, long
     }
 
     private boolean onTheMap(final Vec2 p) {
-        return Math.abs(p.x()) <= reach && Math.abs(p.z()) <= reach;
+        return p.x() >= x0 && p.x() <= x1 && p.z() >= z0 && p.z() <= z1;
     }
 
     private String named(final int i) {
@@ -208,7 +238,8 @@ public record Terrain(String name, double reach, double every, double base, long
     /** It written as text, in metres, that {@link #parse} reads back. */
     public String text() {
         final StringBuilder out = new StringBuilder();
-        out.append("terrain \"").append(name).append("\" reach=").append(metres(reach)).append("m every=")
+        out.append("terrain \"").append(name).append(square() ? "\" reach=" + metres(x1) + "m"
+                : "\" x=" + metres(x0) + ".." + metres(x1) + "m z=" + metres(z0) + ".." + metres(z1) + "m").append(" every=")
                 .append(metres(every)).append("m base=").append(metres(base)).append("m seed=").append(seed).append('\n');
         if (noise.any()) {
             out.append("noise height=").append(metres(noise.height())).append("m apart=").append(metres(noise.apart()))
@@ -235,6 +266,8 @@ public record Terrain(String name, double reach, double every, double base, long
     public static Terrain parse(final String text) {
         String name = null;
         double reach = 0;
+        double[] xs = null;
+        double[] zs = null;
         double every = 0;
         double base = 0;
         long seed = 0;
@@ -259,6 +292,8 @@ public record Terrain(String name, double reach, double every, double base, long
                         final String value = value(word);
                         switch (key(word)) {
                             case "reach" -> reach = centimetres(value);
+                            case "x" -> xs = span(value);
+                            case "z" -> zs = span(value);
                             case "every" -> every = centimetres(value);
                             case "base" -> base = centimetres(value);
                             case "seed" -> seed = Long.parseLong(value);
@@ -315,7 +350,11 @@ public record Terrain(String name, double reach, double every, double base, long
             throw new IllegalArgumentException("no terrain in it");
         }
         try {
-            return new Terrain(name, reach, every, base, seed, noise, contours, spots);
+            if ((xs == null) != (zs == null) || xs != null && reach != 0) {
+                throw new IllegalArgumentException("a terrain is reach= round the middle, or x= and z= both");
+            }
+            return xs == null ? new Terrain(name, reach, every, base, seed, noise, contours, spots)
+                    : new Terrain(name, xs[0], zs[0], xs[1], zs[1], every, base, seed, noise, contours, spots);
         } catch (final IllegalArgumentException e) {
             throw new IllegalArgumentException("line 1: " + e.getMessage(), e);
         }
@@ -342,6 +381,15 @@ public record Terrain(String name, double reach, double every, double base, long
         } catch (final NumberFormatException e) {
             throw new IllegalArgumentException("not a measure in metres: " + metres, e);
         }
+    }
+
+    /** {@code "-15000..5000m"}: from and to, in centimetres. */
+    private static double[] span(final String word) {
+        final String[] ends = (word.endsWith("m") ? word.substring(0, word.length() - 1) : word).split("\\.\\.");
+        if (ends.length != 2) {
+            throw new IllegalArgumentException("a span is from..to in metres, not " + word);
+        }
+        return new double[] {centimetres(ends[0]), centimetres(ends[1])};
     }
 
     private static Vec2 point(final String word) {

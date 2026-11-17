@@ -176,7 +176,7 @@ public final class TerrainBench extends Application {
                             "%s: %.0f m each way, a height every %.1f m (%d by %d)%n"
                                     + "land from %.2f m to %.2f m; %s, %s%n"
                                     + "surveyed in %.0f ms, its map drawn in %.0f ms",
-                            shown.name(), shown.reach() / 100, shown.every() / 100, land.size(), land.size(),
+                            shown.name(), (shown.x1() - shown.x0()) / 200, shown.every() / 100, land.across(), land.along(),
                             land.lowest() / 100, land.highest() / 100, count(shown.contours().size(), "loop"), count(shown.spots().size(), "spot height"),
                             (surveyed - from) / 1e6, (drawn - surveyed) / 1e6));
                 });

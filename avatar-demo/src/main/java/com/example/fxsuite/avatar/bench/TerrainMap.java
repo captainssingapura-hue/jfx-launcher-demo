@@ -101,7 +101,7 @@ final class TerrainMap extends Pane {
 
     /** Shows {@code shown}'s map, over whatever survey there is so far; fitted to the view if it is new. */
     void show(final Terrain shown) {
-        if (terrain == null || terrain.reach() != shown.reach()) {
+        if (terrain == null || !terrain.sameGround(shown)) {
             scale = -1;
         }
         terrain = shown;
@@ -130,17 +130,18 @@ final class TerrainMap extends Pane {
 
     /** The land shaded in relief, lit from the north-west, and tinted by height: low green to high pale stone. */
     static Image relief(final Survey land) {
-        final int n = land.size();
+        final int n = land.across();
+        final int m = land.along();
         final double low = land.lowest();
         final double span = Math.max(1, land.highest() - low);
-        final int[] pixels = new int[n * n];
+        final int[] pixels = new int[n * m];
         final double lx = -0.5;
         final double ly = 0.7071;
         final double lz = 0.5;
-        for (int j = 0; j < n; j++) {
+        for (int j = 0; j < m; j++) {
             for (int i = 0; i < n; i++) {
                 final double dx = (land.at(Math.min(n - 1, i + 1), j) - land.at(Math.max(0, i - 1), j)) / (2 * land.every());
-                final double dz = (land.at(i, Math.min(n - 1, j + 1)) - land.at(i, Math.max(0, j - 1))) / (2 * land.every());
+                final double dz = (land.at(i, Math.min(m - 1, j + 1)) - land.at(i, Math.max(0, j - 1))) / (2 * land.every());
                 // the slopes made more of, as a relief map does, or gentle land shows nothing
                 final double ex = -3 * dx;
                 final double ez = -3 * dz;
@@ -151,11 +152,11 @@ final class TerrainMap extends Pane {
                 final int r = (int) Math.min(255, tint[0] * shade);
                 final int g = (int) Math.min(255, tint[1] * shade);
                 final int b = (int) Math.min(255, tint[2] * shade);
-                pixels[(n - 1 - j) * n + i] = 0xff000000 | r << 16 | g << 8 | b;
+                pixels[(m - 1 - j) * n + i] = 0xff000000 | r << 16 | g << 8 | b;
             }
         }
-        final WritableImage image = new WritableImage(n, n);
-        image.getPixelWriter().setPixels(0, 0, n, n, PixelFormat.getIntArgbInstance(), pixels, 0, n);
+        final WritableImage image = new WritableImage(n, m);
+        image.getPixelWriter().setPixels(0, 0, n, m, PixelFormat.getIntArgbInstance(), pixels, 0, n);
         return image;
     }
 
@@ -210,18 +211,17 @@ final class TerrainMap extends Pane {
         if (terrain == null || w < 10 || h < 10) {
             return;
         }
-        final double reach = terrain.reach();
         if (scale < 0) {
-            scale = (Math.min(w, h) - 40) / (2 * reach);
-            midX = 0;
-            midZ = 0;
+            scale = Math.min((w - 40) / (terrain.x1() - terrain.x0()), (h - 40) / (terrain.z1() - terrain.z0()));
+            midX = (terrain.x0() + terrain.x1()) / 2;
+            midZ = (terrain.z0() + terrain.z1()) / 2;
         }
         // the land
-        if (relief != null && survey != null && survey.terrain().reach() == reach) {
+        if (relief != null && survey != null && survey.terrain().sameGround(terrain)) {
             g.setImageSmoothing(true);
             final double half = survey.every() / 2;
-            g.drawImage(relief, sx(-reach - half), sy(reach + half), (2 * reach + 2 * half) * scale,
-                    (2 * reach + 2 * half) * scale);
+            g.drawImage(relief, sx(terrain.x0() - half), sy(terrain.z1() + half),
+                    (terrain.x1() - terrain.x0() + 2 * half) * scale, (terrain.z1() - terrain.z0() + 2 * half) * scale);
         }
         g.setStroke(Color.web("#5a4630", 0.35));
         g.setLineWidth(0.8);
@@ -232,7 +232,7 @@ final class TerrainMap extends Pane {
         // the world's edge
         g.setStroke(Color.web("#3b3f45"));
         g.setLineWidth(1);
-        g.strokeRect(sx(-reach), sy(reach), 2 * reach * scale, 2 * reach * scale);
+        g.strokeRect(sx(terrain.x0()), sy(terrain.z1()), (terrain.x1() - terrain.x0()) * scale, (terrain.z1() - terrain.z0()) * scale);
         // the map: its loops
         final List<Contour> loops = terrain.contours();
         g.setFont(Font.font("System", 12));
@@ -335,7 +335,7 @@ final class TerrainMap extends Pane {
         final double x = wx(px);
         final double z = wz(py);
         final StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.0f, %.0f m", x / 100, z / 100));
-        if (survey != null && Math.abs(x) <= terrain.reach() && Math.abs(z) <= terrain.reach()) {
+        if (survey != null && x >= terrain.x0() && x <= terrain.x1() && z >= terrain.z0() && z <= terrain.z1()) {
             text.append(String.format(Locale.ROOT, "   %.2f m high, %.1f° steep", survey.height(x, z) / 100,
                     Math.toDegrees(Math.atan(survey.slope(x, z)))));
         }
@@ -390,8 +390,7 @@ final class TerrainMap extends Pane {
         } else if (grab.spot() >= 0) {
             final List<Terrain.Spot> spots = new ArrayList<>(terrain.spots());
             spots.set(grab.spot(), new Terrain.Spot(to, spots.get(grab.spot()).height()));
-            terrain = new Terrain(terrain.name(), terrain.reach(), terrain.every(), terrain.base(), terrain.seed(),
-                    terrain.noise(), terrain.contours(), spots);
+            terrain = terrain.with(terrain.contours(), spots);
             moved = true;
         } else {
             midX = grab.midX() - (e.getX() - grab.x()) / scale;
@@ -465,8 +464,7 @@ final class TerrainMap extends Pane {
         } catch (final IllegalArgumentException ignored) {
             return false;
         }
-        terrain = new Terrain(terrain.name(), terrain.reach(), terrain.every(), terrain.base(), terrain.seed(),
-                terrain.noise(), loops, terrain.spots());
+        terrain = terrain.with(loops, terrain.spots());
         return true;
     }
 

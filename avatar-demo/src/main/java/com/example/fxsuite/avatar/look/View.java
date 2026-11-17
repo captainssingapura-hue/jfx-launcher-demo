@@ -7,18 +7,44 @@ import com.example.fxsuite.avatar.sim.Vec3;
  * What the camera sees, across the ground: from {@code eye}, facing {@code yaw}, {@code half} degrees either
  * side, and {@link #MARGIN} more, so what is just out of view as it turns is drawn already; and everything
  * within {@link #ROUND} of it, whichever way it looks, for what it looks down on. How far up or down it looks
- * is left out: what it sees is never less than this says.
+ * is left out: what it sees is never less than this says. And how far it sees ({@code reach}, {@link Sight}), how high
+ * it is over the ground ({@code height}).
  */
-public record View(Vec3 eye, double yaw, double half) {
+public record View(Vec3 eye, double yaw, double half, double reach, double height) {
 
     /** How much wider either side than the camera's view, degrees. */
     static final double MARGIN = 15;
     /** How near the camera anything is seen, whichever way it looks. */
     static final double ROUND = 15_000;
 
-    /** Seen from everywhere: when nothing is known of which way the camera looks. */
+    /** On the ground, seeing as far as from there. */
+    public View(final Vec3 eye, final double yaw, final double half) {
+        this(eye, yaw, half, Sight.reach(0), 0);
+    }
+
+    /** Seen from everywhere, on the ground: when nothing is known of which way the camera looks. */
     public static View all(final Vec3 eye) {
         return new View(eye, 0, 180);
+    }
+
+    /** How much haze there is over ground {@code away} from the camera, across the ground ({@link Sight#haze}). */
+    public double haze(final double away) {
+        return Sight.haze(away, reach);
+    }
+
+    /** How far out the haze begins. */
+    public double clear() {
+        return Sight.CLEAR * reach;
+    }
+
+    /** Whether what is {@code near} off across the ground at its nearest is near enough to be drawn at all. */
+    public boolean draws(final double near) {
+        return near <= Sight.BUILT * reach;
+    }
+
+    /** How far what is {@code near} off across the ground is from the camera, its height over the ground and all. */
+    public double away(final double near) {
+        return Math.hypot(near, height);
     }
 
     /** Whether any of the ground from ({@code x0}, {@code z0}) to ({@code x1}, {@code z1}) is in view. */

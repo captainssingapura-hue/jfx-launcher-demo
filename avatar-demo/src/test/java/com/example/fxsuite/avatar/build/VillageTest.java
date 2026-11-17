@@ -46,8 +46,8 @@ class VillageTest {
     @Test
     void itsRiverRunsAcrossTheWorld() {
         final River river = Village.rivers().getFirst();
-        assertEquals(-Body.EDGE, river.line().getFirst().x(), 1e-6);
-        assertEquals(Body.EDGE, river.line().getLast().x(), 1e-6);
+        assertEquals(Village.WEST, river.line().getFirst().x(), 1e-6);
+        assertEquals(Village.EAST, river.line().getLast().x(), 1e-6);
         assertTrue(river.wet(0, Village.riverAt(0)));
         assertFalse(river.wet(Village.WELL.x(), Village.WELL.z()), "the village dry");
         Village.tell();
@@ -57,6 +57,20 @@ class VillageTest {
         assertTrue(new Course(Demo.TOWN).land().level(), "the town's ground level");
         assertFalse(course.grid(), "open country, no grid ruled on it");
         assertEquals(Village.start(), course.start());
+    }
+
+    @Test
+    void twentyKilometresAlongItsRiverFifteenWestOfTheStartItsEdgeTheLands() {
+        final com.example.fxsuite.avatar.sim.Terrain meadow = Terrains.meadow();
+        assertEquals(List.of(), meadow.problems());
+        assertEquals(2_001, meadow.across(), "20 km west to east, a height every 10 m");
+        assertEquals(1_001, meadow.along(), "10 km south to north");
+        assertTrue(Village.start().x() - Village.WEST >= 1_400_000, "more than 10 km of it west of the start");
+        // walked west past the edge: held at it
+        final com.example.fxsuite.avatar.sim.Land land = Village.land();
+        assertEquals(Village.WEST, land.insideX(Village.WEST - 50_000));
+        assertEquals(Village.NORTH, land.insideZ(Village.NORTH + 1));
+        assertEquals(-300_000, land.insideX(-300_000), "well inside it, as it was");
     }
 
     @Test
@@ -201,8 +215,8 @@ class VillageTest {
         assertEquals(List.of(), east.problems());
         assertEquals(List.of(), west.problems());
         // each across the world, past its ends, the way its traffic goes: east south of the median, west north of it
-        assertTrue(east.line().getFirst().x() < -Body.EDGE && east.line().getLast().x() > Body.EDGE, "eastward");
-        assertTrue(west.line().getFirst().x() > Body.EDGE && west.line().getLast().x() < -Body.EDGE, "westward");
+        assertTrue(east.line().getFirst().x() < Village.WEST && east.line().getLast().x() > Village.EAST, "eastward");
+        assertTrue(west.line().getFirst().x() > Village.EAST && west.line().getLast().x() < Village.WEST, "westward");
         final Polyline westLine = new Polyline(west.line(), Village.CARRIAGEWAYS_APART * 2);
         for (int i = 0; i < east.line().size(); i += 50) {
             final Vec2 p = east.line().get(i);

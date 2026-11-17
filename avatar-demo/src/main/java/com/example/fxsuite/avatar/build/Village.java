@@ -2,7 +2,6 @@ package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Alignment;
 import com.example.fxsuite.avatar.sim.Block;
-import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Channel;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Land;
@@ -59,9 +58,16 @@ public final class Village {
     public static final double RIVER = 1_200;
     public static final double BANK = 250;
     public static final double BANK_TOP = 3;
+    /**
+     * The meadow's edges: 20 km along the river, 15 km of it west of the village, 5 km east; 10 km across it, 5 km
+     * each side of the village.
+     */
+    public static final double WEST = -1_500_000;
+    public static final double EAST = 500_000;
+    public static final double SOUTH = -500_000;
+    public static final double NORTH = 500_000;
     /** Its line, a point so far apart, from one edge of the world to the other. */
     private static final double STEP = 500;
-    private static final double REACH = com.example.fxsuite.avatar.sim.Body.EDGE;
 
     /** Where the river's middle is, north or south, at {@code x} east: two gentle waves laid over each other, south of the village. */
     public static double riverAt(final double x) {
@@ -77,7 +83,7 @@ public final class Village {
     /** The river's middle line, across the world. */
     static List<Vec2> line() {
         final List<Vec2> line = new ArrayList<>();
-        for (double x = -REACH; x <= REACH; x += STEP) {
+        for (double x = WEST; x <= EAST; x += STEP) {
             line.add(new Vec2(x, riverAt(x)));
         }
         return line;
@@ -281,8 +287,9 @@ public final class Village {
         // the carriageways, either side of the highway's middle
         final List<Vec2> east = new ArrayList<>();
         final List<Vec2> west = new ArrayList<>();
-        final double reach = Body.EDGE + HIGHWAY_PAST;
-        for (double x = EXIT - Math.floor((EXIT + reach) / HIGHWAY_EVERY) * HIGHWAY_EVERY; x <= reach; x += HIGHWAY_EVERY) {
+        final double from = WEST - HIGHWAY_PAST;
+        final double to = EAST + HIGHWAY_PAST;
+        for (double x = EXIT - Math.floor((EXIT - from) / HIGHWAY_EVERY) * HIGHWAY_EVERY; x <= to; x += HIGHWAY_EVERY) {
             east.add(offHighway(x, -CARRIAGEWAYS_APART / 2));
             west.addFirst(offWestbound(x, 0));
         }

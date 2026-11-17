@@ -27,8 +27,8 @@ import java.util.concurrent.Executors;
 /**
  * The land drawn, as surveyed ({@link Survey}): its heights as a sheet of triangles, lit as the sun falls
  * on its slopes, tinted by how high it is (the meadow's grass low down, drier grass up the slopes,
- * moor on the heights), a little mottled; and, from {@link Horizon#HAZE} out, fading into the haze as the
- * far ground round the camera does ({@link Horizon#haze}), so the hills at the world's edge go into the sky.
+ * moor on the heights), a little mottled; and, far off, fading into the haze as far as the camera sees ({@link Sight}),
+ * so the hills at the world's edge go into the sky.
  *
  * <p>Its base colour is lit by the sun and the sky; its tint, a little mottled, and the haze, are in one
  * picture lit by itself ({@link #picture}).
@@ -53,12 +53,17 @@ public final class TerrainModel {
      * where a feature of the land lies; and how far what covers the ground may be from what its squares' corners
      * make of it (only near does that ask for finer squares).
      */
-    static final double[] TOLERANCE = {3, 10, 40, 150, 400};
-    static final double[] FINEST = {50, 100, 400, 1_000, 2_500};
-    static final double[] LARGEST = {4_000, 8_000, 16_000, 31_250, 50_000};
-    static final double[] FEATURED = {400, 1_600, 6_400, 25_000, 50_000};
+    static final double[] TOLERANCE = {3, 10, 40, 150, 400, 1_000, 2_500};
+    static final double[] FINEST = {50, 100, 400, 1_000, 2_500, 5_000, 10_000};
+    static final double[] LARGEST = {4_000, 8_000, 16_000, 31_250, 50_000, 100_000, 200_000};
+    static final double[] FEATURED = {400, 1_600, 6_400, 25_000, 50_000, 100_000, 200_000};
     static final double[] COVERS = {0.08, 0.25, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
-            Double.POSITIVE_INFINITY};
+            Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+    /**
+     * How far past the surveyed land, each way, it is drawn: a plain, its edge's heights carried on out, flat, so
+     * from high up the land runs on past where it was laid out.
+     */
+    static final double PLAIN = 4_800_000;
     /** How many levels there are: as many as fineness rounds to. */
     static final int LEVELS = Fineness.LEVELS;
     /** How much nearer than it is a piece is built for, ahead of needing to be: so it is ready when it comes. */
@@ -143,6 +148,7 @@ public final class TerrainModel {
         float[] facing;
         boolean hazed;
         Vec3 hazedFrom;
+        double hazedReach;
     }
 
     /**
@@ -162,8 +168,7 @@ public final class TerrainModel {
         material = new PhongMaterial(BASE);
         material.setSpecularColor(Color.BLACK);
         material.setSelfIlluminationMap(picture(lit));
-        final int last = lie.size() - 1;
-        pieces = new Pieces<>(lie.x(0), lie.z(0), lie.x(last), lie.z(last), this::build, Built::size, BUILDERS);
+        pieces = new Pieces<>(lie.x(0) - PLAIN, lie.z(0) - PLAIN, lie.x(lie.across() - 1) + PLAIN, lie.z(lie.along() - 1) + PLAIN, this::build, Built::size, BUILDERS);
         for (final Pieces.Piece<Built> each : pieces.roots()) {
             try {
                 each.building.get();
@@ -191,7 +196,7 @@ public final class TerrainModel {
         final Vec3 eye = view.eye();
         final double speed = pace.at(eye, seconds);
         work = new Work();
-        final Pieces.Shown<Built> now = pieces.seenFrom(eye, speed);
+        final Pieces.Shown<Built> now = pieces.seenFrom(eye, speed, view.height());
         for (final Pieces.Piece<Built> gone : now.dropped()) {
             final Drawn was = drawn.remove(gone);
             if (was != null) {
@@ -209,12 +214,12 @@ public final class TerrainModel {
         for (final Pieces.Piece<Built> piece : now.shown()) {
             Drawn d = drawn.get(piece);
             if (d == null) {
-                d = draw(piece, eye);
+                d = draw(piece, view);
             } else if (!shown.contains(piece)) {
                 work.swaps++;
                 work.levels.append(work.levels.isEmpty() ? "" : ",").append(piece.level);
             }
-            d.view.setVisible(view.sees(piece.x0, piece.z0, piece.x1, piece.z1));
+            d.view.setVisible(view.draws(piece.near(eye)) && view.sees(piece.x0, piece.z0, piece.x1, piece.z1));
         }
         shown = now.shown();
         int left = BUDGET;
@@ -223,12 +228,12 @@ public final class TerrainModel {
             next = (next + 1) % shown.size();
             final Pieces.Piece<Built> piece = shown.get(next);
             final Drawn d = drawn.get(piece);
-            if (d.view.isVisible() && stale(piece, d, eye)) {
+            if (d.view.isVisible() && stale(piece, d, view)) {
                 final int heights = piece.built.size();
                 if (heights > left && done > 0) {
                     break;
                 }
-                haze(piece, d, eye);
+                haze(piece, d, view);
                 left -= heights;
                 done++;
                 work.hazes++;
@@ -266,7 +271,7 @@ public final class TerrainModel {
     }
 
     /** Piece {@code piece} drawn for the first time: its mesh made, its haze as seen from {@code eye}. */
-    private Drawn draw(final Pieces.Piece<Built> piece, final Vec3 eye) {
+    private Drawn draw(final Pieces.Piece<Built> piece, final View view) {
         final Built built = piece.built;
         final Drawn d = new Drawn();
         d.mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
@@ -277,7 +282,7 @@ public final class TerrainModel {
         d.facing = built.normals().clone();
         d.view.setMaterial(material);
         d.view.setCullFace(CullFace.NONE);
-        haze(piece, d, eye);
+        haze(piece, d, view);
         d.view.setMesh(d.mesh);
         root.getChildren().add(d.view);
         drawn.put(piece, d);
@@ -289,11 +294,13 @@ public final class TerrainModel {
     }
 
     /**
-     * Whether piece {@code piece}'s haze is to be worked out again from {@code eye}: if it has any, or had, and the
-     * camera has moved since by {@link #MOVED}, or by {@link #SHARE} of how far off the piece is, if more.
+     * Whether piece {@code piece}'s haze is to be worked out again as {@code view} sees: if it has any, or had, and the
+     * camera has moved since by {@link #MOVED}, or by {@link #SHARE} of how far off the piece is, if more; or how far
+     * it sees has changed since by more than {@link #SHARE} of it.
      */
-    private static boolean stale(final Pieces.Piece<Built> piece, final Drawn d, final Vec3 eye) {
-        final boolean far = piece.far(eye) > Horizon.HAZE;
+    private static boolean stale(final Pieces.Piece<Built> piece, final Drawn d, final View view) {
+        final Vec3 eye = view.eye();
+        final boolean far = piece.far(eye) > view.clear();
         if (!far && !d.hazed) {
             return false;
         }
@@ -301,7 +308,7 @@ public final class TerrainModel {
             return true;
         }
         final double moved = Math.hypot(eye.x() - d.hazedFrom.x(), eye.z() - d.hazedFrom.z());
-        return moved > Math.max(MOVED, SHARE * piece.near(eye));
+        return moved > Math.max(MOVED, SHARE * piece.near(eye)) || Math.abs(view.reach() - d.hazedReach) > SHARE * view.reach();
     }
 
     /**
@@ -336,6 +343,10 @@ public final class TerrainModel {
             // may be out, so even coarse it never shows through; less toward its edges, none past them
             final double road = Math.max(covered[Land.Cover.ASPHALT.ordinal()], covered[Land.Cover.GRAVEL.ordinal()]);
             points[3 * v + 1] += (float) ((TOLERANCE[level] + SUNK) * Math.clamp(2 * road - 1, 0, 1));
+            // and grass, as far as its colour goes: the road's own strip is the road, and its edge would come out, rough
+            // and far off, a saw's teeth of what lies between it and the grass
+            covered[Land.Cover.ASPHALT.ordinal()] = 0;
+            covered[Land.Cover.GRAVEL.ordinal()] = 0;
             coords[2 * v] = (float) ((column(covered, tint) + 0.5) / TINTS);
             coords[2 * v + 1] = (float) (0.5 / HAZES);
         }
@@ -355,14 +366,15 @@ public final class TerrainModel {
      * thickens, so a far slope is lit as the far ground is, level, and fades into the haze as that does. Lit
      * full on by the sun far off, it would show brighter than the haze it is going into.
      */
-    private static void haze(final Pieces.Piece<Built> piece, final Drawn d, final Vec3 eye) {
+    private static void haze(final Pieces.Piece<Built> piece, final Drawn d, final View view) {
+        final Vec3 eye = view.eye();
         final float[] coords = piece.built.coords();
         final float[] points = piece.built.points();
         final float[] facing = piece.built.normals();
         final float[] shown = d.facing;
-        final boolean far = piece.far(eye) > Horizon.HAZE;
+        final boolean far = piece.far(eye) > view.clear();
         for (int v = 0; v < coords.length / 2; v++) {
-            final double haze = Horizon.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
+            final double haze = view.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
             coords[2 * v + 1] = (float) ((haze * (HAZES - 1) + 0.5) / HAZES);
             // up, the world's y down
             final double nx = facing[3 * v] * (1 - haze);
@@ -377,6 +389,7 @@ public final class TerrainModel {
         d.mesh.getNormals().setAll(shown);
         d.hazed = far;
         d.hazedFrom = eye;
+        d.hazedReach = view.reach();
     }
 
     /**

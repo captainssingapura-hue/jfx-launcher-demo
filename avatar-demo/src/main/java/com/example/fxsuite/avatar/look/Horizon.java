@@ -14,14 +14,16 @@ import javafx.scene.shape.MeshView;
 import javafx.scene.shape.Sphere;
 import javafx.scene.shape.TriangleMesh;
 
+import java.util.List;
+
 /**
  * The sky and the far ground, so the world has no edge to be seen: round the camera, wherever it
  * goes, so it is never come nearer to.
  *
  * <ul>
- *   <li><b>The sky</b>: a dome {@link #FAR} round, lit by itself (the sun does not shade it), deeper
+ *   <li><b>The sky</b>: a dome as far round as the camera sees ({@link Sight}), lit by itself (the sun does not shade it), deeper
  *       blue overhead, paling to a haze at the horizon, and the haze below it;</li>
- *   <li><b>the far ground</b>: a ring lying just over the ground from {@link #HAZE} out to the dome,
+ *   <li><b>the far ground</b>: a ring lying just over the ground from where the haze begins out to the dome,
  *       its grass, as the sun lights it, fading into the same haze; so the land runs on into the
  *       sky with no line between them, as far things do in the air.</li>
  * </ul>
@@ -30,10 +32,10 @@ import javafx.scene.shape.TriangleMesh;
  */
 public final class Horizon {
 
-    /** How far round the camera the sky is: as far as it draws, nearly. */
+    /** How far round the camera the sky is, as made: as far as is seen from the ground; drawn as far as is seen. */
     public static final double FAR = 400_000;
-    /** How far out from the camera the ground begins to fade into the haze. */
-    public static final double HAZE = 120_000;
+    /** How far out from the camera the far ground begins, as made: where the haze begins. */
+    private static final double HAZE = Sight.CLEAR * FAR;
     /** How far over the ground the far ground lies: enough to be told from it, that far off. */
     private static final double OVER = 100;
     /** How far out the far ground goes: just short of the sky. */
@@ -46,6 +48,11 @@ public final class Horizon {
     private final Group root = new Group();
     private final Sphere dome;
     private final MeshView ground;
+
+    /** Whether the far ground is drawn: not where there is land, which is drawn as far as is seen itself. */
+    public void ground(final boolean shown) {
+        ground.setVisible(shown);
+    }
 
     /** The sky and the far ground, the ground {@code grass}, lit as {@code lit} lights it from overhead, each channel ({@link #lighting}). */
     public Horizon(final Color grass, final double[] lit) {
@@ -62,8 +69,17 @@ public final class Horizon {
         return root;
     }
 
-    /** Round {@code eye}, where the camera now is: the sky round it, the far ground under it. */
-    public void follow(final Vec3 eye) {
+    /**
+     * Round {@code eye}, where the camera now is, as far as it sees ({@code reach}): the sky round it, the far ground
+     * under it, each as big as that.
+     */
+    public void follow(final Vec3 eye, final double reach) {
+        final double scale = reach / FAR;
+        for (final Node each : List.of(dome, ground)) {
+            each.setScaleX(scale);
+            each.setScaleY(scale);
+            each.setScaleZ(scale);
+        }
         dome.setTranslateX(eye.x());
         dome.setTranslateY(eye.y());
         dome.setTranslateZ(eye.z());
@@ -112,23 +128,13 @@ public final class Horizon {
         return image;
     }
 
-    /**
-     * How much of the haze there is over ground {@code away} from the camera, across the ground: none
-     * within {@link #HAZE}; then gently at first, thickening, and all of it short of the sky. The far
-     * ground fades so, and the land ({@link TerrainModel}) as far as it goes.
-     */
-    public static double haze(final double away) {
-        final double t = Math.clamp((away - HAZE) / (OUTER - HAZE) / 0.85, 0, 1);
-        return t * t * (3 - 2 * t);
-    }
-
     /** The far ground, from its inner edge to its outer: {@code from}, easing into {@code to}. */
     private static WritableImage fading(final Color from, final Color to) {
         final int long_ = 256;
         final WritableImage image = new WritableImage(long_, 4);
         final PixelWriter writer = image.getPixelWriter();
         for (int x = 0; x < long_; x++) {
-            final Color colour = from.interpolate(to, haze(HAZE + (OUTER - HAZE) * (x + 0.5) / long_));
+            final Color colour = from.interpolate(to, Sight.haze(HAZE + (OUTER - HAZE) * (x + 0.5) / long_, FAR));
             for (int y = 0; y < 4; y++) {
                 writer.setColor(x, y, colour);
             }

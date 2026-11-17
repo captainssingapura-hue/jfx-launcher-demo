@@ -42,6 +42,7 @@ public final class WaterModel {
     private final List<float[]> places = new ArrayList<>();
     private final List<float[]> coords = new ArrayList<>();
     private Vec3 hazedFrom;
+    private double hazedReach;
 
     public WaterModel(final Land land, final List<River> rivers, final List<Pond> ponds, final double[] lit) {
         final PhongMaterial material = new PhongMaterial(BASE);
@@ -53,24 +54,30 @@ public final class WaterModel {
         for (final Pond pond : ponds) {
             add(pond(pond), material);
         }
-        seenFrom(Vec3.ZERO);
+        seenFrom(View.all(Vec3.ZERO));
     }
 
     public Node node() {
         return root;
     }
 
-    /** Its haze worked out again from {@code eye}, where the camera now is, if it has moved far enough since. */
-    public void seenFrom(final Vec3 eye) {
-        if (hazedFrom != null && Math.hypot(eye.x() - hazedFrom.x(), eye.z() - hazedFrom.z()) <= TerrainModel.MOVED) {
+    /**
+     * Its haze worked out again as {@code view} sees, if the camera has moved far enough since, or how far it sees has
+     * changed enough.
+     */
+    public void seenFrom(final View view) {
+        final Vec3 eye = view.eye();
+        if (hazedFrom != null && Math.hypot(eye.x() - hazedFrom.x(), eye.z() - hazedFrom.z()) <= TerrainModel.MOVED
+                && Math.abs(view.reach() - hazedReach) <= TerrainModel.SHARE * view.reach()) {
             return;
         }
         hazedFrom = eye;
+        hazedReach = view.reach();
         for (int m = 0; m < meshes.size(); m++) {
             final float[] points = places.get(m);
             final float[] c = coords.get(m);
             for (int v = 0; v < c.length / 2; v++) {
-                final double haze = Horizon.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
+                final double haze = view.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
                 c[2 * v + 1] = (float) ((haze * (HAZES - 1) + 0.5) / HAZES);
             }
             meshes.get(m).getTexCoords().setAll(c);

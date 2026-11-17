@@ -55,6 +55,7 @@ public final class RoadSurface {
         final MeshView view;
         boolean hazed;
         Vec3 hazedFrom;
+        double hazedReach;
 
         Drawn(final Strip strip, final TriangleMesh mesh, final MeshView view) {
             this.strip = strip;
@@ -107,53 +108,59 @@ public final class RoadSurface {
         final Vec3 eye = view.eye();
         for (final Drawn d : stretches) {
             final double[] box = d.strip.box();
-            d.view.setVisible(view.sees(box[0], box[1], box[2], box[3]));
+            final double near = Math.hypot(Math.max(0, Math.max(box[0] - eye.x(), eye.x() - box[2])),
+                    Math.max(0, Math.max(box[1] - eye.z(), eye.z() - box[3])));
+            d.view.setVisible(view.draws(near) && view.sees(box[0], box[1], box[2], box[3]));
         }
         int left = TerrainModel.BUDGET;
         int done = 0;
         for (int k = 0; k < stretches.size() && (left > 0 || done == 0); k++) {
             next = (next + 1) % stretches.size();
             final Drawn d = stretches.get(next);
-            if (d.view.isVisible() && stale(d, eye)) {
+            if (d.view.isVisible() && stale(d, view)) {
                 if (d.strip.size() > left && done > 0) {
                     break;
                 }
-                haze(d, eye);
+                haze(d, view);
                 left -= d.strip.size();
                 done++;
             }
         }
     }
 
-    /** Whether stretch {@code d}'s haze is to be worked out again from {@code eye}, as the land's would be. */
-    private static boolean stale(final Drawn d, final Vec3 eye) {
+    /** Whether stretch {@code d}'s haze is to be worked out again as {@code view} sees, as the land's would be. */
+    private static boolean stale(final Drawn d, final View view) {
+        final Vec3 eye = view.eye();
         final double[] box = d.strip.box();
         final double far = Math.hypot(Math.max(Math.abs(eye.x() - box[0]), Math.abs(eye.x() - box[2])),
                 Math.max(Math.abs(eye.z() - box[1]), Math.abs(eye.z() - box[3])));
-        if (far <= Horizon.HAZE && !d.hazed) {
+        if (far <= view.clear() && !d.hazed) {
             return false;
         }
-        if (far <= Horizon.HAZE || d.hazedFrom == null) {
+        if (far <= view.clear() || d.hazedFrom == null) {
             return true;
         }
         final double dx = Math.max(0, Math.max(box[0] - eye.x(), eye.x() - box[2]));
         final double dz = Math.max(0, Math.max(box[1] - eye.z(), eye.z() - box[3]));
         final double moved = Math.hypot(eye.x() - d.hazedFrom.x(), eye.z() - d.hazedFrom.z());
-        return moved > Math.max(TerrainModel.MOVED, TerrainModel.SHARE * Math.hypot(dx, dz));
+        return moved > Math.max(TerrainModel.MOVED, TerrainModel.SHARE * Math.hypot(dx, dz))
+                || Math.abs(view.reach() - d.hazedReach) > TerrainModel.SHARE * view.reach();
     }
 
-    private static void haze(final Drawn d, final Vec3 eye) {
+    private static void haze(final Drawn d, final View view) {
+        final Vec3 eye = view.eye();
         final float[] points = d.strip.points();
         final float[] coords = d.strip.coords();
         boolean any = false;
         for (int v = 0; v < coords.length / 2; v++) {
-            final double haze = Horizon.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
+            final double haze = view.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
             coords[2 * v + 1] = (float) ((haze * (HAZES - 1) + 0.5) / HAZES);
             any |= haze > 0;
         }
         d.mesh.getTexCoords().setAll(coords);
         d.hazed = any;
         d.hazedFrom = eye;
+        d.hazedReach = view.reach();
     }
 
     /**

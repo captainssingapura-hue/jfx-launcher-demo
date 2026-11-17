@@ -93,6 +93,7 @@ final class Pieces<B> {
     private final ToIntFunction<B> points;
     private final Executor builders;
     private int spent;
+    private double height;
 
     /**
      * The land from ({@code x0}, {@code z0}) to ({@code x1}, {@code z1}) in pieces; each built by {@code build} on
@@ -128,6 +129,15 @@ final class Pieces<B> {
      * once it is built and the budget lets it be shown; and what is let go.
      */
     Shown<B> seenFrom(final Vec3 eye, final double speed) {
+        return seenFrom(eye, speed, 0);
+    }
+
+    /**
+     * As {@link #seenFrom(Vec3, double)}, the camera {@code height} over the ground: how far a piece is, for its
+     * fineness, is from the camera to its nearest point, height and all.
+     */
+    Shown<B> seenFrom(final Vec3 eye, final double speed, final double height) {
+        this.height = height;
         spent = 0;
         final List<Piece<B>> shown = new ArrayList<>();
         // the nearest first, so what is near gets its share of the budget before what is far
@@ -230,9 +240,12 @@ final class Pieces<B> {
         return true;
     }
 
-    /** Whether fineness {@code near} off at {@code speed} asks for finer than {@code level}, having been at {@code was}. */
-    private static boolean finer(final double near, final double speed, final int was, final int level) {
-        return Fineness.level(Fineness.of(near, speed), was) < level;
+    /**
+     * Whether fineness {@code near} off across the ground, at the camera's height over it, at {@code speed}, asks for
+     * finer than {@code level}, having been at {@code was}.
+     */
+    private boolean finer(final double near, final double speed, final int was, final int level) {
+        return Fineness.level(Fineness.of(Math.hypot(near, height), speed), was) < level;
     }
 
     /** Pieces {@code pieces}, the nearest {@code eye} first. */

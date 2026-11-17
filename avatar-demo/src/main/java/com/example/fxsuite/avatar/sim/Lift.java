@@ -477,8 +477,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final Vec3 newRear = Num.heading(yaw).multiply(chassis.rear());
         final Vec3 going = Num.heading(Num.wrap(place.yaw() + turn / 2)).multiply(v * seconds)
                 .add(Num.right(Num.wrap(place.yaw() + turn / 2)).multiply((aside + slid) / 2 * seconds));
-        final double x = Num.clamp(place.x() + rear.x() + going.x() - newRear.x(), -Body.EDGE, Body.EDGE);
-        final double z = Num.clamp(place.z() + rear.z() + going.z() - newRear.z(), -Body.EDGE, Body.EDGE);
+        final double x = world.land().insideX(place.x() + rear.x() + going.x() - newRear.x());
+        final double z = world.land().insideZ(place.z() + rear.z() + going.z() - newRear.z());
         // what else there is: not itself, nor what rides on it
         Obstacles others = world.without(piece);
         for (final int riding : aboard) {
@@ -693,8 +693,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final double b = (aside + nowAside) / 2 * seconds;
         final double up = (climb + nowClimb) / 2 * seconds;
         final Vec3 across = Num.heading(yaw).multiply(a).add(Num.right(yaw).multiply(b));
-        final double x = Num.clamp(place.x() + across.x(), -Body.EDGE, Body.EDGE);
-        final double z = Num.clamp(place.z() + across.z(), -Body.EDGE, Body.EDGE);
+        final double x = world.land().insideX(place.x() + across.x());
+        final double z = world.land().insideZ(place.z() + across.z());
         final double height = Num.clamp(place.height() + up, handles.low(), handles.high());
         final double climbing = height == handles.low() || height == handles.high() ? 0 : nowClimb;
         // the whole move if it is clear; else turning only, going across only, climbing only; else none
@@ -776,8 +776,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final double b = (was.aside() * Math.cos(Math.toRadians(now.yaw() - was.yaw()))
                 - was.ahead() * Math.sin(Math.toRadians(now.yaw() - was.yaw())) + now.aside()) / 2 * seconds;
         final Vec3 across = Num.heading(now.yaw()).multiply(a).add(Num.right(now.yaw()).multiply(b));
-        final double x = Num.clamp(place.x() + across.x(), -Body.EDGE, Body.EDGE);
-        final double z = Num.clamp(place.z() + across.z(), -Body.EDGE, Body.EDGE);
+        final double x = world.land().insideX(place.x() + across.x());
+        final double z = world.land().insideZ(place.z() + across.z());
         final double high = aircraft.handling().high();
         final double height = Math.min(now.height(), high);
         final double rising = height >= high ? Math.min(0, now.climb()) : now.climb();

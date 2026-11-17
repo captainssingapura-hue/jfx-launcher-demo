@@ -32,9 +32,11 @@ class TerrainTest {
     void itIsReadFromTextInMetres() {
         final Terrain meadow = Terrain.parse(MEADOW);
         assertEquals("meadow", meadow.name());
-        assertEquals(50_000, meadow.reach());
+        assertEquals(-50_000, meadow.x0());
+        assertEquals(50_000, meadow.z1());
         assertEquals(1_000, meadow.every());
-        assertEquals(101, meadow.size());
+        assertEquals(101, meadow.across());
+        assertEquals(101, meadow.along());
         assertEquals(7, meadow.seed());
         assertEquals(new Terrain.Noise(150, 6_000, 3), meadow.noise());
         assertEquals(3, meadow.contours().size());
@@ -66,6 +68,8 @@ class TerrainTest {
         assertThrows(IllegalArgumentException.class, () -> Terrain.parse("terrain \"x\" reach=100m every=30m"),
                 "its heights go evenly across it");
         assertThrows(IllegalArgumentException.class, () -> Terrain.parse(""));
+        assertThrows(IllegalArgumentException.class, () -> Terrain.parse("terrain \"x\" x=-100..100m every=10m"),
+                "x and z both");
     }
 
     @Test

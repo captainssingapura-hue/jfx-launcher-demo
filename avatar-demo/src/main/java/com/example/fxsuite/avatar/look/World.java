@@ -176,6 +176,8 @@ public final class World {
         }
         horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         root.getChildren().add(horizon.node());
+        // where there is land, it is drawn as far as is seen, and past where it was laid out: no far ground
+        horizon.ground(land == null);
 
         final List<com.example.fxsuite.avatar.sim.Road> laid = land == null ? List.of() : course.land().layers().stream()
                 .filter(com.example.fxsuite.avatar.sim.Road.class::isInstance).map(com.example.fxsuite.avatar.sim.Road.class::cast)
@@ -308,6 +310,11 @@ public final class World {
         final DirectionalLight sun = new DirectionalLight(SUNLIGHT);
         sun.setDirection(SUN);
         root.getChildren().addAll(ambient, sun);
+    }
+
+    /** Piece {@code i}'s part, as drawn: to be drawn in a layer of its own, if it is what the camera follows. */
+    public Node part(final int i) {
+        return i >= 0 && i < parts.length ? parts[i] : null;
     }
 
     /** The sky and the far ground, to follow the camera. */
@@ -634,7 +641,7 @@ public final class World {
         final Vec3 eye = view.eye();
         if (land != null) {
             land.seenFrom(view, seconds);
-            water.seenFrom(eye);
+            water.seenFrom(view);
             roads.seenFrom(view);
             markings.seenFrom(view);
         }

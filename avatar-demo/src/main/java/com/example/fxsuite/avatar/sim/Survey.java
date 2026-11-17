@@ -33,8 +33,12 @@ public final class Survey {
     private static final double TOUCH = 1e-6;
 
     private final Terrain terrain;
-    private final int size;
-    private final double reach;
+    private final int across;
+    private final int along;
+    private final double x0;
+    private final double z0;
+    private final double x1;
+    private final double z1;
     private final double every;
     private final float[] heights;
 
@@ -44,8 +48,12 @@ public final class Survey {
 
     Survey(final Terrain terrain) {
         this.terrain = terrain;
-        this.size = terrain.size();
-        this.reach = terrain.reach();
+        this.across = terrain.across();
+        this.along = terrain.along();
+        this.x0 = terrain.x0();
+        this.z0 = terrain.z0();
+        this.x1 = terrain.x1();
+        this.z1 = terrain.z1();
         this.every = terrain.every();
         final List<Contour> contours = terrain.contours();
         final int n = contours.size();
@@ -77,17 +85,17 @@ public final class Survey {
         final Terrain.Noise noise = terrain.noise();
 
         // 1. between the loops, row by row
-        final double[] raw = new double[size * size];
-        final boolean[] held = new boolean[size * size];
-        final double[] rough = new double[size * size];
-        IntStream.range(0, size).parallel().forEach(j -> {
+        final double[] raw = new double[across * along];
+        final boolean[] held = new boolean[across * along];
+        final double[] rough = new double[across * along];
+        IntStream.range(0, along).parallel().forEach(j -> {
             final double z = z(j);
             final double[][] crossings = new double[n][];
             for (int k = 0; k < n; k++) {
                 crossings[k] = crossings(contours.get(k).loop(), z);
             }
             final int[] next = new int[n];
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < across; i++) {
                 final double x = x(i);
                 int innermost = -1;
                 for (int k = 0; k < n; k++) {
@@ -99,7 +107,7 @@ public final class Survey {
                     }
                 }
                 final Region region = regions[innermost + 1];
-                final int cell = j * size + i;
+                final int cell = j * across + i;
                 held[cell] = region.round() != null && region.round().flat();
                 raw[cell] = held[cell] ? region.height() : blend(region, x, z);
                 if (noise.any()) {
@@ -112,11 +120,11 @@ public final class Survey {
             }
         });
         for (final Terrain.Spot spot : terrain.spots()) {
-            final int i = (int) Math.round((spot.at().x() + reach) / every);
-            final int j = (int) Math.round((spot.at().z() + reach) / every);
-            if (i >= 0 && j >= 0 && i < size && j < size) {
-                held[j * size + i] = true;
-                rough[j * size + i] = 0;
+            final int i = (int) Math.round((spot.at().x() - x0) / every);
+            final int j = (int) Math.round((spot.at().z() - z0) / every);
+            if (i >= 0 && j >= 0 && i < across && j < along) {
+                held[j * across + i] = true;
+                rough[j * across + i] = 0;
             }
         }
 
@@ -124,19 +132,19 @@ public final class Survey {
         double[] from = raw;
         for (int pass = 0; pass < PASSES; pass++) {
             final double[] was = from;
-            final double[] to = new double[size * size];
-            IntStream.range(0, size).parallel().forEach(j -> {
-                for (int i = 0; i < size; i++) {
-                    final int cell = j * size + i;
+            final double[] to = new double[across * along];
+            IntStream.range(0, along).parallel().forEach(j -> {
+                for (int i = 0; i < across; i++) {
+                    final int cell = j * across + i;
                     if (held[cell]) {
                         to[cell] = was[cell];
                         continue;
                     }
                     double sum = 0;
                     int count = 0;
-                    for (int b = Math.max(0, j - 1); b <= Math.min(size - 1, j + 1); b++) {
-                        for (int a = Math.max(0, i - 1); a <= Math.min(size - 1, i + 1); a++) {
-                            sum += was[b * size + a];
+                    for (int b = Math.max(0, j - 1); b <= Math.min(along - 1, j + 1); b++) {
+                        for (int a = Math.max(0, i - 1); a <= Math.min(across - 1, i + 1); a++) {
+                            sum += was[b * across + a];
                             count++;
                         }
                     }
@@ -147,7 +155,7 @@ public final class Survey {
         }
 
         // 3. roughened
-        heights = new float[size * size];
+        heights = new float[across * along];
         for (int cell = 0; cell < heights.length; cell++) {
             heights[cell] = (float) (from[cell] + rough[cell]);
         }
@@ -171,7 +179,8 @@ public final class Survey {
 
     /** The height at ({@code x}, {@code z}) in {@code region}: what bounds it, each weighed by its nearness. */
     private double blend(final Region region, final double x, final double z) {
-        final double out = region.round() == null ? reach - Math.max(Math.abs(x), Math.abs(z)) : region.round().distance(x, z);
+        final double out = region.round() == null ? Math.min(Math.min(x - x0, x1 - x), Math.min(z - z0, z1 - z))
+                : region.round().distance(x, z);
         if (out < TOUCH) {
             return region.height();
         }
@@ -236,9 +245,13 @@ public final class Survey {
         return terrain;
     }
 
-    /** How many heights along each side. */
-    public int size() {
-        return size;
+    /** How many heights across it, west to east; and along it, south to north. */
+    public int across() {
+        return across;
+    }
+
+    public int along() {
+        return along;
     }
 
     public double every() {
@@ -247,25 +260,25 @@ public final class Survey {
 
     /** Where across the {@code i}th height is. */
     public double x(final int i) {
-        return -reach + i * every;
+        return x0 + i * every;
     }
 
     /** Where along the {@code j}th height is. */
     public double z(final int j) {
-        return -reach + j * every;
+        return z0 + j * every;
     }
 
     /** The height {@code i} across and {@code j} along. */
     public double at(final int i, final int j) {
-        return heights[j * size + i];
+        return heights[j * across + i];
     }
 
     /** The ground's height at ({@code x}, {@code z}), read between the heights round it; at the edge, off it. */
     public double height(final double x, final double z) {
-        final double u = Num.clamp((x + reach) / every, 0, size - 1);
-        final double v = Num.clamp((z + reach) / every, 0, size - 1);
-        final int i = Math.min((int) u, size - 2);
-        final int j = Math.min((int) v, size - 2);
+        final double u = Num.clamp((x - x0) / every, 0, across - 1);
+        final double v = Num.clamp((z - z0) / every, 0, along - 1);
+        final int i = Math.min((int) u, across - 2);
+        final int j = Math.min((int) v, along - 2);
         final double s = u - i;
         final double t = v - j;
         final double a = at(i, j);
@@ -311,8 +324,8 @@ public final class Survey {
         // each grid side the line crosses is a key: across sides even, along sides odd
         final Map<Long, Vec2> points = new HashMap<>();
         final Map<Long, List<Long>> joins = new HashMap<>();
-        for (int j = 0; j + 1 < size; j++) {
-            for (int i = 0; i + 1 < size; i++) {
+        for (int j = 0; j + 1 < along; j++) {
+            for (int i = 0; i + 1 < across; i++) {
                 final double a = at(i, j);
                 final double b = at(i + 1, j);
                 final double c = at(i + 1, j + 1);
@@ -321,10 +334,10 @@ public final class Survey {
                 final boolean hb = b >= level;
                 final boolean hc = c >= level;
                 final boolean hd = d >= level;
-                final long bottom = 2L * (j * (long) size + i);
-                final long top = 2L * ((j + 1) * (long) size + i);
-                final long left = 2L * (j * (long) size + i) + 1;
-                final long right = 2L * (j * (long) size + i + 1) + 1;
+                final long bottom = 2L * (j * (long) across + i);
+                final long top = 2L * ((j + 1) * (long) across + i);
+                final long left = 2L * (j * (long) across + i) + 1;
+                final long right = 2L * (j * (long) across + i + 1) + 1;
                 final List<Long> sides = new ArrayList<>(4);
                 if (ha != hb) {
                     points.putIfAbsent(bottom, new Vec2(x(i) + every * (level - a) / (b - a), z(j)));
