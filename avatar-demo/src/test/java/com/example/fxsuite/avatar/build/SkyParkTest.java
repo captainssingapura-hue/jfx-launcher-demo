@@ -185,35 +185,69 @@ class SkyParkTest {
     }
 
     @Test
-    void aMelonStallBesideTheCourtItsFruitStayingOnItsTableItsPeopleAtIt() {
-        // on the lawn to starboard of the court, halfway along it, clear of it and of the deck's edge
-        final Box stall = PARK.stall();
+    void aPavilionInTheGardenToTheBowOfTheCourtTheMelonStallUnderIt() {
+        // on the deck's middle line, past the court and its path, on the lawn, nothing else of the garden in it
+        final Box pavilion = PARK.pavilion();
         final Box court = PARK.court();
-        assertTrue(stall.minX() > court.maxX() + SkyPark.RUN_OFF + SkyPark.PATH, "beside the court, clear of it");
-        assertTrue(PARK.onDeck(stall.maxX(), stall.minZ(), SkyPark.CLEAR) && PARK.onDeck(stall.maxX(), stall.maxZ(),
-                SkyPark.CLEAR), "on the deck, clear of its edge");
-        assertEquals((court.minZ() + court.maxZ()) / 2, (stall.minZ() + stall.maxZ()) / 2, 1e-9, "halfway along it");
-        assertFalse(PARK.garden((stall.minX() + stall.maxX()) / 2, (stall.minZ() + stall.maxZ()) / 2, 0),
-                "kept clear of trees and hedges");
-        // in the game: its table and its fruit, loose; its stallholder and its customer
+        assertEquals(0, (pavilion.minX() + pavilion.maxX()) / 2, 1e-9, "on the middle line");
+        assertTrue(pavilion.minZ() > court.maxZ() + SkyPark.RUN_OFF + SkyPark.PATH, "past the court and its path");
+        assertTrue(PARK.onDeck(pavilion.maxX(), pavilion.maxZ(), SkyPark.CLEAR), "on the deck, clear of its edge");
+        final double y = (pavilion.minZ() + pavilion.maxZ()) / 2;
+        assertTrue(PARK.lawn(0, y, 0), "lawn under it");
+        assertFalse(PARK.garden(0, y, 0), "no tree, hedge or bench in it");
+        assertTrue(SOLIDS.stream().filter(s -> s.name().matches("tree \\d+, trunk|hedge \\d+|bench \\d+")).noneMatch(
+                s -> pavilion.grown(SkyPark.PATH / 2, 0).holds(Built.box(s).minX(), Built.box(s).minZ(), pavilion.low())),
+                "kept clear");
+        // the stall in its middle, on its floor
+        final Box stall = PARK.stall();
+        assertEquals(y, stall.minZ(), 1e-9);
+        assertEquals(PARK.pavilionFloor(), stall.low(), 1e-9);
+        // in the game: the pavilion one piece, drawn as the town's; the stall's fruit under it staying put
         TowerMap.tell();
+        final Course course = new Course(Demo.WALL_TOWER);
+        assertTrue(course.pieces().stream().anyMatch(p -> p.kind() == Course.Kind.BUILDING
+                && p.tint() == Pavilions.KEYS + SkyPark.PAVILION), "the pavilion");
         final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demo.WALL_TOWER, true);
-        final double deck = TowerMap.hullAt().height() + PARK.deck();
+        final double floor = TowerMap.hullAt().height() + PARK.pavilionFloor();
         final List<com.example.fxsuite.avatar.sim.Prop> fruit = start.props().stream()
                 .filter(p -> p.thing() instanceof com.example.fxsuite.avatar.sim.Fruit).toList();
         assertEquals(16, fruit.size(), "twelve watermelons on its table, two by it, two pineapples");
-        assertEquals(2, new Course(Demo.WALL_TOWER).ground().size(), "its stallholder and its customer");
-        // a second on, its fruit where it was: on its table and on the lawn, 205 m up, none fallen through
         com.example.fxsuite.avatar.sim.Play play = start;
         for (int n = 0; n < 120; n++) {
             play = play.step(Controls.NONE, Clock.STEP).play();
         }
-        for (int k = 0; k < fruit.size(); k++) {
-            final com.example.fxsuite.avatar.sim.Prop was = fruit.get(k);
+        for (final com.example.fxsuite.avatar.sim.Prop was : fruit) {
             final com.example.fxsuite.avatar.sim.Prop now = play.props().stream().filter(p -> p.piece() == was.piece())
                     .findFirst().orElseThrow();
-            assertEquals(was.place().height(), now.place().height(), 1, "where it was: " + k);
-            assertTrue(now.place().height() >= deck, "on the deck or on its table: " + k);
+            assertEquals(was.place().height(), now.place().height(), 1, "where it was");
+            assertTrue(now.place().height() >= floor - 1e-6, "on the pavilion's floor or its table");
+        }
+    }
+
+    @Test
+    void peopleAtAllOfItEachStayingWhereTheyStand() {
+        final List<SkyPark.Guest> guests = PARK.guests();
+        final java.util.function.Predicate<SkyPark.Guest> onPitch = g -> PARK.pitch().holds(g.across(), g.along(),
+                PARK.pitch().low());
+        assertEquals(8, guests.stream().filter(onPitch).count(), "four a side on the pitch");
+        assertEquals(4, guests.stream().filter(g -> PARK.court().holds(g.across(), g.along(), PARK.court().low())).count(),
+                "two a side on the court");
+        assertEquals(4, guests.stream().filter(g -> g.up() == PARK.pool().low()).count(), "four in the pool");
+        assertEquals(2, guests.stream().filter(g -> g.along() > HULL.size().length() / 2 - 1_000).count(),
+                "two at the lookout");
+        TowerMap.tell();
+        final Course course = new Course(Demo.WALL_TOWER);
+        assertEquals(2 + guests.size(), course.ground().size(), "the stall's two, and the guests");
+        // a second on, everyone where they were put: none fallen through anything, none pushed out of anything
+        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demo.WALL_TOWER, true);
+        com.example.fxsuite.avatar.sim.Play play = start;
+        for (int n = 0; n < 120; n++) {
+            play = play.step(Controls.NONE, Clock.STEP).play();
+        }
+        for (int k = 0; k < start.people().size(); k++) {
+            final Vec3 was = start.people().get(k).body().position();
+            final Vec3 now = play.people().get(k).body().position();
+            assertTrue(was.distance(now) < 5, start.people().get(k).role() + " " + k + " moved " + was.distance(now));
         }
     }
 }

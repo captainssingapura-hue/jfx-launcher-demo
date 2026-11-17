@@ -122,26 +122,40 @@ public final class SkyPark {
         return new Box(pool.maxX() + PATH / 2, hull.size().beam() / 2 - CLEAR, pool.minZ(), pool.maxZ(), deck, deck);
     }
 
-    /** The melon stall's spot: how far out across it its middle is past the court's side and its path, and how big. */
-    static final double STALL_OUT = 230;
-    static final double STALL_FRONT = 130;
-    static final double STALL_BACK = 110;
-    static final double STALL_HALF = 190;
+    /** The pavilion over the melon stall: the town's modern one, its flat roof on square pillars ({@link Pavilions}). */
+    public static final int PAVILION = 6;
+    /** How high the lawn it stands on is over the deck. */
+    static final double LAWN = 3;
 
     /**
-     * Where the melon stall stands ({@code DeckScene#stall}): on the lawn to starboard of the court, halfway along it;
-     * its table along the hull, its front, where its customer stands, toward the court, its stallholder on its far side.
-     * Its middle at the box's middle across and along; turned so its front faces the court ({@link #STALL_YAW}).
+     * Where the pavilion stands, the melon stall under it: in the garden to the bow of the court, on the deck's middle
+     * line, its path running into it; its box as far each way as any of it reaches (its eaves, its steps), its low the
+     * lawn it stands on.
      */
-    public Box stall() {
-        final Box court = court();
-        final double x = court.maxX() + RUN_OFF + PATH + STALL_OUT;
-        final double y = (court.minZ() + court.maxZ()) / 2;
-        return new Box(x - STALL_FRONT, x + STALL_BACK, y - STALL_HALF, y + STALL_HALF, deck + 3, deck + 3);
+    public Box pavilion() {
+        final double reach = Pavilion.of(Pavilions.PRESETS.get(PAVILION)).reach();
+        final double y = court().maxZ() + RUN_OFF + 50 + PATH + reach;
+        return new Box(-reach, reach, y - reach, y + reach, deck + LAWN, deck + LAWN);
     }
 
-    /** Which way the stall's frame heads, in the hull's frame laid out straight: out to starboard, its front to the court. */
-    public static final double STALL_YAW = 90;
+    /** How high the pavilion's floor is over the deck: what its stall stands on. */
+    public double pavilionFloor() {
+        return deck + LAWN + Pavilions.PRESETS.get(PAVILION).platform();
+    }
+
+    /**
+     * Where the melon stall stands ({@code DeckScene#stall}): under the pavilion, in its middle, on its floor; its table
+     * across the hull, its front, where its customer stands, toward the court, its stallholder behind it.
+     */
+    public Box stall() {
+        final Box p = pavilion();
+        final double x = (p.minX() + p.maxX()) / 2;
+        final double y = (p.minZ() + p.maxZ()) / 2;
+        return new Box(x, x, y, y, pavilionFloor(), pavilionFloor());
+    }
+
+    /** Which way the stall's frame heads, in the hull's frame laid out straight: to its bow, its front to the court. */
+    public static final double STALL_YAW = 0;
 
     /** The basketball court, its lines: to the bow of the pitch, along the middle of the deck. */
     public Box court() {
@@ -149,10 +163,10 @@ public final class SkyPark {
         return new Box(-COURT_WIDE / 2, COURT_WIDE / 2, south, south + COURT_LONG, deck, deck);
     }
 
-    /** What is laid out, each as far as it reaches, and a path's width round it: where no tree, no hedge, no bench is. */
+    /** What is laid out on the deck, each as far as it reaches, and a path's width round it: where no lawn is. */
     private List<Box> laid() {
         return List.of(grass().grown(PATH, 0), pool().grown(PATH, 0), lounge().grown(PATH / 2, 0),
-                court().grown(RUN_OFF + PATH, 0), stall().grown(PATH / 2, 0));
+                court().grown(RUN_OFF + PATH, 0));
     }
 
     /** Whether ({@code across}, {@code along}) is on the deck, {@code clear} in from its edge. */
@@ -160,8 +174,8 @@ public final class SkyPark {
         return Math.abs(along) < hull.size().length() / 2 && Math.abs(across) < hull.half(along) - clear;
     }
 
-    /** Whether ({@code across}, {@code along}) is garden: on the deck, clear of its edge, and of all that is laid out. */
-    boolean garden(final double across, final double along, final double clear) {
+    /** Whether ({@code across}, {@code along}) is lawn: on the deck, clear of its edge, and of all that is laid out. */
+    boolean lawn(final double across, final double along, final double clear) {
         if (!onDeck(across, along, clear)) {
             return false;
         }
@@ -171,6 +185,84 @@ public final class SkyPark {
             }
         }
         return true;
+    }
+
+    /**
+     * Whether ({@code across}, {@code along}) is garden, where a tree, a hedge or a bench may be: lawn, and clear of the
+     * pavilion standing on it.
+     */
+    boolean garden(final double across, final double along, final double clear) {
+        final Box p = pavilion().grown(PATH / 2 + clear, 0);
+        return lawn(across, along, clear) && !p.holds(across, along, p.low());
+    }
+
+    // --- who is about ---------------------------------------------------------------------------------------------
+
+    /**
+     * Someone about the park, where they stand in the hull's frame laid out straight (across, along, on what is
+     * {@code up} high), facing {@code yaw} in it, as {@code role}.
+     */
+    public record Guest(com.example.fxsuite.avatar.sim.Person.Role role, double across, double along, double up,
+                        double yaw) {
+    }
+
+    /**
+     * Who is about, at all there is on it: a game on the pitch, four a side, a keeper each; two a side on the court;
+     * guests standing in the pool, its water to their waists, and by their loungers on the deck beside it; strolling
+     * its garden's path, at both its ends; waiting their turn at the melon stall under the pavilion; and two at the
+     * lookout at its bow's tip, looking out.
+     */
+    public List<Guest> guests() {
+        final com.example.fxsuite.avatar.sim.Person.Role home = com.example.fxsuite.avatar.sim.Person.Role.HOME_PLAYER;
+        final com.example.fxsuite.avatar.sim.Person.Role away = com.example.fxsuite.avatar.sim.Person.Role.AWAY_PLAYER;
+        final com.example.fxsuite.avatar.sim.Person.Role guest = com.example.fxsuite.avatar.sim.Person.Role.GUEST;
+        final List<Guest> all = new ArrayList<>();
+        // the pitch: home attacking to the bow, away to the stern, each its keeper in its goal
+        final Box p = pitch();
+        final double w = p.maxX();
+        final double l = p.maxZ();
+        final double grass = deck + LAWN;
+        final double[][] homes = {{0, -l + 150}, {-w * 0.5, -l * 0.45}, {w * 0.4, -l * 0.3}, {0, -l * 0.1}};
+        final double[][] aways = {{0, l - 150}, {w * 0.5, l * 0.4}, {-w * 0.35, l * 0.25}, {w * 0.15, l * 0.12}};
+        for (final double[] at : homes) {
+            all.add(new Guest(home, at[0], at[1], grass, 0));
+        }
+        for (final double[] at : aways) {
+            all.add(new Guest(away, at[0], at[1], grass, 180));
+        }
+        // the court: two a side
+        final Box c = court();
+        final double mid = (c.minZ() + c.maxZ()) / 2;
+        all.add(new Guest(home, -300, mid - 400, grass, 0));
+        all.add(new Guest(home, 350, mid - 900, grass, 0));
+        all.add(new Guest(away, 250, mid + 300, grass, 180));
+        all.add(new Guest(away, -400, mid + 800, grass, 180));
+        // the pool: standing in it, its water to their waists, clear of its steps
+        final Box pool = pool();
+        all.add(new Guest(guest, pool.minX() + 500, pool.minZ() + 1_500, pool.low(), 90));
+        all.add(new Guest(guest, pool.minX() + 900, pool.minZ() + 3_200, pool.low(), 270));
+        all.add(new Guest(guest, pool.maxX() - 600, pool.minZ() + 5_500, pool.low(), 0));
+        all.add(new Guest(guest, pool.minX() + 400, pool.maxZ() - 2_500, pool.low(), 90));
+        // by their loungers, between the rows, looking over the pool
+        final Box d = lounge();
+        for (final double along : new double[] {1_000, 4_000, 7_000}) {
+            all.add(new Guest(guest, d.minX() + 300, d.minZ() + along, deck + 5, 270));
+        }
+        // strolling the garden's path, at its stern and to the bow of the pavilion
+        final double path = deck + 6;
+        all.add(new Guest(guest, 0, pool.minZ() - 1_000, path, 180));
+        all.add(new Guest(guest, 100, pool.minZ() - 1_500, path, 0));
+        final Box pavilion = pavilion();
+        all.add(new Guest(guest, 0, pavilion.maxZ() + 1_000, path, 0));
+        all.add(new Guest(guest, -80, pavilion.maxZ() + 2_000, path, 180));
+        // waiting their turn at the stall, behind its customer
+        final Box stall = stall();
+        all.add(new Guest(guest, stall.minX() + 60, stall.minZ() - 230, pavilionFloor(), 0));
+        // at the lookout at its bow's tip, looking out
+        final double tip = hull.size().length() / 2 - 700;
+        all.add(new Guest(guest, -120, tip, deck, 0));
+        all.add(new Guest(guest, 120, tip, deck, 0));
+        return all;
     }
 
     // --- all of it ------------------------------------------------------------------------------------------------
@@ -368,7 +460,7 @@ public final class SkyPark {
                 continue;
             }
             final double mid = (y + y1) / 2;
-            if (!garden(0, mid, 0) || !garden(0, y + 1, 0) || !garden(0, y1 - 1, 0)) {
+            if (!lawn(0, mid, 0) || !lawn(0, y + 1, 0) || !lawn(0, y1 - 1, 0)) {
                 continue;
             }
             solids.add(quad("lawn " + n, Role.STRUCTURE, Material.GRASS, h0, h1, y, y1, deck, deck + 3));

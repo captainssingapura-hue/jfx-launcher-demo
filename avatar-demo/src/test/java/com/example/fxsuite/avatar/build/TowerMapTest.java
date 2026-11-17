@@ -56,12 +56,14 @@ class TowerMapTest {
             final Vec3 out = Num.right(at.yaw());
             assertEquals(1, (out.x() * (at.x() + TowerMap.CURVE) + out.z() * at.z()) / TowerMap.CURVE, 1e-9,
                     "tower " + i + " its leg out");
-            assertEquals(2, world.volumesNear(at.x(), at.z(), 100).length, "tower " + i + " and the hull over it");
+            assertTrue(world.volumesNear(at.x(), at.z(), 100).length >= 2, "tower " + i + " and the hull over it, and what"
+                    + " stands on it");
         }
         // south to north, the middle one at the world's middle, square to it
         assertEquals(new Place(0, 0, 0, 0), TowerMap.at(1));
         assertTrue(TowerMap.at(0).z() < 0 && TowerMap.at(2).z() > 0);
-        assertEquals(TowerMap.TOWERS + 1, world.volumes().size(), "the towers and the hull on them");
+        assertEquals(TowerMap.TOWERS + 1, world.volumes().stream().filter(Interior.class::isInstance).count(),
+                "the towers and the hull on them, each through its inside");
         assertTrue(pieces.stream().filter(p -> p.kind() == Course.Kind.TREE).count() > 300, "hundreds of trees");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.TREE && Math.hypot(p.block().x(), p.block().z())
                 > 300_000), "kilometres out");
@@ -97,7 +99,7 @@ class TowerMapTest {
                     "its bottom on tower " + i + "'s roof");
             final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
             final double on = world.footing(t.x(), t.z(), 32, deck + 20).height();
-            assertTrue(on >= deck - SkyPark.POOL_DEEP && on <= deck + 10, "its deck over tower " + i
+            assertTrue(on >= deck - SkyPark.POOL_DEEP && on <= deck + 20, "its deck over tower " + i
                     + ", what is laid on it, or the pool sunk in it: " + (on - deck));
             // and its full beam there: its deck reaching past the roof each side
             final Vec3 out = Num.right(t.yaw());

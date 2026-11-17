@@ -39,7 +39,11 @@ public record Person(int id, Role role, Body body, double health, boolean sittin
     public enum Role {
         STALLHOLDER, CUSTOMER, RIDER, SCRUM_MASTER, DEVELOPER, SMALL_MONK, TALL_MONK, STOUT_MONK,
         /** Behind a bar; and those at it. */
-        BARTENDER, DRINKER
+        BARTENDER, DRINKER,
+        /** Out to enjoy a place: in the pool, by it, along a garden's path, at a lookout. */
+        GUEST,
+        /** At a game, one side and the other. */
+        HOME_PLAYER, AWAY_PLAYER
     }
 
     /** How much anyone can take: six rifle rounds, or a stroke of the glaive. */

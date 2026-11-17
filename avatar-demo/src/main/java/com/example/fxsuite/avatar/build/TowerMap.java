@@ -90,7 +90,9 @@ public final class TowerMap {
             pieces.add(tower(i, at(i)));
         }
         pieces.add(hull());
-        // the melon stall beside the court: its table, its fruit, its stool, loose on the lawn
+        // the pavilion in the garden to the bow of the court, and the melon stall under it: its table, its fruit, its
+        // stool, loose on its floor
+        pieces.add(Pavilions.piece(SkyPark.PAVILION, onDeck(LAID_OUT.pavilion(), 0)));
         pieces.addAll(STALL.things());
         pieces.addAll(trees());
         return pieces;
@@ -146,9 +148,17 @@ public final class TowerMap {
         return List.of(new Pond(outline, at.height() + w.high()));
     }
 
-    /** Who is about: at the melon stall on the deck, its stallholder and its customer. */
+    /**
+     * Who is about: at the melon stall under the pavilion, its stallholder and its customer; and all over the park,
+     * at its game, its court, its pool, its garden, its lookout ({@link SkyPark#guests}).
+     */
     public static List<Course.Cast> people() {
-        return STALL.people();
+        final List<Course.Cast> people = new ArrayList<>(STALL.people());
+        for (final SkyPark.Guest g : LAID_OUT.guests()) {
+            final Place at = onDeck(new Box(g.across(), g.across(), g.along(), g.along(), g.up(), g.up()), g.yaw());
+            people.add(Course.Cast.standing(g.role(), at.x(), at.z(), at.height(), at.yaw(), null));
+        }
+        return people;
     }
 
     /**
