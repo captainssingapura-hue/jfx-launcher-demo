@@ -217,6 +217,18 @@ public final class Game {
     private static final double CLOSE_SHARE = 0.75;
     private static final double CLOSE_PITCH = -10;
     private static final double ON_IT_PITCH = -3;
+    /**
+     * Riding a two-wheeler, the rider's view: where on the rider the camera is, from the chest (0) to the eyes (1), moved
+     * with , and . in steps of {@link #RIDER_STEP}; the chest and the eyes, so far forward of the seat and so high over
+     * the bed, the rider leaning over the tank; how wide the view (up and down, degrees); how far down the view the bars
+     * are, of half of it.
+     */
+    private double riderAt = 0.45;
+    private static final double RIDER_STEP = 0.05;
+    private static final double[] RIDER_CHEST = {5, 65};
+    private static final double[] RIDER_EYES = {20, 105};
+    private static final double RIDER_VIEW = 70;
+    private static final double RIDER_BARS = 0.8;
     /** Flying an aircraft, how much longer the view is held where the mouse turned it, before it swings back behind. */
     private double lookHeld;
     /** How long that is, seconds. */
@@ -268,6 +280,7 @@ public final class Game {
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate eyeRoll = new Rotate(0, Rotate.Z_AXIS);
     /**
      * The near layer: from high up, what the camera follows (the avatar, the aircraft it flies, its flames) drawn in a
      * view of its own over the world's, its camera moved as the world's is; so the world's may start drawing further
@@ -278,6 +291,7 @@ public final class Game {
     private final Translate nearAt = new Translate();
     private final Rotate nearYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate nearPitch = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate nearRoll = new Rotate(0, Rotate.Z_AXIS);
     private final Group nearRoot = new Group();
     private final List<Node> lifted = new ArrayList<>();
     private final Map<Node, Group> homes = new IdentityHashMap<>();
@@ -544,14 +558,15 @@ public final class Game {
         // as far as the sky round the camera, and a little more
         eye.setFarClip(Horizon.FAR * FAR_CLIP);
         eye.setFieldOfView(FIELD_OF_VIEW);
-        eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
-        nearEye.getTransforms().addAll(nearAt, nearYaw, nearPitch);
+        eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch, eyeRoll);
+        nearEye.getTransforms().addAll(nearAt, nearYaw, nearPitch, nearRoll);
         // moved and turned as the world's camera is, and as wide
         nearAt.xProperty().bind(eyeAt.xProperty());
         nearAt.yProperty().bind(eyeAt.yProperty());
         nearAt.zProperty().bind(eyeAt.zProperty());
         nearYaw.angleProperty().bind(eyeYaw.angleProperty());
         nearPitch.angleProperty().bind(eyePitch.angleProperty());
+        nearRoll.angleProperty().bind(eyeRoll.angleProperty());
         nearEye.fieldOfViewProperty().bind(eye.fieldOfViewProperty());
         nearEye.setNearClip(NEAR);
         nearEye.setFarClip(NEAR_LAYER);
@@ -942,7 +957,10 @@ public final class Game {
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
                 ? Num.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
-        fieldOfView = Num.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
+        // and riding, from the rider, wider, to take in the bars below and the road ahead
+        final boolean riderView = driving && driveView == DriveView.COCKPIT
+                && flying.filter(lift -> lift.craft() instanceof Course.Chassis chassis && chassis.twoWheels()).isPresent();
+        fieldOfView = Num.ease(fieldOfView, (riderView ? RIDER_VIEW : FIELD_OF_VIEW) + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
         eye.setNearClip(nearClip(cockpit != null));
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
@@ -963,6 +981,7 @@ public final class Game {
         eyeAt.setZ(at.z());
         eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());
         eyePitch.setAngle(cockpit != null ? cockpit.pitch() : chase.pitch());
+        eyeRoll.setAngle(cockpit != null ? cockpit.roll() : 0);
 
         showStatus();
         snapshotIfDue();
@@ -1189,7 +1208,10 @@ public final class Game {
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElseThrow()
                         + (vehicleGun.isPresent() ? GUN_OFF_HELP : "")
                         + (flown.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
-                        ? "\nCamera: " + driveView.title + " (C in turn: chase far, chase near, hood, cockpit, bumper)"
+                        ? "\nCamera: " + (driveView == DriveView.COCKPIT
+                        && flown.get().craft() instanceof Course.Chassis rode && rode.twoWheels()
+                        ? "the rider's " + riderPoint() + " (, and . lower or higher)" : driveView.title)
+                        + " (C in turn: chase far, chase near, hood, cockpit, bumper)"
                         : "");
         if (!keys.equals(help.getText())) {
             help.setText(keys);
@@ -1350,6 +1372,12 @@ public final class Game {
                 } else {
                     chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
                     headYaw = 0;
+                }
+            }
+            case COMMA, PERIOD -> {
+                // riding, the rider's view moved down toward the chest, or up toward the eyes
+                if (driving() && driveView == DriveView.COCKPIT) {
+                    riderAt = Num.clamp(riderAt + (code == KeyCode.PERIOD ? RIDER_STEP : -RIDER_STEP), 0, 1);
                 }
             }
             case V -> {
@@ -1516,8 +1544,12 @@ public final class Game {
         dashboard.show(geared.rpm(), engine.redline(), geared.shown(), Math.abs(lift.ahead()) / 100 * 3.6, seconds);
     }
 
-    /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */
-    private record View(Vec3 at, double yaw, double pitch) {
+    /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up, and rolled {@code roll} to the right. */
+    private record View(Vec3 at, double yaw, double pitch, double roll) {
+
+        View(final Vec3 at, final double yaw, final double pitch) {
+            this(at, yaw, pitch, 0);
+        }
     }
 
     /**
@@ -1570,6 +1602,11 @@ public final class Game {
         };
     }
 
+    /** Where on the rider its view is, in a word: chest, chin, mouth or eyes. */
+    private String riderPoint() {
+        return riderAt < 0.2 ? "chest" : riderAt < 0.55 ? "chin" : riderAt < 0.8 ? "mouth" : "eyes";
+    }
+
     /** Whether the avatar is at a land vehicle's controls: driving, or riding. */
     private boolean driving() {
         return lifts.stream().anyMatch(l -> l.held() && l.craft() instanceof Course.Chassis);
@@ -1590,6 +1627,9 @@ public final class Game {
     private View onIt(final Lift lift, final Block block, final Map<Integer, Block> shownAt) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
         final double tilt = lift.tilt();
+        if (driveView == DriveView.COCKPIT && chassis.twoWheels()) {
+            return rider(lift, chassis, block);
+        }
         if (driveView == DriveView.COCKPIT) {
             final View seat = cockpit(lift, null, shownAt, avatar.body(), Gait.of(avatar, chase.yaw(), 0));
             return seat == null ? null : new View(seat.at(), Num.wrap(seat.yaw() + (lookingBack ? 180 : 0)),
@@ -1605,6 +1645,37 @@ public final class Game {
                 : Math.min(35, high * 0.25);
         final Vec3 at = spot(drawn, 0, along, up + Math.tan(Math.toRadians(tilt)) * along);
         return new View(at, Num.wrap(block.yaw() + (lookingBack ? 180 : 0)), ON_IT_PITCH + (lookingBack ? -tilt : tilt));
+    }
+
+    /**
+     * Riding a two-wheeler {@code lift} ({@code chassis}, drawn as {@code block}), the rider's own view: a camera fixed to
+     * the rider, at a point {@link #riderAt} of the way from the chest (0) up to the eyes (1), forward as the rider
+     * leans over the tank; leaning with the bike into its turns, about where its tyres touch the ground, and rolled as
+     * it is; tipped down so its bars are at the bottom of the view, as wide as {@link #RIDER_VIEW}. B held, looking back
+     * over the shoulder, level.
+     */
+    private View rider(final Lift lift, final Course.Chassis chassis, final Block block) {
+        final Course.Shape shape = damage.piece(lift.piece()).shape();
+        final Place drawn = new Place(block.x(), block.z(), (block.bottom() + block.top()) / 2 - shape.box().up(),
+                block.yaw());
+        final double along = chassis.driverAlong() + RIDER_CHEST[0] + (RIDER_EYES[0] - RIDER_CHEST[0]) * riderAt;
+        final double up = RIDER_CHEST[1] + (RIDER_EYES[1] - RIDER_CHEST[1]) * riderAt;
+        // leaning, about where the tyres touch the ground, as far below the bed as it rides
+        final double lean = Math.toRadians(lift.lean());
+        final double over = up + chassis.ride();
+        final double across = over * Math.sin(lean);
+        final double high = over * Math.cos(lean) - chassis.ride();
+        final double tilt = lift.tilt();
+        final Vec3 at = spot(drawn, across, along, high + Math.tan(Math.toRadians(tilt)) * along);
+        if (lookingBack) {
+            return new View(at, Num.wrap(block.yaw() + 180), -tilt, 0);
+        }
+        // down far enough that the bars, so far ahead and below, are in the bottom of the view
+        final double ahead = chassis.driverAlong() + 50 - along;
+        final double below = up - chassis.bars();
+        final double toBars = Math.toDegrees(Math.atan2(below, Math.max(1, ahead)));
+        final double down = Math.max(0, toBars - RIDER_BARS * RIDER_VIEW / 2);
+        return new View(at, block.yaw(), tilt - down, lift.lean());
     }
 
     /** The point {@code across}, {@code along} and {@code up} in the frame of {@code place}. */

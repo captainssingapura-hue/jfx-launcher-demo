@@ -37,7 +37,9 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   Space is the handbrake, Shift goes gently; the mouse does not turn it. Its views, as racing games have them
   (`Game.DriveView`), C in turn: chase far (behind and above, as far back as it is big), chase near (closer,
   lower), hood (over its front half; a two-wheeler's, over its bars), cockpit (the driver's seat; V, and V
-  again back), bumper (low at its front); the one chosen kept from one drive to the next. Driving, the mouse and
+  again back; on a two-wheeler the rider's own view, a camera fixed to the rider, from the chest up to the eyes,
+  moved with , and . (chest, chin, mouth, eyes; the chin to start with), leaning and rolled with the bike into its
+  turns, as wide as 70°, tipped down so its bars are at the bottom of the view), bumper (low at its front); the one chosen kept from one drive to the next. Driving, the mouse and
   Q/E do not move the view: it stays with the vehicle, the way it heads, steady; B held looks back, from the
   view (from its back, for the hood and the bumper), round at once. Only the front wheels
   steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
