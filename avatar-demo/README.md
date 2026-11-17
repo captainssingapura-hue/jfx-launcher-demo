@@ -1271,8 +1271,13 @@ else is worked out:
 - **as drawn** (`RoadSurface`): a strip of its own, not the land's, at each of its line's points its edges and
   its crown, as high as its surface is there and 2 cm more, coloured as what it is made of, lit and hazed as
   the land is; so its edges are where they are however finely the land under it is drawn, and it never
-  changes as that does. The land under it is drawn sunk out of sight, further than it may be out, less toward
-  its edges; walked and driven on, it is as it is. In stretches of a kilometre, those out of view not drawn.
+  changes as that does. **An artificial offset, for drawing only** (`RoadBand`): the land is drawn lowered under
+  and beside every road, by as much as its piece may be out and 10 cm more, out from the road's edge as far as
+  a triangle crossing it may reach (the diagonal of the biggest square a feature lies in at that level), easing
+  back to the land over as far again; so a coarse piece, its triangle spanning the road with no point on it,
+  cannot lie over the road and hide it till the camera comes nearer. Centimetres near, out to a few metres;
+  metres far off, out to hundreds: too far off to be seen. It is not the land: walked and driven on, the land is
+  as it is; nor how a road is built, which would be its own (its courses laid on the earth). In stretches of a kilometre, those out of view not drawn.
 - **beside it**: a side slope from its edges down or up to the ground at its kind's slope, as wide as the
   cutting is deep or the bank high, twice over for 1 in 2.
 - **where roads meet**: a road with a vertex another road laid before it shares is pinned as high as that

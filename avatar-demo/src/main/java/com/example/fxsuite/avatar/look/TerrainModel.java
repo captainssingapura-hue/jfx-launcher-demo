@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec3;
 
@@ -70,7 +71,10 @@ public final class TerrainModel {
     static final double AHEAD = Pieces.AHEAD;
     /** How far a piece's skirt hangs. */
     static final double SKIRT = 500;
-    /** How much further than its level may be out the land under a road is drawn sunk, below the road's own strip. */
+    /**
+     * How much further than its level may be out the land under and beside a road is drawn lowered, out of the way of
+     * the road's own strip: an artificial offset, for drawing only ({@link RoadBand}).
+     */
     static final double SUNK = 10;
     /**
      * How far the camera moves before a piece's haze is worked out again: at least so far, and so much of how far
@@ -129,6 +133,8 @@ public final class TerrainModel {
     private final Fineness.Pace pace = new Fineness.Pace();
     /** The land in pieces; those drawn, each its mesh; those shown last frame; the one whose haze is looked at next. */
     private final Pieces<Built> pieces;
+    /** The roads, coarsely, for lowering the land drawn under and beside them ({@link RoadBand}). */
+    private final RoadBand band;
     private final Map<Pieces.Piece<Built>, Drawn> drawn = new IdentityHashMap<>();
     private List<Pieces.Piece<Built>> shown = List.of();
     private int next;
@@ -163,6 +169,7 @@ public final class TerrainModel {
         }
         this.land = land;
         this.lie = land.base();
+        this.band = new RoadBand(land.layers().stream().filter(Road.class::isInstance).map(Road.class::cast).toList());
         this.low = land.lowest();
         this.span = Math.max(1, land.highest() - low);
         material = new PhongMaterial(BASE);
@@ -331,6 +338,8 @@ public final class TerrainModel {
         final float[] coords = new float[2 * made.size()];
         final float[] points = made.points();
         final double[] covered = new double[Land.Cover.values().length];
+        final List<RoadBand.Segment> roads = band.near(piece.x0, piece.z0, piece.x1, piece.z1,
+                2 * RoadBand.BAND * FEATURED[level]);
         for (int v = 0; v < made.size(); v++) {
             final double px = points[3 * v];
             final double pz = points[3 * v + 2];
@@ -339,10 +348,8 @@ public final class TerrainModel {
             for (final Land.Cover c : Land.Cover.values()) {
                 covered[c.ordinal()] = land.cover(c, px, pz);
             }
-            // under a road, sunk out of sight below its strip ({@link RoadSurface}): further than this level
-            // may be out, so even coarse it never shows through; less toward its edges, none past them
-            final double road = Math.max(covered[Land.Cover.ASPHALT.ordinal()], covered[Land.Cover.GRAVEL.ordinal()]);
-            points[3 * v + 1] += (float) ((TOLERANCE[level] + SUNK) * Math.clamp(2 * road - 1, 0, 1));
+            // under and beside a road, lowered out of its way: an artificial offset, for drawing only ({@link RoadBand})
+            points[3 * v + 1] += (float) RoadBand.lowered(RoadBand.edge(roads, px, pz), TOLERANCE[level], FEATURED[level]);
             // and grass, as far as its colour goes: the road's own strip is the road, and its edge would come out, rough
             // and far off, a saw's teeth of what lies between it and the grass
             covered[Land.Cover.ASPHALT.ordinal()] = 0;
