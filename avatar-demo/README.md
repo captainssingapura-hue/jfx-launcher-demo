@@ -1180,20 +1180,24 @@ walks up it and down it; where it rises steeper than 45° (`Body.CLIMB`), it is 
 and the avatar goes along the slope instead.
 
 It is drawn by `TerrainModel`, in place of the flat ground, in tiles 500 m a side, each as fine as it
-is near, coming back finer a little nearer than it went coarser; and each as fine as the land needs and
-no finer (`LandSheet`): a square of it split in four, and those again, only where its corners alone
-would put the land more than so far out (3 cm near, a few metres far off), or where a feature lies;
+is near (3 cm within 300 m, 10 cm out to 800 m, coarser on out), coming back finer a little nearer than
+it went coarser. A tile is built apart from the screen, on threads of its own, ahead of being wanted
+(as if 30% nearer than it is), and shown as it was until it is ready; to start with, every tile is built
+at its coarsest, side by side. So driving flat out no frame waits for one. Each is as fine as the land
+needs and no finer (`LandSheet`): a square of it split in four, and those again, only where its corners
+alone would put the land more than so far out, or where a feature lies (so finely only near);
 squares beside each other never more than twice the other's size, the bigger's side broken where the
 smaller's corners are, so no crack shows; so open meadow comes out in squares of tens of metres, a
 river's bank in squares of half a metre. A skirt hangs from each tile's edges so no gap shows where a
 fine tile meets a coarse one. It is shaded by the sun as its slopes face it and tinted by height, a
 little mottled: the meadow's grass low down, drier grass up the slopes, moor on the heights; bare
-earth where a feature leaves it so, a road's gravel, each thinning out into the grass, the squares
-finer where what covers the ground changes, so its edges are smooth. From 1.2 km out it fades into
-the haze as the far ground round the
-camera does (`Horizon.haze`), its slopes lit more and more as level ground is, so the hills at the
-world's edge go into the sky with no line between them; each tile's haze is worked out again as the
-camera moves, height by height, and those near enough to have none are left alone. Its tint and its
+earth where a feature leaves it so, a road's gravel or asphalt, each thinning out into the grass, the
+squares finer near where what covers the ground changes, so its edges are smooth. From 1.2 km out it
+fades into the haze as the far ground round the camera does (`Horizon.haze`), its slopes lit more and
+more as level ground is, so the hills at the world's edge go into the sky with no line between them.
+Each tile's haze is worked out again, height by height, once the camera has moved 25 m, or 5% of how far
+off the tile is, if more, since far off the haze changes little with a few metres more or less; those
+near enough to have none are left alone; a frame sends no more than so many heights again. Its tint and its
 haze are one picture lit by itself, its base colour alone lit by the sun: a picture lit and another
 lighting itself, each drawn from coarser copies of itself far off, would not go together, and the
 land would show dark streaks across it and a white edge against the sky.

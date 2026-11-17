@@ -49,6 +49,7 @@ final class LandSheet {
     private final double largest;
     private final double featured;
     private final double far;
+    private final double cover;
     /** Each square there is, by its key: whether it is split. */
     private final Map<Long, Boolean> squares = new HashMap<>();
     private final Map<Long, Integer> numbered = new HashMap<>();
@@ -56,7 +57,8 @@ final class LandSheet {
 
     private LandSheet(final Land land, final double x0, final double z0, final double x1, final double z1,
                       final double tolerance, final double finest, final double largest, final double featured,
-                      final double far) {
+                      final double far, final double cover) {
+        this.cover = cover;
         this.land = land;
         this.x0 = x0;
         this.z0 = z0;
@@ -78,7 +80,18 @@ final class LandSheet {
     static Made of(final Land land, final double x0, final double z0, final double x1, final double z1,
                    final double tolerance, final double finest, final double largest, final double featured,
                    final double far, final double skirt) {
-        return new LandSheet(land, x0, z0, x1, z1, tolerance, finest, largest, featured, far).made(skirt);
+        return of(land, x0, z0, x1, z1, tolerance, finest, largest, featured, far, COVER, skirt);
+    }
+
+    /**
+     * As {@link #of(Land, double, double, double, double, double, double, double, double, double, double)}; but
+     * finer where what covers the ground changes across a square more than {@code cover} from what its corners make
+     * of it (never, if infinite).
+     */
+    static Made of(final Land land, final double x0, final double z0, final double x1, final double z1,
+                   final double tolerance, final double finest, final double largest, final double featured,
+                   final double far, final double cover, final double skirt) {
+        return new LandSheet(land, x0, z0, x1, z1, tolerance, finest, largest, featured, far, cover).made(skirt);
     }
 
     private static long key(final int depth, final long ix, final long iz) {
@@ -197,7 +210,7 @@ final class LandSheet {
         }
         // where what covers the ground changes across it (a road's edge, a bank's top), finer: its colour is
         // worked out at its corners, and read between them
-        if (feature && covered(ax, az, w, d)) {
+        if (feature && cover < Double.POSITIVE_INFINITY && covered(ax, az, w, d)) {
             return true;
         }
         // how far the land is from what its corners alone make of it, looked at across it
@@ -219,7 +232,7 @@ final class LandSheet {
         return false;
     }
 
-    /** How far what covers the ground may be from what a square's corners make of it, and it still be left whole. */
+    /** How far what covers the ground may be from what a square's corners make of it, and it still be left whole, unless told otherwise. */
     static final double COVER = 0.08;
 
     /** Whether what covers the ground ({@link Land#cover}) changes across a square more than its corners alone would have it. */
@@ -247,7 +260,7 @@ final class LandSheet {
                 for (int c = 0; c < kinds.length; c++) {
                     final double made = (corners[0][c] * (1 - s) + corners[1][c] * s) * (1 - t)
                             + (corners[2][c] * (1 - s) + corners[3][c] * s) * t;
-                    if (Math.abs(here[c] - made) > COVER) {
+                    if (Math.abs(here[c] - made) > cover) {
                         return true;
                     }
                 }
