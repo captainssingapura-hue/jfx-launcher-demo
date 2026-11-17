@@ -51,13 +51,14 @@ class WallTowerTest {
         assertEquals(SIZE.length() / 2 - SIZE.end() / 2, TOWER.wallAt(SIZE.walls() - 1), 1e-9);
         assertEquals(SIZE.end(), TOWER.thick(0));
         assertEquals(SIZE.wall(), TOWER.thick(1));
-        // so many solids: each leg of each storey, its walls; and between each two, its floor and on each of its two
-        // faces its rooms' glass and its balcony's rail; or, where it is shut, a wall
+        // so many solids: each leg of each storey, its walls, those within it in four round the corridor's doorway;
+        // and between each two, its floor and on each of its two faces its rooms' glass and its balcony's rail; or,
+        // where it is shut, a wall
         int expected = 1;
         for (int k = 0; k < SIZE.storeys(); k++) {
             final int legs = TOWER.legs(k * SIZE.storey(), (k + 1) * SIZE.storey()).size();
             final boolean shut = k == SIZE.merge() - 1 || k == SIZE.merge();
-            expected += legs * (SIZE.walls() + (SIZE.walls() - 1) * (1 + 2 * (shut ? 1 : 1 + DOOR)));
+            expected += legs * (2 + 4 * (SIZE.walls() - 2) + (SIZE.walls() - 1) * (1 + 2 * (shut ? 1 : 1 + DOOR)));
         }
         assertEquals(expected, TOWER.solids(WallTower.palette()).size(), "and its roof");
     }

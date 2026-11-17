@@ -44,6 +44,9 @@ public final class WallTower {
     static final double STILE = 6;
     static final double LAP = 8;
     static final double OPEN = 0.3;
+    /** The doorway through each wall within it, for the corridor along each leg's middle: how wide, how high. */
+    static final double CORRIDOR = 160;
+    static final double DOORWAY = 240;
 
     /**
      * How big it is built: {@code storeys} storeys of {@code storey} each, its legs meeting under storey {@code merge}
@@ -241,7 +244,24 @@ public final class WallTower {
                 for (int j = 0; j < size.walls(); j++) {
                     final double y = wallAt(j);
                     final double t = thick(j);
-                    solids.add(box("wall " + j + ", storey " + k, Role.WALL, concrete, leg, y - t / 2, y + t / 2, h0, h1));
+                    final String name = "wall " + j + ", storey " + k;
+                    if (j == 0 || j == size.walls() - 1) {
+                        solids.add(box(name, Role.WALL, concrete, leg, y - t / 2, y + t / 2, h0, h1));
+                        continue;
+                    }
+                    // a wall within it: a doorway through its middle, for the corridor along the leg
+                    final double c = corridor(leg);
+                    final double[] a0 = {c - CORRIDOR / 2, c - CORRIDOR / 2};
+                    final double[] a1 = {c + CORRIDOR / 2, c + CORRIDOR / 2};
+                    final double door = h0 + FLOOR + DOORWAY;
+                    solids.add(box(name + ", west of the corridor", Role.WALL, concrete, new double[][] {leg[0], a0},
+                            y - t / 2, y + t / 2, h0, h1));
+                    solids.add(box(name + ", east of the corridor", Role.WALL, concrete, new double[][] {a1, leg[1]},
+                            y - t / 2, y + t / 2, h0, h1));
+                    solids.add(box(name + ", under the corridor", Role.WALL, concrete, new double[][] {a0, a1},
+                            y - t / 2, y + t / 2, h0, h0 + FLOOR));
+                    solids.add(box(name + ", over the corridor", Role.WALL, concrete, new double[][] {a0, a1},
+                            y - t / 2, y + t / 2, door, h1));
                 }
                 for (int j = 0; j + 1 < size.walls(); j++) {
                     final double y0 = wallAt(j) + thick(j) / 2;
@@ -274,6 +294,19 @@ public final class WallTower {
         final double[][] roof = {{westOuter(top), westOuter(top)}, {eastOuter(top), eastOuter(top)}};
         solids.add(box("roof", Role.ROOF, palette.of(Role.ROOF), roof, -size.length() / 2, size.length() / 2, top, top + FLOOR));
         return solids;
+    }
+
+    /** Where the corridor runs along a leg ({@link #legs}), across: its middle, halfway up the storey. */
+    static double corridor(final double[][] leg) {
+        return (leg[0][0] + leg[0][1] + leg[1][0] + leg[1][1]) / 4;
+    }
+
+    /**
+     * Its inside, cut into rooms by arithmetic: by storey, by leg, by the bay between two of its walls; the atrium
+     * outside them all ({@link TowerInside}).
+     */
+    public TowerInside inside() {
+        return new TowerInside(this);
     }
 
     /**
