@@ -1,6 +1,10 @@
 package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Form;
+import com.example.fxsuite.avatar.sim.Interior;
+import com.example.fxsuite.avatar.sim.Lean;
+import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Placed;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -307,6 +311,22 @@ public final class WallTower {
      */
     public TowerInside inside() {
         return new TowerInside(this);
+    }
+
+    /**
+     * It set {@code at} a place in the world, as one thing in the world's way: every wall, floor, rail and pane of it
+     * solid, as it leans, each filed in the rooms it reaches, and found through them ({@link Interior}).
+     */
+    public Interior interior(final Place at) {
+        return new Interior(new Placed(at, inside()), solids(palette()).stream().map(WallTower::lean).toList());
+    }
+
+    /** A solid of it as what is in the way ({@link Lean}): each is a box, its two faces across it leaning as it does. */
+    static Lean lean(final Solid solid) {
+        final List<Point> c = solid.corners();
+        // as {@link #box} lays its corners out: the first bit west or east, the second along, the third low or high
+        return new Lean(0, 0, 0, c.get(0).along(), c.get(2).along(), c.get(0).across(), c.get(1).across(),
+                c.get(4).across(), c.get(5).across(), c.get(0).up(), c.get(4).up());
     }
 
     /**

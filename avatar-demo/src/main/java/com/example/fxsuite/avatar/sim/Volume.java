@@ -14,7 +14,7 @@ package com.example.fxsuite.avatar.sim;
  * passage) and more than one underside over it (the passage's soffit, its own bottom): so each is
  * asked for, no higher (or no lower) than a height.
  */
-public sealed interface Volume permits Prism, Extrusion, Crossing {
+public sealed interface Volume permits Prism, Extrusion, Crossing, Lean, Interior {
 
     /** What it takes up seen from above: a box square to the world, round all of it. */
     record Bounds(double minX, double maxX, double minZ, double maxZ) {
@@ -64,6 +64,15 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
      */
     double undersideAt(double x, double z, double radius, double above);
 
+    /**
+     * Whether, where a circle at ({@code x}, {@code z}) would stand on it at {@code top}, it rises more than a step
+     * from under the circle to as far again out: too steep to stand on, as a ramp that steep is not, so nothing creeps
+     * up it a step at a time.
+     */
+    default boolean steep(final double x, final double z, final double radius, final double top) {
+        return topAt(x, z, 2 * radius) - top > Body.STEP;
+    }
+
     /** How high its highest top is anywhere under a circle at ({@code x}, {@code z}); minus infinity if none. */
     default double topAt(final double x, final double z, final double radius) {
         return topAt(x, z, radius, Double.POSITIVE_INFINITY);
@@ -110,6 +119,8 @@ public sealed interface Volume permits Prism, Extrusion, Crossing {
                     at.z() + (right.z() * e.x() + ahead.z() * e.z()) * scale, at.yaw() + e.yaw(), e.half() * scale,
                     scaled(e.profile(), scale, up), e.holes().stream().map(h -> scaled(h, scale, up)).toList());
             case Crossing c -> new Crossing(c.parts().stream().map(p -> (Extrusion) placed(p, at, scale)).toList());
+            case Lean l -> l.within(at, scale);
+            case Interior i -> throw new IllegalArgumentException("a building's interior is placed as it is made");
         };
     }
 

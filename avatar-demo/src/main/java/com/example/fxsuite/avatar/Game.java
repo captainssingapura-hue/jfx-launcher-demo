@@ -413,6 +413,8 @@ public final class Game {
     private Scene scene;
     /** The camera: behind the avatar, or, at a vehicle's controls, behind the vehicle. */
     private Chase chase;
+    /** The world as last shown: the buildings' walls the chase camera is kept short of ({@link Chase#position(Obstacles)}). */
+    private Obstacles standingWas = Obstacles.NONE;
     private MouseLook look;
     private Hearing hearing;
     /** The trigger: the left mouse button held while the mouse is captured. */
@@ -878,7 +880,7 @@ public final class Game {
         final boolean ownEyes = cockpit != null && flying.isEmpty() && alone.isEmpty();
         rig.fromItsEyes(ownEyes);
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
-        final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
+        final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position(standingWas);
         // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
         rig.node().setVisible(!inside && (cockpit == null || ownEyes));
@@ -909,6 +911,8 @@ public final class Game {
         final double behind = (1 - ticked.blend()) * Clock.STEP;
         final Play now = new Play(this.avatar, damage, sky, lifts, people, props, turrets);
         final Obstacles standing = now.obstacles();
+        // what the camera is kept inside a building by, the next frame as this one: its walls do not move
+        standingWas = standing;
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
@@ -963,7 +967,7 @@ public final class Game {
         fieldOfView = Num.ease(fieldOfView, (riderView ? RIDER_VIEW : FIELD_OF_VIEW) + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
         eye.setNearClip(nearClip(cockpit != null));
-        final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
+        final Vec3 at = cockpit != null ? cockpit.at() : chase.position(standingWas);
         eyeAt.setX(at.x());
         // how far it sees, by how high it is over the ground under it ({@link Sight}): the sky, the haze and how far it
         // draws as far as that
