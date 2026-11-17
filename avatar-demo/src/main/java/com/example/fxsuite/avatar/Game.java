@@ -114,6 +114,8 @@ import java.util.Set;
  * {@code ^20} tilts the view up 20° (down, when negative). A {@link Script} is inputs stamped
  * with the step they come in at: while it plays, it alone drives the world, so the same script
  * gives the same run however the frames fall.
+ * {@code -Davatar.slow=20} prints each frame that came more than 20 ms after the one before, and what was done
+ * before it ({@link SlowFrames}): for measuring what holds the frames up.
  * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
  * {@code -Davatar.settle=<ms>} picks the moment instead, counted in the world's time. Either
  * leaves the mouse alone.
@@ -292,6 +294,10 @@ public final class Game {
     /** How the frames are going, a second at a time: green when smooth, amber when not. */
     private final Label frames = new Label();
     private final FrameTimes frameTimes = new FrameTimes();
+    /** Each slow frame, said what was done before it, if asked for ({@link SlowFrames}); and what that needs. */
+    private final SlowFrames slowFrames = SlowFrames.fromProperty();
+    private long drawingNanos;
+    private Vec3 seenAt = Vec3.ZERO;
     private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
             + "-fx-text-fill: ";
 
@@ -517,7 +523,7 @@ public final class Game {
         movedBefore = movedNow;
         frame(0);
         // unattended runs also print each second's frame times, for measuring without watching
-        final boolean logFrames = unattended;
+        final boolean logFrames = unattended || slowFrames != null;
         timer = new AnimationTimer() {
             private long last = -1;
 
@@ -525,13 +531,24 @@ public final class Game {
             public void handle(final long now) {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
+                if (slowFrames != null) {
+                    final String slow = slowFrames.began(now, world.node());
+                    if (slow != null) {
+                        System.out.println(slow);
+                    }
+                }
                 final long began = System.nanoTime();
                 frame(seconds);
-                final FrameTimes.Summary summary = frameTimes.frame(now, System.nanoTime() - began);
+                final long work = System.nanoTime() - began;
+                if (slowFrames != null) {
+                    slowFrames.done(work, drawingNanos, world.landWork(), seenAt);
+                }
+                final FrameTimes.Summary summary = frameTimes.frame(now, work);
                 if (summary != null) {
                     showFrames(summary);
                     if (logFrames) {
-                        System.out.println("frames: " + summary.text().replace('·', '|'));
+                        System.out.println("frames: " + summary.text().replace('·', '|')
+                                + (slowFrames != null ? " | " + slowFrames.where() : ""));
                     }
                 }
             }
@@ -776,7 +793,10 @@ public final class Game {
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
         world.horizon().follow(at);
+        final long seeing = System.nanoTime();
         world.seenFrom(at, seconds);
+        drawingNanos = System.nanoTime() - seeing;
+        seenAt = at;
         eyeAt.setY(at.y());
         eyeAt.setZ(at.z());
         eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());

@@ -1436,6 +1436,12 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
 - **`-Davatar.at=0,215,84.6,0`** stands the avatar there to start (x, z and how high, in metres;
   which way it faces), not at the start: to look at something far off, a tower's void deck say.
   With `-Davatar.pack=true` and a script starting `F`, it hovers there. Not for a recording.
+- **`-Davatar.slow=20`** prints, for each frame that came more than 20 ms after the one before, what was
+  done before it (`SlowFrames`): how long into the run; the frame's own work and the drawing's of it; what it
+  did to the land, tiles swapped (from what level to what, how many heights sent) and their haze, and what
+  the frame before that did; the garbage collector's runs since; what is left to JavaFX, sending and drawing;
+  how many meshes are drawn; where the camera is and how fast it goes. And each second's frames, with where.
+  For finding what holds the frames up, while driving or flying.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
   would have played, kept in time with the game. It is for hearing a run afterwards, or
   checking it without speakers:

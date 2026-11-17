@@ -258,6 +258,7 @@ public final class TerrainModel {
      */
     public void seenFrom(final Vec3 eye, final double seconds) {
         final double speed = pace.at(eye, seconds);
+        work = new Work();
         int left = BUDGET;
         int done = 0;
         for (final Tile tile : tiles) {
@@ -283,13 +284,42 @@ public final class TerrainModel {
                 haze(tile, eye);
                 left -= heights;
                 done++;
+                work.hazes++;
+                work.hazed += heights;
             }
         }
     }
 
+    /**
+     * What the last frame did to the land, to be measured: how many tiles it swapped to another level, how many
+     * of those were sent to be drawn for the first time, and how many heights those were; and how many tiles'
+     * haze it worked out again, and how many heights; how fast it reckoned the camera went.
+     */
+    public static final class Work {
+        public int swaps;
+        public int fresh;
+        public int swapped;
+        public int hazes;
+        public int hazed;
+        public double speed;
+        public final StringBuilder levels = new StringBuilder();
+    }
+
+    private Work work = new Work();
+
+    /** What the last frame did to the land ({@link Work}). */
+    public Work work() {
+        work.speed = pace.speed();
+        return work;
+    }
+
     /** Tile {@code tile} shown at level {@code level}, its haze as seen from {@code eye}. */
     private void show(final Tile tile, final int level, final Vec3 eye) {
+        work.swaps++;
+        work.swapped += tile.built[level].coords().length / 2;
+        work.levels.append(work.levels.isEmpty() ? "" : ",").append(tile.level).append('>').append(level);
         if (tile.meshes[level] == null) {
+            work.fresh++;
             final Built built = tile.built[level];
             final TriangleMesh mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
             mesh.getPoints().setAll(built.points());

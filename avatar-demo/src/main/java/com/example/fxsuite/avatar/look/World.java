@@ -615,6 +615,11 @@ public final class World {
         return worn;
     }
 
+    /** What the last frame did to the land, if there is any land ({@link TerrainModel.Work}); else null. */
+    public TerrainModel.Work landWork() {
+        return land != null ? land.work() : null;
+    }
+
     /**
      * Each building's levels shown or hidden as it is seen from {@code eye}, where the camera now is
      * ({@link Detail}): by how far its nearest point is.
