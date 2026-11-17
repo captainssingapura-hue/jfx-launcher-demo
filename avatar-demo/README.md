@@ -331,8 +331,8 @@ the pavilions round it; the pyramids at the town's east edge; every land vehicle
 in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
 tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
 on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
-before it starts. Then the **meadow village**: open country, a river winding across it, a highway along it
-and a road off it over a bridge into a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
+before it starts. Then the **meadow village**: open country, a river winding across it, a dual carriageway along it
+with an exit off it, over a bridge into a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
@@ -838,10 +838,15 @@ through, and one loaded until a pillar gives and it falls.
   Its water lies 1 m deep over its bed, its top meeting its banks (`WaterModel`), fading into the haze
   far off as the land does; walked down into and along and up out of, as yet without slowing.
   Its roads are described as roads are (`RoadMap`, see [Roads](#roads)): a highway along the river, a
-  hundred metres south of it, its bends two and a half times less wide, across the world and past its ends,
-  7.5 m of asphalt; a road forking off it (`fork`, a vertex they share) round to the river and across it
-  square on a bridge (its deck as high as the road there, pinned 80 cm over the meadow, stone parapets either
-  side, its centre line painted), and on up to the village's square by the well; and the lane to the church.
+  hundred metres south of it, its bends two and a half times less wide, across the world and past its ends;
+  a dual carriageway, each carriageway two lanes and their shoulders, 9 m of asphalt, running the way its
+  traffic does (driving on the right: east south of the median, west north of it), a 10 m median between
+  them planted with two lines of trees for 2.5 km either side of the village. An exit leaves the westbound
+  carriageway (`exit`, a vertex they share), a slip road easing out from it and curving round to a junction
+  north of the highway (`junction`); an entry slip road from the junction curves round and eases back onto
+  the carriageway further west (`entry`). From the junction a road runs to the river and across it square on
+  a bridge (its deck as high as the road there, pinned 80 cm over the meadow, stone parapets either side,
+  its centre line painted), and on up to the village's square by the well; and the lane to the church.
   North of the river, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
   woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
   each simply gone. Trees along both banks, and across the meadow, each standing on the land where it

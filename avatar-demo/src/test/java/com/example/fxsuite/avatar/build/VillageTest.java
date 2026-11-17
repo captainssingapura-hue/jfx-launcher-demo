@@ -194,27 +194,47 @@ class VillageTest {
     }
 
     @Test
-    void aHighwayAlongTheRiverLessWindingThanIt() {
+    void aDualCarriagewayAlongTheRiverLessWindingThanIt() {
         assertEquals(List.of(), Village.roads().problems());
-        final Road highway = Village.laid("highway");
-        assertEquals(List.of(), highway.problems());
-        final List<Vec2> line = highway.line();
-        assertTrue(line.getFirst().x() < -Body.EDGE && line.getLast().x() > Body.EDGE, "across the world, past its ends");
+        final Road east = Village.laid("eastbound");
+        final Road west = Village.laid("westbound");
+        assertEquals(List.of(), east.problems());
+        assertEquals(List.of(), west.problems());
+        // each across the world, past its ends, the way its traffic goes: east south of the median, west north of it
+        assertTrue(east.line().getFirst().x() < -Body.EDGE && east.line().getLast().x() > Body.EDGE, "eastward");
+        assertTrue(west.line().getFirst().x() > Body.EDGE && west.line().getLast().x() < -Body.EDGE, "westward");
+        final Polyline westLine = new Polyline(west.line(), Village.CARRIAGEWAYS_APART * 2);
+        for (int i = 0; i < east.line().size(); i += 50) {
+            final Vec2 p = east.line().get(i);
+            if (Math.abs(p.x()) < Body.EDGE) {
+                assertEquals(Village.CARRIAGEWAYS_APART, westLine.distance(p.x(), p.z()), 50, "side by side, the median between");
+            }
+        }
         // along the river, south of it, clear of its channel all the way
         final Channel channel = Village.channel();
         double nearest = Double.POSITIVE_INFINITY;
-        for (final Vec2 p : line) {
+        for (final Vec2 p : west.line()) {
             assertTrue(p.z() < Village.riverAt(p.x()), "south of the river");
             nearest = Math.min(nearest, Math.abs(p.z() - Village.riverAt(p.x())));
         }
-        assertTrue(nearest > channel.reach() + highway.wide(0) / 2 + 2_000, "clear of the channel: " + nearest);
+        assertTrue(nearest > channel.reach() + west.wide(0) / 2 + 2_000, "clear of the channel: " + nearest);
         // two to three times less winding: as much turning, all told, along the same way
         final double river = turning(Village.rivers().getFirst().line());
-        final double road = turning(line);
+        final double road = turning(east.line());
         assertTrue(river > 2 * road && river < 3.5 * road, "less winding: " + river / road);
-        assertTrue(highway.steepest() <= 0.06 + 1e-9, "a highway's grade: " + highway.steepest());
-        assertEquals(1, Village.land().cover(Land.Cover.ASPHALT, line.get(1_000).x(), line.get(1_000).z()), 1e-9,
-                "asphalt");
+        assertTrue(east.steepest() <= 0.05 + 1e-9 && west.steepest() <= 0.05 + 1e-9, "a highway's grade");
+        final Vec2 on = east.line().get(1_000);
+        assertEquals(1, Village.land().cover(Land.Cover.ASPHALT, on.x(), on.z()), 1e-9, "asphalt");
+        // and its median planted: two lines of trees down it, each between the carriageways, on the land
+        final List<Course.Piece> avenue = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.TREE
+                && westLine.distance(p.block().x(), p.block().z()) < Village.CARRIAGEWAYS_APART).toList();
+        assertTrue(avenue.size() > 400, "two lines of them: " + avenue.size());
+        final Polyline eastLine = new Polyline(east.line(), Village.CARRIAGEWAYS_APART * 2);
+        for (final Course.Piece tree : avenue) {
+            final double toWest = westLine.distance(tree.block().x(), tree.block().z());
+            final double toEast = eastLine.distance(tree.block().x(), tree.block().z());
+            assertTrue(toWest > west.wide(0) / 2 && toEast > east.wide(0) / 2, "in the median, off the carriageways");
+        }
     }
 
     /** How far a line turns, all told, between x = -4 km and 4 km: its winding. */
@@ -235,13 +255,42 @@ class VillageTest {
     }
 
     @Test
-    void aRoadForkingOffItIntoTheVillageOverABridge() {
+    void anExitOffItAndAnEntryBackOnto() {
+        final RoadMap map = Village.roads();
+        final Road westbound = Village.laid("westbound");
+        final RoadMap.Way exit = way(map, "exit");
+        final RoadMap.Way entry = way(map, "entry");
+        assertEquals("exit", exit.vertices().getFirst().node(), "leaving the westbound carriageway where they share a vertex");
+        assertEquals("junction", exit.vertices().getLast().node(), "to the junction");
+        assertEquals("junction", entry.vertices().getFirst().node());
+        assertEquals("entry", entry.vertices().getLast().node(), "back onto the westbound carriageway");
+        for (final String name : List.of("exit", "entry")) {
+            final Road slip = Village.laid(name);
+            assertEquals(List.of(), slip.problems());
+            // easing off and on: alongside the carriageway where it leaves or joins it, heading its way
+            final List<Vec2> line = slip.line();
+            final Vec2 on = name.equals("exit") ? line.get(0) : line.getLast();
+            final Vec2 next = name.equals("exit") ? line.get(1) : line.get(line.size() - 2);
+            assertEquals(westbound.level(on.x(), on.z()), slip.level(name.equals("exit") ? 0 : line.size() - 1), 1e-6,
+                    "as high as the carriageway there");
+            final Polyline carriageway = new Polyline(westbound.line(), 2_000);
+            assertTrue(carriageway.distance(next.x(), next.z()) < 50, "alongside it at first");
+        }
+        // and the road into the village, from the junction, as high as the slip roads are there
+        final RoadMap.Way village = way(map, "village road");
+        assertEquals("junction", village.vertices().getFirst().node());
+        final Vec2 junction = village.vertices().getFirst().at();
+        assertEquals(Village.laid("exit").level(junction.x(), junction.z()), Village.laid("village road").level(0), 1e-6);
+    }
+
+    private static RoadMap.Way way(final RoadMap map, final String name) {
+        return map.ways().stream().filter(w -> w.name().equals(name)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void aRoadIntoTheVillageOverABridge() {
         final Road road = Village.laid("village road");
         assertEquals(List.of(), road.problems());
-        final RoadMap.Way way = Village.roads().ways().get(1);
-        assertEquals("fork", way.vertices().getFirst().node(), "off the highway, where they share a vertex");
-        final Vec2 fork = way.vertices().getFirst().at();
-        assertEquals(Village.laid("highway").level(fork.x(), fork.z()), road.level(0), 1e-6, "meeting it as high as it is");
         // ending at the village's square, short of the well
         final Vec2 end = road.line().getLast();
         assertTrue(Math.hypot(end.x() - Village.WELL.x(), end.z() - Village.WELL.z()) < 2_000, "at the village's square");

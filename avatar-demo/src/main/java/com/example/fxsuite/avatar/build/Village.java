@@ -185,9 +185,14 @@ public final class Village {
 
     // --- its roads ---------------------------------------------------------------------------------------------
 
-    /** The kinds of road in the meadow ({@link RoadMap}): the highway, the road into the village, the lane to the church. */
-    static final RoadMap.Kind HIGHWAY = new RoadMap.Kind("highway", 750, Land.Cover.ASPHALT, 0.06, 1.0 / 20_000, false,
-            2, 0.02, 6_000, 8_000);
+    /**
+     * The kinds of road in the meadow ({@link RoadMap}): each of the highway's carriageways, two lanes and their
+     * shoulders; its slip roads, one lane and its shoulders; the road into the village; the lane to the church.
+     */
+    static final RoadMap.Kind CARRIAGEWAY = new RoadMap.Kind("carriageway", 900, Land.Cover.ASPHALT, 0.05, 1.0 / 20_000,
+            false, 2, 0.02, 6_000, 10_000);
+    static final RoadMap.Kind SLIP = new RoadMap.Kind("slip", 550, Land.Cover.ASPHALT, 0.07, 1.0 / 4_000, false,
+            2, 0.02, 3_000, 4_000);
     static final RoadMap.Kind VILLAGE_ROAD = new RoadMap.Kind("village", 600, Land.Cover.ASPHALT, 0.08, 1.0 / 3_000, false,
             2, 0.02, 3_000, 5_000);
     static final RoadMap.Kind LANE = new RoadMap.Kind("lane", 400, Land.Cover.GRAVEL, 0.14, 1.0 / 1_500, false,
@@ -197,16 +202,44 @@ public final class Village {
     private static final double HIGHWAY_EVERY = 10_000;
     private static final double HIGHWAY_PAST = 20_000;
     private static final double HIGHWAY_SOUTH = 10_000;
-    /** Where the road into the village leaves it: so far east. */
-    private static final double FORK = 6_000;
+    /** How wide its median is, between its carriageways: so far apart their middles are. */
+    public static final double MEDIAN = 1_000;
+    public static final double CARRIAGEWAYS_APART = MEDIAN + 900;
+    /**
+     * Where the exit to the village leaves the westbound carriageway, and the entry back onto it joins it: so far
+     * east, each a vertex of it; and where the slip roads meet the road into the village, the junction: so far
+     * east, so far north of the westbound carriageway.
+     */
+    private static final double EXIT = 26_000;
+    private static final double ENTRY = -24_000;
+    private static final double JUNCTION = 1_000;
+    private static final double JUNCTION_OUT = 4_500;
+    /** The exit slip road's way out from the carriageway: so far along, so far out, each in turn. */
+    private static final double[][] EXITING = {{-4_000, 400}, {-9_000, 1_000}, {-14_000, 2_000}, {-19_000, 3_300}};
 
     /**
      * Where the highway's middle is, north or south, at {@code x} east: along the river, a hundred metres south of
-     * it, the river's long bends a little over a third as wide, its short ones all but gone; so about two and a
-     * half times less winding.
+     * it, its bends, long and short, two and a half times less wide; so about two and a half times less winding.
      */
     public static double highwayAt(final double x) {
         return 1_600 * Math.sin(x / 18_000 + 0.3) + 600 * Math.sin(x / 7_000 + 1.3) - 6_600 - HIGHWAY_SOUTH;
+    }
+
+    /** Which way is north of the highway at {@code x}, square to it: to the left going east. */
+    private static Vec2 northOf(final double x) {
+        final double slope = 1_600 / 18_000.0 * Math.cos(x / 18_000 + 0.3) + 300 / 3_500.0 * Math.cos(x / 7_000 + 1.3);
+        return unit(-slope, 1);
+    }
+
+    /** The point {@code out} north of the highway's middle at {@code x}, square to it. */
+    private static Vec2 offHighway(final double x, final double out) {
+        final Vec2 n = northOf(x);
+        return new Vec2(x + n.x() * out, highwayAt(x) + n.z() * out);
+    }
+
+    /** The point {@code out} north of the westbound carriageway's middle at {@code x}. */
+    private static Vec2 offWestbound(final double x, final double out) {
+        return offHighway(x, CARRIAGEWAYS_APART / 2 + out);
     }
 
     /** How far from the river's middle the bridge's ends are; how high its deck is over the meadow; its parapets. */
@@ -225,68 +258,99 @@ public final class Village {
     }
 
     /**
-     * The meadow's roads, as described: the highway along the river, west to east, a vertex every
-     * {@link #HIGHWAY_EVERY}, its curves worked out so it bends smoothly through each; the road into the village,
-     * forking off it at node {@code fork}, curving round to cross the river square on a bridge, its ends pinned
-     * over the meadow, and on up to the village's square; the lane from the village's edge winding up to the
-     * church.
+     * The meadow's roads, as described:
+     *
+     * <ul>
+     *   <li>the highway along the river, a dual carriageway: its eastbound carriageway south of its median, its
+     *       westbound north of it, each two lanes, a vertex every {@link #HIGHWAY_EVERY}, laid along a smooth curve
+     *       (driving on the right, each runs the way its traffic does);</li>
+     *   <li>the exit to the village: a slip road leaving the westbound carriageway at node {@code exit}, easing out
+     *       from it, then curving round to the junction ({@code junction}) north of it; and the entry, a slip road
+     *       from the junction curving round to ease back onto the carriageway at node {@code entry};</li>
+     *   <li>the road into the village, from the junction round to cross the river square on a bridge, its ends
+     *       pinned over the meadow, and on up to the village's square;</li>
+     *   <li>the lane from the village's edge winding up to the church.</li>
+     * </ul>
      */
     public static RoadMap roads() {
-        final RoadMap.Node fork = new RoadMap.Node("fork", new Vec2(FORK, highwayAt(FORK)));
+        final RoadMap.Node exit = new RoadMap.Node("exit", offWestbound(EXIT, 0));
+        final RoadMap.Node entry = new RoadMap.Node("entry", offWestbound(ENTRY, 0));
+        final RoadMap.Node junction = new RoadMap.Node("junction", offWestbound(JUNCTION, JUNCTION_OUT));
         final List<RoadMap.Way> ways = new ArrayList<>();
-        // the highway: its vertices along it, each curve taking it on from where the last left it
-        final List<Vec2> points = new ArrayList<>();
+        // the carriageways, either side of the highway's middle
+        final List<Vec2> east = new ArrayList<>();
+        final List<Vec2> west = new ArrayList<>();
         final double reach = Body.EDGE + HIGHWAY_PAST;
-        for (double x = FORK - Math.floor((FORK + reach) / HIGHWAY_EVERY) * HIGHWAY_EVERY; x <= reach; x += HIGHWAY_EVERY) {
-            points.add(new Vec2(x, highwayAt(x)));
+        for (double x = EXIT - Math.floor((EXIT + reach) / HIGHWAY_EVERY) * HIGHWAY_EVERY; x <= reach; x += HIGHWAY_EVERY) {
+            east.add(offHighway(x, -CARRIAGEWAYS_APART / 2));
+            west.addFirst(offWestbound(x, 0));
         }
-        ways.add(smooth("highway", HIGHWAY.name(), points, fork));
-        // the road into the village: round from the fork to the bridge's south end, across, round up to the square
+        ways.add(smooth("eastbound", CARRIAGEWAY.name(), east, List.of()));
+        ways.add(smooth("westbound", CARRIAGEWAY.name(), west, List.of(exit, entry)));
+        // the exit: easing out from the westbound carriageway, then round to the junction
+        final List<Vec2> out = new ArrayList<>();
+        out.add(exit.at());
+        for (final double[] step : EXITING) {
+            out.add(offWestbound(EXIT + step[0], step[1]));
+        }
+        out.add(junction.at());
+        ways.add(smooth("exit", SLIP.name(), out, List.of(exit, junction)));
+        // the road into the village: round from the junction to the bridge's south end, across, round up to the square
         final Vec2 across = across();
         final Vec2 middle = new Vec2(WELL.x(), riverAt(WELL.x()));
         final Vec2 south = new Vec2(middle.x() - across.x() * SPAN, middle.z() - across.z() * SPAN);
         final Vec2 north = new Vec2(middle.x() + across.x() * SPAN, middle.z() + across.z() * SPAN);
         final Vec2 square = new Vec2(WELL.x(), WELL.z() - SQUARE);
-        final double toSouth = -Alignment.bending(south, new Vec2(-across.x(), -across.z()), fork.at());
+        final double toSouth = -Alignment.bending(south, new Vec2(-across.x(), -across.z()), junction.at());
         final double toSquare = Alignment.bending(north, across, square);
         ways.add(new RoadMap.Way("village road", List.of(
-                new RoadMap.Vertex(fork.at(), Double.NaN, fork.name()),
+                new RoadMap.Vertex(junction.at(), Double.NaN, junction.name()),
                 new RoadMap.Vertex(south, DECK, null),
                 new RoadMap.Vertex(north, DECK, null),
                 new RoadMap.Vertex(square)), List.of(
                 new RoadMap.Segment(VILLAGE_ROAD.name(), toSouth, false),
                 new RoadMap.Segment(VILLAGE_ROAD.name(), 0, true),
                 new RoadMap.Segment(VILLAGE_ROAD.name(), toSquare, false)), false));
-        ways.add(smooth("church lane", LANE.name(), churchLane(), null));
-        return new RoadMap(List.of(HIGHWAY, VILLAGE_ROAD, LANE), List.of(fork), ways);
+        // the entry: from the junction round, then easing back onto the westbound carriageway
+        final List<Vec2> in = new ArrayList<>();
+        in.add(junction.at());
+        for (int k = EXITING.length - 1; k >= 0; k--) {
+            in.add(offWestbound(ENTRY - EXITING[k][0], EXITING[k][1]));
+        }
+        in.add(entry.at());
+        ways.add(smooth("entry", SLIP.name(), in, List.of(junction, entry)));
+        ways.add(smooth("church lane", LANE.name(), churchLane(), List.of()));
+        return new RoadMap(List.of(CARRIAGEWAY, SLIP, VILLAGE_ROAD, LANE), List.of(exit, entry, junction), ways);
     }
 
     /**
      * A road of kind {@code kind} through {@code points}, laid along a smooth curve through them, with no kink: at
      * each point heading the way the curve goes there (from the point before it to the one after), and between
      * each two, two arcs (a biarc), each a segment, meeting at a vertex between them where they head the same way.
-     * The point at node {@code node}, if any, is that node.
+     * A point at one of {@code nodes} is that node.
      */
-    private static RoadMap.Way smooth(final String name, final String kind, final List<Vec2> points, final RoadMap.Node node) {
+    private static RoadMap.Way smooth(final String name, final String kind, final List<Vec2> points,
+                                      final List<RoadMap.Node> nodes) {
         final List<Vec2> headings = new ArrayList<>();
         for (int k = 0; k < points.size(); k++) {
             final Vec2 before = points.get(Math.max(0, k - 1));
             final Vec2 after = points.get(Math.min(points.size() - 1, k + 1));
             headings.add(unit(after.x() - before.x(), after.z() - before.z()));
         }
-        return smooth(name, kind, new Through(points, headings), node);
+        return smooth(name, kind, new Through(points, headings), nodes);
     }
 
-    /** As {@link #smooth(String, String, List, RoadMap.Node)}, heading at each point as {@code through} has it. */
-    private static RoadMap.Way smooth(final String name, final String kind, final Through through, final RoadMap.Node node) {
+    /** As {@link #smooth(String, String, List, List)}, heading at each point as {@code through} has it. */
+    private static RoadMap.Way smooth(final String name, final String kind, final Through through,
+                                      final List<RoadMap.Node> nodes) {
         final List<Vec2> points = through.points();
         final List<Vec2> headings = through.headings();
         final List<RoadMap.Vertex> vertices = new ArrayList<>();
         final List<RoadMap.Segment> segments = new ArrayList<>();
         for (int k = 0; k < points.size(); k++) {
             final Vec2 p = points.get(k);
-            final boolean isNode = node != null && node.at().equals(p);
-            vertices.add(new RoadMap.Vertex(p, Double.NaN, isNode ? node.name() : null));
+            final RoadMap.Node node = nodes.stream().filter(n -> n.at().equals(p)).findFirst().orElse(null);
+            vertices.add(new RoadMap.Vertex(p, Double.NaN, node == null ? null : node.name()));
             if (k + 1 == points.size()) {
                 break;
             }
@@ -510,6 +574,7 @@ public final class Village {
         pieces.addAll(well());
         pieces.addAll(bridge());
         pieces.addAll(trees());
+        pieces.addAll(avenue());
         pieces.addAll(parked());
         return pieces;
     }
@@ -619,6 +684,37 @@ public final class Village {
             bridge.add(new Course.Piece(parapet, Course.Kind.WALL, 0, List.of(parapet)));
         }
         return bridge;
+    }
+
+    /**
+     * The highway's median planted: two lines of trees down it, so far either side of its middle, a tree every so
+     * far, so far east and west of the village.
+     */
+    public static final double AVENUE_ROW = 250;
+    private static final double AVENUE_EVERY = 2_000;
+    private static final double AVENUE_REACH = 250_000;
+
+    /** The two lines of trees down the highway's median, between its carriageways, each standing on the land. */
+    private static List<Course.Piece> avenue() {
+        final List<Course.Piece> trees = new ArrayList<>();
+        for (double x = -AVENUE_REACH; x <= AVENUE_REACH; x += AVENUE_EVERY) {
+            for (final double row : new double[] {-AVENUE_ROW, AVENUE_ROW}) {
+                trees.add(tree(offHighway(x, row), 1));
+            }
+        }
+        return trees;
+    }
+
+    /** A tree at {@code at}, of kind {@code kind}, its foot as low as the ground under it goes, so it is never clear of it. */
+    private static Course.Piece tree(final Vec2 at, final int kind) {
+        double foot = Double.POSITIVE_INFINITY;
+        for (final double dx : new double[] {-TRUNK / 2, TRUNK / 2}) {
+            for (final double dz : new double[] {-TRUNK / 2, TRUNK / 2}) {
+                foot = Math.min(foot, land().height(at.x() + dx, at.z() + dz));
+            }
+        }
+        final Block trunk = new Block(at.x(), at.z(), TRUNK / 2, TRUNK / 2, 0, foot, foot + 320);
+        return new Course.Piece(trunk, Course.Kind.TREE, kind, List.of(trunk));
     }
 
     /** How near the world's middle trees grow; how far apart along the banks; how many across the meadow. */
