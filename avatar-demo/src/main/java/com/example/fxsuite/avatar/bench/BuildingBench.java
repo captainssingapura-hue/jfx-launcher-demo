@@ -129,6 +129,9 @@ public final class BuildingBench extends Application {
         // the pavilions, one of each kind
         com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> COMPOSED.put(p.name(),
                 com.example.fxsuite.avatar.build.Pavilion.of(p).building()));
+        // the wall tower, its walls bearing it, its legs meeting over its atrium
+        COMPOSED.put(com.example.fxsuite.avatar.build.WallTower.NAME,
+                com.example.fxsuite.avatar.build.WallTower.standard().building());
         // the earth house, as homesteaders built them
         COMPOSED.put(com.example.fxsuite.avatar.build.EarthHouse.NAME,
                 com.example.fxsuite.avatar.build.EarthHouse.standard().building());
@@ -186,6 +189,7 @@ public final class BuildingBench extends Application {
         TOWERS.values().forEach(t -> all.add(t.skeleton()));
         com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> all.add(COMPOSED.get(p.name()).skeleton()));
         all.add(COMPOSED.get(com.example.fxsuite.avatar.build.EarthHouse.NAME).skeleton());
+        all.add(COMPOSED.get(com.example.fxsuite.avatar.build.WallTower.NAME).skeleton());
         final Building fromPlan = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
         COMPOSED.put(PlanPanel.TOWER, fromPlan);
         all.add(fromPlan.skeleton());
