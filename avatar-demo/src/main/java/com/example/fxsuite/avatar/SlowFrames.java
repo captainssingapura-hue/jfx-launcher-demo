@@ -103,6 +103,7 @@ final class SlowFrames {
             text.append(text.isEmpty() ? "" : "; ").append(String.format(Locale.ROOT, "haze %d tile%s, %,d heights",
                     land.hazes, land.hazes > 1 ? "s" : "", land.hazed));
         }
+        text.append(text.isEmpty() ? "" : "; ").append(String.format(Locale.ROOT, "%d pieces, %d in view", land.pieces, land.inView));
         this.land = text.toString();
     }
 

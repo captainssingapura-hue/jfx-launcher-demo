@@ -17,11 +17,12 @@ import javafx.scene.shape.TriangleMesh;
 import javafx.scene.shape.VertexFormat;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /**
  * The land drawn, as surveyed ({@link Survey}): its heights as a sheet of triangles, lit as the sun falls
@@ -32,28 +33,25 @@ import java.util.concurrent.Future;
  * <p>Its base colour is lit by the sun and the sky; its tint, a little mottled, and the haze, are in one
  * picture lit by itself ({@link #picture}).
  *
- * <p>Drawn in tiles, {@link #TILE} of the survey's heights a side, each as fine as it is near and the camera
- * slow ({@link Fineness}), by its nearest point and the camera's speed smoothed ({@link Fineness.Pace}): a
- * tile changing only once it is well past where it should, so it does not flick back and forth. As fine as the land needs and no finer ({@link LandSheet}): near, within
- * {@link #TOLERANCE} 3 cm of it, an open meadow in squares tens of metres across and a river's bank in
- * squares of half a metre; further off, less closely, and no finer for what covers the ground. A skirt
- * hangs from each tile's edges, so where a fine tile meets a coarse one no gap shows between them.
+ * <p>Drawn in pieces ({@link Pieces}), each as big as its fineness asks ({@link Fineness}), by its nearest point
+ * and the camera's speed smoothed ({@link Fineness.Pace}): 125 m round the camera, 2 km far off; each a mesh of its
+ * own. As fine as the land needs and no finer ({@link LandSheet}): near, within {@link #TOLERANCE} 3 cm of it, an
+ * open meadow in squares tens of metres across and a river's bank in squares of half a metre; further off, less
+ * closely, and no finer for what covers the ground. A skirt hangs from each piece's edges, so where a fine piece
+ * meets a coarse one no gap shows between them. A piece is built apart from the screen ({@link #BUILDERS}), ahead
+ * of being wanted, and shown once it is; what is out of view is not drawn ({@link View}).
  *
- * <p>A tile is built apart from the screen ({@link #BUILDERS}), ahead of being wanted ({@link #AHEAD}); until
- * it is, it is shown as it was. To start with, every tile is built at its coarsest, side by side.
- *
- * <p>Each tile's haze is worked out again, height by height, as the camera moves: once it has moved
- * {@link #MOVED}, or {@link #SHARE} of how far off the tile is, if more, since far off the haze changes
- * little with a few metres more or less; those near enough to have none are left alone.
+ * <p>Each piece's haze is worked out again, height by height, as the camera moves: once it has moved
+ * {@link #MOVED}, or {@link #SHARE} of how far off the piece is, if more, since far off the haze changes
+ * little with a few metres more or less; those near enough to have none are left alone, and those out of view
+ * wait till they are in it.
  */
 public final class TerrainModel {
 
-    /** Heights along a tile's side, less one: 500 m, at 10 m apart. */
-    static final int TILE = 50;
     /**
-     * How close to the land each level of a tile keeps, nearest first; its smallest squares, its biggest, and
-     * its biggest where a feature of the land lies; and how far what covers the ground may be from what its
-     * squares' corners make of it (only near does that ask for finer squares).
+     * How close to the land each level keeps, finest first; its smallest squares, its biggest, and its biggest
+     * where a feature of the land lies; and how far what covers the ground may be from what its squares' corners
+     * make of it (only near does that ask for finer squares).
      */
     static final double[] TOLERANCE = {3, 10, 40, 150, 400};
     static final double[] FINEST = {50, 100, 400, 1_000, 2_500};
@@ -61,19 +59,21 @@ public final class TerrainModel {
     static final double[] FEATURED = {400, 1_600, 6_400, 25_000, 50_000};
     static final double[] COVERS = {0.08, 0.25, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
             Double.POSITIVE_INFINITY};
-    /** How many levels a tile has: as many as fineness rounds to. */
+    /** How many levels there are: as many as fineness rounds to. */
     static final int LEVELS = Fineness.LEVELS;
-    /** How much nearer than it is a tile is built for, ahead of needing to be: so it is ready when it comes. */
-    static final double AHEAD = 0.7;
-    /** How far a tile's skirt hangs. */
+    /** How much nearer than it is a piece is built for, ahead of needing to be: so it is ready when it comes. */
+    static final double AHEAD = Pieces.AHEAD;
+    /** How far a piece's skirt hangs. */
     static final double SKIRT = 500;
+    /** How much further than its level may be out the land under a road is drawn sunk, below the road's own strip. */
+    static final double SUNK = 10;
     /**
-     * How far the camera moves before a tile's haze is worked out again: at least so far, and so much of how far
-     * off the tile is, since far off the haze changes so little with a few metres more or less.
+     * How far the camera moves before a piece's haze is worked out again: at least so far, and so much of how far
+     * off the piece is, since far off the haze changes so little with a few metres more or less.
      */
     static final double MOVED = 2_500;
     static final double SHARE = 0.05;
-    /** How many heights' worth of tiles a frame sends again to be drawn, at most (or one tile, if more). */
+    /** How many heights' haze a frame works out again and sends to be drawn, at most (or one piece's, if more). */
     static final int BUDGET = 3_000;
     /** How many tints, low to high, and how many shades of the haze, none to all, the land's picture has. */
     private static final int TINTS = 256;
@@ -83,7 +83,7 @@ public final class TerrainModel {
     /** How far apart the mottle's spots are. */
     private static final double MOTTLED = 100;
 
-    /** Where tiles are built, apart from the screen: as many at once as there are processors but one. */
+    /** Where pieces are built, apart from the screen: as many at once as there are processors but one. */
     private static final ExecutorService BUILDERS = Executors.newFixedThreadPool(
             Math.max(1, Runtime.getRuntime().availableProcessors() - 1), r -> {
                 final Thread thread = new Thread(r, "land builder");
@@ -114,96 +114,42 @@ public final class TerrainModel {
             Color.web("#857f58"), Color.web("#8a7d66")};
 
     private final Land land;
-    /** The land's lie, as surveyed: its tiles are so many of its heights a side. */
+    /** The land's lie, as surveyed. */
     private final Survey lie;
     private final Group root = new Group();
-    private final List<Tile> tiles = new ArrayList<>();
     private final double low;
     private final double span;
     private final PhongMaterial material;
-    /** The tile whose haze is looked at next. */
-    private int next;
     /** How fast the camera moves, smoothed. */
     private final Fineness.Pace pace = new Fineness.Pace();
+    /** The land in pieces; those drawn, each its mesh; those shown last frame; the one whose haze is looked at next. */
+    private final Pieces<Built> pieces;
+    private final Map<Pieces.Piece<Built>, Drawn> drawn = new IdentityHashMap<>();
+    private List<Pieces.Piece<Built>> shown = List.of();
+    private int next;
 
-    /** A level of a tile, built: its points, the way its ground faces at each, its tint, its triangles. */
-    private record Built(float[] points, float[] normals, float[] coords, int[] faces) {
+    /** A piece, built: its points, the way its ground faces at each, its tint, its triangles. */
+    record Built(float[] points, float[] normals, float[] coords, int[] faces) {
+
+        int size() {
+            return coords.length / 2;
+        }
     }
 
-    /** A tile: from height {@code i0} to {@code i1} across, {@code j0} to {@code j1} along, each way inclusive. */
-    private final class Tile {
-        final int i0;
-        final int i1;
-        final int j0;
-        final int j1;
+    /** A piece as drawn: its mesh; which way each height's ground faces, as shown; where its haze was worked out from. */
+    private static final class Drawn {
         final MeshView view = new MeshView();
-        final TriangleMesh[] meshes = new TriangleMesh[LEVELS];
-        /** Each level as built, once it is; and being built, until it is. */
-        final Built[] built = new Built[LEVELS];
-        final Future<?>[] building = new Future<?>[LEVELS];
-        /** Which way each height's ground faces, as shown, turned up by the haze laid over it. */
-        final float[][] shown = new float[LEVELS][];
-        int level = -1;
-        /** Whether it has any haze on it; where the camera was when it was last worked out. */
+        TriangleMesh mesh;
+        float[] facing;
         boolean hazed;
         Vec3 hazedFrom;
-
-        Tile(final int i0, final int i1, final int j0, final int j1) {
-            this.i0 = i0;
-            this.i1 = i1;
-            this.j0 = j0;
-            this.j1 = j1;
-            view.setMaterial(material);
-            view.setCullFace(CullFace.NONE);
-        }
-
-        /** How far {@code eye} is across the ground from its nearest point, and from its furthest. */
-        double[] away(final Vec3 eye) {
-            final double minX = lie.x(i0);
-            final double maxX = lie.x(i1);
-            final double minZ = lie.z(j0);
-            final double maxZ = lie.z(j1);
-            final double dx = Math.max(0, Math.max(minX - eye.x(), eye.x() - maxX));
-            final double dz = Math.max(0, Math.max(minZ - eye.z(), eye.z() - maxZ));
-            final double fx = Math.max(Math.abs(eye.x() - minX), Math.abs(eye.x() - maxX));
-            final double fz = Math.max(Math.abs(eye.z() - minZ), Math.abs(eye.z() - maxZ));
-            return new double[] {Math.hypot(dx, dz), Math.hypot(fx, fz)};
-        }
-
-        /** Its level {@code level} built, if it is not and is not being: apart from the screen. */
-        void ask(final int level) {
-            if (built[level] == null && building[level] == null) {
-                building[level] = BUILDERS.submit(() -> {
-                    built[level] = build(this, level);
-                });
-            }
-        }
-
-        /** Whether its level {@code level} is built, and ready to be shown. */
-        boolean ready(final int level) {
-            if (built[level] != null) {
-                return true;
-            }
-            final Future<?> being = building[level];
-            if (being != null && being.isDone()) {
-                try {
-                    being.get();
-                } catch (final InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } catch (final ExecutionException e) {
-                    throw new IllegalStateException("a tile of the land could not be built", e.getCause());
-                }
-                building[level] = null;
-            }
-            return built[level] != null;
-        }
     }
 
     /**
      * The land, its lie surveyed, lit as {@code lit} lights level ground, each channel ({@link Horizon#lighting}):
      * its base colour shaded by the sun as its slopes face it, all else in one picture lit by itself (see
-     * {@link #picture}). Every tile at its coarsest at once, built side by side; each finer as it is wanted,
-     * built apart from the screen.
+     * {@link #picture}). Its roughest pieces built at once, side by side; each finer as it is wanted, built apart
+     * from the screen.
      */
     public TerrainModel(final Land land, final double[] lit) {
         if (land.base() == null) {
@@ -217,30 +163,17 @@ public final class TerrainModel {
         material.setSpecularColor(Color.BLACK);
         material.setSelfIlluminationMap(picture(lit));
         final int last = lie.size() - 1;
-        for (int j = 0; j < last; j += TILE) {
-            for (int i = 0; i < last; i += TILE) {
-                final Tile tile = new Tile(i, Math.min(last, i + TILE), j, Math.min(last, j + TILE));
-                tiles.add(tile);
-                root.getChildren().add(tile.view);
-            }
-        }
-        // every tile at its coarsest, to start with, and shown
-        final int coarsest = LEVELS - 1;
-        for (final Tile tile : tiles) {
-            tile.ask(coarsest);
-        }
-        for (final Tile tile : tiles) {
+        pieces = new Pieces<>(lie.x(0), lie.z(0), lie.x(last), lie.z(last), this::build, Built::size, BUILDERS);
+        for (final Pieces.Piece<Built> each : pieces.roots()) {
             try {
-                tile.building[coarsest].get();
+                each.building.get();
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (final ExecutionException e) {
-                throw new IllegalStateException("a tile of the land could not be built", e.getCause());
+                throw new IllegalStateException("a piece of the land could not be built", e.getCause());
             }
-            tile.ready(coarsest);
-            show(tile, coarsest, Vec3.ZERO);
         }
-        seenFrom(Vec3.ZERO, 0);
+        seenFrom(View.all(Vec3.ZERO), 0);
     }
 
     public Node node() {
@@ -248,40 +181,54 @@ public final class TerrainModel {
     }
 
     /**
-     * Each tile as fine as it should be, seen from {@code eye}, where the camera now is, {@code seconds} since it
-     * was last (how fast it moves counting, smoothed: {@link Fineness.Pace}), as soon as it is built
-     * (it is built apart from the screen, ahead of being wanted; until it is, the tile is shown as it was); and
-     * its haze worked out again where the camera has moved far enough for it to show. A frame does no more than
-     * {@link #BUDGET} heights' worth of either: what a tile changes, the whole of it is sent again to be drawn,
-     * and all of them at once would hold the frame up. So the tiles that should be finer or coarser go first,
-     * then the haze, round the tiles in turn, a few each frame: so far off, it hardly moves while it waits.
+     * Each piece as fine as it should be, seen as {@code view} sees, {@code seconds} since it was last (how fast
+     * the camera moves counting, smoothed: {@link Fineness.Pace}), as soon as it is built (until it is, what was
+     * shown there is); those out of view not drawn. And the haze of those in view worked out again where the
+     * camera has moved far enough for it to show, round them in turn, no more than {@link #BUDGET} heights' worth a
+     * frame: all of it sent again to be drawn, and all of them at once would hold the frame up.
      */
-    public void seenFrom(final Vec3 eye, final double seconds) {
+    public void seenFrom(final View view, final double seconds) {
+        final Vec3 eye = view.eye();
         final double speed = pace.at(eye, seconds);
         work = new Work();
-        int left = BUDGET;
-        int done = 0;
-        for (final Tile tile : tiles) {
-            final double near = tile.away(eye)[0];
-            final int wanted = level(near, speed, tile.level);
-            tile.ask(wanted);
-            // and, ahead of coming nearer, finer
-            tile.ask(level(near * AHEAD, speed, tile.level));
-            if (wanted != tile.level && tile.ready(wanted) && (left > 0 || done == 0)) {
-                show(tile, wanted, eye);
-                left -= tile.built[wanted].coords().length / 2;
-                done++;
+        final Pieces.Shown<Built> now = pieces.seenFrom(eye, speed);
+        for (final Pieces.Piece<Built> gone : now.dropped()) {
+            final Drawn was = drawn.remove(gone);
+            if (was != null) {
+                root.getChildren().remove(was.view);
             }
         }
-        for (int k = 0; k < tiles.size() && (left > 0 || done == 0); k++) {
-            final Tile tile = tiles.get(next);
-            next = (next + 1) % tiles.size();
-            if (stale(tile, eye)) {
-                final int heights = tile.built[tile.level].coords().length / 2;
+        for (final Pieces.Piece<Built> piece : shown) {
+            if (!piece.shown) {
+                final Drawn was = drawn.get(piece);
+                if (was != null) {
+                    was.view.setVisible(false);
+                }
+            }
+        }
+        for (final Pieces.Piece<Built> piece : now.shown()) {
+            Drawn d = drawn.get(piece);
+            if (d == null) {
+                d = draw(piece, eye);
+            } else if (!shown.contains(piece)) {
+                work.swaps++;
+                work.levels.append(work.levels.isEmpty() ? "" : ",").append(piece.level);
+            }
+            d.view.setVisible(view.sees(piece.x0, piece.z0, piece.x1, piece.z1));
+        }
+        shown = now.shown();
+        int left = BUDGET;
+        int done = 0;
+        for (int k = 0; k < shown.size() && (left > 0 || done == 0); k++) {
+            next = (next + 1) % shown.size();
+            final Pieces.Piece<Built> piece = shown.get(next);
+            final Drawn d = drawn.get(piece);
+            if (d.view.isVisible() && stale(piece, d, eye)) {
+                final int heights = piece.built.size();
                 if (heights > left && done > 0) {
                     break;
                 }
-                haze(tile, eye);
+                haze(piece, d, eye);
                 left -= heights;
                 done++;
                 work.hazes++;
@@ -291,9 +238,10 @@ public final class TerrainModel {
     }
 
     /**
-     * What the last frame did to the land, to be measured: how many tiles it swapped to another level, how many
-     * of those were sent to be drawn for the first time, and how many heights those were; and how many tiles'
-     * haze it worked out again, and how many heights; how fast it reckoned the camera went.
+     * What the last frame did to the land, to be measured: how many pieces it showed that it had not the frame
+     * before, of what levels, how many of those were drawn for the first time and how many heights those were; and
+     * how many pieces' haze it worked out again, and how many heights; how fast it reckoned the camera went; and how
+     * many pieces are shown, and of those, how many in view.
      */
     public static final class Work {
         public int swaps;
@@ -302,6 +250,8 @@ public final class TerrainModel {
         public int hazes;
         public int hazed;
         public double speed;
+        public int pieces;
+        public int inView;
         public final StringBuilder levels = new StringBuilder();
     }
 
@@ -310,52 +260,52 @@ public final class TerrainModel {
     /** What the last frame did to the land ({@link Work}). */
     public Work work() {
         work.speed = pace.speed();
+        work.pieces = shown.size();
+        work.inView = (int) shown.stream().filter(p -> drawn.get(p).view.isVisible()).count();
         return work;
     }
 
-    /** Tile {@code tile} shown at level {@code level}, its haze as seen from {@code eye}. */
-    private void show(final Tile tile, final int level, final Vec3 eye) {
+    /** Piece {@code piece} drawn for the first time: its mesh made, its haze as seen from {@code eye}. */
+    private Drawn draw(final Pieces.Piece<Built> piece, final Vec3 eye) {
+        final Built built = piece.built;
+        final Drawn d = new Drawn();
+        d.mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
+        d.mesh.getPoints().setAll(built.points());
+        d.mesh.getNormals().setAll(built.normals());
+        d.mesh.getTexCoords().setAll(built.coords());
+        d.mesh.getFaces().setAll(built.faces());
+        d.facing = built.normals().clone();
+        d.view.setMaterial(material);
+        d.view.setCullFace(CullFace.NONE);
+        haze(piece, d, eye);
+        d.view.setMesh(d.mesh);
+        root.getChildren().add(d.view);
+        drawn.put(piece, d);
         work.swaps++;
-        work.swapped += tile.built[level].coords().length / 2;
-        work.levels.append(work.levels.isEmpty() ? "" : ",").append(tile.level).append('>').append(level);
-        if (tile.meshes[level] == null) {
-            work.fresh++;
-            final Built built = tile.built[level];
-            final TriangleMesh mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
-            mesh.getPoints().setAll(built.points());
-            mesh.getNormals().setAll(built.normals());
-            mesh.getTexCoords().setAll(built.coords());
-            mesh.getFaces().setAll(built.faces());
-            tile.meshes[level] = mesh;
-            tile.shown[level] = built.normals().clone();
-        }
-        tile.level = level;
-        haze(tile, eye);
-        tile.view.setMesh(tile.meshes[level]);
+        work.fresh++;
+        work.swapped += built.size();
+        work.levels.append(work.levels.isEmpty() ? "" : ",").append(piece.level);
+        return d;
     }
 
     /**
-     * Whether tile {@code tile}'s haze is to be worked out again from {@code eye}: if it has any, or had, and the
-     * camera has moved since by {@link #MOVED}, or by {@link #SHARE} of how far off the tile is, if more.
+     * Whether piece {@code piece}'s haze is to be worked out again from {@code eye}: if it has any, or had, and the
+     * camera has moved since by {@link #MOVED}, or by {@link #SHARE} of how far off the piece is, if more.
      */
-    private boolean stale(final Tile tile, final Vec3 eye) {
-        if (tile.level < 0) {
+    private static boolean stale(final Pieces.Piece<Built> piece, final Drawn d, final Vec3 eye) {
+        final boolean far = piece.far(eye) > Horizon.HAZE;
+        if (!far && !d.hazed) {
             return false;
         }
-        final double[] away = tile.away(eye);
-        final boolean far = away[1] > Horizon.HAZE;
-        if (!far && !tile.hazed) {
-            return false;
-        }
-        if (!far || tile.hazedFrom == null) {
+        if (!far || d.hazedFrom == null) {
             return true;
         }
-        final double moved = Math.hypot(eye.x() - tile.hazedFrom.x(), eye.z() - tile.hazedFrom.z());
-        return moved > Math.max(MOVED, SHARE * away[0]);
+        final double moved = Math.hypot(eye.x() - d.hazedFrom.x(), eye.z() - d.hazedFrom.z());
+        return moved > Math.max(MOVED, SHARE * piece.near(eye));
     }
 
     /**
-     * Which level a tile {@code away} from the camera is drawn at, the camera moving at {@code speed}, having been
+     * Which level land {@code away} from the camera is drawn at, the camera moving at {@code speed}, having been
      * at {@code was} (-1 if not yet): its fineness, rounded ({@link Fineness}).
      */
     static int level(final double away, final double speed, final int was) {
@@ -363,12 +313,13 @@ public final class TerrainModel {
     }
 
     /**
-     * Tile {@code tile} at level {@code level}: the land over it as fine as that level needs ({@link LandSheet}),
-     * and its skirt hanging from its edges; each point tinted by how high it is, a little mottled, no haze yet.
-     * Worked out apart from the screen: what it reads of the land is read only.
+     * Piece {@code piece}, at its level: the land over it as fine as that level needs ({@link LandSheet}), and its
+     * skirt hanging from its edges; each point tinted by how high it is, a little mottled, no haze yet. Worked out
+     * apart from the screen: what it reads of the land is read only.
      */
-    private Built build(final Tile tile, final int level) {
-        final LandSheet.Made made = LandSheet.of(land, lie.x(tile.i0), lie.z(tile.j0), lie.x(tile.i1), lie.z(tile.j1),
+    private Built build(final Pieces.Piece<Built> piece) {
+        final int level = piece.level;
+        final LandSheet.Made made = LandSheet.of(land, piece.x0, piece.z0, piece.x1, piece.z1,
                 TOLERANCE[level], FINEST[level], LARGEST[level], FEATURED[level], lie.every(), COVERS[level], SKIRT);
         final float[] coords = new float[2 * made.size()];
         final float[] points = made.points();
@@ -381,6 +332,10 @@ public final class TerrainModel {
             for (final Land.Cover c : Land.Cover.values()) {
                 covered[c.ordinal()] = land.cover(c, px, pz);
             }
+            // under a road, sunk out of sight below its strip ({@link RoadSurface}): further than this level
+            // may be out, so even coarse it never shows through; less toward its edges, none past them
+            final double road = Math.max(covered[Land.Cover.ASPHALT.ordinal()], covered[Land.Cover.GRAVEL.ordinal()]);
+            points[3 * v + 1] += (float) ((TOLERANCE[level] + SUNK) * Math.clamp(2 * road - 1, 0, 1));
             coords[2 * v] = (float) ((column(covered, tint) + 0.5) / TINTS);
             coords[2 * v + 1] = (float) (0.5 / HAZES);
         }
@@ -396,17 +351,16 @@ public final class TerrainModel {
     }
 
     /**
-     * Tile {@code tile}'s haze, height by height, seen from {@code eye}: and its ground turned up as the haze
+     * Piece {@code piece}'s haze, height by height, seen from {@code eye}: and its ground turned up as the haze
      * thickens, so a far slope is lit as the far ground is, level, and fades into the haze as that does. Lit
      * full on by the sun far off, it would show brighter than the haze it is going into.
      */
-    private void haze(final Tile tile, final Vec3 eye) {
-        final int level = tile.level;
-        final float[] coords = tile.built[level].coords();
-        final float[] points = tile.built[level].points();
-        final float[] facing = tile.built[level].normals();
-        final float[] shown = tile.shown[level];
-        final boolean far = tile.away(eye)[1] > Horizon.HAZE;
+    private static void haze(final Pieces.Piece<Built> piece, final Drawn d, final Vec3 eye) {
+        final float[] coords = piece.built.coords();
+        final float[] points = piece.built.points();
+        final float[] facing = piece.built.normals();
+        final float[] shown = d.facing;
+        final boolean far = piece.far(eye) > Horizon.HAZE;
         for (int v = 0; v < coords.length / 2; v++) {
             final double haze = Horizon.haze(Math.hypot(points[3 * v] - eye.x(), points[3 * v + 2] - eye.z()));
             coords[2 * v + 1] = (float) ((haze * (HAZES - 1) + 0.5) / HAZES);
@@ -419,10 +373,10 @@ public final class TerrainModel {
             shown[3 * v + 1] = (float) (ny / length);
             shown[3 * v + 2] = (float) (nz / length);
         }
-        tile.meshes[level].getTexCoords().setAll(coords);
-        tile.meshes[level].getNormals().setAll(shown);
-        tile.hazed = far;
-        tile.hazedFrom = eye;
+        d.mesh.getTexCoords().setAll(coords);
+        d.mesh.getNormals().setAll(shown);
+        d.hazed = far;
+        d.hazedFrom = eye;
     }
 
     /**

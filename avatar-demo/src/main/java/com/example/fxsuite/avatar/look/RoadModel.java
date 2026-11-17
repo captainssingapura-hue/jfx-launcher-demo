@@ -84,17 +84,18 @@ public final class RoadModel {
                 stretches.add(new Stretch(view, lines.box()));
             }
         }
-        seenFrom(Vec3.ZERO);
+        seenFrom(View.all(Vec3.ZERO));
     }
 
     public Node node() {
         return root;
     }
 
-    /** Each stretch shown, or not, by how far {@code eye} is from it. */
-    public void seenFrom(final Vec3 eye) {
+    /** Each stretch shown, or not, by how far the camera is from it, and whether it is in {@code view}. */
+    public void seenFrom(final View view) {
+        final Vec3 eye = view.eye();
         for (final Stretch s : stretches) {
-            final boolean now = s.away(eye) < SEEN * (s.shown ? 1 : BACK);
+            final boolean now = s.away(eye) < SEEN * (s.shown ? 1 : BACK) && view.sees(s.minX, s.minZ, s.maxX, s.maxZ);
             if (now != s.shown) {
                 s.shown = now;
                 s.view.setVisible(now);

@@ -107,6 +107,7 @@ public final class World {
     private final TerrainModel land;
     private final WaterModel water;
     /** The lines painted on its roads, where the land is laid out. */
+    private final RoadSurface roads;
     private final RoadModel markings;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
     private final Map<Integer, List<Node>> marks = new HashMap<>();
@@ -176,14 +177,18 @@ public final class World {
         horizon = new Horizon(GRASS, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         root.getChildren().add(horizon.node());
 
-        // its water: where the land is laid out, its rivers' in their channels and its ponds', lying in it
-        markings = land == null ? null : new RoadModel(course.land().layers().stream()
+        final List<com.example.fxsuite.avatar.sim.Road> laid = land == null ? List.of() : course.land().layers().stream()
                 .filter(com.example.fxsuite.avatar.sim.Road.class::isInstance).map(com.example.fxsuite.avatar.sim.Road.class::cast)
-                .toList());
+                .toList();
+        // its roads: each a strip of its own over the land, and the lines painted on them
+        roads = land == null ? null : new RoadSurface(laid, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
+        markings = land == null ? null : new RoadModel(laid);
+        // its water: where the land is laid out, its rivers' in their channels and its ponds', lying in it
         water = land == null ? null : new WaterModel(course.land(), course.rivers(), course.ponds(),
                 Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         if (water != null) {
             root.getChildren().add(water.node());
+            root.getChildren().add(roads.node());
             root.getChildren().add(markings.node());
         }
         // on level ground, each river its water between its banks, side by side, none over another
@@ -621,14 +626,17 @@ public final class World {
     }
 
     /**
-     * Each building's levels shown or hidden as it is seen from {@code eye}, where the camera now is
-     * ({@link Detail}): by how far its nearest point is.
+     * The land, its water and its roads' lines as {@code view} sees them, {@code seconds} since it last did; and
+     * each building's levels shown or hidden as it is seen from where the camera now is ({@link Detail}): by how
+     * far its nearest point is.
      */
-    public void seenFrom(final Vec3 eye, final double seconds) {
+    public void seenFrom(final View view, final double seconds) {
+        final Vec3 eye = view.eye();
         if (land != null) {
-            land.seenFrom(eye, seconds);
+            land.seenFrom(view, seconds);
             water.seenFrom(eye);
-            markings.seenFrom(eye);
+            roads.seenFrom(view);
+            markings.seenFrom(view);
         }
         for (final Map.Entry<Integer, BuildingModel.Leveled> each : leveled.entrySet()) {
             final Block box = pieces.get(each.getKey()).block();

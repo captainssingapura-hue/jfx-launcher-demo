@@ -347,6 +347,8 @@ public final class Game {
     /** A bomb let go once, from the control panel, at the next step. */
     private boolean bombOnce;
     private double fieldOfView = FIELD_OF_VIEW;
+    /** Where the world is drawn: how wide it is to how high, for what the camera takes in. */
+    private SubScene screen;
     private String shown = "";
     /** The vehicle whose controls the avatar has, by piece, as last seen; -1 for none. */
     private int piloting = -1;
@@ -420,6 +422,17 @@ public final class Game {
     private static final double NEAR_MOST = 100;
     private static final double NEAR_SHARE = 0.2;
 
+    /**
+     * How far either side the camera takes in, degrees, across: its field of view is how far up and down, so
+     * across is that as much wider as the screen is wider than high.
+     */
+    private double sideways() {
+        final double wide = screen == null ? 0 : screen.getWidth();
+        final double high = screen == null ? 0 : screen.getHeight();
+        final double aspect = wide > 0 && high > 0 ? wide / high : 16.0 / 9;
+        return Math.toDegrees(Math.atan(Math.tan(Math.toRadians(fieldOfView / 2)) * aspect));
+    }
+
     /** How near the camera it draws, seen from the eyes ({@code eyes}) or from behind. */
     private double nearClip(final boolean eyes) {
         return eyes ? NEAR : Num.clamp(chase.distance() * NEAR_SHARE, NEAR, NEAR_MOST);
@@ -438,6 +451,7 @@ public final class Game {
                 reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
+        screen = view;
         view.setFill(World.SKY);
         view.setCamera(eye);
         view.setOnScroll(e -> {
@@ -794,7 +808,7 @@ public final class Game {
         eyeAt.setX(at.x());
         world.horizon().follow(at);
         final long seeing = System.nanoTime();
-        world.seenFrom(at, seconds);
+        world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways()), seconds);
         drawingNanos = System.nanoTime() - seeing;
         seenAt = at;
         eyeAt.setY(at.y());
