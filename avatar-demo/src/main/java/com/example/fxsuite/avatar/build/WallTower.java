@@ -9,9 +9,10 @@ import java.util.Map;
 
 /**
  * A tower borne by walls, not columns: walls across it, one after another along its length, each the same shape,
- * the floors spanning between them; glass between the walls on its long faces, the walls' ends showing as fins.
- * Its shape is one section, across it, carried along it: two legs from the ground, the west one standing all but
- * straight, its face bowed a little out; the east one splayed out at its foot and curving in as it rises, to meet the
+ * the floors spanning between them, run out past the rooms as balconies, a glass rail at their edge, the rooms' glass
+ * and doors set back inside them; the walls' ends showing as fins between the balconies.
+ * Its shape is one section, across it, carried along it: two legs from the ground, the west one all but upright, its
+ * face curving out a little as it rises, more toward the top; the east one splayed out at its foot and curving in as it rises, to meet the
  * west one over an atrium between them; above where they meet, one shaft to the top. The storey where they meet
  * holds the trusses that tie them, and is shut, a band of wall round the tower.
  *
@@ -27,22 +28,25 @@ public final class WallTower {
     /** What it is called. */
     public static final String NAME = "wall tower";
 
-    /** How thick its floors are; its glass. */
+    /** How thick its floors are; its glass; how deep its balconies, how high and thick their rails. */
     static final double FLOOR = 30;
     static final double GLASS = 10;
+    static final double BALCONY = 160;
+    static final double RAIL = 110;
+    static final double RAILING = 5;
 
     /**
      * How big it is built: {@code storeys} storeys of {@code storey} each, its legs meeting under storey {@code merge}
      * (counting from 0, the ground floor); {@code length} long, with {@code walls} walls across it, end ones
      * included, {@code wall} thick, the two at its ends {@code end} thick; its west leg {@code west} wide, its face
-     * bowed out by {@code bow} at half its height; its shaft {@code shaft} wide; its east leg {@code leg} wide across,
+     * curving out by {@code curve} at its top, from upright at its foot; its shaft {@code shaft} wide; its east leg {@code leg} wide across,
      * its foot {@code splay} further out east than its shaft.
      */
     public record Size(int storeys, double storey, int merge, double length, int walls, double wall, double end,
-                       double west, double bow, double shaft, double leg, double splay) {
+                       double west, double curve, double shaft, double leg, double splay) {
 
         /** As the bay's hotel towers stand, near enough: 55 storeys, about 198 m; the legs meeting at the 23rd. */
-        public static final Size STANDARD = new Size(55, 360, 23, 6_000, 9, 60, 80, 1_100, 100, 2_400, 1_200, 3_400);
+        public static final Size STANDARD = new Size(55, 360, 23, 6_000, 9, 60, 80, 1_100, 350, 2_400, 1_200, 3_400);
 
         public Size {
             check(storeys >= 10 && storeys <= 120, "from 10 to 120 storeys");
@@ -52,7 +56,7 @@ public final class WallTower {
             check(length >= 1_000 && (length - end) / (walls - 1) > wall + 200, "long enough for its walls, 2 m apart at least");
             check(wall >= 20 && wall <= 150 && end >= wall && end <= 200, "its walls from 20 cm to 1.5 m thick, its end walls no thinner");
             check(west >= 400 && west < shaft, "its west leg from 4 m wide, narrower than its shaft");
-            check(bow >= 0 && bow <= 500, "its west face bowed out up to 5 m");
+            check(curve >= 0 && curve <= 1_000, "its west face curving out up to 10 m");
             check(leg >= 400 && leg < shaft + splay - west, "its east leg from 4 m wide, room for an atrium at its foot");
             check(splay > 0, "its east leg splayed out");
         }
@@ -94,9 +98,10 @@ public final class WallTower {
 
     // --- its section: where each face is, at any height ---------------------------------------------------------
 
-    /** Its west face, {@code up} high: all but straight, bowed out west a little most at half its height. */
+    /** Its west face, {@code up} high: upright at its foot, curving out west as it rises, more toward its top. */
     public double westOuter(final double up) {
-        return -size.shaft() / 2 - size.bow() * Math.sin(Math.PI * clamp(up / size.high()));
+        final double s = clamp(up / size.high());
+        return -size.shaft() / 2 - size.curve() * s * s;
     }
 
     /** The west leg's inner face, toward the atrium, {@code up} high: as wide as the leg from its west face. */
@@ -234,16 +239,22 @@ public final class WallTower {
                     solids.add(box("floor " + j + ", storey " + k, Role.STRUCTURE, floors,
                             new double[][] {at(leg[0], h0, h0 + FLOOR, h0, h1), at(leg[1], h0, h0 + FLOOR, h0, h1)},
                             y0, y1, h0, h0 + FLOOR));
-                    // its faces: glass, or wall where it is shut
-                    final Role role = shut ? Role.WALL : Role.GLAZING;
-                    final Material pane = shut ? concrete : glass;
+                    // its faces: a balcony, open, a glass rail at its edge and the rooms' glass and doors set back
+                    // behind it; or, where it is shut, wall flush with its face
                     final double p0 = h0 + FLOOR;
                     for (final boolean east : new boolean[] {false, true}) {
+                        final String side = east ? "east" : "west";
                         final double[] face = at(east ? leg[1] : leg[0], p0, h1, h0, h1);
-                        final double in = east ? -GLASS : GLASS;
-                        final double[] inner = {face[0] + in, face[1] + in};
-                        solids.add(box((east ? "east" : "west") + " pane " + j + ", storey " + k, role, pane,
-                                east ? new double[][] {inner, face} : new double[][] {face, inner}, y0, y1, p0, h1));
+                        if (shut) {
+                            solids.add(box(side + " wall " + j + ", storey " + k, Role.WALL, concrete,
+                                    layer(face, 0, GLASS, east), y0, y1, p0, h1));
+                            continue;
+                        }
+                        solids.add(box(side + " pane " + j + ", storey " + k, Role.GLAZING, glass,
+                                layer(face, BALCONY, BALCONY + GLASS, east), y0, y1, p0, h1));
+                        final double[] rail = at(face, p0, p0 + RAIL, p0, h1);
+                        solids.add(box(side + " rail " + j + ", storey " + k, Role.GLAZING, glass,
+                                layer(rail, 0, RAILING, east), y0, y1, p0, p0 + RAIL));
                     }
                 }
             }
@@ -267,6 +278,17 @@ public final class WallTower {
                     new double[][] {{eastInner(h0), eastInner(h1)}, {eastOuter(h0), eastOuter(h1)}});
         }
         return List.<double[][]>of(new double[][] {{westOuter(h0), westOuter(h1)}, {eastOuter(h0), eastOuter(h1)}});
+    }
+
+    /**
+     * A layer inside face {@code face} (its across at two heights), from {@code from} to {@code to} in from it: into
+     * the tower, west from an east face ({@code east}), east from a west one; as a box's west face and east face.
+     */
+    private static double[][] layer(final double[] face, final double from, final double to, final boolean east) {
+        final double sign = east ? -1 : 1;
+        final double[] near = {face[0] + sign * from, face[1] + sign * from};
+        final double[] far = {face[0] + sign * to, face[1] + sign * to};
+        return east ? new double[][] {far, near} : new double[][] {near, far};
     }
 
     /** A face's across at {@code h0} and {@code h1}, from where it is at {@code f0} and {@code f1} ({@code face}). */

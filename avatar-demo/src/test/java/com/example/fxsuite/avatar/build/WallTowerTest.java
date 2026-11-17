@@ -19,9 +19,10 @@ class WallTowerTest {
 
     @Test
     void itsWestLegAllButStraightItsEastLegCurvingInToMeetItOneShaftAbove() {
-        // the west face, bowed out most at half its height, by its bow
+        // the west face, upright at its foot, curving out as it rises, more toward the top: by its curve at the top
         assertEquals(-SIZE.shaft() / 2, TOWER.westOuter(0), 1e-9);
-        assertEquals(-SIZE.shaft() / 2 - SIZE.bow(), TOWER.westOuter(SIZE.high() / 2), 1e-9);
+        assertEquals(-SIZE.shaft() / 2 - SIZE.curve() / 4, TOWER.westOuter(SIZE.high() / 2), 1e-9);
+        assertEquals(-SIZE.shaft() / 2 - SIZE.curve(), TOWER.westOuter(SIZE.high()), 1e-9);
         // the east face, splayed out at its foot, the shaft's where the legs meet, and above
         assertEquals(SIZE.shaft() / 2 + SIZE.splay(), TOWER.eastOuter(0), 1e-9);
         assertEquals(SIZE.shaft() / 2, TOWER.eastOuter(SIZE.meet()), 1e-9);
@@ -45,12 +46,14 @@ class WallTowerTest {
         assertEquals(SIZE.length() / 2 - SIZE.end() / 2, TOWER.wallAt(SIZE.walls() - 1), 1e-9);
         assertEquals(SIZE.end(), TOWER.thick(0));
         assertEquals(SIZE.wall(), TOWER.thick(1));
-        // so many solids: each leg of each storey, its walls; and between each two, its floor and its two faces' glass
-        int legs = 0;
+        // so many solids: each leg of each storey, its walls; and between each two, its floor and on each of its two
+        // faces its rooms' glass and its balcony's rail; or, where it is shut, a wall
+        int expected = 1;
         for (int k = 0; k < SIZE.storeys(); k++) {
-            legs += TOWER.legs(k * SIZE.storey(), (k + 1) * SIZE.storey()).size();
+            final int legs = TOWER.legs(k * SIZE.storey(), (k + 1) * SIZE.storey()).size();
+            final boolean shut = k == SIZE.merge() - 1 || k == SIZE.merge();
+            expected += legs * (SIZE.walls() + (SIZE.walls() - 1) * (1 + 2 * (shut ? 1 : 2)));
         }
-        final int expected = legs * (SIZE.walls() + 3 * (SIZE.walls() - 1)) + 1;
         assertEquals(expected, TOWER.solids(WallTower.palette()).size(), "and its roof");
     }
 
@@ -63,8 +66,27 @@ class WallTowerTest {
         final long glassAbove = TOWER.solids(WallTower.palette()).stream()
                 .filter(s -> s.role() == Role.GLAZING && s.name().endsWith("storey " + (SIZE.merge() + 2)))
                 .count();
-        assertEquals(2L * (SIZE.walls() - 1), glassAbove, "glass on both its faces above");
+        assertEquals(4L * (SIZE.walls() - 1), glassAbove, "glass and a rail on both its faces above");
         assertTrue(TOWER.skeleton().problems().isEmpty(), "its skeleton: " + TOWER.skeleton().problems());
+    }
+
+    @Test
+    void itsFloorsRunOutAsBalconiesTheRoomsGlassSetBackARailAtTheEdge() {
+        final int k = SIZE.storeys() - 3;
+        final double h0 = k * SIZE.storey();
+        final double west = TOWER.westOuter(h0 + WallTower.FLOOR);
+        final Solid pane = named("west pane 3, storey " + k);
+        final Solid rail = named("west rail 3, storey " + k);
+        final Solid floor = named("floor 3, storey " + k);
+        // the floor out to the face; the rail at it; the rooms' glass set back as deep as a balcony
+        assertEquals(TOWER.westOuter(h0), floor.corners().get(0).across(), 1e-6);
+        assertEquals(west, rail.corners().get(0).across(), 0.1, "each storey's faces straight between its floors");
+        assertEquals(west + WallTower.BALCONY, pane.corners().get(0).across(), 0.1);
+        assertEquals(WallTower.RAIL, rail.corners().get(4).up() - rail.corners().get(0).up(), 1e-9, "a rail waist high");
+    }
+
+    private static Solid named(final String name) {
+        return TOWER.solids(WallTower.palette()).stream().filter(s -> s.name().equals(name)).findFirst().orElseThrow();
     }
 
     @Test
