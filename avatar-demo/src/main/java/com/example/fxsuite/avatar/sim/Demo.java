@@ -39,12 +39,11 @@ public enum Demo {
             + " earth houses round a well by its bank, each its own size and finish: walk in, wade across, look round.",
             0, true),
     /**
-     * Eight towers borne by walls round an octagon, their great arches facing out, trees scattered round them for
-     * kilometres: every room of each enterable, by the jet-pack, a balcony at a time.
+     * Three towers borne by walls, end to end along a slight curve, trees scattered round them for kilometres: every
+     * room of each enterable, by the jet-pack, a balcony at a time.
      */
-    WALL_TOWER("Wall towers", "Eight towers borne by walls, 55 storeys each, round an octagon, their great arches facing"
-            + " out, their balconies on the courtyard: fly up to any balcony, open its door with T or shoot it out,"
-            + " walk the corridors end to end.",
+    WALL_TOWER("Wall towers", "Three towers borne by walls, 55 storeys each, end to end along a slight curve: fly up to"
+            + " any balcony, open its door with T or shoot it out, walk the corridors end to end.",
             90, true),
     /** Everything else at once: the course, the range, the airships going round, the platforms and the stall. */
     PLAYGROUND("Playground", "The course, the targets, the bombers, the stall, the flyovers, the vehicles,"

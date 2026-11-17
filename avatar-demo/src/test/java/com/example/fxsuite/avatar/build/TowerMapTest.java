@@ -20,16 +20,17 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The wall towers' ground: eight towers round an octagon, each one piece among hundreds of trees scattered for kilometres, drawn as its solids,
- * in the way through its rooms, one entry in the world's grid; the avatar starting west of it, facing it; dropped onto
- * one of its balconies, standing on it, walking in through an open door; at a shut one, kept out.
+ * The wall towers' ground: three towers end to end along a slight curve, each one piece among hundreds of trees
+ * scattered for kilometres, drawn as its solids, in the way through its rooms, one entry in the world's grid; the avatar
+ * starting west of them, facing them; dropped onto one of the middle one's balconies, standing on it, walking in
+ * through an open door; at a shut one, kept out.
  */
 class TowerMapTest {
 
-    private static final WallTower TOWER = TowerMap.tower(0);
-    /** Tower 0: on the octagon's east side, its frame the world's, moved out east; its doors from seed 1. */
-    private static final double X0 = TowerMap.APOTHEM;
-    private static final long SEED = 1;
+    private static final WallTower TOWER = TowerMap.tower(1);
+    /** The middle tower: at the world's middle, its frame the world's; its doors from seed 2. */
+    private static final double X0 = 0;
+    private static final long SEED = 2;
     private static final WallTower.Size SIZE = TOWER.size();
     private static Course course;
     private static Obstacles world;
@@ -42,55 +43,57 @@ class TowerMapTest {
     }
 
     @Test
-    void eightTowersRoundAnOctagonEachOnePieceAmongHundredsOfTreesOneEntryInTheWorldsGrid() {
+    void threeTowersEndToEndAlongASlightCurveEachOnePieceAmongHundredsOfTreesOneEntryInTheWorldsGrid() {
         final List<Course.Piece> pieces = course.pieces();
         for (int i = 0; i < TowerMap.TOWERS; i++) {
             assertEquals(Course.Kind.BUILDING, pieces.get(i).kind());
             assertEquals(TowerMap.KEYS + i, pieces.get(i).tint());
             assertSame(TowerMap.solids(0), Sites.drawn(TowerMap.KEYS + i), "each drawn as the same solids");
             assertTrue(world.volumes().get(i) instanceof Interior);
-            // at the middle of its side, its splayed leg out: its across pointing away from the middle
+            // on the curve, its splayed leg on the outside of it: its across pointing away from the curve's middle
             final Place at = TowerMap.at(i);
-            assertEquals(TowerMap.APOTHEM, Math.hypot(at.x(), at.z()), 1e-6);
+            assertEquals(TowerMap.CURVE, Math.hypot(at.x() + TowerMap.CURVE, at.z()), 1e-6);
             final Vec3 out = Num.right(at.yaw());
-            assertEquals(1, (out.x() * at.x() + out.z() * at.z()) / TowerMap.APOTHEM, 1e-9, "tower " + i + " facing out");
+            assertEquals(1, (out.x() * (at.x() + TowerMap.CURVE) + out.z() * at.z()) / TowerMap.CURVE, 1e-9,
+                    "tower " + i + " its leg out");
             assertEquals(1, world.volumesNear(at.x(), at.z(), 100).length, "tower " + i + " one entry where it stands");
         }
+        // south to north, the middle one at the world's middle, square to it
+        assertEquals(new Place(0, 0, 0, 0), TowerMap.at(1));
+        assertTrue(TowerMap.at(0).z() < 0 && TowerMap.at(2).z() > 0);
         assertEquals(TowerMap.TOWERS, world.volumes().size());
         assertTrue(pieces.stream().filter(p -> p.kind() == Course.Kind.TREE).count() > 300, "hundreds of trees");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.TREE && Math.hypot(p.block().x(), p.block().z())
                 > 300_000), "kilometres out");
-        assertEquals(0, world.volumesNear(0, 0, 100).length, "the courtyard open");
-        assertEquals(0, world.volumesNear(TowerMap.START.x(), TowerMap.START.z(), 100).length, "and nothing at the start");
+        assertEquals(0, world.volumesNear(TowerMap.START.x(), TowerMap.START.z(), 100).length, "nothing at the start");
         // each the same tower, its doors its own
         assertTrue(java.util.stream.IntStream.range(0, 200).anyMatch(d -> ((Interior) world.volumes().get(0)).open(d)
                 != ((Interior) world.volumes().get(1)).open(d)), "doors of their own");
-        // the start west of them, facing the great arch on the west side
+        // the start west of them, facing their balconied west faces
         assertEquals(TowerMap.START, course.start());
         assertEquals(90, Demo.WALL_TOWER.startYaw());
-        assertTrue(TowerMap.START.x() < -TowerMap.reach() - 5_000);
+        assertTrue(TowerMap.START.x() < TOWER.westOuter(SIZE.high()) - 20_000);
     }
 
     @Test
-    void neighboursABridgesSpanApartAcrossEachCornerNeverMeeting() {
-        for (int i = 0; i < TowerMap.TOWERS; i++) {
+    void neighboursEndToEndTurnedAFewDegreesNeverMeeting() {
+        for (int i = 0; i + 1 < TowerMap.TOWERS; i++) {
             final Interior a = (Interior) world.volumes().get(i);
-            final Interior b = (Interior) world.volumes().get((i + 1) % TowerMap.TOWERS);
-            // where its shaft's end meets its neighbour's, at the bridges' height: a little over 25 m apart
-            final double up = 40 * SIZE.storey();
+            final Interior b = (Interior) world.volumes().get(i + 1);
+            assertEquals(Math.toDegrees(TowerMap.SPACING / TowerMap.CURVE), Num.wrap(a.placed().at().yaw()
+                    - b.placed().at().yaw()), 1e-9, "turned a little from the next");
+            assertTrue(Num.wrap(a.placed().at().yaw() - b.placed().at().yaw()) < 6, "a slight curve");
+            // where one's shaft ends and the next's begins, up where they are one shaft: 35 m apart, near enough
             final double end = SIZE.length() / 2;
             final double gap = Math.hypot(a.placed().x(0, end) - b.placed().x(0, -end),
                     a.placed().z(0, end) - b.placed().z(0, -end));
-            assertEquals(2 * (TowerMap.APOTHEM * Math.tan(Math.PI / 8) - end) * Math.sin(3 * Math.PI / 8), gap, 1e-6);
-            assertTrue(gap > 2_000 && gap < 3_000, "a bridge's span: " + gap);
-            // no part of one in the other, anywhere up them
+            assertEquals(TowerMap.SPACING - SIZE.length(), gap, 10);
+            // no part of one in the other, anywhere up them, at either face
             for (double h = 0; h < SIZE.high(); h += SIZE.storey()) {
-                for (final double side : new double[] {-1, 1}) {
-                    for (final double across : new double[] {TOWER.westOuter(h), TOWER.eastOuter(h)}) {
-                        final double x = a.placed().x(across, side * end);
-                        final double z = a.placed().z(across, side * end);
-                        assertEquals(-1, b.placed().cell(x, z, h + 1), "tower " + i + "'s corner in its neighbour");
-                    }
+                for (final double across : new double[] {TOWER.westOuter(h), TOWER.eastOuter(h)}) {
+                    final double x = a.placed().x(across, end);
+                    final double z = a.placed().z(across, end);
+                    assertEquals(-1, b.placed().cell(x, z, h + 1), "tower " + i + "'s corner in the next");
                 }
             }
         }

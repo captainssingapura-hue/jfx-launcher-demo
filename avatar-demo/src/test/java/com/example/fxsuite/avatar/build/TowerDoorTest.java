@@ -31,10 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TowerDoorTest {
 
-    private static final WallTower TOWER = TowerMap.tower(0);
-    /** Tower 0: on the octagon's east side, its frame the world's, moved out east; its doors from seed 1. */
-    private static final double X0 = TowerMap.APOTHEM;
-    private static final long SEED = 1;
+    private static final WallTower TOWER = TowerMap.tower(1);
+    /** The middle tower: at the world's middle, its frame the world's; its doors from seed 2. */
+    private static final double X0 = 0;
+    private static final long SEED = 2;
     private static final WallTower.Size SIZE = TOWER.size();
     private static final Controls T = new Controls(0, 0, 0, 0, false, false, 0, List.of(Action.TAKE));
     private static final Controls WALK = new Controls(1, 0, 0, 0, false, false, 0);
@@ -47,7 +47,7 @@ class TowerDoorTest {
     }
 
     private static Interior tower(final Play play) {
-        return (Interior) play.damage().obstacles().volumes().get(0);
+        return (Interior) play.damage().obstacles().volumes().get(1);
     }
 
     @Test
@@ -148,14 +148,14 @@ class TowerDoorTest {
         int rounds = 0;
         while (!tower(damage).broken(door)) {
             final Hit hit = damage.obstacles().ray(from, east, 1_000);
-            assertEquals(0, hit.piece(), "the tower's");
+            assertEquals(1, hit.piece(), "the middle tower's");
             assertEquals(WallTower.BALCONY - 40, hit.distance(), 1, "at its glass");
             damage = damage.took(List.of(new Blow(hit.at(), hit.normal(), hit.on(), Weapon.RIFLES, hit.piece()))).damage();
             rounds++;
             assertTrue(rounds <= 12);
         }
         assertEquals(Damage.DOOR / Weapon.RIFLES.blow(), rounds, 1e-9, "as tough as a drone");
-        assertEquals(1, damage.left(0), 1e-9, "the tower none the worse");
+        assertEquals(1, damage.left(1), 1e-9, "the tower none the worse");
         // gone: the round goes on into the room; T finds no door; walked through where it was
         final Hit through = damage.obstacles().ray(from, east, 1_000);
         assertTrue(through == null || through.distance() > WallTower.BALCONY + 100, "into the room");
@@ -168,7 +168,7 @@ class TowerDoorTest {
     }
 
     private static Interior tower(final Damage damage) {
-        return (Interior) damage.obstacles().volumes().get(0);
+        return (Interior) damage.obstacles().volumes().get(1);
     }
 
     @Test

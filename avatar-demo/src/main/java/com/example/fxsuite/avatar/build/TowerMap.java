@@ -12,25 +12,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The wall towers' ground ({@code Demo.WALL_TOWER}): eight towers ({@link WallTower}) on open level ground, one at the
- * middle of each side of an octagon, as the trigrams stand round the bagua; each along its side, its splayed leg's
- * great arch facing out, its balconies looking in on the courtyard between them; each the same tower, its doors open
- * and shut as its own seed draws them. Trees scattered round them for kilometres, so they stand in a world many times
- * their size, eight things among hundreds. Each in the way through its rooms ({@link Interior}): every room entered by
- * the jet-pack, a balcony at a time; no stairs, no lifts.
+ * The wall towers' ground ({@code Demo.WALL_TOWER}): three towers ({@link WallTower}) on open level ground, end to end
+ * along a slight curve, as the bay's hotel towers stand under the park on their roofs: each along the curve, its
+ * splayed leg on the outside of it, to the east, its balconied west face on the inside, toward the start; the middle
+ * one at the world's middle. Each the same tower, its doors open and shut as its own seed draws them. Trees scattered
+ * round them for kilometres, so they stand in a world many times their size, three things among hundreds. Each in the
+ * way through its rooms ({@link Interior}): every room entered by the jet-pack, a balcony at a time; no stairs, no lifts.
  */
 public final class TowerMap {
 
     /** The towers' keys among the buildings drawn ({@link Sites}): after the village's, one each. */
     public static final int KEYS = 600;
-    /** How many towers: one on each side of the octagon. */
-    public static final int TOWERS = 8;
-    /**
-     * How far each tower's shaft stands from the octagon's middle, square to its side: so each tower's end stands a
-     * little over 13 m short of its corner, its neighbour's about 25 m from it across the corner, a bridge's span.
-     */
-    public static final double APOTHEM = 10_500;
-    /** Where the avatar starts: 250 m west of the middle, facing the great arch of the tower on the west side. */
+    /** How many towers: three, end to end, south to north. */
+    public static final int TOWERS = 3;
+    /** How far apart along the curve their shafts' middles are: so 35 m between one's end and the next's. */
+    public static final double SPACING = 9_500;
+    /** How far the curve's middle is from them, to the west: a gentle one, each tower turned 5.4° from the next. */
+    public static final double CURVE = 100_000;
+    /** Where the avatar starts: 250 m west of the middle tower, facing their balconied west faces. */
     public static final Vec3 START = new Vec3(-25_000, 0, 0);
     /** How many trees, how far out they are scattered, and how far they keep from the towers' feet and the start. */
     static final int TREES = 400;
@@ -53,14 +52,14 @@ public final class TowerMap {
     }
 
     /**
-     * Where tower {@code i} stands: at the middle of the octagon's side {@code i}, counted round from the east ({@code
-     * i * 45°} from +x toward +z); across it, west to east, pointing out from the middle, so its splayed leg faces out;
-     * along it, the side.
+     * Where tower {@code i} stands, 0 the south one, 1 the middle, 2 the north: on the curve, {@link #SPACING} along it
+     * from the next; along it, the curve; across it, west to east, pointing out from the curve's middle, so its splayed
+     * leg is on the outside of the curve.
      */
     public static Place at(final int i) {
-        final double out = Math.toRadians(45.0 * i);
-        // across a tower is Num.right(yaw), (cos yaw, -sin yaw): pointing out, (cos out, sin out), at yaw = -out
-        return new Place(APOTHEM * Math.cos(out), APOTHEM * Math.sin(out), 0, Num.wrap(-45.0 * i));
+        final double turn = (i - (TOWERS - 1) / 2.0) * SPACING / CURVE;
+        // across a tower is Num.right(yaw), (cos yaw, -sin yaw): pointing out, (cos turn, sin turn), at yaw = -turn
+        return new Place(-CURVE + CURVE * Math.cos(turn), CURVE * Math.sin(turn), 0, Num.wrap(-Math.toDegrees(turn)));
     }
 
     /** Tower {@code i}: the same tower, its doors drawn from its own seed. */
@@ -87,9 +86,9 @@ public final class TowerMap {
         return Course.Piece.shaped(box, Course.Kind.BUILDING, KEYS + i, List.of(), List.of(interior), at);
     }
 
-    /** How far out from the middle the towers' feet reach, splayed: no tree nearer than this and a little more. */
+    /** How far from its middle a tower's foot reaches, splayed: no tree nearer than this and a little more. */
     static double reach() {
-        return Math.hypot(APOTHEM + TOWER.eastOuter(0), TOWER.size().length() / 2);
+        return Math.hypot(TOWER.eastOuter(0), TOWER.size().length() / 2);
     }
 
     /** Trees scattered over the ground round them, each where its seed puts it, none by the towers or the start. */
@@ -100,7 +99,11 @@ public final class TowerMap {
             final double out = SCATTERED * Math.sqrt(Num.hash(k, 0x7EE6));
             final double x = way.x() * out;
             final double z = way.z() * out;
-            if (out < reach() + CLEAR || Math.hypot(x - START.x(), z - START.z()) < CLEAR) {
+            boolean byOne = Math.hypot(x - START.x(), z - START.z()) < CLEAR;
+            for (int i = 0; i < TOWERS; i++) {
+                byOne |= Math.hypot(x - at(i).x(), z - at(i).z()) < reach() + CLEAR;
+            }
+            if (byOne) {
                 continue;
             }
             final Block trunk = new Block(x, z, TRUNK / 2, TRUNK / 2, 0, 0, TREE);
