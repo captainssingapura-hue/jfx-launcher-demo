@@ -32,9 +32,9 @@ import java.util.concurrent.Future;
  * <p>Its base colour is lit by the sun and the sky; its tint, a little mottled, and the haze, are in one
  * picture lit by itself ({@link #picture}).
  *
- * <p>Drawn in tiles, {@link #TILE} of the survey's heights a side, each as fine as it is near
- * ({@link #OUT}), a tile changing only once it is well past where it should ({@link #BACK}), so it does
- * not flick back and forth. As fine as the land needs and no finer ({@link LandSheet}): near, within
+ * <p>Drawn in tiles, {@link #TILE} of the survey's heights a side, each as fine as it is near and the camera
+ * slow ({@link Fineness}), by its nearest point and the camera's speed smoothed ({@link Fineness.Pace}): a
+ * tile changing only once it is well past where it should, so it does not flick back and forth. As fine as the land needs and no finer ({@link LandSheet}): near, within
  * {@link #TOLERANCE} 3 cm of it, an open meadow in squares tens of metres across and a river's bank in
  * squares of half a metre; further off, less closely, and no finer for what covers the ground. A skirt
  * hangs from each tile's edges, so where a fine tile meets a coarse one no gap shows between them.
@@ -61,15 +61,8 @@ public final class TerrainModel {
     static final double[] FEATURED = {400, 1_600, 6_400, 25_000, 50_000};
     static final double[] COVERS = {0.08, 0.25, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
             Double.POSITIVE_INFINITY};
-    /** How many levels a tile has. */
-    static final int LEVELS = TOLERANCE.length;
-    /**
-     * Beyond each of these, across the ground from the camera to a tile's nearest point, the next coarser level:
-     * the finest within 300 m, where 3 cm shows; 10 cm out to 800 m; and coarser on out.
-     */
-    static final double[] OUT = {30_000, 80_000, 200_000, 450_000};
-    /** How much nearer than where it went coarser a tile must come to go finer again. */
-    static final double BACK = 0.9;
+    /** How many levels a tile has: as many as fineness rounds to. */
+    static final int LEVELS = Fineness.LEVELS;
     /** How much nearer than it is a tile is built for, ahead of needing to be: so it is ready when it comes. */
     static final double AHEAD = 0.7;
     /** How far a tile's skirt hangs. */
@@ -130,6 +123,8 @@ public final class TerrainModel {
     private final PhongMaterial material;
     /** The tile whose haze is looked at next. */
     private int next;
+    /** How fast the camera moves, smoothed. */
+    private final Fineness.Pace pace = new Fineness.Pace();
 
     /** A level of a tile, built: its points, the way its ground faces at each, its tint, its triangles. */
     private record Built(float[] points, float[] normals, float[] coords, int[] faces) {
@@ -245,7 +240,7 @@ public final class TerrainModel {
             tile.ready(coarsest);
             show(tile, coarsest, Vec3.ZERO);
         }
-        seenFrom(Vec3.ZERO);
+        seenFrom(Vec3.ZERO, 0);
     }
 
     public Node node() {
@@ -253,22 +248,24 @@ public final class TerrainModel {
     }
 
     /**
-     * Each tile as fine as it should be, seen from {@code eye}, where the camera now is, as soon as it is built
+     * Each tile as fine as it should be, seen from {@code eye}, where the camera now is, {@code seconds} since it
+     * was last (how fast it moves counting, smoothed: {@link Fineness.Pace}), as soon as it is built
      * (it is built apart from the screen, ahead of being wanted; until it is, the tile is shown as it was); and
      * its haze worked out again where the camera has moved far enough for it to show. A frame does no more than
      * {@link #BUDGET} heights' worth of either: what a tile changes, the whole of it is sent again to be drawn,
      * and all of them at once would hold the frame up. So the tiles that should be finer or coarser go first,
      * then the haze, round the tiles in turn, a few each frame: so far off, it hardly moves while it waits.
      */
-    public void seenFrom(final Vec3 eye) {
+    public void seenFrom(final Vec3 eye, final double seconds) {
+        final double speed = pace.at(eye, seconds);
         int left = BUDGET;
         int done = 0;
         for (final Tile tile : tiles) {
             final double near = tile.away(eye)[0];
-            final int wanted = level(near, tile.level);
+            final int wanted = level(near, speed, tile.level);
             tile.ask(wanted);
             // and, ahead of coming nearer, finer
-            tile.ask(level(near * AHEAD, tile.level));
+            tile.ask(level(near * AHEAD, speed, tile.level));
             if (wanted != tile.level && tile.ready(wanted) && (left > 0 || done == 0)) {
                 show(tile, wanted, eye);
                 left -= tile.built[wanted].coords().length / 2;
@@ -328,15 +325,11 @@ public final class TerrainModel {
     }
 
     /**
-     * Which step a tile {@code away} from the camera is drawn at, having been at {@code was} (-1 if not yet):
-     * past each of {@link #OUT}, coarser; back again only once {@link #BACK} as far.
+     * Which level a tile {@code away} from the camera is drawn at, the camera moving at {@code speed}, having been
+     * at {@code was} (-1 if not yet): its fineness, rounded ({@link Fineness}).
      */
-    static int level(final double away, final int was) {
-        int level = 0;
-        while (level < OUT.length && away > OUT[level] * (level < was ? BACK : 1)) {
-            level++;
-        }
-        return level;
+    static int level(final double away, final double speed, final int was) {
+        return Fineness.level(Fineness.of(away, speed), was);
     }
 
     /**

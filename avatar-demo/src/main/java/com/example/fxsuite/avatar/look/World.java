@@ -619,9 +619,9 @@ public final class World {
      * Each building's levels shown or hidden as it is seen from {@code eye}, where the camera now is
      * ({@link Detail}): by how far its nearest point is.
      */
-    public void seenFrom(final Vec3 eye) {
+    public void seenFrom(final Vec3 eye, final double seconds) {
         if (land != null) {
-            land.seenFrom(eye);
+            land.seenFrom(eye, seconds);
             water.seenFrom(eye);
             markings.seenFrom(eye);
         }

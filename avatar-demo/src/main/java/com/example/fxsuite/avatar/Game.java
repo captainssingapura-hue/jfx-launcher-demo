@@ -776,7 +776,7 @@ public final class Game {
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
         world.horizon().follow(at);
-        world.seenFrom(at);
+        world.seenFrom(at, seconds);
         eyeAt.setY(at.y());
         eyeAt.setZ(at.z());
         eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());

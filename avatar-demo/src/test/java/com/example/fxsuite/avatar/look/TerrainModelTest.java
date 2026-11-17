@@ -20,16 +20,19 @@ class TerrainModelTest {
 
     @Test
     void eachTileAsFineAsItIsNearComingBackALittleNearer() {
-        assertEquals(0, TerrainModel.level(0, -1));
-        assertEquals(0, TerrainModel.level(25_000, -1), "the finest within 300 m");
-        assertEquals(1, TerrainModel.level(50_000, -1));
-        assertEquals(TerrainModel.LEVELS - 1, TerrainModel.level(900_000, -1));
+        assertEquals(0, TerrainModel.level(0, 0, -1));
+        assertEquals(0, TerrainModel.level(25_000, 0, -1), "the finest within 300 m");
+        assertEquals(1, TerrainModel.level(50_000, 0, -1));
+        assertEquals(TerrainModel.LEVELS - 1, TerrainModel.level(900_000, 0, -1));
         // gone coarser past 300 m, it stays so till well inside it
-        assertEquals(1, TerrainModel.level(28_500, 1));
-        assertEquals(0, TerrainModel.level(26_000, 1));
-        assertEquals(1, TerrainModel.level(31_000, 0));
+        assertEquals(1, TerrainModel.level(28_500, 0, 1));
+        assertEquals(0, TerrainModel.level(24_000, 0, 1));
+        assertEquals(1, TerrainModel.level(31_000, 0, 0));
         // built ahead of coming nearer: what it will be, 30% nearer, already the next finer, near a boundary
-        assertEquals(0, TerrainModel.level(35_000 * TerrainModel.AHEAD, 1));
+        assertEquals(0, TerrainModel.level(35_000 * TerrainModel.AHEAD, 0, 1));
+        // driving fast, coarser: at 108 km/h, 200 m off no longer the finest
+        assertEquals(0, TerrainModel.level(20_000, 0, -1));
+        assertEquals(1, TerrainModel.level(20_000, 3_000, -1));
         // the finest only near, where what covers the ground asks for finer squares; not far off
         assertEquals(Double.POSITIVE_INFINITY, TerrainModel.COVERS[2]);
     }
