@@ -1,6 +1,12 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Box;
 import com.example.fxsuite.avatar.sim.Form;
+import com.example.fxsuite.avatar.sim.GridInside;
+import com.example.fxsuite.avatar.sim.Interior;
+import com.example.fxsuite.avatar.sim.Lean;
+import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Placed;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,7 +24,8 @@ import java.util.Map;
  * <p>Its section ({@link #section}): a flat bottom, turning up round the bilge on a radius into an upright side, to its
  * deck. Along it, as wide as its beam through its middle body, narrowing to a point at its bow, rounding in at its
  * stern ({@link #half}); its bottom rising toward each end ({@link #keel}), so it is deepest under its middle. Its
- * deck level all along.
+ * deck level all along. Laid out straight, and then bent round the curve the towers stand on ({@link #bent}), every
+ * station square to it.
  *
  * <p>In centimetres, in its own frame: across (x), port to starboard; along (y), stern to bow; up, from the lowest of
  * its bottom. Its middle at across 0, along 0.
@@ -43,20 +50,31 @@ public final class SkyHull {
     static final int STANCHIONS = 4;
     /** How many segments its section is drawn in, each side: across its bottom, round its bilge, up its side. */
     static final int BOTTOM = 4;
-    static final int BILGE = 4;
+    static final int BILGE = 8;
     static final int SIDE = 2;
 
     /**
      * How big it is built: {@code length} long, stern to bow, {@code beam} wide, {@code depth} deep from its bottom to
      * its deck through its middle; its bilge turned on a radius of {@code bilge}; narrowing to its bow over its last
      * {@code bow} and to its stern over its first {@code stern}, its bottom rising by {@code rise} toward each end; a
-     * frame every {@code frame}, a bulkhead every {@code bulkhead} frames, its double bottom {@code bottom} deep.
+     * frame every {@code frame}, a bulkhead every {@code bulkhead} frames, its double bottom {@code bottom} deep; bent
+     * round a curve {@code curve} from its middle line, its port side on the inside of it (infinite: straight).
      */
     public record Size(double length, double beam, double depth, double bilge, double bow, double stern, double rise,
-                       double frame, int bulkhead, double bottom) {
+                       double frame, int bulkhead, double bottom, double curve) {
 
-        /** As the park on the bay's hotel towers, near enough: 340 m long, 38 m wide, 7 m deep. */
-        public static final Size STANDARD = new Size(34_000, 3_800, 700, 300, 9_000, 2_500, 400, 300, 8, 120);
+        /**
+         * As the park on the bay's hotel towers, near enough: 340 m long, 38 m wide, 7 m deep; narrowing to its bow
+         * over its last 60 m, its cantilever, and to its stern over its first 25 m, so it is its full beam and its
+         * bottom level over all three towers' roofs; bent as the wall towers stand ({@code TowerMap.CURVE}).
+         */
+        public static final Size STANDARD = new Size(34_000, 3_800, 700, 300, 6_000, 2_500, 400, 300, 8, 120, 100_000);
+
+        /** The same, straight. */
+        public Size straight() {
+            return new Size(length, beam, depth, bilge, bow, stern, rise, frame, bulkhead, bottom,
+                    Double.POSITIVE_INFINITY);
+        }
 
         public Size {
             check(length >= 2_000 && length <= 100_000, "from 20 m to 1 km long");
@@ -68,6 +86,7 @@ public final class SkyHull {
             check(frame >= 50 && frame <= length / 10, "framed at least ten times along");
             check(bulkhead >= 2, "a bulkhead every two frames or more");
             check(bottom > KEEL && bottom < depth / 2, "its double bottom deeper than its keel, less than half its depth");
+            check(curve >= length && curve >= 20 * beam, "bent gently, round a curve no tighter than its length, or straight");
         }
 
         private static void check(final boolean ok, final String what) {
@@ -162,6 +181,29 @@ public final class SkyHull {
         return points;
     }
 
+    /**
+     * Where a point of it laid out straight is, bent: {@code along} it, round its curve, as far round as that; {@code
+     * across} it, out from the curve's middle, as far out; up, as it was. Its middle line, where along it its middle
+     * is, square to the curve there, as straight; every station square to the curve, each turned from the next as
+     * evenly as they are spaced: the bend as smooth as its stations are close.
+     */
+    public Point bent(final Point straight) {
+        final double r = size.curve();
+        if (Double.isInfinite(r)) {
+            return straight;
+        }
+        final double turn = straight.along() / r;
+        final double out = r + straight.across();
+        return new Point(-r + out * Math.cos(turn), out * Math.sin(turn), straight.up());
+    }
+
+    /** A vertex of its skeleton, laid out straight, put where it is bent. */
+    private int vertex(final Form.Builder form, final String name, final double across, final double along,
+                       final double up) {
+        final Point p = bent(new Point(across, along, up));
+        return form.vertex(name, p.across(), p.along(), p.up());
+    }
+
     /** What each strake of its plating is called, by its segment of the section, from its keel out. */
     static String strake(final int j) {
         if (j == 0) {
@@ -214,8 +256,8 @@ public final class SkyHull {
         final List<Integer> keel = new ArrayList<>();
         final List<Integer> port = new ArrayList<>();
         final List<Integer> starboard = new ArrayList<>();
-        final int sternFoot = form.vertex("stern, keel", 0, station(0), keel(station(0)));
-        final int sternHead = form.vertex("stern, deck", 0, station(0), size.depth());
+        final int sternFoot = vertex(form, "stern, keel", 0, station(0), keel(station(0)));
+        final int sternHead = vertex(form, "stern, deck", 0, station(0), size.depth());
         form.edge(sternFoot, sternHead);
         keel.add(sternFoot);
         port.add(sternHead);
@@ -224,12 +266,12 @@ public final class SkyHull {
             final double y = station(i);
             final double[][] s = section(y, 0);
             final List<Integer> loop = new ArrayList<>();
-            loop.add(form.vertex("bulkhead " + i + ", keel", 0, y, s[0][1]));
+            loop.add(vertex(form, "bulkhead " + i + ", keel", 0, y, s[0][1]));
             for (int j = 1; j < s.length; j++) {
-                loop.add(form.vertex("bulkhead " + i + ", starboard " + j, s[j][0], y, s[j][1]));
+                loop.add(vertex(form, "bulkhead " + i + ", starboard " + j, s[j][0], y, s[j][1]));
             }
             for (int j = s.length - 1; j >= 1; j--) {
-                loop.add(form.vertex("bulkhead " + i + ", port " + j, -s[j][0], y, s[j][1]));
+                loop.add(vertex(form, "bulkhead " + i + ", port " + j, -s[j][0], y, s[j][1]));
             }
             form.loop(loop.stream().mapToInt(Integer::intValue).toArray());
             keel.add(loop.getFirst());
@@ -237,8 +279,8 @@ public final class SkyHull {
             starboard.add(loop.get(s.length - 1));
             port.add(loop.get(s.length));
         }
-        final int bowFoot = form.vertex("bow, keel", 0, station(n), keel(station(n)));
-        final int bowHead = form.vertex("bow, deck", 0, station(n), size.depth());
+        final int bowFoot = vertex(form, "bow, keel", 0, station(n), keel(station(n)));
+        final int bowHead = vertex(form, "bow, deck", 0, station(n), size.depth());
         form.edge(bowFoot, bowHead);
         keel.add(bowFoot);
         port.add(bowHead);
@@ -257,6 +299,43 @@ public final class SkyHull {
      * plating, its skin strake by strake and its deck.
      */
     public List<Solid> solids(final Palette palette) {
+        final List<Solid> bent = new ArrayList<>();
+        for (final Solid s : straight(palette)) {
+            bent.add(new Solid(s.name(), s.role(), s.material(), s.corners().stream().map(this::bent).toList()));
+        }
+        return bent;
+    }
+
+    /** How big the cells of its inside are, along it and across: so a body on its deck is in one or two. */
+    static final double CELL = 1_000;
+
+    /**
+     * It set {@code at} a place, as one thing in the world's way ({@link Interior}): each part of it as the box round
+     * it laid out straight, set on its curve where the part's middle is and turned with it there; filed in a plain grid
+     * of cells over it, 10 m each way and its whole depth. A part round its bilge, a frame's member or a plate, is in
+     * the way as its box, a little more than it is; its deck, its sides and its bottom, as they are.
+     */
+    public Interior interior(final Place at) {
+        final List<Lean> parts = new ArrayList<>();
+        Box all = null;
+        for (final Solid s : straight(palette())) {
+            final Box b = Built.box(s);
+            final double mid = (b.minZ() + b.maxZ()) / 2;
+            final Point c = bent(new Point(0, mid, 0));
+            final double turn = Double.isInfinite(size.curve()) ? 0 : Math.toDegrees(mid / size.curve());
+            final Lean part = new Lean(c.across(), c.along(), -turn, b.minZ() - mid, b.maxZ() - mid, b.minX(),
+                    b.maxX(), b.minX(), b.maxX(), b.low(), b.high());
+            parts.add(part);
+            final Box p = part.placed();
+            all = all == null ? p : new Box(Math.min(all.minX(), p.minX()), Math.max(all.maxX(), p.maxX()),
+                    Math.min(all.minZ(), p.minZ()), Math.max(all.maxZ(), p.maxZ()), Math.min(all.low(), p.low()),
+                    Math.max(all.high(), p.high()));
+        }
+        return new Interior(new Placed(at, new GridInside(all, CELL, CELL, all.high() - all.low())), parts);
+    }
+
+    /** All of it, as {@link #solids}, laid out straight, before it is bent. */
+    private List<Solid> straight(final Palette palette) {
         final List<Solid> solids = new ArrayList<>();
         final Material steel = palette.of(Role.STRUCTURE);
         final int n = size.spaces();

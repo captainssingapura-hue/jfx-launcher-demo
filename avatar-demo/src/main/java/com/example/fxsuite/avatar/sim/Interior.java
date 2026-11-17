@@ -60,7 +60,7 @@ public final class Interior implements Volume {
         this.gone = new boolean[parts.size()];
         final Box[] filed = new Box[parts.size()];
         for (int p = 0; p < parts.size(); p++) {
-            filed[p] = parts.get(p).box();
+            filed[p] = parts.get(p).placed();
         }
         final Lean[] at = parts.toArray(new Lean[0]);
         for (int d = 0; d < doors.size(); d++) {
@@ -68,7 +68,7 @@ public final class Interior implements Volume {
             for (int k = 0; k < door.parts().length; k++) {
                 final int p = door.parts()[k];
                 doorOf[p] = d;
-                final Box wide = parts.get(p).slid(door.travel()[k]).box();
+                final Box wide = parts.get(p).slid(door.travel()[k]).placed();
                 final Box shut = filed[p];
                 filed[p] = new Box(Math.min(shut.minX(), wide.minX()), Math.max(shut.maxX(), wide.maxX()),
                         Math.min(shut.minZ(), wide.minZ()), Math.max(shut.maxZ(), wide.maxZ()),
@@ -212,7 +212,7 @@ public final class Interior implements Volume {
             final Door door = doors.get(d);
             for (int k = 0; k < door.parts().length; k++) {
                 if (door.parts()[k] == p
-                        && local.get(p).slid(door.travel()[k] * open[d]).box().grown(1, 1).holds(a, l, u)) {
+                        && local.get(p).slid(door.travel()[k] * open[d]).placed().grown(1, 1).holds(a, l, u)) {
                     return d;
                 }
             }

@@ -15,7 +15,9 @@ import java.util.List;
  * The wall towers' ground ({@code Demo.WALL_TOWER}): three towers ({@link WallTower}) on open level ground, end to end
  * along a slight curve, as the bay's hotel towers stand under the park on their roofs: each along the curve, its
  * splayed leg on the outside of it, to the east, its balconied west face on the inside, toward the start; the middle
- * one at the world's middle. Each the same tower, its doors open and shut as its own seed draws them. Trees scattered
+ * one at the world's middle; the hull ({@link SkyHull}) lying across their roofs, bent round their curve, its bow
+ * running out past the north tower as its cantilever. Each the same tower, its doors open and shut as its own seed
+ * draws them. Trees scattered
  * round them for kilometres, so they stand in a world many times their size, three things among hundreds. Each in the
  * way through its rooms ({@link Interior}): every room entered by the jet-pack, a balcony at a time; no stairs, no lifts.
  */
@@ -39,8 +41,14 @@ public final class TowerMap {
     private static final double TRUNK = 40;
     private static final double TREE = 320;
 
+    /** How far the hull's stern runs past the south tower's end. */
+    static final double OVERHANG = 2_500;
+
     private static final WallTower TOWER = WallTower.standard();
+    /** The hull lying on their roofs, bent round the curve they stand on. */
+    private static final SkyHull HULL = SkyHull.of(SkyHull.Size.STANDARD);
     private static List<Solid> drawn;
+    private static List<Solid> hullDrawn;
     private static List<WallTower.Opening> openings;
 
     private TowerMap() {
@@ -67,14 +75,51 @@ public final class TowerMap {
         return TOWER.seeded(i + 1);
     }
 
-    /** The towers, each one piece; and the trees, each one. */
+    /** The towers, each one piece; the hull on their roofs, one; and the trees, each one. */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int i = 0; i < TOWERS; i++) {
             pieces.add(tower(i, at(i)));
         }
+        pieces.add(hull());
         pieces.addAll(trees());
         return pieces;
+    }
+
+    /** How high the towers' roofs are: what the hull lies on. */
+    public static double roof() {
+        return TOWER.size().high() + WallTower.FLOOR;
+    }
+
+    /** How far along the curve from the middle tower the hull's middle is: its stern a little south of the south tower. */
+    static double hullMiddle() {
+        final double south = -SPACING * (TOWERS - 1) / 2 - TOWER.size().length() / 2;
+        return south - OVERHANG + HULL.size().length() / 2;
+    }
+
+    /** How far the hull runs past the north tower's end: its cantilever. */
+    public static double cantilever() {
+        return hullMiddle() + HULL.size().length() / 2 - (SPACING * (TOWERS - 1) / 2 + TOWER.size().length() / 2);
+    }
+
+    /**
+     * Where the hull lies: on the towers' roofs, on their curve, its middle line over theirs, its stern a little past
+     * the south tower's end, so its bow runs out past the north tower as its cantilever.
+     */
+    public static Place hullAt() {
+        final double turn = hullMiddle() / CURVE;
+        return new Place(-CURVE + CURVE * Math.cos(turn), CURVE * Math.sin(turn), roof(),
+                Num.wrap(-Math.toDegrees(turn)));
+    }
+
+    /** The hull on the roofs: drawn by its key after the towers', standing in its box; in the way through its inside. */
+    static Course.Piece hull() {
+        final Place at = hullAt();
+        final Interior interior = HULL.interior(at);
+        final Box inside = interior.placed().inside().bounds();
+        final Block box = new Block(at.x(), at.z(), Math.max(-inside.minX(), inside.maxX()),
+                Math.max(-inside.minZ(), inside.maxZ()), at.yaw(), at.height(), at.height() + inside.high());
+        return Course.Piece.shaped(box, Course.Kind.BUILDING, KEYS + TOWERS, List.of(), List.of(interior), at);
     }
 
     /** Tower {@code i}, set {@code at} its place: drawn by its key, standing in its box; in the way through its rooms. */
@@ -118,8 +163,14 @@ public final class TowerMap {
      * ({@link #door}).
      */
     public static synchronized List<Solid> solids(final int k) {
-        if (k < 0 || k >= TOWERS) {
-            throw new IllegalArgumentException(TOWERS + " towers here, not " + (k + 1));
+        if (k == TOWERS) {
+            if (hullDrawn == null) {
+                hullDrawn = HULL.solids(SkyHull.palette());
+            }
+            return hullDrawn;
+        }
+        if (k < 0 || k > TOWERS) {
+            throw new IllegalArgumentException(TOWERS + " towers here and a hull, not " + (k + 1));
         }
         if (drawn == null) {
             drawn = TOWER.fixed(WallTower.palette());

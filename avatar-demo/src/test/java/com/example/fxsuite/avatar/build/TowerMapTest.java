@@ -56,12 +56,12 @@ class TowerMapTest {
             final Vec3 out = Num.right(at.yaw());
             assertEquals(1, (out.x() * (at.x() + TowerMap.CURVE) + out.z() * at.z()) / TowerMap.CURVE, 1e-9,
                     "tower " + i + " its leg out");
-            assertEquals(1, world.volumesNear(at.x(), at.z(), 100).length, "tower " + i + " one entry where it stands");
+            assertEquals(2, world.volumesNear(at.x(), at.z(), 100).length, "tower " + i + " and the hull over it");
         }
         // south to north, the middle one at the world's middle, square to it
         assertEquals(new Place(0, 0, 0, 0), TowerMap.at(1));
         assertTrue(TowerMap.at(0).z() < 0 && TowerMap.at(2).z() > 0);
-        assertEquals(TowerMap.TOWERS, world.volumes().size());
+        assertEquals(TowerMap.TOWERS + 1, world.volumes().size(), "the towers and the hull on them");
         assertTrue(pieces.stream().filter(p -> p.kind() == Course.Kind.TREE).count() > 300, "hundreds of trees");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.TREE && Math.hypot(p.block().x(), p.block().z())
                 > 300_000), "kilometres out");
@@ -73,6 +73,46 @@ class TowerMapTest {
         assertEquals(TowerMap.START, course.start());
         assertEquals(90, Demo.WALL_TOWER.startYaw());
         assertTrue(TowerMap.START.x() < TOWER.westOuter(SIZE.high()) - 20_000);
+    }
+
+    @Test
+    void theHullOnTheirRoofsAlongTheirCurveItsCantileverPastTheNorthTower() {
+        final Course.Piece piece = course.pieces().get(TowerMap.TOWERS);
+        assertEquals(Course.Kind.BUILDING, piece.kind());
+        assertEquals(TowerMap.KEYS + TowerMap.TOWERS, piece.tint());
+        assertSame(TowerMap.solids(TowerMap.TOWERS), Sites.drawn(TowerMap.KEYS + TowerMap.TOWERS), "drawn as its solids");
+        final Interior hull = (Interior) world.volumes().get(TowerMap.TOWERS);
+        final SkyHull.Size size = SkyHull.Size.STANDARD;
+        // bent as they stand; its middle line over theirs, on the same curve
+        assertEquals(TowerMap.CURVE, size.curve());
+        final Place at = TowerMap.hullAt();
+        assertEquals(TowerMap.CURVE, Math.hypot(at.x() + TowerMap.CURVE, at.z()), 1e-6);
+        assertEquals(TowerMap.roof(), at.height());
+        // its cantilever: as far past the north tower as the bay's park reaches, near enough
+        assertEquals(6_500, TowerMap.cantilever(), 1e-6);
+        for (int i = 0; i < TowerMap.TOWERS; i++) {
+            final Place t = TowerMap.at(i);
+            // lying on each roof, its bottom on it; stood on, its deck
+            assertEquals(TowerMap.roof(), hull.undersideAt(t.x(), t.z(), 32, TowerMap.roof() - 50), 1e-6,
+                    "its bottom on tower " + i + "'s roof");
+            final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
+            assertEquals(deck, world.footing(t.x(), t.z(), 32, deck + 20).height(), 1e-6, "its deck over tower " + i);
+            // and its full beam there: its deck reaching past the roof each side
+            final Vec3 out = Num.right(t.yaw());
+            for (final double side : new double[] {-1, 1}) {
+                final double x = t.x() + out.x() * side * (size.beam() / 2 - 100);
+                final double z = t.z() + out.z() * side * (size.beam() / 2 - 100);
+                assertEquals(deck, world.footing(x, z, 32, deck + 20).height(), 1e-6, "its deck's edge, " + side);
+            }
+        }
+        // past the north tower, the cantilever, nothing under it but the ground
+        final double past = TowerMap.SPACING + SIZE.length() / 2 + TowerMap.cantilever() / 2;
+        final double turn = past / TowerMap.CURVE;
+        final double x = -TowerMap.CURVE + TowerMap.CURVE * Math.cos(turn);
+        final double z = TowerMap.CURVE * Math.sin(turn);
+        final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
+        assertEquals(deck, world.footing(x, z, 32, deck + 20).height(), 1e-6, "its deck over the cantilever");
+        assertEquals(0, world.footing(x, z, 32, TowerMap.roof() - 100).height(), 1e-6, "under it, the ground");
     }
 
     @Test

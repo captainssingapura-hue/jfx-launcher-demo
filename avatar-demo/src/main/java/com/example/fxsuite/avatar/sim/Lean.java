@@ -39,6 +39,15 @@ public record Lean(double x, double z, double yaw, double along0, double along1,
         return new Lean(x, z, yaw, along0 + by, along1 + by, westLow, eastLow, westHigh, eastHigh, low, high);
     }
 
+    /**
+     * All of it, in the frame it is set in, square to that frame: as big, or bigger where it is turned. For one set
+     * unturned at the frame's middle, its own box.
+     */
+    public Box placed() {
+        final Bounds b = bounds();
+        return new Box(b.minX(), b.maxX(), b.minZ(), b.maxZ(), low, high);
+    }
+
     /** All of it, in its own frame: across, along, up. */
     public Box box() {
         return new Box(Math.min(westLow, westHigh), Math.max(eastLow, eastHigh), along0, along1, low, high);
