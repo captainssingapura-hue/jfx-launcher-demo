@@ -109,6 +109,17 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers, land);
     }
 
+    /** The same world with volume {@code was} of piece {@code piece} {@code now} instead: a building's door opened. */
+    public Obstacles reshaped(final int piece, final Volume was, final Volume now) {
+        final List<Volume> changed = new ArrayList<>(volumes);
+        for (int i = 0; i < changed.size(); i++) {
+            if (volumePieces.get(i) == piece && changed.get(i) == was) {
+                changed.set(i, now);
+            }
+        }
+        return new Obstacles(blocks, gates, pieces, changed, volumePieces, land);
+    }
+
     /**
      * The same world with piece {@code piece}'s blocks, in order, {@code now} instead: it has moved.
      * As many blocks as it had.

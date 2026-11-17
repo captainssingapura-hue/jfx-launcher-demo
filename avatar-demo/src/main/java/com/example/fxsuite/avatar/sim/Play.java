@@ -157,6 +157,11 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** One step of {@code seconds}, with {@code controls}. */
     public Stepped step(final Controls controls, final double seconds) {
+        // with nothing within reach to take the controls of, T opens the door at hand, or shuts it
+        final Play doors = doorWorked(controls);
+        if (doors != this) {
+            return doors.step(withoutTaking(controls), seconds);
+        }
         final List<Event> happened = new ArrayList<>();
         final Obstacles was = obstacles();
         // the controls change hands; at them, the climb and descent are the platform's
@@ -1086,6 +1091,52 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     private static Controls unarmed(final Controls controls) {
         return new Controls(controls.forward(), controls.sideways(), controls.turn(), controls.lift(), controls.run(), false,
                 controls.aim(), controls.actions());
+    }
+
+    /**
+     * The world with the door nearest the avatar opened, or shut, by a {@link Action#TAKE}: only when there is
+     * nothing to take or let go of instead (a vehicle's controls, a gun) and the avatar is in the open, and a
+     * building's door ({@link Interior#door}) is within reach. Shut, or a little open, it opens wide; open, it
+     * shuts. Otherwise, this world as it is.
+     */
+    private Play doorWorked(final Controls controls) {
+        if (controls.actions().stream().noneMatch(a -> a instanceof Action.Take)) {
+            return this;
+        }
+        return doorAtHand().map(at -> new Play(avatar, damage.reshaped(at.piece(), at.building(),
+                        at.building().opened(at.door(), at.open() ? 0 : 1)), sky, lifts, people, props, turrets))
+                .orElse(this);
+    }
+
+    /** A building's door within the avatar's reach: which piece, its inside, which door, whether it is open. */
+    public record DoorAtHand(int piece, Interior building, int door, boolean open) {
+    }
+
+    /**
+     * The door T would open or shut: one within reach ({@link Interior#door}), with the avatar in the open and
+     * nothing to take or let go of instead (a vehicle's controls, a gun). Open is more than half open.
+     */
+    public Optional<DoorAtHand> doorAtHand() {
+        if (hidden() || lifts.stream().anyMatch(Lift::held) || turrets.stream().anyMatch(Turret::held)) {
+            return Optional.empty();
+        }
+        final Obstacles world = damage.obstacles();
+        final Body body = avatar.body();
+        if (lifts.stream().anyMatch(l -> !damage.broken(l.piece()) && l.reaches(body, world))
+                || turrets.stream().anyMatch(this::canMan)) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < world.volumes().size(); i++) {
+            if (world.volumes().get(i) instanceof Interior building && building.covers(body.position().x(),
+                    body.position().z(), Interior.REACH)) {
+                final int door = building.door(body.position().x(), body.position().z(), body.height());
+                if (door >= 0) {
+                    return Optional.of(new DoorAtHand(world.volumePieces().get(i), building, door,
+                            building.open(door) > 0.5));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /** The controls, less taking a platform's: that is the world's to hand over, and done already. */

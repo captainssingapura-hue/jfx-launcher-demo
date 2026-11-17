@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Door;
 import com.example.fxsuite.avatar.sim.Form;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Lean;
@@ -318,7 +319,85 @@ public final class WallTower {
      * solid, as it leans, each filed in the rooms it reaches, and found through them ({@link Interior}).
      */
     public Interior interior(final Place at) {
-        return new Interior(new Placed(at, inside()), solids(palette()).stream().map(WallTower::lean).toList());
+        final List<Lean> parts = new ArrayList<>(fixed(palette()).stream().map(WallTower::lean).toList());
+        final List<Door> doors = new ArrayList<>();
+        final List<Opening> openings = openings();
+        final double[] open = new double[openings.size()];
+        for (int d = 0; d < openings.size(); d++) {
+            final Opening o = openings.get(d);
+            final List<Solid> leaves = o.leaves(0, palette());
+            final int[] which = new int[leaves.size()];
+            final double[] travel = new double[leaves.size()];
+            for (int k = 0; k < leaves.size(); k++) {
+                which[k] = parts.size();
+                parts.add(lean(leaves.get(k)));
+                // the left one slides toward the start of the bay, the right toward its end, a leaf's width each
+                travel[k] = (leaves.get(k).name().contains("sliding left") ? -1 : 1) * o.leaf();
+            }
+            doors.add(new Door(o.middle(), (o.y0() + o.y1()) / 2, o.p0(), which, travel));
+            open[d] = o.open();
+        }
+        return new Interior(new Placed(at, inside()), parts, doors, open);
+    }
+
+    /** All of it but its doors' sliding leaves: what never moves. */
+    public List<Solid> fixed(final Palette palette) {
+        return solids(palette).stream().filter(s -> !sliding(s)).toList();
+    }
+
+    /** Whether a solid is a door's sliding leaf, or part of one. */
+    static boolean sliding(final Solid solid) {
+        return solid.name().contains(", sliding ");
+    }
+
+    /**
+     * A balcony's sliding door, as {@link #solids} makes it: called {@code name}, at the back of the balcony on face
+     * {@code face} ({@code east} or west), from {@code y0} to {@code y1} along, {@code p0} to {@code h1} up; as far
+     * open as it is built, {@code open}.
+     */
+    public record Opening(String name, double[] face, boolean east, double y0, double y1, double p0, double h1,
+                          double open) {
+
+        /** How far across its middle is, on its tracks: a balcony in from its face. */
+        public double middle() {
+            return face[0] + (east ? -1 : 1) * BALCONY;
+        }
+
+        /** How wide a leaf is, and so how far each sliding one goes, wide open. */
+        public double leaf() {
+            return (y1 - y0) / 4;
+        }
+
+        /** Its two sliding leaves, as far open as {@code open} says. */
+        public List<Solid> leaves(final double open, final Palette palette) {
+            return door(name, face, east, y0, y1, p0, h1, open, palette.of(Role.GLAZING),
+                    palette.of(Role.FRAME)).stream().filter(WallTower::sliding).toList();
+        }
+    }
+
+    /** Its balconies' doors, in the order {@link #solids} makes them: storey by storey, leg by leg, bay by bay, west then east. */
+    public List<Opening> openings() {
+        final List<Opening> openings = new ArrayList<>();
+        for (int k = 0; k < size.storeys(); k++) {
+            final double h0 = k * size.storey();
+            final double h1 = h0 + size.storey();
+            if (k == size.merge() - 1 || k == size.merge()) {
+                continue;
+            }
+            for (final double[][] leg : legs(h0, h1)) {
+                for (int j = 0; j + 1 < size.walls(); j++) {
+                    final double y0 = wallAt(j) + thick(j) / 2;
+                    final double y1 = wallAt(j + 1) - thick(j + 1) / 2;
+                    final double p0 = h0 + FLOOR;
+                    for (final boolean east : new boolean[] {false, true}) {
+                        final String side = east ? "east" : "west";
+                        openings.add(new Opening(side + " door " + j + ", storey " + k,
+                                at(east ? leg[1] : leg[0], p0, h1, h0, h1), east, y0, y1, p0, h1, opening(k, j, east)));
+                    }
+                }
+            }
+        }
+        return openings;
     }
 
     /** A solid of it as what is in the way ({@link Lean}): each is a box, its two faces across it leaning as it does. */
@@ -335,7 +414,7 @@ public final class WallTower {
      * glass each between two stiles; the outer two fixed, on the track on the room's side, the middle two on the track
      * on the balcony's side, slid out over them toward the sides by {@code open} of a leaf's width.
      */
-    List<Solid> door(final String name, final double[] face, final boolean east, final double y0, final double y1,
+    static List<Solid> door(final String name, final double[] face, final boolean east, final double y0, final double y1,
                      final double p0, final double h1, final double open, final Material glass, final Material metal) {
         final List<Solid> door = new ArrayList<>();
         final double back = BALCONY + TRACK + GLASS;

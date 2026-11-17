@@ -19,14 +19,53 @@ public final class Interior implements Volume {
     /** How far a ray goes through it at a time, finding the cells it passes. */
     private static final double STRIDE = 300;
 
+    /** How far from a door's middle, over the ground and up or down, a body can open or shut it. */
+    public static final double REACH = 200;
+
     private final Placed placed;
+    /** Its parts in its own frame, its doors shut. */
+    private final List<Lean> local;
+    /** Its parts in the world, each door as far open as it is. */
     private final List<Lean> parts;
     private final int[][] byCell;
     private final Bounds bounds;
+    private final List<Door> doors;
+    private final double[] open;
 
     /** Its parts, each given in its own frame, and filed in the cells of its inside; set in the world as it is placed. */
     public Interior(final Placed placed, final List<Lean> parts) {
+        this(placed, parts, List.of(), new double[0]);
+    }
+
+    /**
+     * As {@link #Interior(Placed, List)}, with doors that slide: each door's parts given shut, and each door as far
+     * open as {@code open} says, 0 shut to 1 wide. A door's parts are filed in every cell they reach, shut or open.
+     */
+    public Interior(final Placed placed, final List<Lean> parts, final List<Door> doors, final double[] open) {
+        if (open.length != doors.size()) {
+            throw new IllegalArgumentException(doors.size() + " doors but " + open.length + " openings");
+        }
         this.placed = placed;
+        this.local = List.copyOf(parts);
+        this.doors = List.copyOf(doors);
+        this.open = open.clone();
+        final Box[] filed = new Box[parts.size()];
+        for (int p = 0; p < parts.size(); p++) {
+            filed[p] = parts.get(p).box();
+        }
+        final Lean[] at = parts.toArray(new Lean[0]);
+        for (int d = 0; d < doors.size(); d++) {
+            final Door door = doors.get(d);
+            for (int k = 0; k < door.parts().length; k++) {
+                final int p = door.parts()[k];
+                final Box wide = parts.get(p).slid(door.travel()[k]).box();
+                final Box shut = filed[p];
+                filed[p] = new Box(Math.min(shut.minX(), wide.minX()), Math.max(shut.maxX(), wide.maxX()),
+                        Math.min(shut.minZ(), wide.minZ()), Math.max(shut.maxZ(), wide.maxZ()),
+                        Math.min(shut.low(), wide.low()), Math.max(shut.high(), wide.high()));
+                at[p] = parts.get(p).slid(door.travel()[k] * this.open[d]);
+            }
+        }
         final Inside inside = placed.inside();
         final List<List<Integer>> lists = new ArrayList<>(inside.count());
         for (int c = 0; c < inside.count(); c++) {
@@ -34,10 +73,10 @@ public final class Interior implements Volume {
         }
         final List<Lean> world = new ArrayList<>(parts.size());
         for (int p = 0; p < parts.size(); p++) {
-            for (final int c : inside.cells(parts.get(p).box())) {
+            for (final int c : inside.cells(filed[p])) {
                 lists.get(c).add(p);
             }
-            world.add(parts.get(p).within(placed.at(), 1));
+            world.add(at[p].within(placed.at(), 1));
         }
         this.parts = List.copyOf(world);
         byCell = new int[inside.count()][];
@@ -48,8 +87,67 @@ public final class Interior implements Volume {
         bounds = new Bounds(b.minX(), b.maxX(), b.minZ(), b.maxZ());
     }
 
+    /** The same, its parts in the world {@code parts} and its doors as far open as {@code open}: all else shared. */
+    private Interior(final Interior was, final List<Lean> parts, final double[] open) {
+        this.placed = was.placed;
+        this.local = was.local;
+        this.parts = parts;
+        this.byCell = was.byCell;
+        this.bounds = was.bounds;
+        this.doors = was.doors;
+        this.open = open;
+    }
+
     public Placed placed() {
         return placed;
+    }
+
+    /** Its doors, in order. */
+    public List<Door> doors() {
+        return doors;
+    }
+
+    /** How far open door {@code door} is: 0 shut, 1 wide. */
+    public double open(final int door) {
+        return open[door];
+    }
+
+    /** The same, door {@code door} {@code now} open: its parts slid as far, all else as it was. */
+    public Interior opened(final int door, final double now) {
+        final double share = Num.clamp(now, 0, 1);
+        final double[] opened = open.clone();
+        opened[door] = share;
+        final List<Lean> moved = new ArrayList<>(parts);
+        final Door d = doors.get(door);
+        for (int k = 0; k < d.parts().length; k++) {
+            final int p = d.parts()[k];
+            moved.set(p, local.get(p).slid(d.travel()[k] * share).within(placed.at(), 1));
+        }
+        return new Interior(this, List.copyOf(moved), opened);
+    }
+
+    /**
+     * The door nearest a body standing at ({@code x}, {@code z}), its feet {@code height} up, within {@link #REACH}
+     * of its middle across the ground and of its foot up or down; -1 if none is.
+     */
+    public int door(final double x, final double z, final double height) {
+        final double a = placed.across(x, z);
+        final double l = placed.along(x, z);
+        final double u = placed.up(height);
+        int nearest = -1;
+        double best = REACH;
+        for (int d = 0; d < doors.size(); d++) {
+            final Door door = doors.get(d);
+            if (Math.abs(u - door.up()) > REACH) {
+                continue;
+            }
+            final double away = Math.hypot(a - door.across(), l - door.along());
+            if (away <= best) {
+                best = away;
+                nearest = d;
+            }
+        }
+        return nearest;
     }
 
     /** All its parts, in the world. */

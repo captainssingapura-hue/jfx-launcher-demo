@@ -122,6 +122,17 @@ public final class Damage {
         return new Damage(List.copyOf(changed), toughness, health, obstacles, whole, ground);
     }
 
+    /**
+     * The same, piece {@code piece}'s volume {@code was} {@code now} instead, as worn as it was: a building with one
+     * of its doors opened or shut, in the way so, and made whole again so.
+     */
+    public Damage reshaped(final int piece, final Volume was, final Volume now) {
+        final List<Course.Piece> changed = new ArrayList<>(pieces);
+        changed.set(piece, pieces.get(piece).reshaped(was, now));
+        return new Damage(List.copyOf(changed), toughness, health, obstacles.reshaped(piece, was, now),
+                whole.reshaped(piece, was, now), ground);
+    }
+
     /** Who stood on the ground at the start, as the course was laid out: not on a platform. */
     public List<Course.Cast> ground() {
         return ground;

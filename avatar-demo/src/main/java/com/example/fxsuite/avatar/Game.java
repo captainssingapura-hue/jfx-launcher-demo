@@ -133,6 +133,7 @@ public final class Game {
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.build.Town.tell();
         com.example.fxsuite.avatar.build.Village.tell();
+        com.example.fxsuite.avatar.build.TowerMap.tell();
     }
 
     private static final double FIELD_OF_VIEW = 48;
@@ -1181,7 +1182,7 @@ public final class Game {
                         : lift.craft() instanceof Course.Chassis chassis
                                 ? (chassis.twoWheels() ? " · T: get on" : " · T: get in") : " · T: take the controls")
                 .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
-                        : "");
+                        : here.doorAtHand().map(at -> at.open() ? " · T: shut the door" : " · T: open the door").orElse(""));
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
         // at a vehicle's controls, what there is to say is the vehicle's, and its keys are the help
         final Optional<Lift> flown = here.atControls();

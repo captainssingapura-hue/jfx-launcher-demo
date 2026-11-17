@@ -34,6 +34,11 @@ public record Lean(double x, double z, double yaw, double along0, double along1,
                 westHigh * scale, eastHigh * scale, low * scale + at.height(), high * scale + at.height());
     }
 
+    /** The same, slid {@code by} along its own frame: a door's leaf, opened. */
+    public Lean slid(final double by) {
+        return new Lean(x, z, yaw, along0 + by, along1 + by, westLow, eastLow, westHigh, eastHigh, low, high);
+    }
+
     /** All of it, in its own frame: across, along, up. */
     public Box box() {
         return new Box(Math.min(westLow, westHigh), Math.max(eastLow, eastHigh), along0, along1, low, high);

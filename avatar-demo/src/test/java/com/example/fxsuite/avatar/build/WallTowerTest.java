@@ -96,8 +96,8 @@ class WallTowerTest {
         final double y0 = 0;
         final double y1 = 800;
         final double[] face = {0, 0};
-        final List<Solid> shut = TOWER.door("d", face, false, y0, y1, 0, 330, 0, Material.GLASS, Material.METAL);
-        final List<Solid> wide = TOWER.door("d", face, false, y0, y1, 0, 330, 1, Material.GLASS, Material.METAL);
+        final List<Solid> shut = WallTower.door("d", face, false, y0, y1, 0, 330, 0, Material.GLASS, Material.METAL);
+        final List<Solid> wide = WallTower.door("d", face, false, y0, y1, 0, 330, 1, Material.GLASS, Material.METAL);
         assertEquals(DOOR, shut.size());
         // shut, the middle two meet in the middle; wide open, each over the fixed one beside it, the middle open
         assertEquals(y0 + 200, along(shut, "d, sliding left stile"), 1e-9);
