@@ -31,6 +31,16 @@ public final class BuildingModel {
         LOOKS.put(Material.GRASS, BoxRig.matte("#6f9a4e"));
         LOOKS.put(Material.LEAVES, BoxRig.matte("#3d7a3c"));
         LOOKS.put(Material.BARK, BoxRig.matte("#5b4330"));
+        // earth: mud plaster a warm grey, red earth, a pale clay, sod darker, rammed earth an ochre; turf, thatch, reed
+        LOOKS.put(Material.MUD, BoxRig.matte("#a89c86"));
+        LOOKS.put(Material.RED_EARTH, BoxRig.matte("#a3654b"));
+        LOOKS.put(Material.PALE_CLAY, BoxRig.matte("#d6c7a6"));
+        LOOKS.put(Material.SOD, BoxRig.matte("#6d604c"));
+        LOOKS.put(Material.RAMMED_EARTH, BoxRig.matte("#b48a5a"));
+        LOOKS.put(Material.TURF, BoxRig.matte("#7a7650"));
+        LOOKS.put(Material.THATCH, BoxRig.matte("#b59a5f"));
+        LOOKS.put(Material.REED, BoxRig.matte("#9a8d68"));
+        LOOKS.put(Material.EARTH, BoxRig.matte("#8a7557"));
         LOOKS.put(Material.PRECAST, BoxRig.matte("#cfcac0"));
         LOOKS.put(Material.METAL, BoxRig.matte("#33373c"));
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));
@@ -65,8 +75,41 @@ public final class BuildingModel {
         return LOOKS.get(material);
     }
 
-    /** {@code solids}, drawn: a mesh for each material, glass last. */
+    /** {@code solids}, drawn, all of them: a mesh for each material, glass last. */
     public static Group of(final List<Solid> solids) {
+        return levels(solids).node();
+    }
+
+    /**
+     * A building drawn in its levels ({@link Detail}): {@code node}, all of it; in it, a group for each
+     * level, to be shown or hidden by how far off it is seen; and, last, the glass and the water of its
+     * body, always shown, drawn after all else so what is behind them shows.
+     */
+    public record Leveled(Group node, Map<Detail.Level, Group> levels) {
+    }
+
+    /** {@code solids}, drawn in their levels: in each, a mesh for each material, glass last. */
+    public static Leveled levels(final List<Solid> solids) {
+        final Map<Detail.Level, List<Solid>> split = Detail.split(solids);
+        final Map<Detail.Level, Group> levels = new EnumMap<>(Detail.Level.class);
+        final Group node = new Group();
+        Group seeThrough = null;
+        for (final Detail.Level level : Detail.Level.values()) {
+            final Group[] drawn = drawn(split.get(level));
+            levels.put(level, drawn[0]);
+            node.getChildren().add(drawn[0]);
+            if (level == Detail.Level.BODY) {
+                seeThrough = drawn[1];
+            } else {
+                drawn[0].getChildren().add(drawn[1]);
+            }
+        }
+        node.getChildren().add(seeThrough);
+        return new Leveled(node, levels);
+    }
+
+    /** {@code solids}, drawn: a mesh for each material, apart from what is see-through (glass, water), apart. */
+    private static Group[] drawn(final List<Solid> solids) {
         final Map<Material, MeshBuilder> meshes = new EnumMap<>(Material.class);
         for (final Solid solid : solids) {
             final Point3D[] corners = new Point3D[8];
@@ -76,18 +119,18 @@ public final class BuildingModel {
             }
             meshes.computeIfAbsent(solid.material(), m -> new MeshBuilder()).box(corners);
         }
-        final Group drawn = new Group();
+        final Group solid = new Group();
+        final Group seeThrough = new Group();
         for (final Material material : Material.values()) {
             if (material != Material.GLASS && material != Material.WATER && meshes.containsKey(material)) {
-                drawn.getChildren().add(meshes.get(material).view(LOOKS.get(material)));
+                solid.getChildren().add(meshes.get(material).view(LOOKS.get(material)));
             }
         }
-        if (meshes.containsKey(Material.GLASS)) {
-            drawn.getChildren().add(meshes.get(Material.GLASS).view(LOOKS.get(Material.GLASS)));
+        for (final Material material : new Material[] {Material.GLASS, Material.WATER}) {
+            if (meshes.containsKey(material)) {
+                seeThrough.getChildren().add(meshes.get(material).view(LOOKS.get(material)));
+            }
         }
-        if (meshes.containsKey(Material.WATER)) {
-            drawn.getChildren().add(meshes.get(Material.WATER).view(LOOKS.get(Material.WATER)));
-        }
-        return drawn;
+        return new Group[] {solid, seeThrough};
     }
 }

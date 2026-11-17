@@ -26,6 +26,79 @@ class SkyTest {
     }
 
     /** Steps {@code play} for {@code seconds} with {@code controls}, keeping what happened. */
+    @Test
+    void theAirshipsGoingRoundAreHeavyBombersHighOverThePillarsBombingFromTheirGondolas() {
+        double tallest = 0;
+        for (final Course.Piece piece : course.pieces()) {
+            if (piece.kind() == Course.Kind.PILLAR) {
+                tallest = Math.max(tallest, piece.block().top());
+            }
+        }
+        int bombers = 0;
+        for (final Course.Piece piece : course.pieces()) {
+            if (piece.kind() != Course.Kind.AIRSHIP) {
+                continue;
+            }
+            final double length = 2 * piece.shape().box().halfAlong() / 100;
+            if (!piece.flies()) {
+                assertEquals(1, Course.scale(piece), 1e-9, "the one to fly, as it always was");
+                continue;
+            }
+            bombers++;
+            assertTrue(length >= 45 && length <= 54, "a heavy bomber: " + length + " m");
+            // all the way round, its gondola over the tallest pillar
+            for (double t = 0; t < 120; t += 5) {
+                final Block gondola = Course.part(piece, Course.GONDOLA).placed(piece.route().at(t));
+                assertTrue(gondola.bottom() > tallest + 200, "clear of the pillars: " + gondola.bottom() + " over " + tallest);
+            }
+        }
+        assertEquals(3, bombers);
+        // a bombing run: its bay opened, its bombs dropping from under its own gondola only while it is
+        // open, then shut, none dropping
+        final int airship = firstAirship();
+        final Course.Piece piece = course.pieces().get(airship);
+        Play play = Play.start(false);
+        int dropped = 0;
+        boolean opened = false;
+        for (int step = 0; step < Math.round(2 * Sky.RUN / Clock.STEP); step++) {
+            final Play.Stepped stepped = play.step(Controls.NONE, Clock.STEP);
+            play = stepped.play();
+            final double bay = play.sky().bay(airship);
+            opened |= bay >= Sky.BAY_OPENS;
+            for (final Event event : stepped.events()) {
+                if (event instanceof Event.Dropped d && d.from() == airship) {
+                    dropped++;
+                    assertEquals(Sky.BAY_OPENS, bay, 1e-9, "only with its bay open");
+                    final Block gondola = Course.part(piece, Course.GONDOLA).placed(piece.route().at(play.sky().time()));
+                    assertEquals(gondola.bottom() - Sky.BELOW, -d.at().y(), 1, "just under its gondola");
+                }
+            }
+        }
+        assertTrue(opened, "its bay opened");
+        assertTrue(dropped >= 4 && dropped <= 2 * Sky.OPEN_FOR / Sky.STICK, "a stick each run: " + dropped);
+        assertEquals(0, play.sky().bay(course.pieces().indexOf(course.pieces().stream()
+                .filter(p -> p.kind() == Course.Kind.AIRSHIP && !p.flies()).findFirst().orElseThrow())), 1e-9,
+                "the one to fly's bay its own");
+    }
+
+    @Test
+    void eachBombersBayIsHeardOpeningForItsRunAndShuttingAfterFromUnderItsGondola() {
+        final List<Event> events = new ArrayList<>();
+        Play play = Play.start(false);
+        final Play.Stepped first = play.step(Controls.NONE, Clock.STEP);
+        assertTrue(first.events().stream().noneMatch(e -> e instanceof Event.Bay), "not heard beginning, at the start");
+        play = run(first.play(), Controls.NONE, 2 * Sky.RUN, events);
+        final int airship = firstAirship();
+        final List<Event.Bay> bay = events.stream().filter(e -> e instanceof Event.Bay b && b.from() == airship)
+                .map(e -> (Event.Bay) e).toList();
+        assertTrue(bay.size() >= 2, "opened and shut: " + bay);
+        for (int k = 1; k < bay.size(); k++) {
+            assertNotEquals(bay.get(k - 1).opening(), bay.get(k).opening(), "opening, then shutting, in turn");
+        }
+        assertEquals(3, events.stream().filter(e -> e instanceof Event.Bay).map(e -> ((Event.Bay) e).from())
+                .distinct().count(), "all three bombers'");
+    }
+
     private static Play run(Play play, final Controls controls, final double seconds, final List<Event> events) {
         for (long step = Math.round(seconds / Clock.STEP); step > 0; step--) {
             final Play.Stepped stepped = play.step(controls, Clock.STEP);
@@ -40,7 +113,7 @@ class SkyTest {
         final List<Course.Piece> airships = course.pieces().stream().filter(Course.Piece::flies).toList();
         assertEquals(3, airships.size());
         for (final Course.Piece airship : airships) {
-            final Course.Route route = airship.route();
+            final Course.Circling route = (Course.Circling) airship.route();
             assertEquals(airship, airship.at(0), "where it was built is where its route starts");
             final Place now = route.at(10);
             final Place soon = route.at(10.01);
@@ -59,7 +132,7 @@ class SkyTest {
         final int airship = firstAirship();
         Play play = Play.start(false);
         play = run(play, Controls.NONE, 20, new ArrayList<>());
-        final Block hull = Course.HULL.get(3).placed(course.pieces().get(airship).route().at(play.sky().time()));
+        final Block hull = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(course.pieces().get(airship).route().at(play.sky().time()));
         final Vec3 under = new Vec3(hull.x(), 0, hull.z());
         final Hit up = play.obstacles().ray(under.add(0, -100, 0), new Vec3(0, -1, 0), 6000);
         assertNotNull(up);
@@ -71,9 +144,9 @@ class SkyTest {
     @Test
     void standingOnAnAirshipItIsCarriedAlongAndTurnedWithIt() {
         final int airship = firstAirship();
-        final Course.Route route = course.pieces().get(airship).route();
+        final Course.Circling route = (Course.Circling) course.pieces().get(airship).route();
         final Place start = route.at(0);
-        final Block deck = Course.HULL.get(3).placed(start);
+        final Block deck = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(start);
         // on the deck, a little off the middle, facing across it
         final Vec3 on = new Vec3(deck.x(), -deck.top(), deck.z()).add(Num.heading(start.yaw()).multiply(150));
         Play play = new Play(new Avatar(Body.standing(on, start.yaw() + 90), false), Damage.of(course));
@@ -93,9 +166,9 @@ class SkyTest {
     @Test
     void walkingOnTheDeckIsWalkingAsWellAsBeingCarried() {
         final int airship = firstAirship();
-        final Course.Route route = course.pieces().get(airship).route();
+        final Course.Circling route = (Course.Circling) course.pieces().get(airship).route();
         final Place start = route.at(0);
-        final Block deck = Course.HULL.get(3).placed(start);
+        final Block deck = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(start);
         // at the tail end of the middle of the hull, walking toward the nose
         final Vec3 on = new Vec3(deck.x(), -deck.top(), deck.z()).subtract(Num.heading(start.yaw()).multiply(250));
         Play play = new Play(new Avatar(Body.standing(on, start.yaw()), false), Damage.of(course));
@@ -104,7 +177,9 @@ class SkyTest {
         final Place now = route.at(play.sky().time());
         // where it is on the deck, in the airship's own terms: ahead of where it started along the hull
         final Vec3 rel = play.avatar().body().position().subtract(new Vec3(now.x(), 0, now.z()));
-        final double along = rel.x() * Num.heading(now.yaw()).x() + rel.z() * Num.heading(now.yaw()).z();
+        // (from the middle of the deck, where it started 250 back from)
+        final double along = rel.x() * Num.heading(now.yaw()).x() + rel.z() * Num.heading(now.yaw()).z()
+                - Course.part(course.pieces().get(airship), Course.HULL.get(3)).along();
         assertTrue(along > -250 + 200 && along < -250 + Body.WALK + 50, "walked ahead along the hull: " + along);
         assertEquals(deck.top(), play.avatar().body().height(), 1e-6, "on the deck all the while");
     }
@@ -113,7 +188,7 @@ class SkyTest {
     void flyingOverTheDeckItIsNotCarried() {
         final int airship = firstAirship();
         final Place start = course.pieces().get(airship).route().at(0);
-        final Block deck = Course.HULL.get(3).placed(start);
+        final Block deck = Course.part(course.pieces().get(airship), Course.HULL.get(3)).placed(start);
         final Vec3 over = new Vec3(deck.x(), -(deck.top() + 300), deck.z());
         final Body hovering = Body.standing(over, 0).toggledFlight();
         assertTrue(hovering.flying());
@@ -127,15 +202,15 @@ class SkyTest {
     void eachAirshipDropsABombInTurnAndEachGoesOffBelow() {
         final List<Event> events = new ArrayList<>();
         Play play = Play.start(false);
-        play = run(play, Controls.NONE, 10, events);
+        play = run(play, Controls.NONE, 2 * Sky.RUN, events);
         final List<Event.Dropped> dropped = events.stream().filter(e -> e instanceof Event.Dropped)
                 .map(e -> (Event.Dropped) e).toList();
         final List<Event.Exploded> exploded = events.stream().filter(e -> e instanceof Event.Exploded)
                 .map(e -> (Event.Exploded) e).toList();
-        // three airships, one every three seconds each: nine in ten seconds, give or take one
-        assertTrue(dropped.size() >= 8 && dropped.size() <= 10, dropped.size() + " dropped");
+        // three airships, each a stick of them on each of its runs, its bay open: four or so a run
+        assertTrue(dropped.size() >= 3 * 4 && dropped.size() <= 3 * 2 * Sky.OPEN_FOR / Sky.STICK, dropped.size() + " dropped");
         assertEquals(3, dropped.stream().map(Event.Dropped::from).distinct().count(), "all three drop");
-        assertTrue(exploded.size() >= dropped.size() - 3, "all but the last few have gone off");
+        assertTrue(exploded.size() >= dropped.size() - 6, "all but the last few have gone off");
         for (final Event.Exploded x : exploded) {
             assertTrue(x.at().y() <= 1e-6, "on the ground or something on it");
             assertTrue(-x.at().y() < 2700, "well below the airships");

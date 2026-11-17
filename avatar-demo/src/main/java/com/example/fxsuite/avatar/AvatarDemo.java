@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar;
 
 import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Recording;
+import com.example.fxsuite.avatar.sim.Siege;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -28,18 +29,25 @@ import java.util.Locale;
  *
  * <p>The choice is skipped for a demo asked for ({@code -Davatar.demo=AIRSHIP}), for a replay (the
  * demo it was made in), and for a run without a keyboard (a script, a snapshot: the playground,
- * unless asked otherwise).
+ * unless asked otherwise). The temple siege is set before it starts ({@link SiegeSettings}); asked for,
+ * it is set as {@code -Davatar.siege} says ({@link Siege#written}), or as a siege starts.
  */
 public final class AvatarDemo extends Application {
 
     private Stage stage;
     private Game game;
+    /** The siege as last set: to start again from. */
+    private Siege siege = Siege.STANDARD;
 
     @Override
     public void start(final Stage stage) {
         this.stage = stage;
         stage.setTitle("FxSuite · Avatar");
         final Demo asked = asked();
+        final String set = System.getProperty("avatar.siege");
+        if (set != null) {
+            siege = Siege.read(set.trim());
+        }
         if (asked != null) {
             play(asked);
         } else {
@@ -70,7 +78,7 @@ public final class AvatarDemo extends Application {
             }
         }
         if (System.getProperty("avatar.script") != null || System.getProperty("avatar.snapshot") != null) {
-            return Demo.PLAYGROUND;
+            return Demo.TOWN;
         }
         return null;
     }
@@ -85,11 +93,24 @@ public final class AvatarDemo extends Application {
         stage.setScene(choice());
     }
 
+    /** Demo {@code demo} chosen: played, or, a siege, set first. */
+    private void chosen(final Demo demo) {
+        if (demo == Demo.SIEGE) {
+            stage.setTitle("FxSuite · Avatar · Temple siege");
+            stage.setScene(SiegeSettings.scene(siege, set -> {
+                siege = set;
+                play(Demo.SIEGE);
+            }, this::choose));
+        } else {
+            play(demo);
+        }
+    }
+
     private void play(final Demo demo) {
         if (game != null) {
             game.stop();
         }
-        game = new Game(stage, demo, () -> Platform.runLater(this::choose),
+        game = new Game(stage, demo, siege, () -> Platform.runLater(this::choose),
                 other -> Platform.runLater(() -> play(other)));
     }
 
@@ -102,7 +123,7 @@ public final class AvatarDemo extends Application {
         final VBox list = new VBox(14, title, hint);
         list.setAlignment(Pos.CENTER);
         list.setPadding(new Insets(40));
-        final Demo[] demos = Demo.values();
+        final Demo[] demos = Demo.playable().toArray(Demo[]::new);
         for (int i = 0; i < demos.length; i++) {
             final Demo demo = demos[i];
             final Button card = new Button((i + 1) + "   " + demo.title() + "\n" + demo.description());
@@ -110,7 +131,7 @@ public final class AvatarDemo extends Application {
                     + " -fx-background-radius: 8; -fx-padding: 14 22 14 22; -fx-alignment: center-left;"
                     + " -fx-cursor: hand;");
             card.setPrefWidth(620);
-            card.setOnAction(e -> play(demo));
+            card.setOnAction(e -> chosen(demo));
             list.getChildren().add(card);
         }
         list.setStyle("-fx-background-color: linear-gradient(to bottom, #1b222b, #11161c);");
@@ -118,7 +139,7 @@ public final class AvatarDemo extends Application {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             final int n = e.getCode().ordinal() - KeyCode.DIGIT1.ordinal();
             if (n >= 0 && n < demos.length && e.getCode().isDigitKey()) {
-                play(demos[n]);
+                chosen(demos[n]);
             }
         });
         return scene;

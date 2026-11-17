@@ -34,12 +34,23 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   bed on wheels, a steering wheel on a column, and nothing else yet. The car's is 4 m long on four
   wheels; the truck's 7 m on six, its back four on two axles together. Stand beside the driver's door (or at the
   steering wheel, on a bare chassis): T gets in. W speeds it up, S brakes and then reverses, A and D steer,
-  Space is the handbrake, Shift goes gently; the mouse does not turn it. Only the front wheels
+  Space is the handbrake, Shift goes gently; the mouse does not turn it. Its views, as racing games have them
+  (`Game.DriveView`), C in turn: chase far (behind and above, as far back as it is big), chase near (closer,
+  lower), hood (over its front half; a two-wheeler's, over its bars), cockpit (the driver's seat; V, and V
+  again back; on a two-wheeler the rider's own view, a camera fixed to the rider, from the chest up to the eyes,
+  moved with , and . (chest, chin, mouth, eyes; the chin to start with), leaning and rolled with the bike into its
+  turns, as wide as 70°, tipped down so its bars are at the bottom of the view), bumper (low at its front); the one chosen kept from one drive to the next. Driving, the mouse and
+  Q/E do not move the view: it stays with the vehicle, the way it heads, steady; B held looks back, from the
+  view (from its back, for the hood and the bumper), round at once. Only the front wheels
   steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
-  it goes. Each wheel finds the ground under it: it drives up and down ramps and over the
-  flyover, tipped as the slope is, leaps off a ramp's head, and stops dead against anything
-  standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
-  its legs out ahead and its hands on the wheel, and is carried with it.
+  it goes (`Steering`): its wheels turned no further than pulls it across as hard as a tyre holds,
+  0.9 g, and gentler the faster it goes, and faster so, to 60% of that at its top; full lock at a crawl,
+  1.35° at 108 km/h, a quarter of a degree at 216 km/h; a key held turning them in over a time, the
+  longer the faster it goes (0.15 s at a crawl, half a second at its top), let go, back twice as fast;
+  so at speed a tap is a correction, not a swerve. Each wheel finds the ground under it: it drives up
+  and down ramps and over the flyover, tipped as the slope is, leaps off a ramp's head, and stops dead
+  against anything standing higher than a kerb. The driver sits in a seat behind the steering wheel,
+  kart-fashion, its legs out ahead and its hands on the wheel, and is carried with it.
   Low on the right, as racing games have them, its instruments: a round tachometer, its needle
   sweeping up toward the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
@@ -122,7 +133,7 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
   tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
   wide bars; upright on the boxer, feet forward, knees wide round its cylinders. Each leans into its turns as a rider would lean it to balance going round
-  (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
+  (`Lift.lean`): as far as balances the pull across it, atan of it over g, at most 45°, upright going straight, the
   rider leaning with it about where its tyres touch the ground; only how it is shown, to the
   world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
   single on a CVT, which holds it most of the way up its revs as the speed builds (D on the
@@ -324,25 +335,29 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of demos: the **playground**, everything at once (the course, its targets and
-airships, the flyovers, the four vehicles, the bunker, a gun on each pillar and an airship to fly), or one built round a
-single vehicle, open and simple, so the vehicle is all there is to look at: the **flying
-platform**, among a few pillars and gates, and the **airship**, moored by the start, with a yard of crates beyond it to
-bomb; the **roads**, a flyover and a ramp, with a car's chassis and a truck's to drive on them; the **guns**: a bunker
-with a heavy Gatling gun, a mounted gun on each pillar about, and crates and dummies out in front; the **track**, a NASCAR-style
-oval to take every land vehicle round flat out; the **town**, every building put up along streets, the boxer
-motorcycle to ride between them, a void deck part way up each tower with a bar and a melon stall on it, and before
-them the melon stall and the stand-up, each on its platform; and the
-**temple**, a courtyard before a great hall, a smaller hall each side, three monks at their stand-up in it; and the
-**pyramids**, each in the way as it is shaped; and the **pavilions**, round a lawn, to walk into (`Demo`).
-Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
+It opens on a choice of five demos (`Demo.playable`), the **town** first: its buildings round the
+temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
+park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
+the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
+in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
+tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
+on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
+before it starts. Then the **meadow village**: open country, a river winding across it, a dual carriageway along it
+with an exit off it, over a bridge into a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
+the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
+and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
+for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
 switch straight to another, or start this one again; with the view (first person, the camera
 behind) and the sound (mute, profile) alongside. Tab comes back to the choice. Right clicks are
 left to the game.
-`-Davatar.demo=AIRSHIP` (or `PLATFORM`, `FLYOVER`, `GUNS`, `TRACK`, `TOWN`, `TEMPLE`, `PYRAMID`, `PAVILION`, `PLAYGROUND`) goes straight to one.
+`-Davatar.demo=TOWN` (or `SIEGE`, `PLAYGROUND`, `TRACK`) goes straight to one, a siege set as
+`-Davatar.siege` says (as a recording writes it); a script or a snapshot with
+none named runs in the town. The simple scenes the tests drive, fly and fire in, each round a single
+vehicle or gun (`PLATFORM`, `AIRSHIP`, `FLYOVER`, `GUNS`), are not offered, but go straight there the
+same way.
 
 One self-contained jar carries JavaFX and the OpenAL libraries. The same jar opens the sound
-bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, or writes every sound to WAV files with `--sounds [folder]` (see
+bench with `--bench`, the engine bench with `--engine`, the gun bench with `--guns`, the vehicle bench with `--models`, the buildings bench with `--buildings`, the aircraft bench with `--aircraft`, the terrain bench with `--terrain`, or writes every sound to WAV files with `--sounds [folder]` (see
 [Sound](#sound)).
 
 ## Controls
@@ -360,9 +375,9 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, board the gunship, beside its cockpit door, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine, or the gunship's | |
 | F | Take off (wearing the pack) | Stop flying |
-| Q / E (held) | Swing the camera round | Swing the camera round |
+| Q / E (held) | Swing the camera round (at the gunship's controls, slide it aside; the mouse looks round instead) | Swing the camera round |
 | C | Camera behind | Camera behind |
 | Scroll | Zoom | Zoom |
 | M | Mute or unmute | Mute or unmute |
@@ -374,8 +389,24 @@ the window, so clicks stay free for actions.
 | Right click (held) | Aboard the airship, drop a bomb (held, a stick of them) | |
 | G | At the controls of the pickup or the airship: give up control of its gun, or take it back | |
 | Esc | Free the mouse, or take it back | Free the mouse, or take it back |
-| V | At a vehicle's controls: first person, or back | The same |
+| V | First person, or back: on foot, from the avatar's own eyes, exactly where its visor is drawn, so the view goes with its head into a run, a dive or a flight (its arms and what they hold drawn upright and steady at the bottom of the view, however it is tipped, the rounds still leaving from its hands); at a vehicle's controls, from the driver's seat | The same |
 | Tab | Back to the choice of demos | Back to the choice of demos |
+
+The gunship flies as an aircraft does (`Flight`), not as the platform does: it has momentum,
+the air drags it, and its two big ducted rotors push only the way they point, so it tips to go
+anywhere. It is parked on its wheels in the playground, beside the moored airship, its engine off:
+T beside its door boards it, F starts its engine, Space lifts it off. The keys are what is wanted
+of it, and its assist works out how to get there, as a fly-by-wire aircraft's does: W and S a speed
+ahead or back (its nose dips to get going; as it speeds up its rotors tilt forward, up to 85°, and
+its wings take its weight, to 50 m/s), A and D a rate of turn, as a land vehicle's are (up to 60° a
+second hovering, building up so a tap turns it a little; going fast, banked round as an aeroplane
+turns, no faster than its bank allows), Q and E a speed aside (banking that way; hovering only,
+less and less as it speeds up, none by 25 m/s), Space and Ctrl a rate of climb (settling gently
+onto its wheels near the ground). The mouse looks round it, the view swinging back behind a
+moment after (in first person, it turns the head). Let go, it pitches up,
+tilts its rotors back to brake, and hovers where it is. With its engine cut it has no thrust and
+drops. Its pitch, bank and rotor tilt are drawn as they are, and shown in the status line. It has
+no weapons yet, and no sound of its own.
 
 As in most shooters, it goes at full speed unless Shift is held. `-Davatar.pack=true` starts
 with the jet-pack on. Clicks fire only while the mouse is captured, so a click to take the
@@ -768,14 +799,14 @@ through, and one loaded until a pillar gives and it falls.
 - On the bench, the church's and the hall's **sizes** are set beside their options; each change
   builds it again, every joint checked, its plan tab with it; a size it cannot stand at said, and
   the building left as it was.
-- **The temple** (`TempleYard`, a demo of its own): a courtyard as a Chinese temple is laid out round
+- **The temple** (`TempleYard`, in the middle of the town, `Town.temple`): a courtyard as a Chinese temple is laid out round
   one. At its back, on its middle line, the great hall, built to a size of its own (nine bays across,
   the middle 7.2 m, five deep, its columns 6 m on a 2.4 m platform), facing down the courtyard to the
   start; before it, a smaller hall each side (five bays, 4 m columns), facing in across it, their roofs
   green where the great hall's are yellow. Each is one piece, as the town's buildings are. In the
   middle, on the ground, three monks at their stand-up: a small one in red, a tall one in blue and a
   stout one in yellow, robed, their heads shaved, each having the floor in turn while the other two
-  turn to them. Its gate, at the courtyard's front, is still to come: a building to pass through.
+  turn to them.
   Round it all, its wall (below): red on a stone plinth, its coping green-tiled, open on its middle
   line at the front for the main entrance (9 m) and at the back for a small door (1.8 m) behind the
   great hall, its back corners rounded. In the entrance its main gate: a gatehouse 11 m wide and 7 m
@@ -806,11 +837,61 @@ through, and one loaded until a pillar gives and it falls.
   parapet strip. So a round tower is round (fly at it off its middle and slide round its curve), an
   L block is open in its corner down to its podium, a setback's terrace is stood on behind its
   parapet. The apartments still as their parts' boxes.
-- **The pyramids** (`Pyramids`, a demo of its own): the great one, 60 m square and 40 m high, too steep
+- **The pyramids** (`Pyramids`, at the east edge of the town, `Town.pyramids`): the great one, 60 m square and 40 m high, too steep
   to climb (two triangles crossed); a low one, 24 m square at 25°, turned 30°, walked up to its point;
   and a stepped one, five tiers of 3 m (each a square stood up), a shrine on top and a stairway up its
   front (a ramp): closely shaped and boxes in one piece.
-- **Pavilions** (`Pavilion`, and a demo of their own, `Pavilions`): buildings that are open, hollow but
+- **The meadow village** (`Village`, `Demo.VILLAGE`): open country, no grid ruled on its ground, 20 km along its
+  river and 10 km across it (`Village.WEST` to `EAST`), 15 km of it west of the village: there, its valley runs
+  on, a spur of the hills on its north slope 6 km west, a pair of hills on its south slope 9 and 10.5 km west,
+  a long hill on the north slope 12.5 km west, the river and the highway along it all the way. A river
+  (`River`: where water runs, its middle line, how wide, its water's height, for the simulation to know)
+  winds across the whole world, two long gentle waves laid over each other, 12 m wide with its banks. Its
+  channel is cut into the land (`Channel`): a level bed 9 m wide and 1.5 m deep, its banks easing up from it
+  to the meadow over 4 m each side, no steeper than 30°, bare earth, the grass thinning out over their tops.
+  Its water lies 1 m deep over its bed, its top meeting its banks (`WaterModel`), fading into the haze
+  far off as the land does; walked down into and along and up out of, as yet without slowing.
+  Its roads are described as roads are (`RoadMap`, see [Roads](#roads)): a highway along the river, a
+  hundred metres south of it, its bends two and a half times less wide, across the world and past its ends;
+  a dual carriageway, each carriageway a motorway's, 11.6 m of asphalt: a hard strip by the median, two
+  lanes of 3.65 m, a hard shoulder of 3.3 m, its lines painted (an edge line each side of its lanes, a
+  dashed line between them); each running the way its traffic does (driving on the right: east south of
+  the median, west north of it), a 10 m median between them planted with two lines
+  of trees for 2.5 km either side of the village. An exit leaves the westbound
+  carriageway (`exit`, a vertex they share), a slip road easing out from it and curving round to a junction
+  north of the highway (`junction`); an entry slip road from the junction curves round and eases back onto
+  the carriageway further west (`entry`). From the junction a road runs to the river and across it square on
+  a bridge (its deck as high as the road there, pinned 80 cm over the meadow, stone parapets either side,
+  its centre line painted), and on up to the village's square by the well; and the lane to the church.
+  North of the river, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
+  woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
+  each simply gone. Trees along both banks, and across the meadow, each standing on the land where it
+  grows, its foot as low as the ground under it goes, none by a road. The avatar starts beside the road into
+  the village, south of the river, the bridge and the village ahead; a car and a motorcycle parked beside it.
+  Its land (`Village.land`) is the meadow's map (`Terrains.meadow`, on the terrain bench), surveyed once,
+  the river's channel and its roads laid over it, drawn (`TerrainModel`, see the
+  [terrain bench](#terrain-bench)): the river's valley across the world, its floor level where the river
+  runs and the village stands, up gently north past a knoll and a hollow, filled with a pond (`Pond`), to a
+  beacon hill, more steeply south to a ridge, moors at 100 m round the edge. The avatar walks on it.
+  A few hundred metres north-west of the village, a small hill, its top level at 12 m, and on it the town's
+  church, of stone, its front to the village; a lane winds up to it from the village's edge, 4 m of gravel,
+  no steeper than 14%.
+- **The earth house** (`EarthHouse`, on the buildings bench): round, as homesteaders on open plains
+  built them: its walls of earth, thick, battered a little and a little uneven, plastered smooth, their
+  tops rising inward to meet its roof; a low cone of a roof on them, its eave drooping no lower than its
+  walls (to be walked under), the ends of the poles that carry it showing under it, grass growing on it
+  if it is turf; a doorway in its front, posts and a lintel, a plank door (`Door`) standing open inward;
+  a window to one side, framed, shuttered or glazed; a mud chimney at its back and a stovepipe through
+  its roof. A whole house, inside and out: a floor of beaten earth, its walls as thick inside as out,
+  the poles overhead under its roof's underside; in the way as it is shaped (`EarthHouse.shape`),
+  walked into through its door, stood up in under its roof, kept out by its walls. Made to a size
+  (`EarthHouse.Size`): how wide, its walls' height and thickness, its roof's rise, its eave, its door
+  (over 2 m to walk in upright), its window (or none), a chimney or none, each a size control on the
+  bench; built of what is chosen, each its own colour: its walls mud plaster, red earth, pale clay,
+  sod, rammed earth or fieldstone; its roof turf, thatch or reed; its window shuttered or glazed; its
+  woodwork weathered or painted. The bench can leave any building's roof off, to look in from over it
+  (`-Dbuilding.roofless=true`).
+- **Pavilions** (`Pavilion`; one of each kind round the town's park, `Pavilions`): buildings that are open, hollow but
   for what holds them up, each part of its own and in the way as it is shaped: a platform, its steps
   up at its front (each rise under a body's step); a ring of pillars on it; beams tying their heads;
   a roof on those. Between them is open space: walked into up the steps, stood in under the roof
@@ -877,13 +958,79 @@ through, and one loaded until a pillar gives and it falls.
   one, its footprint stood up to its ridge.
   People can stand on the ground now, not only on a platform's deck (`Course.Cast` with no deck);
   each team holds its own stand-up.
-- **The town** (`Town`, a demo of its own): every building on a site of its own, a grid of three by
-  three 120 m apart ahead of the start, each facing back down the street to it: the church, the
-  temple hall, the brutalist apartments, and the six towers, each dressed its own way. Each is one
+- **The world** (`Body.EDGE`): a square 10 km across, 5 km each way from its middle, where the town
+  stands (`Town.start`: the avatar starts 230 m south of the temple, as it always has before the
+  town); up to 400 m high. Its edge is too far to be seen: round the camera, wherever it goes, a sky
+  (`Horizon`), a dome 4 km round lit by itself, deep blue overhead paling to a haze at the horizon;
+  and from 1.2 km out a ring of ground over the ground, its grass as the sun lights it fading into
+  the same haze, so the land runs into the sky with no line between. The camera draws out to the sky.
+  The ground's grid is drawn only within 600 m of the middle, where all there is stands. Only the
+  ground is hazed: what stands far off stays clear.
+- **The park** (`Town.park`), its floor at the ground and nothing over anything else: its lawn (the
+  ground itself open where it lies, `GardenMesh.ground`), open in turn where the courtyard's paving and
+  the path are, beside it. Each pond a real one: its kerb a low ring of stone in the way as it is shaped
+  (20 cm, stepped over), its water within it shallow, to wade; its island as high as the kerb, its
+  pavilion standing on it; a bridge out to it over the water, level with both, railed either side. What
+  stands about in it, each in the way and each to be broken, and broken simply gone: trees round its
+  edge (`Course.Kind.TREE`: a trunk in the way, a crown over it, of two kinds), lamp posts along the path
+  and at each bridge (`Course.Kind.LAMP`), and, loose, to be pushed about and knocked over: benches
+  along the path and by each pond, a litter bin by every other bench, a planter at each end of the path
+  (`Furniture.BENCH`, `BIN`, `PLANTER`). Far off, the furniture goes with the finest detail and the lamp
+  posts with what dresses a building; the trees stay.
+- **Detail by distance** (`Detail`, `BuildingModel.levels`): each building drawn in three levels, by
+  what each solid does and how big it is: its body (walls, base, structure, roofs, spire, glass: its
+  shape) always; what dresses it and its frames, 10 cm thick or more, within 800 m; the finest
+  (mullions, glazing bars, trims, thinner than 10 cm, and anything under 60 cm every way: plants,
+  fittings) within 150 m. Each frame the world measures how far the camera is from each building's
+  nearest point and shows or hides its levels (`World.seenFrom`); gone, each comes back a tenth nearer
+  than it went, so one seen from just that far does not flicker in and out. The park's path and bridges
+  go as what dresses a building does. Far off, what lay a few centimetres proud of a face, too fine to
+  tell apart in depth and smaller than a pixel, is no longer drawn to flicker through it: the round
+  tower, 300,000 triangles near, is under half that far off. Only drawing: what is solid, struck and
+  broken is the whole building, always.
+- **The temple siege** (`Siege`, `Demo.SIEGE`): the town, and enemy airships, heavy bombers, coming
+  in without end to bomb the temple's main hall until it falls. Each comes from 1.2 km out (`Siege.ENTRY`),
+  from a heading of its own, high over the tallest building, makes straight for the temple and circles
+  over it at a crawl, sinking to a height of its own (each slot clear of the next), bombing whenever
+  its bomb would land on the hall; passing over another building on its way it may, by chance, drop a
+  stick of three on it (`Raid`, a way worked out afresh for any moment: up to its cruise, a run in
+  meeting its circle square on, slowing, then round for good). So many fly at once, each in a slot of
+  its own: one of the airships built in for it, out of the world until its turn; shot down, its slot is
+  free for the next once its wreck has fallen. Its settings, before it starts (`SiegeSettings`): how
+  many at once (1 to 16), how often one comes and how much sooner each time, their speed and size, how
+  often they bomb and how likely they are to bomb other buildings, how tough the temple is and how
+  tough they are, what comes of the hall falling (the siege lost; the hall rebuilt in so many seconds;
+  or they go for the next building), and the seed their ways are drawn from: the same seed, the same
+  siege. A line over the status says how it stands: how long it has held, how much the hall has left,
+  how many are in the air, shot down and come. Their bombs fall past each other, and a blast now
+  harms what is shaped more closely than a box (a hall, a tower) as well as what is a box. Sixteen in
+  the air, bombing, run at 60 frames a second. A recording keeps how its siege was set.
+- **The town** (`Town`, the first demo): every building on a site of its own, a grid of three by
+  three 150 m apart ahead of the start, each facing back down the street to it: the church (on the
+  front row's middle), the brutalist apartments, and the six towers, each dressed its own way, the
+  round tower, the tallest, on the front corner. In the middle of the grid, where a building would
+  stand, the temple (below), its gate to the start, in a round park (`Town.park`): a lawn 100 m
+  across, a path over it up to the gate, a pond either side of the temple (its water in a stone rim,
+  an island in its middle with a pavilion on it, a bridge out to it), and the rest of the pavilions
+  round it, one of each kind, each facing the temple; the park's lawn, water and paving lie on the
+  ground in no one's way (`Course.Kind.GARDEN`), to be waded and driven over. Drawn so that
+  none lies over another but well over it (`GardenMesh`): the ground open where the lawn is (a floor 3 m
+  down under it, seen only where the lawn meets what lies in it), the lawn open where the courtyard's paving
+  and the ponds are, each pond's rim a ring round its water and its water round its island, the grid's
+  lines stopped at the lawn's edge, the path and the bridges 6 cm over what they cross; and the camera
+  draws from further off the further behind the avatar it is (`Game.nearClip`), the depth it tells
+  near from far by the finer for it, so flat things far off do not flicker through each other. In the temple's
+  courtyard (`Town.parked`), the cars, the pickup and the truck parked along its west side, the six
+  motorcycles along its east, all facing in, and the gunship on its middle line before the monks, its
+  nose to the gate. East of the town, the pyramids. On top of each tower, on each of its cores where
+  its lift overrun ends, a mounted Gatling gun (`Town.guns`, `Course.guns`), facing out from the
+  town's middle, to fly up to and man: seven in all, the rounded tower's two cores a gun each. The
+  temple, its park and the pyramids are laid out about their own origins and moved into place
+  together (`Course.Piece.within`). Each is one
   piece in the world (`Course.Kind.BUILDING`): its solid blocks a box round each of its parts as its
   solids name them (the nave, the tower, the spire; a tower's podium and shaft; the roof, the
   columns), so it is solid where it stands and open between; broken as a whole, as hard to break as
-  ten bunkers. Besides them, the boxer motorcycle by the start, and on the open ground before the first
+  ten bunkers. Besides them, on the open ground before the first
   row the barge with its melon stall off to one side and the meeting platform with its stand-up off
   to the other, their people with them. Each tower has a void deck part way up (`Town.tower`): the
   round, oval and rounded towers' open all round; the setback tower's (in its shaft), the L block's
@@ -895,12 +1042,14 @@ through, and one loaded until a pillar gives and it falls.
   those sat there leaning on it; the stall's table under its awning, watermelons on it and at its
   ends, two pineapples, the stallholder sat behind it and a customer before it. Loose things rest on
   a building's floors as they do on blocks (`Prop.support`), finding what is near through a grid of
-  the world's volumes (`VolumeGrid`), and people stand on them. Life size: on a town built smaller
+  the world's volumes (`VolumeGrid`), and people stand on them. So does all else: what is stood on, run
+  into and over a body or a vehicle (`Obstacles.footing`, `slide`, `ceiling`, `Lift.support`), so the
+  vehicles parked in the town cost no more than in the open. Life size: on a town built smaller
   than life, none. The simulation knows
   nothing of how a building is designed: the game tells it what stands in the town
   (`Course.town`). `-Dtown.scale=1.5` builds the town half as big again (from 0.25 to 2): every
   building, and the streets three quarters as much wider, enough to keep them apart, so a town built
-  bigger looks it. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
+  bigger looks it; the temple, its park and the pyramids as they are, the streets round them wider. The jet-pack's ceiling, 400 m, is over the tallest tower even twice as big.
 - **Scaled** (`Building.dressed(options, palette, scale)`, `Form.scaled`, `Solid.scaled`): a building
   made so many times as big every way about its origin, still on the ground, its skeleton, its curves
   and its solids alike: its doors, windows and floors with it, as a model is. (To make one bigger and
@@ -985,6 +1134,308 @@ at that section; `-Dbuilding.pick=tower from` and `-Dplan.shape=oval`
 metres; an oval's squareness as it is), `-Dplan.floors` and `-Dplan.storey` (m) the tower from the
 plan tab to start with.
 
+### Terrain bench
+
+Land is drawn as a topographical map, on a bench of its own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --terrain
+```
+
+A `Terrain` is a map: contour loops (`Contour`), each a closed line of points at a height, and spot
+heights where the ground tops out between them. Loops never cross, so they nest: one inside a lower
+one is a hill, inside a higher one a hollow. A flat loop holds the ground inside it level at its
+height, a pad to build a village or a town on. Outside every loop the ground is at the base height,
+met at the world's edge. A fine roughness, worked from a seed, is laid over all but the flat ground.
+A terrain goes `reach` each way from the middle, a square; or over any rectangle, `x=-15000..5000m
+z=-5000..5000m`, its survey so many heights across and so many along; the world's edge is its edge
+(`Land.insideX`), what moves held within it.
+
+It is written as text, in metres:
+
+```
+terrain "valley" reach=1000m every=5m base=40m seed=7
+noise height=1m apart=50m octaves=3
+contour 30m 953,0 932,131 864,251 ...
+contour 12m 255,-115 237,-91 213,-76 ...
+spot 18m at=190,-118
+contour 0m flat -240,60 -140,60 -140,160 -240,160
+```
+
+What is wrong with a map is told, as a floor plan's is: loops that cross, or cross themselves; a
+loop at the height of the loop round it; anything inside a flat loop; anything off the map; and a
+cliff, steeper than 60° between two loops.
+
+The land is worked out from the map into a `Survey`: heights on a grid, `every` apart, read
+smoothly between them (`height`, `slope`, `rise`). Each point takes the heights of the loop round it
+and the loops and spot heights just inside that, each weighed by how near it is, so between two
+loops the ground goes straight from one height to the other; a top with nothing marked on it rises
+on by half its last step, to the point deepest inside it. Two light passes round off the creases
+along the loops, flat ground and spot heights left as they are, and the roughness goes on last. The
+whole 5 km world, a height every 10 m, is surveyed in about 0.2 s. Contour lines are drawn back out
+of the heights (`Survey.lines`), and come out where the loops were.
+
+On the bench, the land is shaded in relief, lit from the north-west, tinted from green low down to
+pale stone high up, with contour lines drawn out of it every so far up, each fifth bold; over it,
+the map: its loops, each labelled with its height, the flat ones dashed, and its spot heights. Drag
+a point or a spot height to move it, to the metre; double click a loop's line to put a point in it;
+right click a point to take it out; drag elsewhere to move the map, and the wheel zooms. The map's
+text is beside it, to write in and apply, open and save; picking a loop picks its line. Each change
+is surveyed again apart from the screen, and what is wrong with it, how high and low the land goes,
+and how long that took are said under the text. `-Dterrain.file=path` opens a map's text to start
+with (else the valley, `Terrains.VALLEY`), or `-Dterrain.map=meadow` one of the maps drawn so far,
+also picked on the bench; `-Dterrain.lines=2` draws the contour lines every so many metres.
+
+In the game, a course's land is a `Land` (`Course.land`; level, at 0, where there is none): its lie,
+surveyed, and over it its features, each a layer of its own (`Land.Layer`), worked out apart from the
+rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`) and roads
+(`Road`), each along a line (`Polyline`, kept by where its segments are on a grid of cells, so a point
+far from it is told so at once); in time, paths, ditches, the edges of level pads. The survey's 10 m
+between heights is plenty for the lie, which is smooth by nature; the detail is in the features. A
+feature says what covers the ground too (`Land.cover`): bare earth, gravel or asphalt. Roads are such
+features (see [Roads](#roads)).
+Water lies in the land as a body of its own: a river along its channel, as deep over its bed as it is
+(`River.top`), and a pond (`Pond`) filling it to its level within a loop whose rim is higher.
+
+Everything that goes over the ground stands on it: the world (`Obstacles`) holds it, and what the feet,
+a vehicle's wheels, a person or a loose thing stand on (`footing`) is the land, or a block's top over it;
+a ray meets it, striding along as far as it is over it and closing in by halves once under. The avatar
+walks up it and down it; where it rises steeper than 45° (`Body.CLIMB`), it is in the way as a wall is,
+and the avatar goes along the slope instead.
+
+It is drawn by `TerrainModel`, in place of the flat ground, in pieces (`Pieces`), each as fine as it
+is near and the camera slow (`Fineness`): a fineness from 1, the finest, to -1, the roughest, falling
+evenly with the logarithm of distance (at rest, 3 cm within 300 m, 10 cm out to 740 m, coarser on out),
+and lower the faster the camera moves across the ground, as the square of how much faster than 18 km/h
+(at 108 km/h the finest only within 190 m), its speed taken in over half a second as it rises and
+let go over two as it falls; speed counting for nothing within 60 m, the land round you always at its
+finest, and less and less beyond 800 m, though never so that land further off is finer. The pieces are
+a quadtree, as big as their fineness: 125 m a side round the camera, then 250 m, 500 m, 1 km, and 2 km far
+off, each a mesh of its own, about as many points as the next; a piece splits in four while fineness at
+its nearest point asks for finer than it is, a level a frame, the nearest first, and four go back into one
+once it no longer does, coming back finer only once a little past where it went coarser. A piece is built
+apart from the screen, on threads of its own, ahead of being wanted (as if 30% nearer than it is), and
+what was shown there stays shown until it is ready, so no gap ever shows; no more than 12,000 points a
+frame are sent to be drawn for the first time, four pieces at once or none; to start with, the roughest
+are built, side by side. Those out of view are not drawn (`View`: as wide as the camera looks and 15°
+more either side, and all within 150 m); a piece's finer ones are let go once it would not split even 30%
+nearer, so a long drive does not keep the land behind it. So a frame shows about 180 meshes of land, not
+the 400 tiles it was, and sending one is a sixteenth of what a tile was. Each is as fine as the land
+needs and no finer (`LandSheet`): a square of it split in four, and those again, only where its corners
+alone would put the land more than so far out, or where a feature lies (so finely only near);
+squares beside each other never more than twice the other's size, the bigger's side broken where the
+smaller's corners are, so no crack shows; so open meadow comes out in squares of tens of metres, a
+river's bank in squares of half a metre. A skirt hangs from each piece's edges so no gap shows where a
+fine piece meets a coarse one. It is shaded by the sun as its slopes face it and tinted by height, a
+little mottled: the meadow's grass low down, drier grass up the slopes, moor on the heights; bare
+earth where a feature leaves it so, thinning out into the grass, the squares finer near where what covers
+the ground changes, so its edges are smooth; beside a road, grass, the road its own strip. It is seen as
+far as the camera's height lets it (`Sight`): 4 km on the ground, 8 km 150 m up, 13 km 500 m up, 31 km
+3,000 m up, at most 40 km (4 km times the square root of one and the height over 50 m), taken in quickly
+climbing, let go slowly coming down; clear of haze for the first 30% of that, and from there fading into
+it, all of it short of how far, its slopes lit more and more as level ground is, so the land goes into the
+sky with no line between. The sky's dome is as big, and the camera draws a quarter further. Past where it
+was laid out the land runs on 48 km each way, a plain, its edge's heights carried on out, flat, drawn as
+far as is seen. How far a piece is, for its fineness, is from the camera, its height over the ground and
+all: from high up, nothing under it is fine. Fineness runs on below -1 for what is far, so far land is
+drawn in pieces of 4 km and 8 km, to 10 m and 25 m; speed alone never makes land rougher than -1.
+From over 60 m up (till under 40 m), what the camera follows, the avatar, the aircraft it flies and its
+flames, is drawn in a view of its own over the world's, its camera moved as the world's is: so the world's
+view starts drawing a hundredth of the camera's height off, and tells far things apart (a depth buffer's
+precision falls as the square of how far over how near it starts), and what it follows is not cut away.
+Each piece's haze is worked out again, height by height, once the camera has moved 25 m, or 5% of how far
+off the piece is, if more, since far off the haze changes little with a few metres more or less; those
+near enough to have none are left alone; a frame sends no more than so many heights again. Its tint and its
+haze are one picture lit by itself, its base colour alone lit by the sun: a picture lit and another
+lighting itself, each drawn from coarser copies of itself far off, would not go together, and the
+land would show dark streaks across it and a white edge against the sky.
+
+### Roads
+
+A road is described as an ordered list of vertices and, between each two in turn, a segment homogeneous
+in every attribute (`RoadMap`): its kind (a named set of attributes: width, surface, steepest grade,
+tightest curvature, whether a corner is allowed, side slope, camber, transition length, the length its
+grade takes to change; and its lanes, if it is marked out in them: how many, how wide, and the strip on
+their left), its curvature, signed (a straight, or an arc the short way round, bending left or
+right; half a circle at most), and whether it is a bridge. A vertex is a point, and may pin the road's
+height there, and may be a node other roads share, where they meet. Nothing else is described; everything
+else is worked out:
+
+- **its line** (`Alignment`): each segment a straight or an arc between its vertices; at each vertex where
+  the segments either side differ in anything, or meet at a kink, a transition, the line easing from the
+  one into the other over the transition's length, half before the vertex and half after, so neither where
+  it is nor which way it heads jumps. Splitting a segment where nothing changes changes nothing.
+- **its heights** (`Road`): fitted to the ground under its line as a whole, as near it as an even sweep can
+  be (the grade changing over its kind's vertical length, not with every lump), held through its pins and,
+  on its own ground, its ends; then kept within its steepest grade. Over a bridge the ground is not asked:
+  the road is carried across between its pins. So the ground's lumps show only in how deep a cutting is or
+  how high a bank, never in its surface.
+- **across it**: its kind's width and surface, its carriageway falling either side of its crown by its
+  camber; each eased from one segment's into the next's over the transition at the vertex between them.
+- **its markings** (`RoadMap.Kind.markings`), from its lanes: a solid line at each edge of its lanes, a
+  dashed one between each two (3 m dashes, 9 m gaps); drawn as thin strips of their own (`RoadModel`), just
+  over its surface where they are across it, camber and all, shown within 350 m; none on a bridge.
+- **as drawn** (`RoadSurface`): a strip of its own, not the land's, at each of its line's points its edges and
+  its crown, as high as its surface is there and 2 cm more, coloured as what it is made of, lit and hazed as
+  the land is; so its edges are where they are however finely the land under it is drawn, and it never
+  changes as that does. **An artificial offset, for drawing only** (`RoadBand`): the land is drawn lowered under
+  and beside every road, by as much as its piece may be out and 10 cm more, out from the road's edge as far as
+  a triangle crossing it may reach (the diagonal of the biggest square a feature lies in at that level), easing
+  back to the land over as far again; so a coarse piece, its triangle spanning the road with no point on it,
+  cannot lie over the road and hide it till the camera comes nearer. Centimetres near, out to a few metres;
+  metres far off, out to hundreds: too far off to be seen. It is not the land: walked and driven on, the land is
+  as it is; nor how a road is built, which would be its own (its courses laid on the earth). In stretches of a kilometre, those out of view not drawn.
+- **beside it**: a side slope from its edges down or up to the ground at its kind's slope, as wide as the
+  cutting is deep or the bank high, twice over for 1 in 2.
+- **where roads meet**: a road with a vertex another road laid before it shares is pinned as high as that
+  road is there, and laid over it.
+- **what is wrong with it** (`RoadMap.problems`, `Road.problems`): a curvature that cannot reach from one
+  vertex to the next, or is tighter than its kind turns; a kink where its kind allows no corner; a segment
+  too short for the transitions at its ends; roads crossing other than at a node they share; a grade it
+  could not keep to, to reach a pin.
+
+Roads are written as text, in metres, and read back the same:
+
+```
+kind lane width=4m surface=gravel grade=12% curve=1/15m slope=1:2 camber=0% transition=12m vertical=30m
+kind motorway width=11.6m surface=asphalt grade=5% curve=1/200m slope=1:2 camber=2% transition=60m vertical=100m lanes=2x3.65m inner=1m
+node square at=-40,98
+road "church lane" kind=lane
+  from square
+  to -62,131
+  to -95,170 curve=+1/25m
+  to -235,383 height=12m
+```
+
+Each `to` closes a segment, which carries on the attributes of the one before unless it says otherwise. A
+race track is a closed loop (`loop`) of four segments: two straights and two half circles. A road worked out
+is a feature of the land (`Road` is a `Land.Layer`), laid over it after the river's channel; a bridge is built
+on its bridge segment as the road has it there.
+
+### Aircraft bench
+
+Aircraft are shaped on a bench of their own:
+
+```bash
+java -jar avatar-demo/target/avatar-demo.jar --aircraft
+```
+
+An aircraft (`air.Craft`) is two layers: its bodies, and the solid parts fixed to them. A body is
+one of two kinds, each made in a frame of its own (across to the right, along to its nose, up) and
+mounted (`Mount`: rolled, pitched, yawed, put in place):
+
+- **A fuselage** (`Fuselage`): lofted through its sections, tail to nose, each a superellipse as
+  wide and as deep as it says, raised or lowered, round, oval or near enough square; a section of no
+  size a point. Its skin goes smooth from each to the next. So one model is an airship's envelope
+  (a full round nose, a parallel middle, a long tail drawn to a point), an aeroplane's fuselage (a
+  rounded nose, a long cabin, a tail cone swept up and flattened), a helicopter's pod and boom, an
+  engine's nacelle (an open intake, an exhaust), a propeller's spinner.
+- **A box body** (`BoxBody`): a box with every edge and corner rounded (a box rolled round a ball:
+  its faces flat), drawn in toward its nose and its tail: a drone's body, a boxy helicopter, a
+  gondola, an engine's housing.
+
+Either says where a point on its skin is, so many degrees round it at so far along it
+(`Body.surface`): where a part is fixed to it. The parts (`Parts`) are pieces (`Piece`), eight
+cornered as a building's are, drawn flat face by face: a wing (tapered, swept and raised, an
+aerofoil in section: a fin is a wing on its side), a rotor (its blades twisted, drooping; a
+propeller is a rotor turned to face ahead), a ring (a duct, a rim), a wheel, a bar (a strut, an arm,
+a skid), and a patch lying on a body's skin as it curves (a window, a stripe, an insignia; all the
+way round, a frame's band). What turns (`Spinner`) turns about its own axis. A livery (`Livery`)
+says what colour each paint (`Paint`: its skin, its frames, its car, glass, metal, its rotors, its
+wings, its trim) is.
+
+An engine (`Engine`) is made whole in a frame of its own, its thrust ahead, and fixed on an
+aircraft as one: a radial piston engine (a short cowling, its lip banded, the ring of its nine
+cylinders dark through its open front, exhaust stubs, a three-bladed propeller on a spinner), a
+turboprop (a long slim nacelle, a chin intake, exhaust stubs, four blades on a long pointed
+spinner), a ducted fan (a duct swept round from an aerofoil section, smooth, its lip banded; a fan
+of seven blades on a hub drawn to a cone either end, five stators behind it) and a turboshaft (a
+housing, a dark intake, grilles, panel lines, two exhaust nozzles splayed out of its back; it turns
+a rotor, not a propeller of its own). A propeller's blades are shaped as one's are: a narrow shank,
+broadest a third of the way out, a rounded tip, thin in section and twisted. Pylons and struts are
+streamlined, aerofoils in section (`Parts.strut`).
+
+For angular, military machines: a skin can be drawn faceted, flat quad by quad, a fuselage with
+few sides round (`Fuselage.faceted`); a box body's edges and corners cut flat rather than rounded
+(`BoxBody.withChamfers`); a canopy a glass bubble in flat panes, framed by bows and a spine
+(`Fuselage.canopy`). A part can turn on a hinge (`Hinge`) to an angle a named control sets, not
+round and round as a spinner does: a duct tilted, a turret traversed, its gun raised. What is on a
+hinge goes with it, its spinners and the hinges on it too; a hinge's mirror image turns as it does.
+Weapons are made whole as engines are (`Weapons`): a rocket pod (a faceted tube, a warning band,
+seven tubes' mouths in its dark face, a lug to hang it by), a rotary cannon (a housing, six barrels
+turning in their clamps), a missile on its rail (its nose banded, four fins and four canards), and a
+chin turret (a faceted ball that traverses under a plate, a rotary cannon in it raised and lowered:
+hinges on hinges). A coaxial ducted rotor (`Engine.coaxialDuct`) is a deep faceted duct, two rotors
+in it turning opposite ways, a hub held by stators, vanes across its exit, a trunnion either side to
+tilt it on. Liveries for them: olive drab, desert, gunmetal.
+
+A body can be drawn by its lines first, as a designer draws one, and then dressed on them, as a
+building is (`Lines`): its longerons, lines running its length (a keel, a chine, its widest line,
+a shoulder, a canopy's rail, a spine), each given where it crosses each of its sections, tail to
+nose, for its right half (the left its mirror image), with more sections put between on smooth
+curves through them. From them its skeleton, a graph (`Form`) like a building's: a vertex where
+each longeron crosses each section, edges round each section and along each longeron. On that
+skeleton its skin: a flat panel (`Panel`) between each two longerons and each two sections, each
+band painted as its dressing says (a canopy's glass over a cockpit, a darker belly, an intake). So
+its chines are lines it is drawn by, crisp. A wing's lines are an aerofoil's section along its span,
+drawn to a point at its tip. On the bench, its skeleton can be shown, and its dressing.
+
+A gunship is drawn so (`Gunship`), its side as a sketch has it: six longerons through fifteen
+sections, from a level boom out to a V-tail, down into a deep belly, to a cockpit block, a raked
+windscreen and a blunt nose. A section can be sharp (`Lines.Section.sharp`): drawn straight to its
+neighbours, not curved through them, so a wall stands upright. Over its centre of gravity its back
+is cut down to a bay, walled fore and aft, a flat floor (`Gunship.Bay`, among its
+`Gunship.Hardpoints`): its lift is set into it, the body as it is however it is lifted. A saddle
+fills the bay and carries it: a high wing with a turboprop either side; beam wings out to two big
+coaxial ducts, tilting together (`"tilt"`, hovering to flying); a pylon and a main rotor, with a
+ducted fan at its tail; or a pylon and two coaxial rotors. Its body alone, its bay empty, is on the
+bench too, and its fuselage alone, to be shaped by its style's sliders.
+
+A propeller for wherever one turns in the open (`Propeller`), made to any size, every part a share
+of its diameter: its blades drawn by their lines, an aerofoil section out along the span, widest a
+little inside the middle, narrowing and thinning to a rounded tip, twisted for a steady pitch (steep
+at the root, flat at the tip); a round spinner over its hub. More blades the bigger it is (two below
+1.5 m, three, four, five from 8 m up), turning as fast as its tips allow; or a coaxial pair, the one
+behind turning the other way, its blades the other hand. What turns (`Spinner`) can now carry lines,
+its skeleton turning with it.
+
+Six are made, each to one size (`Crafts`): an airship (an envelope ringed by its frames, a cross of
+fins, a gondola hung under it on struts, glazed round its nose, an ducted fan either side on an
+outrigger), a heavy bomber airship (a fatter, dark envelope, red bands round its nose, a long
+armoured gondola with a bomb bay, six radial engines on pylons down its flanks, gun blisters), a
+quadcopter drone, a helicopter (a pod and boom, its turboshaft behind the rotor mast, a fin, a
+tailplane and a tail rotor, skids), a tandem-rotor helicopter (a box body, a pylon and rotor at
+either end, a turboshaft either side of the rear one, wheels) and a light aeroplane (a low wing, a tail, a propeller and spinner, three
+wheels); each of the five engines, the four weapons and three angular bodies (a faceted fuselage, a
+chamfered box body, a framed canopy) on its own. On the bench, each to any size it may be made, in any livery, its rotors turning as
+fast as its power says; a person stood by it, a slider for each control its hinges turn on, on a floor ruled every 10 m (every metre, for a
+drone). Drawn as `look.CraftModel`: skins smooth, pieces flat, a mesh to each paint.
+
+`-Daircraft.pick=heli` (the start of any word of a kind's name) picks what is on show to start
+with, `-Daircraft.livery=bomber` its livery, `-Daircraft.size=30` its size in metres;
+`-Daircraft.yaw`, `-Daircraft.pitch` and `-Daircraft.distance` (m) where it is seen from;
+`-Daircraft.turning=false` holds its rotors still. `-Daircraft.floor=false` and `-Daircraft.person=false` start
+without the floor (to look up at it from under it) and the person;
+`-Daircraft.set=turret traverse=40,turret elevation=-30` sets its hinges' controls to start with.
+`-Daircraft.skeleton=true` starts with its skeleton shown, `-Daircraft.dressed=false` undressed.
+
+What turns on a hinge can be driven, not only set (`Actuator`): beside each hinge's slider, a button
+opens it or shuts it, at the rate the hinge speed slider says (degrees a second), hydraulically, in
+stages, each heard (`HydraulicVoice`): its pump starts and spools up, its lock pin is drawn (a metallic
+click), its valve opens (a thump and a burst of hiss), it moves, its fluid hissing as it flows and
+its pump whining under the load, it is cushioned near its end (the hiss tightening), it stops (a thud);
+shut, its lock drops in (a clunk and a click); its pump runs down. Asked back part-way, its valve
+switches over and it turns back. Moving a slider by hand puts the hinge there, held. The bomber's
+cabin doors open so (`Door`, `Doors`: a door or a pair of leaves, framed, each on its hinge; the
+temple yard's gate is one, standing open). `-Daircraft.open=cabin door` starts one opening,
+`-Daircraft.rate=60` sets the hinge speed, `-Daircraft.quiet=true` keeps it silent.
+
+The airships in the game (the ones going round, the one moored to fly) are this design too, drawn 18 m
+long (`World`): its hull by its lines, its coaxial propeller turning in its shroud, a turboprop either
+side, its control cabin fitted to the gondola it is boarded by (`Bomber.Cabin.fitted`), the hatch in
+its floor, its gun under it and its bomb bay where they were. What it is in the way as (`Course`) is
+shaped to match: its hull stepped as it is drawn, its shroud's ring, its turboprops on their pylons.
+
 ## Unattended runs
 
 A script drives the demo without a keyboard, for pictures, checks and recordings. It leaves the
@@ -1022,9 +1473,19 @@ java -Davatar.script="J;F;SPACE:1.2;W+@90:2" -Davatar.snapshot=out.png -jar avat
   recording keeps the demo it was made in, and its replay plays there.
 - **`-Davatar.snapshot=out.png`** saves the window just before the script ends, and exits.
   `-Davatar.settle=<ms>` picks the moment instead, counted in the world's time.
+  `-Davatar.hud=false` leaves the HUD out of it, for a picture of the world alone.
 - **`-Davatar.at=0,215,84.6,0`** stands the avatar there to start (x, z and how high, in metres;
   which way it faces), not at the start: to look at something far off, a tower's void deck say.
   With `-Davatar.pack=true` and a script starting `F`, it hovers there. Not for a recording.
+- **`-Davatar.slow=20`** prints, for each frame that came more than 20 ms after the one before, what was
+  done before it (`SlowFrames`): how long into the run; the frame's own work and the drawing's of it; what it
+  did to the land, pieces newly shown (of what levels, how many new, how many heights sent), their haze, how
+  many pieces are shown and how many in view, and what
+  the frame before that did; the garbage collector's runs since; what is left to JavaFX, sending and drawing;
+  how many meshes are drawn; where the camera is and how fast it goes. And each second's frames, with where.
+  For finding what holds the frames up, while driving or flying. Turned on and off as it runs from the View
+  menu (Log slow frames), whichever way the demo was started; each line also kept in `avatar-frames.log` in
+  the temporary folder, added to from one run to the next, each time it is turned on or off marked.
 - **`-Davatar.audio=record -Davatar.record=flight.wav`** writes a stereo WAV of exactly what
   would have played, kept in time with the game. It is for hearing a run afterwards, or
   checking it without speakers:
@@ -1049,13 +1510,14 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops), as heights worked out from it (`Survey`), and as it is gone over (`Land`, its features laid over it, such as a river's `Channel` and the roads, described as `RoadMap` and worked out as `Alignment` and `Road`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them) draw it in JavaFX |
+| `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`, in pieces as big as its distance and the camera's speed ask, `Pieces` and `Fineness`, as far as the camera's height lets it see, `Sight`, those out of view not drawn, `View`), `WaterModel` (the water lying in it), `RoadSurface` (the roads, each a strip of its own over the land) and `RoadModel` (the lines painted on them) and `Horizon` (the sky and the far ground) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |
-| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`) and the WAV renderer (`Render`) |
+| `bench` | The sound bench (`SoundBench`), the engine bench (`EngineBench`, its sound made by `EngineOut`), the aircraft bench (`AircraftBench`), the terrain bench (`TerrainBench`, its map drawn by `TerrainMap`) and the WAV renderer (`Render`) |
 | (root) | The app: input (`MouseLook`, keys), the frame loop, the HUD |
 
 All but the drawing, the devices and the app is unit-tested, and a test (`LayersTest`) keeps

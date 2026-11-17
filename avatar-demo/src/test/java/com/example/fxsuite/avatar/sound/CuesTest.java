@@ -152,6 +152,16 @@ class CuesTest {
     }
 
     @Test
+    void aBombersBayIsHeardOpeningAndShuttingWhereItsDoorsAre() {
+        final Vec3 doors = new Vec3(400, -3500, 7000);
+        final List<Cues.Play> plays = of(with(0, false, new Event.Bay(5, true, doors), new Event.Bay(5, false, doors)),
+                PROFILE).plays();
+        assertEquals(List.of(Sound.BAY_OPEN, Sound.BAY_SHUT), plays.stream().map(Cues.Play::sound).toList());
+        assertEquals(doors, plays.get(0).at());
+        assertTrue(Sound.BAY_OPEN.reach() >= 4000, "heard from the ground, under it");
+    }
+
+    @Test
     void theNearestAirshipDronesWhereItHangsAndOneComingDownIsHeard() {
         final Vec3 near = new Vec3(0, -3000, 5000);
         final Vec3 far = new Vec3(9000, -3000, 0);
@@ -167,7 +177,7 @@ class CuesTest {
         final Cues.Play down = of(with(0, false, new Event.Broke(4, Course.Kind.AIRSHIP, airship,
                 near, Weapon.GATLING)), PROFILE).plays().getFirst();
         assertEquals(Sound.BREAK_AIRSHIP, down.sound());
-        assertEquals(new Vec3(0, -3025, 5000), down.at(), "from the middle of where it hung");
+        assertEquals(new Vec3(0, -(3000 + Course.AIRSHIP_BOX.up()), 5000), down.at(), "from the middle of where it hung");
     }
 
     @Test

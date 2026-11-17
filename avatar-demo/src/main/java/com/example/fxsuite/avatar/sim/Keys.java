@@ -10,7 +10,8 @@ import java.util.Set;
  * Keys that mean nothing to the world (the camera's, the sound's) are simply not in it.
  *
  * <p>W/S go ahead and back, A/D sideways, Space climbs and Ctrl descends while flying; the
- * avatar goes at full speed unless Shift is held. Pressed, Space jumps, F takes off or lands,
+ * avatar goes at full speed unless Shift is held. Q and E slide an aircraft aside, its A and D
+ * turning it (on foot they are the camera's, and mean nothing to the world). Pressed, Space jumps, F takes off or lands,
  * J puts the pack on or off, T takes the controls of a platform or lets go of them, and 1, 2 and
  * 3 draw the rifles, the glaive and the Gatling gun.
  */
@@ -56,7 +57,8 @@ public final class Keys {
                 trigger,
                 aim,
                 pressed.stream().map(Keys::action).flatMap(Optional::stream).toList(),
-                bomb);
+                bomb,
+                axis(held, "E") - axis(held, "Q"));
     }
 
     private static double axis(final Set<String> held, final String key) {

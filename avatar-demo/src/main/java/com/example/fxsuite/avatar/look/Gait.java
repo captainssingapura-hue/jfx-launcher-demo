@@ -59,7 +59,20 @@ public final class Gait {
      * </ul>
      */
     public static Pose of(final Avatar avatar, final double lookYaw, final double lookUp) {
-        final Pose pose = of(avatar.body(), lookYaw, lookUp);
+        return holding(avatar, of(avatar.body(), lookYaw, lookUp));
+    }
+
+    /**
+     * As {@link #of(Avatar, double, double)}, but with the body upright, however it is tipped flying,
+     * diving or running: as its arms and what they hold are seen from its own eyes, steady at the
+     * bottom of the view, wherever the body leans.
+     */
+    public static Pose upright(final Avatar avatar, final double lookYaw, final double lookUp) {
+        return holding(avatar, of(avatar.body(), lookYaw, lookUp).upright());
+    }
+
+    /** {@code pose}, its arms taken over by what {@code avatar} holds. */
+    private static Pose holding(final Avatar avatar, final Pose pose) {
         final Arms arms = avatar.arms();
         return switch (arms.held()) {
             case NONE, BOMB, FALL, CRASH, HEAVY_GATLING, GIANT_GATLING, RAPID_GATLING -> pose;

@@ -269,7 +269,7 @@ public final class EngineBench extends Application {
     private void pick(final Engine picked) {
         base = picked;
         final Charger fitted = Vehicle.of(picked).engine().charger();
-        induction.setDisable(!picked.car());
+        induction.setDisable(!picked.chargeable());
         choosing = true;
         induction.setValue(fitted instanceof Turbo ? TURBO : fitted instanceof Supercharger ? SUPER : NONE);
         headers.setValue(STOCK);

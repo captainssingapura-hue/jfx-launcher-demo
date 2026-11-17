@@ -26,13 +26,47 @@ import java.util.Random;
  */
 public final class Course {
 
+    /** What a garden's piece ({@link Kind#GARDEN}) is laid as, by its tint: a lawn, water, stone, each round; paving, as its box. */
+    public static final int GARDEN_LAWN = 0;
+    public static final int GARDEN_WATER = 1;
+    public static final int GARDEN_STONE = 2;
+    public static final int GARDEN_PAVING = 3;
+    /** Timber laid as paving is: a footbridge's deck and ramps, drawn as their boxes, sloping if they do. */
+    public static final int GARDEN_TIMBER = 4;
+
+    /**
+     * The temple's pieces, by the keys they are drawn by ({@link Piece#tint}): from its main hall, its
+     * other halls, its gate and its wall's units, up to the pyramids'. Its main hall what a siege
+     * ({@link Siege}) is to bring down.
+     */
+    public static final int MAIN_HALL = 100;
+    public static final int TEMPLE_ENDS = 300;
+
+    /** Whether {@code piece} is the temple's: one of its halls, its gate, a unit of its wall. */
+    public static boolean temple(final Piece piece) {
+        return (piece.kind() == Kind.BUILDING || piece.kind() == Kind.WALL_UNIT) && piece.tint() >= MAIN_HALL
+                && piece.tint() < TEMPLE_ENDS;
+    }
+
     public enum Kind {
         PILLAR(false), CRATE(true), GATE(false), DUMMY(true), DRONE(true), AIRSHIP(true), PLATFORM(true),
         FURNITURE(true), FRUIT(true), ROAD(false), BUNKER(true), CAR(true), TRACK(false), WALL(false),
         /** A building: one piece, its solid blocks its parts' boxes, broken as a whole. */
         BUILDING(true),
         /** A unit of a wall: one of a wall's many, each standing, worn down and broken on its own. */
-        WALL_UNIT(true);
+        WALL_UNIT(true),
+        /** An aircraft to be flown ({@link Aircraft}): a gunship, say. Not yet to be broken. */
+        AIRCRAFT(false),
+        /**
+         * Laid on the ground, in no one's way, walked and driven over: a park's lawn, a pond's water,
+         * its stone rim, an island in it, each drawn round (a disc as wide as its box); or paving, a
+         * path or a bridge, drawn as its box. Which, by its tint ({@link #GARDEN_LAWN} and on).
+         */
+        GARDEN(false),
+        /** A tree: its trunk in the way, its crown over it not; felled, it is gone. */
+        TREE(true),
+        /** A lamp post: its post in the way; broken, it is gone. */
+        LAMP(true);
 
         private final boolean breakable;
 
@@ -175,9 +209,38 @@ public final class Course {
             return new Piece(shape.box(to), kind, tint, shape.solid(to), shape, to, route, carrier, loose, body);
         }
 
+        /** The same airship, going its way along {@code another} instead, where that has it at the start. */
+        public Piece routed(final Route another) {
+            final Place at = another.at(0);
+            return new Piece(shape.box(at), kind, tint, shape.solid(at), shape, at, another, carrier, loose, body);
+        }
+
         /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
         public Piece at(final double seconds) {
             return route == null ? this : placed(route.at(seconds));
+        }
+
+        /**
+         * The same piece, one that stays where it is, laid out about the world's origin, put
+         * {@code at}: moved there and turned with it, as a group of them is moved together (a
+         * temple's courtyard, its halls and its wall, put in the middle of a town).
+         */
+        public Piece within(final Place at) {
+            if (moves()) {
+                throw new IllegalArgumentException("only what stays where it is is moved so, not a " + kind);
+            }
+            return new Piece(block.within(at), kind, tint, solid.stream().map(b -> b.within(at)).toList(), null,
+                    place == null ? null : within(place, at), route, carrier, loose, body,
+                    volumes.stream().map(v -> Volume.placed(v, at, 1)).toList());
+        }
+
+        /** {@code place}, laid out about the world's origin, put {@code at}: moved there and turned with it. */
+        public static Place within(final Place place, final Place at) {
+            final Vec3 right = Num.right(at.yaw());
+            final Vec3 ahead = Num.heading(at.yaw());
+            return new Place(at.x() + right.x() * place.x() + ahead.x() * place.z(),
+                    at.z() + right.z() * place.x() + ahead.z() * place.z(), place.height() + at.height(),
+                    Num.wrap(place.yaw() + at.yaw()));
         }
     }
 
@@ -196,6 +259,11 @@ public final class Course {
             return box.placed(place);
         }
 
+        /** The same, {@code k} times as big every way, about its own origin: an airship built bigger. */
+        public Shape scaled(final double k) {
+            return new Shape(box.scaled(k), parts.stream().map(part -> part.scaled(k)).toList());
+        }
+
         /** Its solid parts, at {@code place}, in order. */
         public List<Block> solid(final Place place) {
             return parts.stream().map(part -> part.placed(place)).toList();
@@ -203,13 +271,23 @@ public final class Course {
     }
 
     /**
-     * The way an airship goes: round the start, {@code radius} out, at {@code height}, from
-     * {@code heading} at the start, at {@code speed} (units a second; round the other way when
-     * negative), nose first along its way.
+     * The way an airship goes of itself, where it is at each moment: round the start
+     * ({@link Circling}); or in from the edge of the world to a target, and round over it ({@link Raid}).
      */
-    public record Route(double heading, double radius, double height, double speed) {
+    public sealed interface Route permits Circling, Raid {
 
         /** Where along it, {@code seconds} after the start. */
+        Place at(double seconds);
+    }
+
+    /**
+     * Round the start, {@code radius} out, at {@code height}, from {@code heading} at the start, at
+     * {@code speed} (units a second; round the other way when negative), nose first along its way.
+     */
+    public record Circling(double heading, double radius, double height, double speed) implements Route {
+
+        /** Where along it, {@code seconds} after the start. */
+        @Override
         public Place at(final double seconds) {
             final double angle = heading + Math.toDegrees(speed * seconds / radius);
             final Vec3 at = Num.heading(angle).multiply(radius);
@@ -233,6 +311,11 @@ public final class Course {
             return new Block(at.x(), at.z(), halfAcross, halfAlong, yaw, height + up - halfUp, height + up + halfUp);
         }
 
+        /** The same, {@code k} times as big every way, about the frame's origin. */
+        public Section scaled(final double k) {
+            return new Section(across * k, along * k, up * k, halfAcross * k, halfAlong * k, halfUp * k);
+        }
+
         /** As a block, for an airship at {@code place}. */
         public Block placed(final Place place) {
             return placed(place.x(), place.height(), place.z(), place.yaw());
@@ -240,34 +323,37 @@ public final class Course {
     }
 
     /**
-     * An airship's hull: stepping out from a blunt nose to its full girth and back in to the
-     * tail, 18 m long and 4.4 m across. Then a cross of fins at the tail, a gondola under the
-     * middle, and an engine either side on a pylon. Each is solid.
+     * An airship's hull, as it is drawn ({@code air.Bomber}, 18 m long, 4.5 m round): stepping out from
+     * a blunt nose to its full girth, the long middle (the fourth, its deck), and in down its long tail
+     * to its slim hub; its belly a little flatter than its back. Then the shroud round its hub, a box at
+     * each side of its ring; a control gondola flush under its keel, forward of its middle; and a
+     * turboprop either side, a little ahead of its middle, on a pylon, to steer. Each is solid.
      */
     public static final List<Section> HULL = List.of(
-            new Section(0, 840, 0, 100, 60, 100),
-            new Section(0, 700, 0, 160, 80, 160),
-            new Section(0, 520, 0, 200, 100, 200),
-            new Section(0, 40, 0, 220, 380, 220),
-            new Section(0, -460, 0, 200, 120, 200),
-            new Section(0, -680, 0, 160, 100, 160),
-            new Section(0, -840, 0, 100, 60, 100));
-    public static final List<Section> FINS = List.of(
-            new Section(0, -760, 250, 8, 140, 130),
-            new Section(0, -760, -250, 8, 140, 130),
-            new Section(-250, -760, 0, 130, 140, 8),
-            new Section(250, -760, 0, 130, 140, 8));
-    public static final Section GONDOLA = new Section(0, 80, -275, 75, 190, 55);
+            new Section(0, 855, 0, 100, 45, 85),
+            new Section(0, 720, 0, 190, 90, 175),
+            new Section(0, 540, 8, 220, 90, 200),
+            new Section(0, 135, 17, 225, 315, 208),
+            new Section(0, -315, 10, 215, 135, 200),
+            new Section(0, -540, 0, 135, 90, 125),
+            new Section(0, -765, 0, 42, 135, 42));
+    /** The shroud round its hub at its tail: its ring's top, its bottom, and either side. */
+    public static final List<Section> SHROUD = List.of(
+            new Section(0, -747, 180, 130, 63, 9),
+            new Section(0, -747, -180, 130, 63, 9),
+            new Section(-180, -747, 0, 9, 63, 130),
+            new Section(180, -747, 0, 9, 63, 130));
+    public static final Section GONDOLA = new Section(0, 80, -260, 75, 190, 70);
     public static final List<Section> PYLONS = List.of(
-            new Section(-255, -60, -40, 40, 30, 7),
-            new Section(255, -60, -40, 40, 30, 7));
+            new Section(-266, 108, 0, 41, 25, 4),
+            new Section(266, 108, 0, 41, 25, 4));
     public static final List<Section> ENGINES = List.of(
-            new Section(-330, -60, -40, 40, 80, 40),
-            new Section(330, -60, -40, 40, 80, 40));
-    /** All of an airship's box: out to the fins' tips, nose to tail, gondola to the top fin. */
-    public static final Section AIRSHIP_BOX = new Section(0, 0, 25, 380, 900, 355);
-    /** An airship: its box, and each part solid: the hull, the fins, the gondola, the pylons and the engines. */
-    public static final Shape AIRSHIP = new Shape(AIRSHIP_BOX, java.util.stream.Stream.of(HULL, FINS, List.of(GONDOLA),
+            new Section(-307, 108, 0, 20, 81, 20),
+            new Section(307, 108, 0, 20, 81, 20));
+    /** All of an airship's box: out to its turboprops' propellers, nose to tail, its gondola's floor to its back. */
+    public static final Section AIRSHIP_BOX = new Section(0, 0, -52.5, 360, 900, 277.5);
+    /** An airship: its box, and each part solid: the hull, the shroud, the gondola, the pylons and the engines. */
+    public static final Shape AIRSHIP = new Shape(AIRSHIP_BOX, java.util.stream.Stream.of(HULL, SHROUD, List.of(GONDOLA),
             PYLONS, ENGINES).flatMap(List::stream).toList());
 
     /**
@@ -353,7 +439,7 @@ public final class Course {
      * whether it is closed (whoever flies it is out of sight, inside), and where whoever takes it
      * stands ({@link #station}, its middle in the craft's frame).
      */
-    public sealed interface Craft permits Deck, Ship, Chassis {
+    public sealed interface Craft permits Deck, Ship, Chassis, Aircraft {
 
         Shape shape();
 
@@ -463,6 +549,85 @@ public final class Course {
 
     /** The airship to be flown, there being only one kind. */
     public static final Ship SHIP = new Ship();
+
+    /**
+     * An aircraft to be flown, as it flies ({@link Flight}): {@code shape} its solid parts in its own
+     * frame, about its centre of gravity, where it is ({@link Place#height} is its centre's height);
+     * {@code footing} its wheels, what it stands on; {@code door} where it is got into, from the
+     * ground beside its cockpit, and let out of; {@code cabin} where whoever flies it sits, out of
+     * sight; {@code eye} where they look out from. Closed: whoever flies it is inside.
+     */
+    public record Aircraft(String name, Shape shape, Section footing, Section door, Section cabin, Section eye,
+                           Flight flight) implements Craft {
+
+        /** All of it. */
+        @Override
+        public Section room() {
+            return shape.box();
+        }
+
+        @Override
+        public Section footing() {
+            return footing;
+        }
+
+        /** As its flight has it: its top speed, how fast it slides and climbs, turns, and its engine can be cut. */
+        @Override
+        public Handling handling() {
+            return new Handling(flight.ahead(), flight.aside() / flight.ahead(), flight.climb(), flight.turn(), 0,
+                    LIFT_HIGH, true);
+        }
+
+        @Override
+        public boolean closed() {
+            return true;
+        }
+
+        /** Where whoever flies it is, at its controls. */
+        @Override
+        public Section station() {
+            return cabin;
+        }
+
+        @Override
+        public Section door() {
+            return door;
+        }
+
+        /** How high its centre is over the ground under its wheels. */
+        public double standing() {
+            return footing.halfUp() - footing.up();
+        }
+
+        /** The aircraft a shape was made from ({@link #shape}); null if none. */
+        public static Aircraft of(final Shape shape) {
+            return AIRCRAFT.stream().filter(a -> a.shape().equals(shape)).findFirst().orElse(null);
+        }
+    }
+
+    /**
+     * The gunship, lifted by two big coaxial ducted rotors at the ends of short beam wings, which
+     * tilt from hovering to flying; 16 m long, 16.4 m across its ducts, a cockpit for two at its
+     * front. Its parts as it is drawn ({@code air.Gunship}, its lift {@code TWIN_PROPELLERS}):
+     * its cabin and belly, its boom and V-tail, the saddle in its bay with the beams, and a duct
+     * either side, as far as it sweeps tilting. About as nimble as a big helicopter hovering, as fast
+     * as a light aeroplane, its rotors forward.
+     */
+    public static final Aircraft GUNSHIP = new Aircraft("gunship",
+            new Shape(new Section(0, -43, 89.5, 822, 843, 298.5), List.of(
+                    new Section(0, 270, 47, 150, 530, 198),
+                    new Section(0, -573, 205, 150, 313, 148),
+                    new Section(0, 110, 180, 330, 160, 65),
+                    new Section(-564, 110, 180, 258, 220, 208),
+                    new Section(564, 110, 180, 258, 220, 208))),
+            new Section(0, 270, -200, 120, 450, 8.5),
+            new Section(-210, 430, -208.5, 0, 0, 0),
+            new Section(0, 470, 0, 0, 0, 0),
+            new Section(0, 470, 150, 0, 0, 0),
+            new Flight(1.6, 5000, 800, 1000, 1200, 1.33e-4, 8, 10, 3800, 60, 30, 20, 35, 45, 1200, 3600, 85, 25));
+
+    /** The aircraft there are to fly. */
+    public static final List<Aircraft> AIRCRAFT = List.of(GUNSHIP);
 
     /**
      * How a land vehicle drives: how fast at most ahead ({@code top}) and in reverse, how briskly it
@@ -974,6 +1139,15 @@ public final class Course {
         public boolean sitting() {
             return seat != null;
         }
+
+        /** Someone on the ground, laid out about the world's origin, put {@code at} ({@link Piece#within}). */
+        public Cast within(final Place at) {
+            if (deck != null) {
+                throw new IllegalArgumentException("only someone on the ground is moved so, not on a platform: " + role);
+            }
+            final Place there = Piece.within(new Place(across, along, up, facing), at);
+            return new Cast(role, null, there.x(), there.z(), there.yaw(), seat, there.height());
+        }
     }
 
     /**
@@ -1011,12 +1185,14 @@ public final class Course {
     /**
      * The airships' routes: where each starts (heading from the start, and how far), how high it
      * flies, and how fast round, in units a second: slowly, a lap taking the best part of two
-     * minutes, the middle one going round the other way.
+     * minutes, the middle one going round the other way; and how many times as big as the one to fly
+     * each is built ({@link #AIRSHIP}): heavy bombers, 45 to 54 m long, high enough to clear the tallest
+     * pillar with their gondolas.
      */
     private static final double[][] AIRSHIPS = {
-            {70, 6500, 3100, 400},
-            {190, 7500, 3300, -350},
-            {300, 5500, 3500, 300},
+            {70, 6500, 4100, 400, 2.5},
+            {190, 7500, 4500, -350, 3},
+            {300, 5500, 4000, 300, 2.5},
     };
 
     /** The heading the avatar starts on: the staircase lies along it. */
@@ -1038,6 +1214,14 @@ public final class Course {
     private final List<Gate> gates = new ArrayList<>();
     /** Who stands on the ground at the start, not on a platform. */
     private final List<Cast> ground = new ArrayList<>();
+    /** Where the avatar starts: the world's middle, unless the course says otherwise (the town's, before it). */
+    private Vec3 start = Vec3.ZERO;
+    /** Its rivers; and whether its ground is ruled with a grid. */
+    private final List<River> rivers = new ArrayList<>();
+    private final List<Pond> ponds = new ArrayList<>();
+    private boolean grid = true;
+    /** Its land: level, but where it is laid out otherwise. */
+    private Land land = Land.LEVEL;
 
     /** The playground: everything at once. */
     public Course() {
@@ -1053,91 +1237,154 @@ public final class Course {
         pieces.addAll(these);
     }
 
-    /** The world of {@code demo}: the playground, or a simple one round a single vehicle. */
+    /** The world of {@code demo}: the town, the playground, the track; or a simple scene round a single vehicle. */
     public Course(final Demo demo) {
+        this(demo, Siege.STANDARD);
+    }
+
+    /** The same, a siege set as {@code siege} ({@link Siege}), if {@code demo} is one. */
+    public Course(final Demo demo, final Siege siege) {
         switch (demo) {
+            case TOWN -> townDemo();
+            case SIEGE -> siegeDemo(siege);
+            case VILLAGE -> villageDemo();
             case PLAYGROUND -> playground();
+            case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
             case AIRSHIP -> airshipDemo();
             case FLYOVER -> flyoverDemo();
             case GUNS -> gunsDemo();
-            case TRACK -> trackDemo();
-            case TOWN -> townDemo();
-            case TEMPLE -> templeDemo();
-            case PYRAMID -> pieces.addAll(pyramids.get());
-            case PAVILION -> pieces.addAll(built(Demo.PAVILION));
         }
     }
 
     /**
-     * The town's demo: its buildings and the motorcycle ({@link #town}); on its towers' void decks,
-     * their bars and stalls and the people at them; and, on the open ground
-     * between the start and the first row, the melon stall on its barge off to one side, and the
-     * meeting platform, its stand-up under way, off to the other, turned so its board faces the start.
+     * The town's demo: all that stands in it ({@link #town}): its buildings, the temple in its
+     * middle and its park, the pyramids at its edge, the vehicles parked in the temple's courtyard;
+     * on its towers' void decks, their bars and stalls and the people at them, and the monks in the
+     * courtyard; and, on the open ground between the start and the first row, the melon stall on its
+     * barge off to one side, and the meeting platform, its stand-up under way, off to the other, turned
+     * so its board faces the start.
      */
     private void townDemo() {
+        start = townStart.get();
         pieces.addAll(town.get());
         // and its towers' void decks' bars and stalls, and the people at them
         pieces.addAll(townThings.get());
         ground.addAll(townPeople.get());
-        pieces.add(Piece.moving(BARGE.shape(), new Place(1100, 2600, LIFT_LOW, 0), Kind.PLATFORM, 0, null));
+        // the platforms, just ahead of the start
+        pieces.add(Piece.moving(BARGE.shape(), new Place(start.x() + 1100, start.z() + 2600, LIFT_LOW, 0), Kind.PLATFORM,
+                0, null));
         stall(pieces.size() - 1);
-        pieces.add(Piece.moving(MEETING.shape(), new Place(-1100, 2400, LIFT_LOW, 180), Kind.PLATFORM, 1, null));
+        pieces.add(Piece.moving(MEETING.shape(), new Place(start.x() - 1100, start.z() + 2400, LIFT_LOW, 180),
+                Kind.PLATFORM, 1, null));
         meeting(pieces.size() - 1);
     }
 
-    /**
-     * The temple's demo: its halls ({@link #temple}), and in the courtyard before the great hall,
-     * three monks at their stand-up ({@link #MONKS}), standing on the ground.
-     */
-    private void templeDemo() {
-        pieces.addAll(temple.get());
-        ground.addAll(MONKS);
+    /** Where the avatar starts in the town: until told, the world's middle. */
+    private static java.util.function.Supplier<Vec3> townStart = () -> Vec3.ZERO;
+
+    /** Says where the avatar starts in the town: before it, its buildings ahead. */
+    public static void townStart(final java.util.function.Supplier<Vec3> where) {
+        townStart = where;
+    }
+
+    /** Where the avatar starts, on the ground: the world's middle, or as the course has it. */
+    public Vec3 start() {
+        return start;
     }
 
     /**
-     * What stands in the temple's courtyard: its halls, each one piece ({@link Kind#BUILDING}), put
-     * together outside the simulation, as the town's are; until it is told, nothing.
+     * The meadow village's demo: a meadow, a river winding across it, a footbridge over it, and a small
+     * village of earth houses by its bank, as whoever designs them says ({@link #village}); no grid ruled
+     * on its ground.
      */
-    private static java.util.function.Supplier<List<Piece>> temple = List::of;
+    private void villageDemo() {
+        start = villageStart.get();
+        pieces.addAll(village.get());
+        rivers.addAll(villageRivers.get());
+        ponds.addAll(villagePonds.get());
+        land = villageLand.get();
+        grid = false;
+    }
 
-    /** What stands among the pyramids: put together outside the simulation, as the town's are; until it is told, nothing. */
-    private static java.util.function.Supplier<List<Piece>> pyramids = List::of;
+    /** What stands in the meadow village, its rivers, where the avatar starts there, and its land: until told, nothing, none, the middle, level. */
+    private static java.util.function.Supplier<List<Piece>> village = List::of;
+    private static java.util.function.Supplier<List<River>> villageRivers = List::of;
+    private static java.util.function.Supplier<List<Pond>> villagePonds = List::of;
+    private static java.util.function.Supplier<Vec3> villageStart = () -> Vec3.ZERO;
+    private static java.util.function.Supplier<Land> villageLand = () -> Land.LEVEL;
 
-    /** Says what stands among the pyramids. */
-    public static void pyramids(final java.util.function.Supplier<List<Piece>> what) {
-        pyramids = what;
+    /** Says what stands in the meadow village, its rivers and ponds, where the avatar starts there, and its land. */
+    public static void village(final java.util.function.Supplier<List<Piece>> what,
+                               final java.util.function.Supplier<List<River>> rivers,
+                               final java.util.function.Supplier<List<Pond>> ponds,
+                               final java.util.function.Supplier<Vec3> start,
+                               final java.util.function.Supplier<Land> land) {
+        village = what;
+        villageRivers = rivers;
+        villagePonds = ponds;
+        villageStart = start;
+        villageLand = land;
+    }
+
+    /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */
+    public Land land() {
+        return land;
+    }
+
+    /** Its ponds: where water lies still. */
+    public List<Pond> ponds() {
+        return List.copyOf(ponds);
+    }
+
+    /** Its rivers: where water runs across the world. */
+    public List<River> rivers() {
+        return List.copyOf(rivers);
+    }
+
+    /** Whether its ground is ruled with a grid: in all but the open country. */
+    public boolean grid() {
+        return grid;
     }
 
     /**
-     * What is built in each demo whose buildings are put together outside the simulation, as it
-     * knows nothing of how a building is designed: told it ({@link #built(Demo, java.util.function.Supplier)}).
+     * The temple under siege ({@link Siege}): the town; and, last, an airship for each slot of the siege,
+     * {@code siege}'s size, each a heavy bomber, waiting off the edge of the world until it comes (broken
+     * until then: {@link Siege#damage}).
      */
-    private static final java.util.Map<Demo, java.util.function.Supplier<List<Piece>>> BUILT =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    /** Says what is built in {@code demo}. */
-    public static void built(final Demo demo, final java.util.function.Supplier<List<Piece>> what) {
-        BUILT.put(demo, what);
+    private void siegeDemo(final Siege siege) {
+        townDemo();
+        final Shape ship = AIRSHIP.scaled(siege.size());
+        final Raid waiting = new Raid(0, new Place(0, -Siege.ENTRY, 30_000, 0), 30_000, 0, 0, 30_000, 1_000, 800);
+        for (int k = 0; k < siege.ships(); k++) {
+            pieces.add(Piece.moving(ship, waiting.at(0), Kind.AIRSHIP, k % 2, waiting));
+        }
     }
 
-    /** What is built in {@code demo}: nothing, until it is told. */
-    private static List<Piece> built(final Demo demo) {
-        return BUILT.getOrDefault(demo, List::of).get();
+    /**
+     * Where the guns mounted on a building stand ({@link Turret#of}): on top of its cores, say. Its
+     * buildings are designed outside the simulation, as the town's are: whoever designs them says
+     * ({@link #guns}); until then, nowhere.
+     */
+    private static java.util.function.Function<Piece, List<Place>> guns = piece -> List.of();
+
+    /** Says where the guns mounted on each building stand. */
+    public static void guns(final java.util.function.Function<Piece, List<Place>> where) {
+        guns = where;
     }
 
-    /** Says what stands in the temple's courtyard: its halls. */
-    public static void temple(final java.util.function.Supplier<List<Piece>> what) {
-        temple = what;
+    /** Where the guns mounted on building {@code piece} stand, each its mount's base, facing its way: none, unless told. */
+    public static List<Place> guns(final Piece piece) {
+        return piece.kind() == Kind.BUILDING ? guns.apply(piece) : List.of();
     }
 
-    /** Where the monks meet: in the courtyard, this far ahead of the start; how far round, each from its middle. */
+    /** Where the monks meet: in the courtyard, this far in from its gate; how far round, each from its middle. */
     public static final double MONKS_AHEAD = 2600;
     private static final double MONK_RING = 110;
 
     /**
-     * The monks at their stand-up, on the ground in the temple's courtyard (across and along the
-     * world's x and z): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
+     * The monks at their stand-up, on the ground in the temple's courtyard (across and along its own
+     * frame, its gate at the origin: put where it stands with it, {@link Cast#within}): a small one in red, a tall one in blue and a stout one in yellow, in a ring,
      * each facing its middle: the stout one on its far side, facing the start; the other two either
      * side nearer it.
      */
@@ -1150,8 +1397,8 @@ public final class Course {
     }
 
     /**
-     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), and a
-     * motorcycle to ride between them. The buildings are put together outside the simulation, as it
+     * What stands in the town: its buildings, each one piece ({@link Kind#BUILDING}), the temple, its
+     * park, the pyramids, the vehicles parked; or, until told, a motorcycle to ride. The buildings are put together outside the simulation, as it
      * knows nothing of how a building is designed: whoever does says what stands there
      * ({@link #town}); until then, the motorcycle alone.
      */
@@ -1425,7 +1672,8 @@ public final class Course {
      * What the playground has of the rest: parked beside the street that runs out behind the start,
      * a roadster and a van on the left of it, a pickup and a truck on the right, all facing the
      * start; off to the west, a bunker looking out over the field; and off
-     * to the east, an airship moored broadside on, to walk in under and fly.
+     * to the east, an airship moored broadside on, to walk in under and fly; and nearer the start, a gunship
+     * on its wheels, its nose to the start.
      */
     private static List<Piece> playgroundExtras() {
         final List<Piece> extras = new ArrayList<>();
@@ -1441,6 +1689,8 @@ public final class Course {
         extras.add(Piece.vehicle(BOXER_ICE_CREAM, null, new Place(2300, -1500, BOXER_ICE_CREAM.ride(), 0), 0));
         extras.add(Piece.moving(BUNKER, new Place(-3200, -1400, 0, -90), Kind.BUNKER, 0, null));
         extras.add(Piece.moving(AIRSHIP, new Place(3400, -2600, MOORED, 90), Kind.AIRSHIP, 0, null));
+        extras.add(Piece.moving(GUNSHIP.shape(), new Place(3400, -400, GUNSHIP.standing(), -90), Kind.AIRCRAFT, 0,
+                null));
         return extras;
     }
 
@@ -1544,8 +1794,8 @@ public final class Course {
         // and the airships, high over everything else, going slowly round far out
         for (int i = 0; i < AIRSHIPS.length; i++) {
             final double[] a = AIRSHIPS[i];
-            final Route route = new Route(a[0], a[1], a[2], a[3]);
-            pieces.add(Piece.moving(AIRSHIP, route.at(0), Kind.AIRSHIP, i % 2, route));
+            final Route route = new Circling(a[0], a[1], a[2], a[3]);
+            pieces.add(Piece.moving(AIRSHIP.scaled(a[4]), route.at(0), Kind.AIRSHIP, i % 2, route));
         }
 
         // and the platforms, standing at their lowest, each heading out from the start
@@ -1627,7 +1877,18 @@ public final class Course {
 
     /** How high the airships' hulls run, each one's line through the middle of its hull: for the graphics. */
     public static double hullHeight(final Piece airship) {
-        return airship.block().bottom() + AIRSHIP_BOX.halfUp() - AIRSHIP_BOX.up();
+        final Section box = airship.shape().box();
+        return airship.block().bottom() + box.halfUp() - box.up();
+    }
+
+    /** How many times as big as {@link #AIRSHIP} an airship is built: 1, the one to fly; more, a heavy bomber. */
+    public static double scale(final Piece airship) {
+        return airship.shape().box().halfAlong() / AIRSHIP_BOX.halfAlong();
+    }
+
+    /** {@code part} of {@link #AIRSHIP} (its gondola, its hull's middle), as it is on {@code airship}, built as big as it is. */
+    public static Section part(final Piece airship, final Section part) {
+        return part.scaled(scale(airship));
     }
 
     /**
@@ -1677,7 +1938,7 @@ public final class Course {
                 each.add(i);
             }
         }
-        return new Obstacles(blocks, gates, numbers, volumes, each);
+        return new Obstacles(blocks, gates, numbers, volumes, each, land);
     }
 
     /**

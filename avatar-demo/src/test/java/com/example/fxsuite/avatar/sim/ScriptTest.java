@@ -65,6 +65,14 @@ class ScriptTest {
     }
 
     @Test
+    void qAndESlideAnAircraftAsideLeftAndRight() {
+        assertEquals(1, Keys.controls(Set.of("E"), List.of(), 0, false, 0).strafe());
+        assertEquals(-1, Keys.controls(Set.of("Q"), List.of(), 0, false, 0).strafe());
+        assertEquals(0, Keys.controls(Set.of("Q", "E"), List.of(), 0, false, 0).strafe());
+        assertEquals(1, Script.parse("E:0.5").controls(61).strafe(), "and in a script");
+    }
+
+    @Test
     void theScriptsKeysMeanWhatTheKeyboardsDo() {
         final Script script = Script.parse("SPACE+W+SHIFT+FIRE:0.5");
         final Controls first = script.controls(61);

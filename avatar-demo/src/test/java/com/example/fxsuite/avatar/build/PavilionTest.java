@@ -3,9 +3,7 @@ package com.example.fxsuite.avatar.build;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
-import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Obstacles;
-import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Volume;
@@ -140,19 +138,37 @@ class PavilionTest {
     }
 
     @Test
-    void theGardenIsItsPavilionsRoundALawnClearOfTheStart() {
-        Course.built(Demo.PAVILION, Pavilions::pieces);
-        final List<Course.Piece> pieces = new Course(Demo.PAVILION).pieces();
+    void oneOfEachKindRoundTheTownsParkFacingTheTemple() {
+        final List<Course.Piece> pieces = Town.park().stream().filter(p -> p.kind() == Course.Kind.BUILDING).toList();
         assertEquals(Pavilions.PRESETS.size(), pieces.size());
+        assertEquals(Pavilions.PRESETS.size(), pieces.stream().map(Course.Piece::tint).distinct().count(), "one of each");
+        final com.example.fxsuite.avatar.sim.Place middle = Town.middle();
+        final List<Course.Piece> temple = TempleYard.pieces().stream().map(p -> p.within(Town.temple())).toList();
+        int onIslands = 0;
         for (int a = 0; a < pieces.size(); a++) {
-            assertFalse(pieces.get(a).volumes().isEmpty());
-            assertTrue(pieces.get(a).solid().isEmpty(), "in the way only as it is shaped");
-            assertFalse(pieces.get(a).block().covers(0, 0, 300), "clear of the start");
-            assertFalse(Sites.drawn(pieces.get(a).tint()).isEmpty());
+            final Course.Piece pavilion = pieces.get(a);
+            assertFalse(pavilion.volumes().isEmpty());
+            assertTrue(pavilion.solid().isEmpty(), "in the way only as it is shaped");
+            assertFalse(Sites.drawn(pavilion.tint()).isEmpty());
+            final double out = Math.hypot(pavilion.place().x() - middle.x(), pavilion.place().z() - middle.z());
+            assertTrue(out + Math.hypot(pavilion.block().halfWidth(), pavilion.block().halfDepth()) < Town.PARK,
+                    "in the park");
+            // facing the temple
+            final Vec3 facing = com.example.fxsuite.avatar.sim.Num.heading(pavilion.place().yaw());
+            assertTrue((facing.x() * (middle.x() - pavilion.place().x()) + facing.z() * (middle.z() - pavilion.place().z()))
+                    / out > 0.99, "facing the temple");
+            if (Math.abs(out - Town.POND_OUT) < 1 && Math.abs(pavilion.place().z() - middle.z()) < 1) {
+                onIslands++;
+                assertTrue(Math.max(pavilion.block().halfWidth(), pavilion.block().halfDepth()) < Town.ISLAND,
+                        "on its island");
+            }
+            for (final Course.Piece part : temple) {
+                assertFalse(pavilion.block().overlaps(part.block()), "clear of the temple");
+            }
             for (int b = a + 1; b < pieces.size(); b++) {
-                assertFalse(pieces.get(a).block().overlaps(pieces.get(b).block()), a + " and " + b);
+                assertFalse(pavilion.block().overlaps(pieces.get(b).block()), a + " and " + b);
             }
         }
-        assertEquals(Pavilions.PRESETS.size(), Play.start(Demo.PAVILION, false).damage().size());
+        assertEquals(2, onIslands, "one in the middle of each pond");
     }
 }

@@ -40,7 +40,19 @@ public enum Material {
     WATER("water", Double.POSITIVE_INFINITY),
     POOL_TILE("pool tile", Double.POSITIVE_INFINITY),
     LEAVES("leaves", Double.POSITIVE_INFINITY),
-    BARK("bark", Double.POSITIVE_INFINITY);
+    BARK("bark", Double.POSITIVE_INFINITY),
+    /** Earth for walls: mud plastered over, a warm grey; red earth; a pale clay; sod laid in blocks; earth rammed in layers. */
+    MUD("mud plaster", 150),
+    RED_EARTH("red earth plaster", 150),
+    PALE_CLAY("pale clay plaster", 150),
+    SOD("sod blocks", 120),
+    RAMMED_EARTH("rammed earth", 180),
+    /** A roof's covering: turf, grass growing on it; thatch; reed. */
+    TURF("turf", Double.POSITIVE_INFINITY),
+    THATCH("thatch", Double.POSITIVE_INFINITY),
+    REED("reed", Double.POSITIVE_INFINITY),
+    /** A floor of earth, beaten hard. */
+    EARTH("packed earth", Double.POSITIVE_INFINITY);
 
     private final String title;
     private final double span;

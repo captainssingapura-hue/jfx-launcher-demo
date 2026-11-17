@@ -38,6 +38,17 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         return new Block((fromX + toX) / 2, (fromZ + toZ) / 2, width / 2, length / 2, yaw, 0, high, low);
     }
 
+    /**
+     * The same block, laid out about the world's origin, put {@code at}: moved there, turned with it
+     * about its own middle as about the origin, and raised as high as it is.
+     */
+    public Block within(final Place at) {
+        final Vec3 right = Num.right(at.yaw());
+        final Vec3 ahead = Num.heading(at.yaw());
+        return new Block(at.x() + right.x() * x + ahead.x() * z, at.z() + right.z() * x + ahead.z() * z, halfWidth,
+                halfDepth, Num.wrap(yaw + at.yaw()), bottom + at.height(), top + at.height(), toe + at.height());
+    }
+
     /** Whether its top slopes. */
     public boolean sloped() {
         return toe != top;

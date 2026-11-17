@@ -4,17 +4,16 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Volume;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A garden of pavilions ({@link Pavilion}), one of each kind, round a lawn, each facing in to its
- * middle, where the avatar starts: a square one to a point, a hexagonal and an octagonal one, a
- * round one, a long gallery under a hip roof, one under a gable, and a modern one with a flat roof
- * on steel posts. Each one piece in the world ({@link Course.Kind#BUILDING}), in the way only where
- * its platform, its pillars, its beams and its roof are: walked into and stood under.
+ * Pavilions ({@link Pavilion}), one of each kind: a square one to a point, a hexagonal and an
+ * octagonal one, a round one, a long gallery under a hip roof, one under a gable, and a modern one
+ * with a flat roof on steel posts; set about the town's park ({@link Town#park}). Each one piece in
+ * the world ({@link Course.Kind#BUILDING}), in the way only where its platform, its pillars, its beams
+ * and its roof are: walked into and stood under.
  */
 public final class Pavilions {
 
@@ -23,8 +22,6 @@ public final class Pavilions {
 
     /** Their keys, to draw them by, start here: past the pyramids'. */
     public static final int KEYS = 400;
-    /** How far round the lawn they stand from its middle. */
-    public static final double ROUND = 3200;
 
     /** One of each kind. */
     public static final List<Pavilion.Spec> PRESETS = List.of(
@@ -43,14 +40,6 @@ public final class Pavilions {
             new Pavilion.Spec("modern pavilion", Pavilion.Footprint.RECTANGLE, 900, 600, 3, Pavilion.Pillar.SQUARE, 20, 330,
                     Pavilion.Roof.FLAT, 0, 120, 15, Material.CONCRETE, Material.METAL));
 
-    /** Where pavilion {@code k} stands: round the lawn's far side, facing in to its middle. */
-    public static Place place(final int k) {
-        final double heading = Math.toRadians(-90 + 180.0 * k / (PRESETS.size() - 1));
-        final double x = ROUND * Math.sin(heading);
-        final double z = ROUND * Math.cos(heading) + ROUND / 2;
-        return new Place(x, z, 0, Math.toDegrees(Math.atan2(-x, -(z - ROUND / 2))));
-    }
-
     private static final Map<Integer, List<Solid>> DRESSED = new ConcurrentHashMap<>();
 
     /** Pavilion {@code k}, dressed its own way: worked out once, when first wanted. */
@@ -61,13 +50,9 @@ public final class Pavilions {
         });
     }
 
-    /** What stands in the garden: each pavilion, one piece, in the way as it is shaped. */
-    public static List<Course.Piece> pieces() {
-        final List<Course.Piece> pieces = new ArrayList<>();
-        for (int k = 0; k < PRESETS.size(); k++) {
-            final List<Volume> shape = Pavilion.of(PRESETS.get(k)).shape();
-            pieces.add(Town.building(solids(k), place(k), KEYS + k, shape, 1));
-        }
-        return pieces;
+    /** Pavilion {@code k} standing {@code at}, facing its way: one piece, in the way as it is shaped. */
+    public static Course.Piece piece(final int k, final Place at) {
+        final List<Volume> shape = Pavilion.of(PRESETS.get(k)).shape();
+        return Town.building(solids(k), at, KEYS + k, shape, 1);
     }
 }

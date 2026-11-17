@@ -3,10 +3,8 @@ package com.example.fxsuite.avatar.build;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
-import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Hit;
 import com.example.fxsuite.avatar.sim.Obstacles;
-import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import org.junit.jupiter.api.Test;
@@ -27,9 +25,9 @@ class PyramidsTest {
 
     private static final double FRAME = 1.0 / 60;
 
+    /** The pyramids alone, laid out about their own origin: as they are put at the edge of the town, but nearer. */
     private static Obstacles world() {
-        Course.pyramids(Pyramids::pieces);
-        return new Course(Demo.PYRAMID).obstacles();
+        return Course.of(Pyramids.pieces()).obstacles();
     }
 
     /** A body walking (running) from {@code from} heading {@code yaw}, for {@code seconds}. */
@@ -54,8 +52,7 @@ class PyramidsTest {
 
     @Test
     void threePyramidsEachOnePieceShapedClosely() {
-        Course.pyramids(Pyramids::pieces);
-        final List<Course.Piece> pieces = new Course(Demo.PYRAMID).pieces();
+        final List<Course.Piece> pieces = Pyramids.pieces();
         assertEquals(3, pieces.size());
         for (int k = 0; k < 3; k++) {
             assertEquals(Course.Kind.BUILDING, pieces.get(k).kind());
@@ -64,7 +61,6 @@ class PyramidsTest {
             assertFalse(pieces.get(k).block().covers(0, 0, 200), "clear of the start");
         }
         assertEquals(1, pieces.get(2).solid().size(), "the stepped one's stairway, a ramp");
-        assertTrue(Play.start(Demo.PYRAMID, false).damage().size() == 3);
     }
 
     @Test

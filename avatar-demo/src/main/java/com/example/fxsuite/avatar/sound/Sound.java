@@ -36,6 +36,9 @@ public enum Sound {
     BREAK_DRONE("A drone blows up", null, false, 1500, 0.55),
     BREAK_AIRSHIP("An airship comes down", null, false, 6000, 0.75),
     BOMB("A bomb goes off", null, false, 3000, 0.5),
+    // a bomber's bomb bay, heard from the ground under it: its pump, its lock, its valve, its doors
+    BAY_OPEN("A bomb bay opening", null, false, 4500, 0),
+    BAY_SHUT("A bomb bay shutting", null, false, 4500, 0),
     FRUIT("A fruit bursts", "heft", false, 900, 0.1),
     JET_RUMBLE("Jet rumble", null, true),
     JET_HISS("Jet hiss", null, true),

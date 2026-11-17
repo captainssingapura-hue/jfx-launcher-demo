@@ -58,7 +58,7 @@ class TownDecksTest {
         assertEquals(towers, things.stream().filter(p -> p.furniture() == Furniture.BAR).count(), "a bar on each");
         assertEquals(towers, things.stream().filter(p -> p.furniture() == Furniture.TABLE).count(), "a stall on each");
         assertEquals(3L * towers, things.stream().filter(p -> p.furniture() == Furniture.BAR_STOOL).count());
-        final List<Course.Cast> people = Town.people();
+        final List<Course.Cast> people = Town.onDecks();
         assertEquals(towers, people.stream().filter(c -> c.role() == Person.Role.BARTENDER).count());
         assertEquals(2L * towers, people.stream().filter(c -> c.role() == Person.Role.DRINKER).count());
         assertEquals(towers, people.stream().filter(c -> c.role() == Person.Role.STALLHOLDER).count());
@@ -71,13 +71,13 @@ class TownDecksTest {
 
     @Test
     void inTheGameItAllStaysOnTheDeck() {
-        Course.town(Town::pieces, Town::things, Town::people);
+        Town.tell();
         Play play = Play.start(Demo.TOWN, false);
         final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
         final List<Prop> before = play.props().stream().filter(p -> p.place().height() > 1000).toList();
         final List<Person> people = play.people().stream().filter(p -> p.body().height() > 1000).toList();
         assertEquals(Town.things().size(), before.size(), "every thing on a deck");
-        assertEquals(Town.people().size(), people.size(), "everyone on a deck");
+        assertEquals(Town.onDecks().size(), people.size(), "everyone on a deck");
         for (int i = 0; i < 120; i++) {
             play = play.step(Controls.NONE, 1.0 / 60).play();
         }

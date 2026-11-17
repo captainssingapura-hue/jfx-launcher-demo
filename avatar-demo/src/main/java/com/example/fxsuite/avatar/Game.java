@@ -5,11 +5,13 @@ import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.Bombs;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
+import com.example.fxsuite.avatar.look.Sight;
 import com.example.fxsuite.avatar.look.Guns;
 import com.example.fxsuite.avatar.look.Pose;
 import com.example.fxsuite.avatar.look.Impacts;
 import com.example.fxsuite.avatar.look.Reticle;
 import com.example.fxsuite.avatar.look.Stall;
+import com.example.fxsuite.avatar.look.Horizon;
 import com.example.fxsuite.avatar.look.World;
 import com.example.fxsuite.avatar.look.Wreckage;
 import com.example.fxsuite.avatar.sim.Avatar;
@@ -34,6 +36,7 @@ import com.example.fxsuite.avatar.sim.Play;
 import com.example.fxsuite.avatar.sim.Prop;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Script;
+import com.example.fxsuite.avatar.sim.Siege;
 import com.example.fxsuite.avatar.sim.Sky;
 import com.example.fxsuite.avatar.sim.Vec3;
 import com.example.fxsuite.avatar.sim.Weapon;
@@ -49,10 +52,12 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.SubScene;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.Label;
@@ -85,6 +90,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,22 +118,21 @@ import java.util.Set;
  * {@code ^20} tilts the view up 20° (down, when negative). A {@link Script} is inputs stamped
  * with the step they come in at: while it plays, it alone drives the world, so the same script
  * gives the same run however the frames fall.
+ * {@code -Davatar.slow=20} prints each frame that came more than 20 ms after the one before, and what was done
+ * before it ({@link SlowFrames}): for measuring what holds the frames up.
  * {@code -Davatar.snapshot=out.png} saves the window just before the script ends and exits;
  * {@code -Davatar.settle=<ms>} picks the moment instead, counted in the world's time. Either
  * leaves the mouse alone.
  */
 public final class Game {
 
-    // the town's buildings are designed outside the simulation: it is told what stands there, and how big
+    // the town's buildings are designed outside the simulation: it is told what stands there, how big, and where
+    // the guns on top of them stand
     static {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
-        com.example.fxsuite.avatar.sim.Course.town(com.example.fxsuite.avatar.build.Town::pieces,
-                com.example.fxsuite.avatar.build.Town::things, com.example.fxsuite.avatar.build.Town::people);
-        com.example.fxsuite.avatar.sim.Course.temple(com.example.fxsuite.avatar.build.TempleYard::pieces);
-        com.example.fxsuite.avatar.sim.Course.pyramids(com.example.fxsuite.avatar.build.Pyramids::pieces);
-        com.example.fxsuite.avatar.sim.Course.built(com.example.fxsuite.avatar.sim.Demo.PAVILION,
-                com.example.fxsuite.avatar.build.Pavilions::pieces);
+        com.example.fxsuite.avatar.build.Town.tell();
+        com.example.fxsuite.avatar.build.Village.tell();
     }
 
     private static final double FIELD_OF_VIEW = 48;
@@ -139,6 +144,8 @@ public final class Game {
     private final BoxRig rig = new BoxRig();
     /** Which demo this is, and its world. */
     private final Demo demo;
+    /** How its siege is set, if it is one ({@link Siege}). */
+    private final Siege siege;
     private final Course course;
     /** Back to the choice of demos. */
     private final Runnable back;
@@ -170,9 +177,62 @@ public final class Game {
     private static final double GUN_EYE = 30;
     /** How much higher the camera looks from over a vehicle wearing a body. */
     private static final double BODY_OVER = 140;
-    /** Whether the view at a vehicle's controls is first person (V), and how far the head is turned from ahead, in a land vehicle. */
+    /**
+     * Whether the view is first person (V), from the avatar's eyes or a vehicle's controls; and how far
+     * the head is turned from ahead, in a land vehicle.
+     */
     private boolean firstPerson;
     private double headYaw;
+
+    /**
+     * At a land vehicle's controls, the view, as racing games have them: changed with C, in turn, kept from one drive to
+     * the next; V to the driver's seat and back. The mouse and Q/E do not move it: it stays with the vehicle, the way
+     * it heads.
+     */
+    enum DriveView {
+        CHASE_FAR("chase, far"), CHASE_NEAR("chase, near"), HOOD("hood"), COCKPIT("cockpit"), BUMPER("bumper");
+
+        final String title;
+
+        DriveView(final String title) {
+            this.title = title;
+        }
+
+        DriveView next() {
+            return values()[(ordinal() + 1) % values().length];
+        }
+
+        /** Whether it is from a point on the vehicle, not from behind it. */
+        boolean onIt() {
+            return this == HOOD || this == COCKPIT || this == BUMPER;
+        }
+    }
+
+    private DriveView driveView = DriveView.CHASE_FAR;
+    /** The view V went to the driver's seat from, to go back to. */
+    private DriveView beforeCockpit = DriveView.CHASE_FAR;
+    /** Whether B is held, at a land vehicle's controls: looking back from the view; and whether it was last frame. */
+    private boolean lookingBack;
+    /** The near chase view: so much of the far one's distance back, and its pitch; the hood's and bumper's pitch. */
+    private static final double CLOSE_SHARE = 0.75;
+    private static final double CLOSE_PITCH = -10;
+    private static final double ON_IT_PITCH = -3;
+    /**
+     * Riding a two-wheeler, the rider's view: where on the rider the camera is, from the chest (0) to the eyes (1), moved
+     * with , and . in steps of {@link #RIDER_STEP}; the chest and the eyes, so far forward of the seat and so high over
+     * the bed, the rider leaning over the tank; how wide the view (up and down, degrees); how far down the view the bars
+     * are, of half of it.
+     */
+    private double riderAt = 0.45;
+    private static final double RIDER_STEP = 0.05;
+    private static final double[] RIDER_CHEST = {5, 65};
+    private static final double[] RIDER_EYES = {20, 105};
+    private static final double RIDER_VIEW = 70;
+    private static final double RIDER_BARS = 0.8;
+    /** Flying an aircraft, how much longer the view is held where the mouse turned it, before it swings back behind. */
+    private double lookHeld;
+    /** How long that is, seconds. */
+    private static final double LOOK_HOLD = 1.5;
     /** How far round a driver's head turns, either way. */
     private static final double HEAD_TURN = 120;
     /** Behind a gun, in first person: how far back of where it turns, and how far up. */
@@ -187,6 +247,11 @@ public final class Game {
     private final VehiclePanel panel = new VehiclePanel(this::panelPressed);
     private double engineLoad;
     private double lastAhead;
+    /** How fast the airship's V12 turns, as it is heard while it is flown: eased toward what its flying calls for. */
+    private double shipRpm = AIRSHIP_LOAFING;
+    /** Its V12 loafing, nothing asked of it; and how quickly it follows what is, a second. */
+    private static final double AIRSHIP_LOAFING = 700;
+    private static final double AIRSHIP_REVS = 1.5;
     /** The controls the last step was taken with: the throttle a driven engine is heard to have. */
     private Controls lastControls = Controls.NONE;
     private static final double GUN_REST = -4;
@@ -215,11 +280,36 @@ public final class Game {
     private final Translate eyeAt = new Translate();
     private final Rotate eyeYaw = new Rotate(0, Rotate.Y_AXIS);
     private final Rotate eyePitch = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate eyeRoll = new Rotate(0, Rotate.Z_AXIS);
+    /**
+     * The near layer: from high up, what the camera follows (the avatar, the aircraft it flies, its flames) drawn in a
+     * view of its own over the world's, its camera moved as the world's is; so the world's may start drawing further
+     * off, as far as its height asks, and tell far things apart, and what it follows is not cut away. Below
+     * {@link #LOW}, all of it the world's again, so nothing near shows through what stands in front of it.
+     */
+    private final PerspectiveCamera nearEye = new PerspectiveCamera(true);
+    private final Translate nearAt = new Translate();
+    private final Rotate nearYaw = new Rotate(0, Rotate.Y_AXIS);
+    private final Rotate nearPitch = new Rotate(0, Rotate.X_AXIS);
+    private final Rotate nearRoll = new Rotate(0, Rotate.Z_AXIS);
+    private final Group nearRoot = new Group();
+    private final List<Node> lifted = new ArrayList<>();
+    private final Map<Node, Group> homes = new IdentityHashMap<>();
+    private boolean high;
+    /** Over this height the near layer is used, and under {@link #LOW} it is not; how far it draws. */
+    private static final double HIGH = 6_000;
+    private static final double LOW = 4_000;
+    private static final double NEAR_LAYER = 200_000;
+    /** How much of the camera's height over the ground the world's layer starts drawing at, high up. */
+    private static final double NEAR_PER_HEIGHT = 0.01;
     private final Label status = new Label();
     /** The keys, for whatever the avatar is doing: on foot, or at the controls of each kind of vehicle. */
     private final Label help = new Label();
-    private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person, at the controls ·"
+    private static final String VIEW_KEYS = "Q/E look round · C camera behind · V first person ·"
             + " scroll to zoom · Esc frees the mouse · "
+            + "M mute · P sound profile · Tab: the demos (or the menu bar)";
+    /** Driving, the view the vehicle's alone: the next camera, its cockpit, looking back; no looking round. */
+    private static final String DRIVE_KEYS = "C next camera · V cockpit · B look back · Esc frees the mouse · "
             + "M mute · P sound profile · Tab: the demos (or the menu bar)";
     private static final String ON_FOOT_HELP = "Mouse turns · W/S ahead and back · A/D sideways · Shift walk or fly slower · "
             + "Space jump or climb · Ctrl descend\n"
@@ -232,19 +322,19 @@ public final class Game {
             + "1 twin rifles · 2 glaive · 3 Gatling gun · click to fire or swing\n" + VIEW_KEYS;
     private static final String DRIVE_HELP = "The chassis: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
-            + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + VIEW_KEYS;
+            + "Only the front wheels steer: it turns about its back wheels, the tighter the slower it goes\n" + DRIVE_KEYS;
     private static final String SIDECAR_HELP = "The outfit: W throttle · S brake, then back · A/D steer ·"
             + " Space brake hard · Shift gently · T get off\n"
             + "It does not lean: steer gently toward the sidecar at speed, or the chair lifts, and then it goes"
-            + " over on its side (T beside it rights it)\n" + VIEW_KEYS;
+            + " over on its side (T beside it rights it)\n" + DRIVE_KEYS;
     private static final String RIDE_HELP = "Astride: W throttle · S brake, then back · A/D steer ·"
             + " Space brake hard · Shift gently · T get off\n"
             + "It leans into its turns, the harder the faster it goes round; the gears change by themselves\n"
-            + VIEW_KEYS;
+            + DRIVE_KEYS;
     private static final String ARMED_DRIVE_HELP ="At the wheel: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go of the wheel\n"
             + "Click fire its gun, fixed beside the seat: held, it spins up, then fires the way the car faces\n"
-            + VIEW_KEYS;
+            + DRIVE_KEYS;
     private static final String PICKUP_HELP = "The pickup: W accelerate · S brake, then reverse · A/D steer ·"
             + " Space handbrake · Shift gently · T let go\n"
             + "The mouse aims the gun at the back, all round, 10° down and 45° up; it holds its aim as the pickup"
@@ -267,6 +357,11 @@ public final class Game {
     private static final String GUN_HELP = "The heavy Gatling gun: the mouse aims it, 55° either way, 8° down and 25° up;"
             + " it swings round at its own pace · T step out\n"
             + "Click fire: held, it spins up, then fires\n" + VIEW_KEYS;
+    private static final String AIRCRAFT_HELP = "The gunship: F start or stop its engine · Space lift off, climb ·"
+            + " Ctrl descend, land · W/S ahead and back (its nose dips, its rotors tilt forward as it speeds up) ·"
+            + " A/D turn (banking round, going fast) · Q/E slide aside (hovering) · Shift carefully · T step out\n"
+            + "The mouse looks round it (in first person, turns your head) · let go of the keys and it slows and"
+            + " hovers where it is\n" + VIEW_KEYS.replace("Q/E look round · ", "");
     private static final String AIRSHIP_HELP = "The airship: W/S ahead and back · A/D turn (slowly) · "
             + "Space climb · Ctrl descend · Shift slower · T step out (through the hatch)\n"
             + "Click drop a bomb, hold for a stick of them · moored, the bay loads a bomb back each second\n"
@@ -274,6 +369,10 @@ public final class Game {
     /** How the frames are going, a second at a time: green when smooth, amber when not. */
     private final Label frames = new Label();
     private final FrameTimes frameTimes = new FrameTimes();
+    /** Each slow frame, said what was done before it, if asked for ({@link SlowFrames}); and what that needs. */
+    private final SlowFrames slowFrames = SlowFrames.fromProperty();
+    private long drawingNanos;
+    private Vec3 seenAt = Vec3.ZERO;
     private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
             + "-fx-text-fill: ";
 
@@ -323,6 +422,11 @@ public final class Game {
     /** A bomb let go once, from the control panel, at the next step. */
     private boolean bombOnce;
     private double fieldOfView = FIELD_OF_VIEW;
+    /** How far the camera sees, smoothed as its height changes; and how much further than that it draws. */
+    private final Sight sight = new Sight();
+    private static final double FAR_CLIP = 1.25;
+    /** Where the world is drawn: how wide it is to how high, for what the camera takes in. */
+    private SubScene screen;
     private String shown = "";
     /** The vehicle whose controls the avatar has, by piece, as last seen; -1 for none. */
     private int piloting = -1;
@@ -337,11 +441,24 @@ public final class Game {
      */
     public Game(final Stage stage, final Demo demo, final Runnable back,
                 final java.util.function.Consumer<Demo> switchTo) {
+        this(stage, demo, Siege.STANDARD, back, switchTo);
+    }
+
+    /**
+     * The same, a siege set as {@code siege}, if {@code demo} is one ({@link Siege}): its airships yet
+     * to come, the temple as tough as it says. A replay's siege is the one it was recorded in.
+     */
+    public Game(final Stage stage, final Demo demo, final Siege siege, final Runnable back,
+                final java.util.function.Consumer<Demo> switchTo) {
         this.demo = demo;
         this.back = back;
         this.switchTo = switchTo;
-        course = new Course(demo);
-        damage = Damage.of(course);
+        this.siege = replay != null ? replay.siege() : siege;
+        course = new Course(demo, this.siege);
+        damage = demo == Demo.SIEGE ? this.siege.damage(course) : Damage.of(course);
+        if (demo == Demo.SIEGE) {
+            sky = this.siege.sky(damage);
+        }
         lifts = Lift.of(damage);
         people = Person.of(damage, lifts);
         peopleBefore = people;
@@ -351,7 +468,8 @@ public final class Game {
         world = new World(course);
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
-        avatar = startedAt(Play.start(demo, replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")).avatar());
+        avatar = startedAt(new Avatar(Body.standing(course.start(), demo.startYaw()),
+                replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")));
         before = avatar;
         seen = avatar;
         // the camera: behind, at its usual distance, or -Davatar.zoom times it (0.5 twice as near)
@@ -371,24 +489,108 @@ public final class Game {
                 avatar.wearingPack());
     }
 
+    /**
+     * How near the camera it draws, cm: as near as a hand from the eyes, seen from them; from behind, a
+     * fifth of the way to the avatar, up to a metre. The depth it tells near from far by is finest near
+     * the camera and coarser with the square of the distance, the coarser the nearer it draws from: so
+     * drawing from further off keeps what lies a few centimetres over the ground, a lawn, a path, a pond,
+     * apart from it far off, rather than flickering through each other.
+     */
+    private static final double NEAR = 10;
+    private static final double NEAR_MOST = 100;
+    private static final double NEAR_SHARE = 0.2;
+
+    /**
+     * How far either side the camera takes in, degrees, across: its field of view is how far up and down, so
+     * across is that as much wider as the screen is wider than high.
+     */
+    private double sideways() {
+        final double wide = screen == null ? 0 : screen.getWidth();
+        final double high = screen == null ? 0 : screen.getHeight();
+        final double aspect = wide > 0 && high > 0 ? wide / high : 16.0 / 9;
+        return Math.toDegrees(Math.atan(Math.tan(Math.toRadians(fieldOfView / 2)) * aspect));
+    }
+
+    /**
+     * The layers, the camera {@code over} the ground, seen from the eyes ({@code eyes}) or from behind:
+     * from over {@link #HIGH} till under {@link #LOW}, what it follows in the near layer, and the world's drawn from
+     * so much of its height on; else all of it the world's, drawn from as near as ever.
+     */
+    private void layers(final double over, final boolean eyes) {
+        high = high ? over > LOW : over > HIGH;
+        final List<Node> wanted = new ArrayList<>();
+        if (high) {
+            wanted.add(rig.node());
+            wanted.add(rig.effects());
+            final Node part = world.part(lifts.stream().filter(Lift::held).findFirst().map(Lift::piece).orElse(-1));
+            if (part != null) {
+                wanted.add(part);
+            }
+        }
+        for (final Node node : new ArrayList<>(lifted)) {
+            if (!wanted.contains(node)) {
+                nearRoot.getChildren().remove(node);
+                homes.remove(node).getChildren().add(node);
+                lifted.remove(node);
+            }
+        }
+        for (final Node node : wanted) {
+            if (!lifted.contains(node) && node.getParent() instanceof Group home) {
+                home.getChildren().remove(node);
+                homes.put(node, home);
+                nearRoot.getChildren().add(node);
+                lifted.add(node);
+            }
+        }
+        final double near = nearClip(eyes);
+        nearEye.setNearClip(near);
+        eye.setNearClip(high ? Math.max(near, over * NEAR_PER_HEIGHT) : near);
+    }
+
+    /** How near the camera it draws, seen from the eyes ({@code eyes}) or from behind. */
+    private double nearClip(final boolean eyes) {
+        return eyes ? NEAR : Num.clamp(chase.distance() * NEAR_SHARE, NEAR, NEAR_MOST);
+    }
+
     /** Plays it in {@code stage}. */
     private void start(final Stage stage) {
-        eye.setNearClip(10);
-        eye.setFarClip(150_000);
+        eye.setNearClip(NEAR);
+        // as far as the sky round the camera, and a little more
+        eye.setFarClip(Horizon.FAR * FAR_CLIP);
         eye.setFieldOfView(FIELD_OF_VIEW);
-        eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch);
+        eye.getTransforms().addAll(eyeAt, eyeYaw, eyePitch, eyeRoll);
+        nearEye.getTransforms().addAll(nearAt, nearYaw, nearPitch, nearRoll);
+        // moved and turned as the world's camera is, and as wide
+        nearAt.xProperty().bind(eyeAt.xProperty());
+        nearAt.yProperty().bind(eyeAt.yProperty());
+        nearAt.zProperty().bind(eyeAt.zProperty());
+        nearYaw.angleProperty().bind(eyeYaw.angleProperty());
+        nearPitch.angleProperty().bind(eyePitch.angleProperty());
+        nearRoll.angleProperty().bind(eyeRoll.angleProperty());
+        nearEye.fieldOfViewProperty().bind(eye.fieldOfViewProperty());
+        nearEye.setNearClip(NEAR);
+        nearEye.setFarClip(NEAR_LAYER);
+        final javafx.scene.AmbientLight nearAmbient = new javafx.scene.AmbientLight(World.AMBIENT);
+        final javafx.scene.DirectionalLight nearSun = new javafx.scene.DirectionalLight(World.SUNLIGHT);
+        nearSun.setDirection(World.SUN);
+        nearRoot.getChildren().addAll(nearAmbient, nearSun, nearEye);
 
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
                 bombs.node(), stall.node(), guns.node(),
                 reticle.node(), eye);
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
+        screen = view;
         view.setFill(World.SKY);
         view.setCamera(eye);
         view.setOnScroll(e -> {
             zoomTo = Double.NaN;
             chase = chase.zoomed(Math.pow(1.0015, -e.getDeltaY()));
         });
+        final SubScene nearView = new SubScene(nearRoot, 0, 0, true, SceneAntialiasing.BALANCED);
+        nearView.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        nearView.setCamera(nearEye);
+        nearView.setMouseTransparent(true);
 
         status.setStyle("-fx-text-fill: #f4f6f8; -fx-font-size: 15px; -fx-font-weight: bold;");
         help.setText(ON_FOOT_HELP);
@@ -400,10 +602,12 @@ public final class Game {
         hud.setMaxSize(VBox.USE_PREF_SIZE, VBox.USE_PREF_SIZE);
         hud.setStyle("-fx-background-color: rgba(20, 24, 30, 0.55); -fx-background-radius: 6;");
         hud.setMouseTransparent(true);
+        // none at all, if asked: for a picture of the world alone
+        hud.setVisible(!"false".equalsIgnoreCase(System.getProperty("avatar.hud")));
 
         // the menu bar along the top, and under it the world, the HUD over it
         menus();
-        final StackPane shown = new StackPane(view, hud, dashboard.node(), panel.node());
+        final StackPane shown = new StackPane(view, nearView, hud, dashboard.node(), panel.node());
         // a vehicle's controls, low on the left, to click with the mouse freed
         StackPane.setAlignment(panel.node(), Pos.BOTTOM_LEFT);
         StackPane.setMargin(panel.node(), new Insets(0, 0, 20, 24));
@@ -416,6 +620,8 @@ public final class Game {
         StackPane.setMargin(dashboard.node(), new Insets(0, 24, 20, 0));
         view.widthProperty().bind(shown.widthProperty());
         view.heightProperty().bind(shown.heightProperty());
+        nearView.widthProperty().bind(shown.widthProperty());
+        nearView.heightProperty().bind(shown.heightProperty());
 
         final Scene scene = new Scene(root, 1280, 800);
         this.scene = scene;
@@ -455,7 +661,8 @@ public final class Game {
         final String inputs = System.getProperty("avatar.inputs");
         if (inputs != null) {
             try {
-                recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack(), demo);
+                recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack(), demo,
+                        siege);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -464,7 +671,8 @@ public final class Game {
         movedNow = new Play(avatar, damage, sky, lifts, people, props, turrets).moving();
         movedBefore = movedNow;
         frame(0);
-        // unattended runs also print each second's frame times, for measuring without watching
+        // unattended runs also print each second's frame times, for measuring without watching; and so does the
+        // slow frames' log, while it is on
         final boolean logFrames = unattended;
         timer = new AnimationTimer() {
             private long last = -1;
@@ -473,12 +681,24 @@ public final class Game {
             public void handle(final long now) {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
+                if (slowFrames.on()) {
+                    final String slow = slowFrames.began(now, world.node());
+                    if (slow != null) {
+                        slowFrames.write(slow);
+                    }
+                }
                 final long began = System.nanoTime();
                 frame(seconds);
-                final FrameTimes.Summary summary = frameTimes.frame(now, System.nanoTime() - began);
+                final long work = System.nanoTime() - began;
+                if (slowFrames.on()) {
+                    slowFrames.done(work, drawingNanos, world.landWork(), seenAt);
+                }
+                final FrameTimes.Summary summary = frameTimes.frame(now, work);
                 if (summary != null) {
                     showFrames(summary);
-                    if (logFrames) {
+                    if (slowFrames.on()) {
+                        slowFrames.write("frames: " + summary.text().replace('·', '|') + " | " + slowFrames.where());
+                    } else if (logFrames) {
                         System.out.println("frames: " + summary.text().replace('·', '|'));
                     }
                 }
@@ -493,6 +713,7 @@ public final class Game {
             timer.stop();
             timer = null;
         }
+        slowFrames.on(false);
         if (look != null) {
             look.close();
             look = null;
@@ -574,10 +795,27 @@ public final class Game {
         seen = avatar.between(before, ticked.blend());
         final Avatar avatar = seen;
         final Body body = avatar.body();
-        final double tilt = look.takeTilt();
-        final double circling = axis(KeyCode.E) - axis(KeyCode.Q);
-        if (tilt != 0 || circling != 0) {
-            chase = chase.turned(circling * CIRCLE * seconds, tilt);
+        // at a land vehicle's controls the view is the vehicle's alone ({@link DriveView}): the mouse and Q/E do not
+        // move it, and B looks back
+        final boolean driving = driving();
+        final boolean back = driving && axis(KeyCode.B) > 0;
+        if (back != lookingBack) {
+            // round at once, not swinging round
+            chase = chase.turned(180, 0);
+            lookingBack = back;
+        }
+        // the mouse's tilt taken either way, so none is left over for after
+        final double tilted = look.takeTilt();
+        final double tilt = driving ? 0 : tilted;
+        // at an aircraft's controls Q and E slide it aside, so the mouse looks round it instead, the
+        // view swinging back behind it a while after the mouse is let be; in first person, the head turns
+        final boolean aircraft = lifts.stream().anyMatch(l -> l.held() && l.craft() instanceof Course.Aircraft);
+        final double circling = aircraft || driving ? 0 : axis(KeyCode.E) - axis(KeyCode.Q);
+        final double lookRound = aircraft && !firstPerson ? mouse : 0;
+        lookHeld = lookRound != 0 ? LOOK_HOLD : aircraft ? Math.max(0, lookHeld - seconds) : 0;
+        final boolean holding = circling != 0 || lookHeld > 0;
+        if (tilt != 0 || circling != 0 || lookRound != 0) {
+            chase = chase.turned(circling * CIRCLE * seconds + lookRound, tilt);
         }
         // at a vehicle's controls, the view is the vehicle's: behind it, as far back as it is big
         final Map<Integer, Block> shownAt = between(movedBefore, movedNow, ticked.blend());
@@ -593,7 +831,7 @@ public final class Game {
             if (piloting < 0) {
                 zoomWas = chase.distance();
             }
-            zoomTo = flying.map(Game::viewFrom)
+            zoomTo = flying.map(this::driveFrom)
                     .orElse(alone.map(gun -> gun.mount().closed() ? GUN_VIEW : OPEN_GUN_VIEW).orElse(zoomWas));
             // the view tipped to where the aim is level, as it rests for what is now looked along
             chase = chase.turned(0, restPitch() - chase.pitch());
@@ -610,30 +848,41 @@ public final class Game {
         chase = alone.isPresent()
                 ? chase.follow(alone.get().pivot().add(0, alone.get().mount().closed() ? -GUN_EYE : -OPEN_GUN_EYE, 0),
                 alone.get().heading(), 1, seconds,
-                circling != 0)
+                holding)
                 : craft != null
                 ? chase.follow(new Vec3(craft.x(), -(craft.bottom() + craft.top()) / 2 - overBody(flying.get()), craft.z()),
-                craft.yaw(), 1,
-                seconds, circling != 0)
-                : chase.follow(eyeOf(body), body.yaw(), 1, seconds, circling != 0);
+                Num.wrap(craft.yaw() + (lookingBack ? 180 : 0)), 1,
+                seconds, holding)
+                : chase.follow(eyeOf(body), body.yaw(), 1, seconds, holding);
         // a gun aimed by the keys: the view tilts with it, so its sight stays in view
         if (alone.filter(gun -> gun.mount().keyed()).isPresent()) {
             chase = chase.turned(0, restPitch() + alone.get().pitch() - chase.pitch());
         }
+        // driving, tipped as the view chosen has it, steady
+        if (driving) {
+            chase = chase.turned(0, (driveView == DriveView.CHASE_NEAR ? CLOSE_PITCH : restPitch()) - chase.pitch());
+        }
 
-        // in first person at a vehicle's controls, the view is from where its driver's eyes are: the
-        // seat, the console, the front of the gondola, or behind a gun; in a land vehicle the mouse,
-        // which does not steer it, turns the head
-        final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
-                && gunned.isEmpty();
-        headYaw = firstPerson && seated ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
-        final View cockpit = firstPerson ? cockpit(flying.orElse(null), alone.orElse(null), shownAt) : null;
+        // in first person, the view is from the avatar's own eyes; at a vehicle's controls, from where its
+        // driver's eyes are: the seat, the console, the front of the gondola, or behind a gun; in a land
+        // vehicle the mouse, which does not steer it, turns the head
+        final boolean seated = flying.filter(lift -> lift.craft() instanceof Course.Chassis
+                || lift.craft() instanceof Course.Aircraft).isPresent() && gunned.isEmpty();
+        // but driving, the view the driver chose, from on the vehicle or behind it, its head still
+        final boolean eyes = driving ? driveView == DriveView.COCKPIT : firstPerson;
+        headYaw = eyes && seated && !driving ? Num.clamp(headYaw + mouse, -HEAD_TURN, HEAD_TURN) : 0;
+        final View cockpit = driving && driveView.onIt() && craft != null ? onIt(flying.get(), craft, shownAt)
+                : eyes ? cockpit(flying.orElse(null), alone.orElse(null), shownAt, body,
+                Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH)) : null;
+        // on foot, from its own eyes: only its arms and what they hold are drawn, at the bottom of the view
+        final boolean ownEyes = cockpit != null && flying.isEmpty() && alone.isEmpty();
+        rig.fromItsEyes(ownEyes);
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
         final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
         // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
-        rig.node().setVisible(!inside && cockpit == null);
-        rig.effects().setVisible(!inside && cockpit == null);
+        rig.node().setVisible(!inside && (cockpit == null || ownEyes));
+        rig.effects().setVisible(!inside && (cockpit == null || ownEyes));
         reticle.node().setVisible(!inside);
         // at the wheel of a land vehicle, sat in its seat, facing the way it heads, as it is drawn now
         final Pose looking = Gait.of(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH);
@@ -648,6 +897,10 @@ public final class Game {
         } else if (alone.filter(gun -> gun.mount().rides()).isPresent()) {
             // at a mounted gun, sat behind it, turned with it
             rig.show(avatar, Gait.seated(looking));
+        } else if (ownEyes) {
+            // from its own eyes, its arms upright and steady at the bottom of the view, however it is tipped
+            rig.showFromEyes(avatar, Gait.upright(avatar, chase.yaw(), chase.pitch() - Chase.DEFAULT_PITCH),
+                    cockpit.at(), cockpit.yaw());
         } else {
             rig.show(avatar, looking);
         }
@@ -659,6 +912,8 @@ public final class Game {
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
+        // and each bomber's bomb bay, open as far as its doors are driven
+        world.bays(sky::bay);
         bombs.show(sky, behind);
         stall.show(people, peopleBefore, ticked.blend(), forStall.read().events(), seconds);
         // the gun the player fires: one manned, or one fixed to what it drives
@@ -682,7 +937,8 @@ public final class Game {
         // and so does one to be flown, while it stands
         final List<Course.Piece> droning = new ArrayList<>(now.airships());
         for (final Lift lift : lifts) {
-            if (lift.craft().closed() && !damage.broken(lift.piece())) {
+            if (lift.craft().closed() && !(lift.craft() instanceof Course.Aircraft) && !lift.held()
+                    && !damage.broken(lift.piece())) {
                 droning.add(damage.piece(lift.piece()).placed(lift.place()));
             }
         }
@@ -693,21 +949,39 @@ public final class Game {
                         gun.mount().gun().by() == Weapon.GIANT_GATLING || gun.mount().gun().by() == Weapon.RAPID_GATLING
                                 ? GIANT_PITCH : GUN_PITCH, gun.mount().gun().by()))
                         .orElse(null),
-                flying.filter(lift -> lift.craft() instanceof Course.Chassis).map(lift -> motor(lift, seconds)).orElse(null));
+                flying.map(lift -> lift.craft() instanceof Course.Chassis ? motor(lift, seconds)
+                        : lift.craft() instanceof Course.Ship ? airshipMotor(lift, seconds) : null).orElse(null));
         // and its instruments, while one is driven
         instruments(flying.filter(lift -> lift.craft() instanceof Course.Chassis).orElse(null), seconds);
 
         // boosting widens the view a little, for a sense of speed
         final double boost = body.flying()
                 ? Num.clamp((body.speed() - Body.FLY) / (Body.BOOST - Body.FLY), 0, 1) : 0;
-        fieldOfView = Num.ease(fieldOfView, FIELD_OF_VIEW + BOOST_VIEW * boost, 4, seconds);
+        // and riding, from the rider, wider, to take in the bars below and the road ahead
+        final boolean riderView = driving && driveView == DriveView.COCKPIT
+                && flying.filter(lift -> lift.craft() instanceof Course.Chassis chassis && chassis.twoWheels()).isPresent();
+        fieldOfView = Num.ease(fieldOfView, (riderView ? RIDER_VIEW : FIELD_OF_VIEW) + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
+        eye.setNearClip(nearClip(cockpit != null));
         final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
         eyeAt.setX(at.x());
+        // how far it sees, by how high it is over the ground under it ({@link Sight}): the sky, the haze and how far it
+        // draws as far as that
+        final double over = -at.y() - course.land().height(at.x(), at.z());
+        final double reach = sight.at(over, seconds);
+        world.horizon().follow(at, reach);
+        eye.setFarClip(reach * FAR_CLIP);
+        layers(over, cockpit != null);
+        final long seeing = System.nanoTime();
+        world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(),
+                reach, Math.max(0, over)), seconds);
+        drawingNanos = System.nanoTime() - seeing;
+        seenAt = at;
         eyeAt.setY(at.y());
         eyeAt.setZ(at.z());
         eyeYaw.setAngle(cockpit != null ? cockpit.yaw() : chase.yaw());
         eyePitch.setAngle(cockpit != null ? cockpit.pitch() : chase.pitch());
+        eyeRoll.setAngle(cockpit != null ? cockpit.roll() : 0);
 
         showStatus();
         snapshotIfDue();
@@ -795,6 +1069,13 @@ public final class Game {
                             ? String.format(" · sloping %+.0f°", lift.tilt()) : "",
                     gun, left);
         }
+        if (lift.craft() instanceof Course.Aircraft aircraft) {
+            final String state = !lift.engine() ? "engine off: F to start"
+                    : String.format("rotors %.0f° forward · pitch %+.0f° · bank %+.0f°", lift.steer(), lift.tilt(),
+                    lift.roll());
+            return String.format("Flying the %s · %.1f m/s · climbing %+.1f m/s · %.1f m up · %s", aircraft.name(),
+                    lift.speed() / 100, lift.climb() / 100, (lift.place().height() - aircraft.standing()) / 100, state);
+        }
         if (lift.craft().closed()) {
             return String.format("Aboard the airship · %.1f m/s · %.1f m up%s · hull %.0f%% · %s", lift.speed() / 100,
                     lift.place().height() / 100, lift.moored() ? ", moored" : "", left, bay(lift));
@@ -831,6 +1112,28 @@ public final class Game {
         };
     }
 
+    /**
+     * How the siege stands, a line of its own: how many airships have come, are in the air and have been
+     * shot down, and how much the hall has left; or, the hall fallen, how long it held.
+     */
+    private String siegeStatus() {
+        final Siege.State siege = sky.siege();
+        final double time = sky.time();
+        final String held = String.format("%d:%02d", (int) time / 60, (int) time % 60);
+        if (siege.lost()) {
+            return String.format("THE TEMPLE HAS FALLEN · it held %s · %d airships shot down of %d ·"
+                    + " Demo menu: start again", held, siege.downed(), siege.arrivals());
+        }
+        final String hall = damage.broken(siege.target())
+                ? String.format("the hall fallen: rebuilt in %.0f s", Math.max(0,
+                siege.fell() + siege.siege().rebuildAfter() - time))
+                : String.format("%s %.0f%%", siege.target() == siege.hall() ? "temple hall" : "their target",
+                100 * damage.left(siege.target()));
+        final String next = siege.arrivals() == 0 ? String.format(" · first in %.0f s", siege.next() - time) : "";
+        return String.format("Siege %s · %s · %d in the air · %d shot down · %d come%s", held, hall,
+                siege.flying(), siege.downed(), siege.arrivals(), next);
+    }
+
     private void showStatus() {
         final Body body = seen.body();
         final double metres = body.groundSpeed() / 100;
@@ -848,10 +1151,13 @@ public final class Game {
         // an airship to be flown is a vehicle, not a target: its own state is shown at its controls
         final List<Lift> ships = lifts.stream().filter(l -> damage.piece(l.piece()).kind() == Course.Kind.AIRSHIP)
                 .toList();
+        // under siege, its airships are counted as it counts them, not as targets
+        final boolean besieged = sky.siege() != null;
         final int targets = damage.count(Course.Kind.DUMMY) + damage.count(Course.Kind.DRONE)
-                + damage.count(Course.Kind.AIRSHIP) - ships.size();
+                + (besieged ? 0 : damage.count(Course.Kind.AIRSHIP) - ships.size());
         final int down = damage.broken(Course.Kind.DUMMY) + damage.broken(Course.Kind.DRONE)
-                + damage.broken(Course.Kind.AIRSHIP) - (int) ships.stream().filter(l -> damage.broken(l.piece())).count();
+                + (besieged ? 0 : damage.broken(Course.Kind.AIRSHIP)
+                - (int) ships.stream().filter(l -> damage.broken(l.piece())).count());
         final int crates = damage.broken(Course.Kind.CRATE);
         final String score = (targets == 0 ? "" : String.format(" · targets down %d of %d", down, targets))
                 + String.format("%s",
@@ -866,7 +1172,8 @@ public final class Game {
                 : recorder != null ? " · keeping inputs" : "";
         // a platform's controls: taken, or within reach
         final Play here = new Play(avatar, damage, sky, lifts, people, props, turrets);
-        final String reach = here.withinReach().map(lift -> lift.craft().closed() ? " · T: board the airship"
+        final String reach = here.withinReach().map(lift -> lift.craft() instanceof Course.Aircraft aircraft ? " · T: board the " + aircraft.name()
+                        : lift.craft().closed() ? " · T: board the airship"
                         : lift.craft() instanceof Course.Chassis chassis
                                 ? (chassis.twoWheels() ? " · T: get on" : " · T: get in") : " · T: take the controls")
                 .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
@@ -881,9 +1188,10 @@ public final class Game {
                 .orElse(String.format("%s · %.1f m/s · %.1f m up · %s%s%s%s · %s%s%s", what, metres,
                         body.height() / 100 + 0.0, avatar.wearingPack() ? "jet-pack on" : "no jet-pack: J to put it on",
                         weapon, reach, score, sound, run, free));
-        if (!text.equals(shown)) {
-            shown = text;
-            status.setText(text);
+        final String line = besieged ? siegeStatus() + System.lineSeparator() + text : text;
+        if (!line.equals(shown)) {
+            shown = line;
+            status.setText(line);
         }
         // the gun on the vehicle at whose controls the avatar is, if it has one, under control or not
         final Optional<Turret> vehicleGun = flown.flatMap(lift -> turrets.stream()
@@ -896,8 +1204,15 @@ public final class Game {
                 : flown.map(lift -> lift.craft() instanceof Course.Chassis chassis
                         ? (chassis.sidecar() != null ? SIDECAR_HELP : chassis.twoWheels() ? RIDE_HELP
                         : fixedGun(lift).isPresent() ? ARMED_DRIVE_HELP : DRIVE_HELP)
+                        : lift.craft() instanceof Course.Aircraft ? AIRCRAFT_HELP
                         : lift.craft().closed() ? AIRSHIP_HELP : PLATFORM_HELP).orElseThrow()
-                        + (vehicleGun.isPresent() ? GUN_OFF_HELP : "");
+                        + (vehicleGun.isPresent() ? GUN_OFF_HELP : "")
+                        + (flown.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent()
+                        ? "\nCamera: " + (driveView == DriveView.COCKPIT
+                        && flown.get().craft() instanceof Course.Chassis rode && rode.twoWheels()
+                        ? "the rider's " + riderPoint() + " (, and . lower or higher)" : driveView.title)
+                        + " (C in turn: chase far, chase near, hood, cockpit, bumper)"
+                        : "");
         if (!keys.equals(help.getText())) {
             help.setText(keys);
         }
@@ -926,7 +1241,9 @@ public final class Game {
                 VehiclePanel.Control.LEAVE));
         final String title = flown.map(this::vehicleName).orElse(manned.filter(gun -> gun.mount().rides()).isPresent()
                 ? "The mounted Gatling gun" : "The heavy Gatling gun");
-        panel.show(title, controls, gunControl, firstPerson, !look.captured());
+        final boolean driven = flown.filter(lift -> lift.craft() instanceof Course.Chassis).isPresent();
+        panel.show(title, controls, gunControl, driven ? driveView == DriveView.COCKPIT : firstPerson, driven,
+                !look.captured());
     }
 
     /** What vehicle {@code lift} is, in a word or two, for the control panel's heading. */
@@ -935,6 +1252,9 @@ public final class Game {
             final Course.Bodywork body = damage.piece(lift.piece()).body();
             final String name = body != null ? body.name() : chassis.name();
             return "The " + name;
+        }
+        if (lift.craft() instanceof Course.Aircraft aircraft) {
+            return "The " + aircraft.name();
         }
         final boolean armed = turrets.stream().anyMatch(t -> t.host() == lift.piece() && !t.mount().fixed());
         return lift.craft().closed() ? (armed ? "The airship and its giant gun" : "The airship")
@@ -971,15 +1291,15 @@ public final class Game {
     /**
      * The menu bar: the demos, each by name, this one ticked, to switch to (this one again starts it
      * over), and the choice of all of them (as Tab); the view, first person and the camera put back
-     * behind (as V and C); and the sound, muted and its profile (as M and P). The mouse is free
+     * behind (as V and C), and the slow frames' log on or off ({@link SlowFrames}); and the sound, muted and its profile (as M and P). The mouse is free
      * while a menu is open, to point with, and goes back to as it was after.
      */
     private void menus() {
         final Menu demos = new Menu("Demo");
         final ToggleGroup which = new ToggleGroup();
-        final Demo[] all = Demo.values();
-        for (int i = 0; i < all.length; i++) {
-            final Demo other = all[i];
+        final java.util.List<Demo> all = Demo.playable();
+        for (int i = 0; i < all.size(); i++) {
+            final Demo other = all.get(i);
             final RadioMenuItem item = new RadioMenuItem((i + 1) + "   " + other.title());
             item.setToggleGroup(which);
             item.setSelected(other == demo);
@@ -992,9 +1312,14 @@ public final class Game {
         choice.setOnAction(e -> back.run());
         demos.getItems().addAll(new SeparatorMenuItem(), again, choice);
         final Menu views = new Menu("View");
+        // and the slow frames' log, on or off, kept in a file
+        final CheckMenuItem log = new CheckMenuItem("Log slow frames to " + SlowFrames.FILE.getFileName());
+        log.setSelected(slowFrames.on());
+        log.setOnAction(e -> slowFrames.on(log.isSelected()));
         views.getItems().addAll(
-                item("First person, at the controls   (V)", KeyCode.V),
-                item("Camera behind   (C)", KeyCode.C));
+                item("First person   (V)", KeyCode.V),
+                item("Camera behind   (C)", KeyCode.C),
+                new SeparatorMenuItem(), log);
         final Menu sounds = new Menu("Sound");
         sounds.getItems().addAll(
                 item("Mute or unmute   (M)", KeyCode.M),
@@ -1040,10 +1365,35 @@ public final class Game {
     private void view(final KeyCode code) {
         switch (code) {
             case C -> {
-                chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
-                headYaw = 0;
+                if (driving()) {
+                    // driving, the next view in turn
+                    driveView = driveView.next();
+                    lifts.stream().filter(Lift::held).findFirst().ifPresent(lift -> zoomTo = driveFrom(lift));
+                } else {
+                    chase = Chase.behind(chase.pivot(), avatar.body().yaw()).zoomed(chase.distance() / Chase.DEFAULT_DISTANCE);
+                    headYaw = 0;
+                }
             }
-            case V -> firstPerson = !firstPerson;
+            case COMMA, PERIOD -> {
+                // riding, the rider's view moved down toward the chest, or up toward the eyes
+                if (driving() && driveView == DriveView.COCKPIT) {
+                    riderAt = Num.clamp(riderAt + (code == KeyCode.PERIOD ? RIDER_STEP : -RIDER_STEP), 0, 1);
+                }
+            }
+            case V -> {
+                if (driving()) {
+                    // driving, to the driver's seat, and back to the view it was in
+                    if (driveView == DriveView.COCKPIT) {
+                        driveView = beforeCockpit;
+                    } else {
+                        beforeCockpit = driveView;
+                        driveView = DriveView.COCKPIT;
+                    }
+                    lifts.stream().filter(Lift::held).findFirst().ifPresent(lift -> zoomTo = driveFrom(lift));
+                } else {
+                    firstPerson = !firstPerson;
+                }
+            }
             case ESCAPE -> look.toggle();
             case TAB -> back.run();
             case M -> hearing.toggleMute();
@@ -1123,6 +1473,22 @@ public final class Game {
      * gathers speed, the revs dropping at each change and the throttle cut as it changes, down
      * them as it slows; worked as hard as it is speeding up.
      */
+    /**
+     * The airship being flown, as heard: its big V12 ({@link Vehicle#AIRSHIP}), driving constant-speed
+     * propellers, so governed: loafing with nothing asked of it, and up to its governed revs as it is
+     * worked harder, going ahead, climbing, turning (less, going carefully); heard from where it is, in
+     * its hull toward its tail, where its propellers are.
+     */
+    private Cues.Motor airshipMotor(final Lift lift, final double seconds) {
+        final Controls c = lastControls;
+        final double asked = Math.max(Math.abs(c.forward()), Math.max(0.6 * Math.abs(c.lift()), 0.4 * Math.abs(c.sideways())));
+        final double work = Num.clamp(asked, 0, 1) * (c.run() ? 1 : 0.6);
+        shipRpm = Num.ease(shipRpm, AIRSHIP_LOAFING + (Vehicle.AIRSHIP.cvt() - AIRSHIP_LOAFING) * work, AIRSHIP_REVS,
+                seconds);
+        final Course.Section engines = Course.part(damage.piece(lift.piece()), Course.HULL.get(5));
+        return new Cues.Motor(Vehicle.AIRSHIP.engine(), shipRpm, work, work, lift.at(engines));
+    }
+
     private Cues.Motor motor(final Lift lift, final double seconds) {
         final Course.Chassis chassis = (Course.Chassis) lift.craft();
         final Engine engine = engine(chassis);
@@ -1178,17 +1544,25 @@ public final class Game {
         dashboard.show(geared.rpm(), engine.redline(), geared.shown(), Math.abs(lift.ahead()) / 100 * 3.6, seconds);
     }
 
-    /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up. */
-    private record View(Vec3 at, double yaw, double pitch) {
+    /** A view: from {@code at}, turned {@code yaw} round and {@code pitch} up, and rolled {@code roll} to the right. */
+    private record View(Vec3 at, double yaw, double pitch, double roll) {
+
+        View(final Vec3 at, final double yaw, final double pitch) {
+            this(at, yaw, pitch, 0);
+        }
     }
 
     /**
-     * The first-person view at the controls of {@code lift}, or behind {@code gun}, as they are drawn
+     * The first-person view: on foot (no {@code lift} at its controls, no {@code gun} manned), from the
+     * avatar's own eyes as {@code body} is drawn holding {@code pose}, the way it faces, tilted with its
+     * aim; at the
+     * controls of {@code lift}, or behind {@code gun}, as they are drawn
      * ({@code shownAt}): from where its driver's eyes are, looking the way it heads (and the head
      * turned, in a land vehicle), up or down as the view is tilted, and tipped as it is; behind a
-     * gun, looking where it is aimed. Null when there are none.
+     * gun, looking where it is aimed. Null when there is nothing drawn to look from.
      */
-    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt) {
+    private View cockpit(final Lift lift, final Turret gun, final Map<Integer, Block> shownAt, final Body body,
+                        final Pose pose) {
         final double look = chase.pitch() - restPitch();
         if (gun != null) {
             final Block was = movedNow.get(gun.host());
@@ -1200,7 +1574,7 @@ public final class Game {
             return new View(eye, yaw, look);
         }
         if (lift == null) {
-            return null;
+            return new View(BoxRig.eye(body, pose), body.yaw(), look);
         }
         final Block block = shownAt.get(lift.piece());
         if (block == null) {
@@ -1217,7 +1591,91 @@ public final class Game {
             case Course.Deck deck -> new View(spot(drawn, 0, deck.pilot(), Chase.EYE_HEIGHT), block.yaw(), look);
             case Course.Ship ship -> new View(spot(drawn, 0, Course.GONDOLA.along() + Course.GONDOLA.halfAlong() + 12,
                     Course.GONDOLA.up()), block.yaw(), look);
+            case Course.Aircraft aircraft -> {
+                // from its pilot's seat, pitched with it
+                final double pitch = Math.toRadians(lift.tilt());
+                final Course.Section eye = aircraft.eye();
+                yield new View(spot(drawn, eye.across(), eye.along() * Math.cos(pitch) - eye.up() * Math.sin(pitch),
+                        eye.along() * Math.sin(pitch) + eye.up() * Math.cos(pitch)), Num.wrap(block.yaw() + headYaw),
+                        look + lift.tilt());
+            }
         };
+    }
+
+    /** Where on the rider its view is, in a word: chest, chin, mouth or eyes. */
+    private String riderPoint() {
+        return riderAt < 0.2 ? "chest" : riderAt < 0.55 ? "chin" : riderAt < 0.8 ? "mouth" : "eyes";
+    }
+
+    /** Whether the avatar is at a land vehicle's controls: driving, or riding. */
+    private boolean driving() {
+        return lifts.stream().anyMatch(l -> l.held() && l.craft() instanceof Course.Chassis);
+    }
+
+    /** How far back the view sits behind {@code lift}: for a land vehicle, as its chosen view has it. */
+    private double driveFrom(final Lift lift) {
+        final double far = viewFrom(lift);
+        return lift.craft() instanceof Course.Chassis && driveView == DriveView.CHASE_NEAR ? far * CLOSE_SHARE : far;
+    }
+
+    /**
+     * Driving {@code lift}, drawn as {@code block}, the view from on it as chosen: the driver's seat (as first person
+     * has it, the head still); the hood, over its front half, a little over its top (a two-wheeler's, over its bars);
+     * or its front bumper, low. Each looking ahead, tipped as the vehicle is; or, B held, looking back, from its back
+     * for the hood and the bumper.
+     */
+    private View onIt(final Lift lift, final Block block, final Map<Integer, Block> shownAt) {
+        final Course.Chassis chassis = (Course.Chassis) lift.craft();
+        final double tilt = lift.tilt();
+        if (driveView == DriveView.COCKPIT && chassis.twoWheels()) {
+            return rider(lift, chassis, block);
+        }
+        if (driveView == DriveView.COCKPIT) {
+            final View seat = cockpit(lift, null, shownAt, avatar.body(), Gait.of(avatar, chase.yaw(), 0));
+            return seat == null ? null : new View(seat.at(), Num.wrap(seat.yaw() + (lookingBack ? 180 : 0)),
+                    lookingBack ? -seat.pitch() : seat.pitch());
+        }
+        final Course.Shape shape = damage.piece(lift.piece()).shape();
+        final Place drawn = new Place(block.x(), block.z(), (block.bottom() + block.top()) / 2 - shape.box().up(),
+                block.yaw());
+        final double high = block.top() - block.bottom();
+        final double ahead = driveView == DriveView.HOOD ? chassis.length() * 0.2 : chassis.length() / 2 + 15;
+        final double along = lookingBack ? -ahead : ahead;
+        final double up = driveView == DriveView.HOOD ? (chassis.twoWheels() ? high + 20 : high * 0.8 + 15)
+                : Math.min(35, high * 0.25);
+        final Vec3 at = spot(drawn, 0, along, up + Math.tan(Math.toRadians(tilt)) * along);
+        return new View(at, Num.wrap(block.yaw() + (lookingBack ? 180 : 0)), ON_IT_PITCH + (lookingBack ? -tilt : tilt));
+    }
+
+    /**
+     * Riding a two-wheeler {@code lift} ({@code chassis}, drawn as {@code block}), the rider's own view: a camera fixed to
+     * the rider, at a point {@link #riderAt} of the way from the chest (0) up to the eyes (1), forward as the rider
+     * leans over the tank; leaning with the bike into its turns, about where its tyres touch the ground, and rolled as
+     * it is; tipped down so its bars are at the bottom of the view, as wide as {@link #RIDER_VIEW}. B held, looking back
+     * over the shoulder, level.
+     */
+    private View rider(final Lift lift, final Course.Chassis chassis, final Block block) {
+        final Course.Shape shape = damage.piece(lift.piece()).shape();
+        final Place drawn = new Place(block.x(), block.z(), (block.bottom() + block.top()) / 2 - shape.box().up(),
+                block.yaw());
+        final double along = chassis.driverAlong() + RIDER_CHEST[0] + (RIDER_EYES[0] - RIDER_CHEST[0]) * riderAt;
+        final double up = RIDER_CHEST[1] + (RIDER_EYES[1] - RIDER_CHEST[1]) * riderAt;
+        // leaning, about where the tyres touch the ground, as far below the bed as it rides
+        final double lean = Math.toRadians(lift.lean());
+        final double over = up + chassis.ride();
+        final double across = over * Math.sin(lean);
+        final double high = over * Math.cos(lean) - chassis.ride();
+        final double tilt = lift.tilt();
+        final Vec3 at = spot(drawn, across, along, high + Math.tan(Math.toRadians(tilt)) * along);
+        if (lookingBack) {
+            return new View(at, Num.wrap(block.yaw() + 180), -tilt, 0);
+        }
+        // down far enough that the bars, so far ahead and below, are in the bottom of the view
+        final double ahead = chassis.driverAlong() + 50 - along;
+        final double below = up - chassis.bars();
+        final double toBars = Math.toDegrees(Math.atan2(below, Math.max(1, ahead)));
+        final double down = Math.max(0, toBars - RIDER_BARS * RIDER_VIEW / 2);
+        return new View(at, block.yaw(), tilt - down, lift.lean());
     }
 
     /** The point {@code across}, {@code along} and {@code up} in the frame of {@code place}. */

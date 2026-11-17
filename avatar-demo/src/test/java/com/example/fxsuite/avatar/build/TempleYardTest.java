@@ -58,25 +58,22 @@ class TempleYardTest {
     }
 
     @Test
-    void threeMonksAtTheirStandUpInTheCourtyard() {
-        Course.temple(TempleYard::pieces);
-        final Course course = new Course(Demo.TEMPLE);
-        assertEquals(TempleYard.pieces(), course.pieces(), "its halls, and nothing else");
-        assertEquals(Course.MONKS, course.ground());
-        final Play play = Play.start(Demo.TEMPLE, false);
-        assertEquals(3, play.people().size());
-        assertEquals(Set.of(Person.Role.SMALL_MONK, Person.Role.TALL_MONK, Person.Role.STOUT_MONK),
-                play.people().stream().map(Person::role).collect(Collectors.toSet()));
-        // on the ground, in a ring, each facing its middle
-        final Vec3 middle = new Vec3(0, 0, Course.MONKS_AHEAD);
-        for (final Person monk : play.people()) {
+    void threeMonksAtTheirStandUpInTheCourtyardInTheMiddleOfTown() {
+        Town.tell();
+        final Set<Person.Role> monks = Set.of(Person.Role.SMALL_MONK, Person.Role.TALL_MONK, Person.Role.STOUT_MONK);
+        final List<Person> there = Play.start(Demo.TOWN, false).people().stream()
+                .filter(p -> monks.contains(p.role())).toList();
+        assertEquals(3, there.size());
+        assertEquals(monks, there.stream().map(Person::role).collect(Collectors.toSet()));
+        // on the ground, in a ring, each facing its middle: in the courtyard, where it is in the town
+        final Vec3 middle = new Vec3(Town.temple().x(), 0, Town.temple().z() + Course.MONKS_AHEAD);
+        for (final Person monk : there) {
             assertEquals(0, monk.body().height(), 1e-6, "on the ground");
             final Vec3 toward = middle.subtract(monk.body().position().multiply(1)).normalize();
             final Vec3 facing = Num.heading(monk.body().yaw());
             assertTrue(facing.x() * toward.x() + facing.z() * toward.z() > 0.99, monk.role() + " faces the middle");
         }
-        // and nobody on the ground in the other demos
-        assertTrue(new Course(Demo.TOWN).ground().isEmpty());
+        // and nobody on the ground in the playground
         assertTrue(new Course(Demo.PLAYGROUND).ground().isEmpty());
     }
 }

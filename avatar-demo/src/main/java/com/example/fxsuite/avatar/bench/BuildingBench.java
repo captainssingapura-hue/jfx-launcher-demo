@@ -90,6 +90,8 @@ public final class BuildingBench extends Application {
     private final CheckBox showDressed = new CheckBox("Dressed: its surfaces' designs");
     private final CheckBox showVertices = new CheckBox("Vertices");
     private final CheckBox showFloor = new CheckBox("The floor, ruled every 10 m");
+    /** Its roof's covering left off, to look in from over it ({@code -Dbuilding.roofless=true}). */
+    private final CheckBox withoutRoof = new CheckBox("Without its roof: look in from over it");
     /** How big it is built: 1, life size; every way at once, its doors and windows with it. */
     private final javafx.scene.control.Spinner<Double> scaling = new javafx.scene.control.Spinner<>(0.25, 4,
             Double.parseDouble(System.getProperty("building.scale", "1")), 0.25);
@@ -127,6 +129,9 @@ public final class BuildingBench extends Application {
         // the pavilions, one of each kind
         com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> COMPOSED.put(p.name(),
                 com.example.fxsuite.avatar.build.Pavilion.of(p).building()));
+        // the earth house, as homesteaders built them
+        COMPOSED.put(com.example.fxsuite.avatar.build.EarthHouse.NAME,
+                com.example.fxsuite.avatar.build.EarthHouse.standard().building());
     }
 
     /** The towers stacked from their plans, by name: their skeletons generated from them. */
@@ -180,6 +185,7 @@ public final class BuildingBench extends Application {
         ASSEMBLED.values().forEach(r -> all.add(r.form()));
         TOWERS.values().forEach(t -> all.add(t.skeleton()));
         com.example.fxsuite.avatar.build.Pavilions.PRESETS.forEach(p -> all.add(COMPOSED.get(p.name()).skeleton()));
+        all.add(COMPOSED.get(com.example.fxsuite.avatar.build.EarthHouse.NAME).skeleton());
         final Building fromPlan = com.example.fxsuite.avatar.build.TowerBuildings.of(towerPlan.tower());
         COMPOSED.put(PlanPanel.TOWER, fromPlan);
         all.add(fromPlan.skeleton());
@@ -218,6 +224,8 @@ public final class BuildingBench extends Application {
         showFloor.setOnAction(e -> floor.setVisible(showFloor.isSelected()));
         showPerson.setSelected(true);
         showPerson.setOnAction(e -> person.setVisible(showPerson.isSelected()));
+        withoutRoof.setSelected(Boolean.getBoolean("building.roofless"));
+        withoutRoof.setOnAction(e -> redraw());
         scaling.setEditable(true);
         scaling.setPrefWidth(110);
         scaling.valueProperty().addListener((seen, was, now) -> {
@@ -249,7 +257,7 @@ public final class BuildingBench extends Application {
                 choosing, sizing, EngineBench.row("Scale (1 = life size)", scaling),
                 EngineBench.label("Scaled, it is bigger every way: its doors, windows and floors with it, as a"
                         + " model is. The person stays life size."),
-                showDressed, showSkeleton,
+                showDressed, showSkeleton, withoutRoof,
                 legend, showVertices, showFloor, new HBox(10, showPerson, nearPerson),
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
@@ -426,7 +434,11 @@ public final class BuildingBench extends Application {
         final double thickness = Math.max(5, size / 900);
         shown.getChildren().clear();
         if (composed != null && showDressed.isSelected()) {
-            shown.getChildren().add(BuildingModel.of(composed.dressed(chosen(), palettes.getValue(), scale())));
+            final List<com.example.fxsuite.avatar.build.Solid> dressed = composed.dressed(chosen(), palettes.getValue(), scale());
+            // without its roof: its covering, and what grows on it, left off; what holds it up left
+            shown.getChildren().add(BuildingModel.of(withoutRoof.isSelected() ? dressed.stream()
+                    .filter(s -> s.role() != com.example.fxsuite.avatar.build.Role.ROOF && !s.name().startsWith("roof"))
+                    .toList() : dressed));
         }
         if (composed == null || showSkeleton.isSelected()) {
             shown.getChildren().add(FormModel.of(skeleton, thickness, colours, showVertices.isSelected(), dots));
@@ -461,13 +473,16 @@ public final class BuildingBench extends Application {
      */
     private void resized(final SizeControls.Built built) {
         COMPOSED.put(built.name(), built.building());
+        // a tower, stacked from its plans; one put together from parts, its plans with it; one made whole (a house), its own skeleton
+        final boolean whole = built.tower() == null && built.assembled() == null;
         if (built.tower() != null) {
             TOWERS.put(built.name(), built.tower());
-        } else {
+        } else if (!whole) {
             ASSEMBLED.put(built.name(), built.assembled());
             PARTS_PLANS.put(built.name(), built.plans());
         }
-        final Form made = built.tower() != null ? built.tower().skeleton() : built.assembled().form();
+        final Form made = built.tower() != null ? built.tower().skeleton()
+                : whole ? built.building().skeleton() : built.assembled().form();
         final int k = buildings.getItems().indexOf(buildings.getItems().stream()
                 .filter(f -> f.name().equals(built.name())).findFirst().orElse(null));
         if (k < 0) {
@@ -484,7 +499,8 @@ public final class BuildingBench extends Application {
         if (shown) {
             building = made;
             composed = built.building();
-            planTab.setContent(built.tower() != null ? new TowerPlans(built.tower()) : new PartsPlans(built.plans()));
+            planTab.setContent(built.tower() != null ? new TowerPlans(built.tower())
+                    : whole ? new Pane() : new PartsPlans(built.plans()));
             fit(false);
             redraw();
             describe();

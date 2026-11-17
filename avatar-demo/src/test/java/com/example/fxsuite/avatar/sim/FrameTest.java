@@ -36,10 +36,10 @@ class FrameTest {
     void aMarkOnAnAirshipGoesWhereTheAirshipCarriesIt() {
         final Course course = new Course();
         final Course.Piece airship = course.pieces().stream().filter(Course.Piece::flies).findFirst().orElseThrow();
-        final Course.Route route = airship.route();
+        final Course.Circling route = (Course.Circling) airship.route();
         // struck on the side of the hull, twelve seconds in
         final Block then = airship.at(12).block();
-        final Block side = Course.HULL.get(3).placed(route.at(12));
+        final Block side = Course.part(airship, Course.HULL.get(3)).placed(route.at(12));
         final Vec3 struck = new Vec3(side.x(), -(side.bottom() + side.top()) / 2, side.z())
                 .add(Num.right(route.at(12).yaw()).multiply(side.halfWidth()));
         final Vec3 onIt = then.toLocal(struck);

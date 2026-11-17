@@ -36,7 +36,14 @@ import java.util.List;
  */
 public record Lift(int piece, Course.Craft craft, Place place, double ahead, double aside, double climb,
                    boolean held, boolean engine, int bombs, double ready, double steer, double tilt, double roll,
-                   int bumped, double tipped) {
+                   int bumped, double tipped, double turning) {
+
+    /** Not turning of itself: as all but an aircraft, whose turning builds up and dies away ({@link #turning}), are. */
+    public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
+                final double climb, final boolean held, final boolean engine, final int bombs, final double ready,
+                final double steer, final double tilt, final double roll, final int bumped, final double tipped) {
+        this(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, bumped, tipped, 0);
+    }
 
     /** Upright: not tipping, as all but a sidecar outfit going round too hard are. */
     public Lift(final int piece, final Course.Craft craft, final Place place, final double ahead, final double aside,
@@ -61,7 +68,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, having run into piece {@code what} ({@link #bumped}); -1 nothing, -2 the avatar. */
     public Lift bumped(final int what) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, what, tipped, turning);
     }
 
     /**
@@ -71,7 +78,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     public Lift going(final double nowAhead, final double nowAside) {
         return new Lift(piece, craft, place, nowAhead, nowAside, climb, held, engine, bombs, ready, steer, tilt, roll,
-                bumped, tipped);
+                bumped, tipped, turning);
     }
 
     /** Over on its side: a sidecar outfit, past its limit for long enough ({@link Outfit#TIPS}). */
@@ -141,7 +148,6 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double MOST_ROLL = 35;
     /** Shoved sideways, a land vehicle's tyres scrub that off this hard, units a second, a second: a g and a half. */
     public static final double SCRUB = 1500;
-    private static final double LEANING = 1.4;
     /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
 
@@ -178,6 +184,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 lifts.add(new Lift(piece, Course.SHIP, what.place()));
             } else if (what.kind() == Course.Kind.CAR) {
                 lifts.add(new Lift(piece, Course.Chassis.of(what.shape()), what.place()));
+            } else if (what.kind() == Course.Kind.AIRCRAFT) {
+                // on its wheels, its engine off until it is started
+                lifts.add(new Lift(piece, Course.Aircraft.of(what.shape()), what.place(), 0, 0, 0, false, false));
             }
         }
         return lifts;
@@ -194,19 +203,19 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** The same, its controls taken or let go. */
     public Lift held(final boolean taken) {
-        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, taken, engine, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** The same, its engine started or cut. */
     public Lift engine(final boolean running) {
-        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, running, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** The same, carried by what it rests on as that moved from {@code from} to {@code to}: docked. */
     public Lift carried(final Place from, final Place to) {
         final Vec3 at = from.carry(new Vec3(place.x(), -place.height(), place.z()), to);
         return new Lift(piece, craft, new Place(at.x(), at.z(), -at.y(), Num.wrap(place.yaw() + to.yaw() - from.yaw())),
-                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, -1, tipped);
+                ahead, aside, climb, held, engine, bombs, ready, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** How fast it is going, all told: across the ground and up or down. */
@@ -245,7 +254,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             now = drops ? bombs - 1 : bombs;
             next = drops ? RACK : wait;
         }
-        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll, -1, tipped);
+        return new Lift(piece, craft, place, ahead, aside, climb, held, engine, now, next, steer, tilt, roll, -1, tipped, turning);
     }
 
     /** Where {@code spot} of its frame (across, along, up from where it is) is, in the world. */
@@ -271,6 +280,12 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         }
         final Vec3 at = body.position();
         final Vec3 station = pilot();
+        if (craft instanceof Course.Aircraft) {
+            // from the ground beside its door
+            final Vec3 door = at(craft.door());
+            return Math.hypot(at.x() - door.x(), at.z() - door.z()) <= REACH * 1.2
+                    && Math.abs(at.y() - door.y()) <= KERB;
+        }
         if (craft.closed()) {
             // under its hatch, the hatch within reach overhead
             final double overhead = at.y() - station.y();
@@ -322,7 +337,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             }
         }
         // what is shaped more closely: its highest top under the footing, felt for a metre or less apart over it
-        for (int i = 0; i < world.volumes().size(); i++) {
+        for (final int i : world.volumesNear(below.x(), below.z(), Math.hypot(below.halfWidth(), below.halfDepth()))) {
             final int other = world.volumePieces().get(i);
             final Volume volume = world.volumes().get(i);
             if (other == piece || aboard.contains(other) || volume.low() > underside + 0.5 || !volume.overlaps(below)) {
@@ -368,6 +383,9 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      */
     public Lift step(final Controls controls, final double seconds, final Obstacles world,
                      final Collection<Integer> aboard, final List<Block> also) {
+        if (craft instanceof Course.Aircraft aircraft) {
+            return flown(aircraft, controls, seconds, world, aboard, also);
+        }
         if (craft instanceof Course.Chassis chassis) {
             if (chassis.sidecar() == null) {
                 return drive(chassis, controls, seconds, world, aboard, also);
@@ -395,7 +413,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double KERB = 60;
     /** How far below its wheels the ground may fall away and it still keeps to it, rather than leaving it. */
     public static final double SNAP = 25;
-    /** At this speed, its wheels turn half as far as at a crawl. */
+    /** At this speed, a sidecar outfit's bars turn half as far as at a crawl, before its table has its say. */
     public static final double STEER_FADE = 1800;
     /** The handbrake, how much harder than the brakes it stops it. */
     public static final double HANDBRAKE = 1.5;
@@ -411,14 +429,14 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     private Lift drive(final Course.Chassis chassis, final Controls controls, final double seconds,
                        final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
         final Course.Drive drive = chassis.drive();
-        // the front wheels: turned as asked, the less the faster it goes, no faster than they turn
+        // the front wheels: turned as asked, as far and as fast as its speed lets them ({@link Steering})
         final double asked = held ? Num.clamp(controls.sideways(), -1, 1) : 0;
-        double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
-        double rate = drive.steerRate();
-        boolean gentle = false;
+        final double nowSteer;
         if (chassis.sidecar() != null) {
             // a sidecar outfit's bars, gently, the more so the faster it goes, by its table: toward the
             // way asked, or, let go, the way they are turned
+            double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
+            double rate = drive.steerRate();
             final Outfit outfit = Outfit.of(chassis);
             final List<Outfit.Row> table = Outfit.table(chassis);
             final double way = asked != 0 ? asked : steer;
@@ -426,13 +444,14 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 most = outfit.lock(table, ahead, way, most);
                 rate = outfit.rate(table, ahead, way, rate);
             }
-            gentle = true;
+            final double wanted = asked * most;
+            // and let back faster than they are turned in, to catch a lifting chair
+            final boolean backing = Math.abs(wanted) < Math.abs(steer) || wanted * steer < 0;
+            final double turning = rate * (backing ? Outfit.BACK_OFF : 1) * seconds;
+            nowSteer = steer + Num.clamp(wanted - steer, -turning, turning);
+        } else {
+            nowSteer = Steering.turned(chassis, steer, asked, ahead, seconds);
         }
-        final double wanted = asked * most;
-        // and on an outfit, let back faster than they are turned in, to catch a lifting chair
-        final boolean backing = Math.abs(wanted) < Math.abs(steer) || wanted * steer < 0;
-        final double turning = rate * (gentle && backing ? Outfit.BACK_OFF : 1) * seconds;
-        final double nowSteer = steer + Num.clamp(wanted - steer, -turning, turning);
         // the pedals: ahead speeds it up (braking first, going back), back brakes then reverses
         final double pedal = held ? Num.clamp(controls.forward(), -1, 1) : 0;
         final double top = held && !controls.run() ? drive.top() * CAREFUL : drive.top();
@@ -458,8 +477,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final Vec3 newRear = Num.heading(yaw).multiply(chassis.rear());
         final Vec3 going = Num.heading(Num.wrap(place.yaw() + turn / 2)).multiply(v * seconds)
                 .add(Num.right(Num.wrap(place.yaw() + turn / 2)).multiply((aside + slid) / 2 * seconds));
-        final double x = Num.clamp(place.x() + rear.x() + going.x() - newRear.x(), -Body.EDGE, Body.EDGE);
-        final double z = Num.clamp(place.z() + rear.z() + going.z() - newRear.z(), -Body.EDGE, Body.EDGE);
+        final double x = world.land().insideX(place.x() + rear.x() + going.x() - newRear.x());
+        final double z = world.land().insideZ(place.z() + rear.z() + going.z() - newRear.z());
         // what else there is: not itself, nor what rides on it
         Obstacles others = world.without(piece);
         for (final int riding : aboard) {
@@ -477,7 +496,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /**
      * How far it leans into its turn, if it is a two-wheeler, in degrees, to the right: as a rider
-     * leans one to balance going round, the further the harder it is going round, never past
+     * leans one to balance the pull across it going round (atan of it over the world's own g), never past
      * {@link #MOST_LEAN}; upright going straight, or stopped. Only how it is shown: to the world it
      * stands as ever. Not a two-wheeler, 0.
      */
@@ -487,7 +506,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         }
         // how hard it is going round: its speed, times how fast it turns
         final double round = ahead * ahead / chassis.wheelbase() * Math.tan(Math.toRadians(steer));
-        return MOST_LEAN * Math.tanh(round / (LEANING * Body.GRAVITY));
+        return Num.clamp(Math.toDegrees(Math.atan(round / Steering.G)), -MOST_LEAN, MOST_LEAN);
     }
 
     /** {@code value} brought toward {@code target} by no more than {@code by}. */
@@ -615,7 +634,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                     return others.pieces().get(there);
                 }
                 // what is shaped more closely, solid there between a kerb over the ground and its top
-                for (int i = 0; i < others.volumes().size(); i++) {
+                for (final int i : others.volumesNear(x, z, 1)) {
                     if (others.volumes().get(i).push(x, z, 1, ground + KERB, over) != null) {
                         return others.volumePieces().get(i);
                     }
@@ -674,8 +693,8 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         final double b = (aside + nowAside) / 2 * seconds;
         final double up = (climb + nowClimb) / 2 * seconds;
         final Vec3 across = Num.heading(yaw).multiply(a).add(Num.right(yaw).multiply(b));
-        final double x = Num.clamp(place.x() + across.x(), -Body.EDGE, Body.EDGE);
-        final double z = Num.clamp(place.z() + across.z(), -Body.EDGE, Body.EDGE);
+        final double x = world.land().insideX(place.x() + across.x());
+        final double z = world.land().insideZ(place.z() + across.z());
         final double height = Num.clamp(place.height() + up, handles.low(), handles.high());
         final double climbing = height == handles.low() || height == handles.high() ? 0 : nowClimb;
         // the whole move if it is clear; else turning only, going across only, climbing only; else none
@@ -702,7 +721,18 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
      * itself and what rides on it, {@code aboard}: that goes where it goes.
      */
     public boolean clear(final Place at, final Obstacles world, final Collection<Integer> aboard) {
-        final Block room = craft.room().placed(at);
+        final List<Course.Section> room = craft instanceof Course.Aircraft aircraft ? aircraft.shape().parts()
+                : List.of(craft.room());
+        for (final Course.Section part : room) {
+            if (!clear(part.placed(at), world, aboard)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether {@code room} is clear of everything solid in {@code world} but itself and {@code aboard}. */
+    private boolean clear(final Block room, final Obstacles world, final Collection<Integer> aboard) {
         for (int i = 0; i < world.blocks().size(); i++) {
             final int other = world.pieces().get(i);
             if (other != piece && !aboard.contains(other) && room.overlaps(world.blocks().get(i))) {
@@ -710,13 +740,64 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
             }
         }
         // and of what is shaped more closely: a tower's curve, a pyramid's slope, a wall
-        for (int i = 0; i < world.volumes().size(); i++) {
+        for (final int i : world.volumesNear(room.x(), room.z(), Math.hypot(room.halfWidth(), room.halfDepth()))) {
             final int other = world.volumePieces().get(i);
             if (other != piece && !aboard.contains(other) && world.volumes().get(i).overlaps(room)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * An aircraft, {@code seconds} on, as it flies ({@link Flight}): flown by {@code controls} if
+     * held, hovering where it is if not, and dropping with its engine cut; on its wheels on whatever
+     * is under it. Its pitch is kept as {@link #tilt}, its bank as {@link #roll}, how far its rotors are
+     * tilted forward as {@link #steer}, and how fast it turns as {@link #turning}. A and D turn it, Q and E
+     * slide it aside; the mouse is not its (it looks round). It stops short of whatever is in its way as a
+     * platform does: the whole move if it is clear, else turning only, going across only, climbing
+     * only, else none; going no further the way it is stopped.
+     */
+    private Lift flown(final Course.Aircraft aircraft, final Controls controls, final double seconds,
+                       final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
+        final Flight flight = aircraft.flight();
+        final double floor = support(world, aboard, also).top() + below();
+        final Flight.State was = new Flight.State(place.height(), place.yaw(), ahead, aside, climb, tilt, roll, steer,
+                0, place.height() <= floor + 0.5 && climb <= 0, turning);
+        final Flight.Input input = held
+                // its keys: A and D turn it, Q and E slide it aside; the mouse is not its
+                ? new Flight.Input(controls.forward(), controls.strafe(), controls.lift(), controls.sideways(),
+                controls.run() ? 1 : CAREFUL, true, engine)
+                : Flight.Input.none(engine);
+        final Flight.State now = flight.step(was, input, seconds, floor);
+        // across the ground, as it went over the step, along the way it heads at the end of it
+        final double a = (was.ahead() * Math.cos(Math.toRadians(now.yaw() - was.yaw()))
+                + was.aside() * Math.sin(Math.toRadians(now.yaw() - was.yaw())) + now.ahead()) / 2 * seconds;
+        final double b = (was.aside() * Math.cos(Math.toRadians(now.yaw() - was.yaw()))
+                - was.ahead() * Math.sin(Math.toRadians(now.yaw() - was.yaw())) + now.aside()) / 2 * seconds;
+        final Vec3 across = Num.heading(now.yaw()).multiply(a).add(Num.right(now.yaw()).multiply(b));
+        final double x = world.land().insideX(place.x() + across.x());
+        final double z = world.land().insideZ(place.z() + across.z());
+        final double high = aircraft.handling().high();
+        final double height = Math.min(now.height(), high);
+        final double rising = height >= high ? Math.min(0, now.climb()) : now.climb();
+        final boolean stuck = !clear(place, world, aboard);
+        final Place[] tries = {
+                new Place(x, z, height, now.yaw()),
+                new Place(place.x(), place.z(), place.height(), now.yaw()),
+                new Place(x, z, place.height(), place.yaw()),
+                new Place(place.x(), place.z(), height, place.yaw()),
+        };
+        for (int k = 0; k < tries.length; k++) {
+            if (stuck || clear(tries[k], world, aboard)) {
+                final boolean goesAcross = k == 0 || k == 2;
+                final boolean goesUp = k == 0 || k == 3;
+                return new Lift(piece, craft, tries[k], goesAcross ? now.ahead() : 0, goesAcross ? now.aside() : 0,
+                        goesUp ? rising : 0, held, engine, bombs, ready, now.nacelle(), now.pitch(), now.roll(), -1, 0, now.turning());
+            }
+        }
+        return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, now.nacelle(), now.pitch(),
+                now.roll(), -1, 0);
     }
 
     /** Eased toward {@code wanted}; let go, at a crawl, it stops rather than creeping on for ever. */

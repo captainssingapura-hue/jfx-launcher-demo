@@ -88,11 +88,21 @@ public record Vehicle(String name, Engine engine, double mass, double torque, do
     public static final Vehicle TRUCK = new Vehicle("Truck", Engine.V8, 6500, 900,
             new double[] {6.4, 4.8, 3.7, 2.9, 2.3, 1.95, 1.7, 1.5}, 5.0, 0.50, 5.0, 0.8, 0.2, 0, 0, 0, 120);
 
+    /**
+     * An airship, its big V12 driving constant-speed propellers, as the great airships' engines did:
+     * their pitch set as it goes to hold the engine at its governed revs, 2,400 flat out, however fast
+     * it is going; so it is driven as a scooter's CVT is, its revs held as it gathers way. Twenty
+     * tonnes to get moving (its gas holds it up, not its engine), 2,500 N·m from its V12, supercharged;
+     * about 25 m/s flat out. Its 'wheel' a metre, its ratios its propellers' pitch, finest to coarsest.
+     */
+    public static final Vehicle AIRSHIP = new Vehicle("Airship (constant-speed propellers)",
+            Engine.V12.with(Supercharger.STANDARD), 20_000, 2500, new double[0], 1, 1, 67, 0.05, 0, 2400, 60, 9, 0);
+
     /** One for each engine. */
     public static final List<Vehicle> ALL = List.of(HATCHBACK, RALLY, SALOON, MUSCLE, SUPERCAR,
             SCOOTER_50, SCOOTER_125, DUAL_SPORT, CRUISER, BOXER_CRUISER, BOXER_OUTFIT, BOXER_ICE_CREAM, SPORT_BIKE, CLASSIC_BIKE, CAR,
             PICKUP,
-            TRUCK);
+            TRUCK, AIRSHIP);
 
     /** The vehicle {@code engine} drives, however it is charged. */
     public static Vehicle of(final Engine engine) {
