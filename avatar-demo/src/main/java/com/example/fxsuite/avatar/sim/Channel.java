@@ -97,7 +97,10 @@ public final class Channel implements Land.Layer {
 
     /** Its bed and its banks, bare earth: no grass grows where the water runs, or comes up to. */
     @Override
-    public double bare(final double x, final double z) {
+    public double cover(final Land.Cover cover, final double x, final double z) {
+        if (cover != Land.Cover.EARTH) {
+            return 0;
+        }
         final double t = (reach() - distance(x, z)) / FRINGE;
         return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
     }

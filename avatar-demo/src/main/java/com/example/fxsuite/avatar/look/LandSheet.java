@@ -222,13 +222,16 @@ final class LandSheet {
     /** How far what covers the ground may be from what a square's corners make of it, and it still be left whole. */
     static final double COVER = 0.08;
 
-    /** Whether how bare or paved the ground is changes across a square more than its corners alone would have it. */
+    /** Whether what covers the ground ({@link Land#cover}) changes across a square more than its corners alone would have it. */
     private boolean covered(final double ax, final double az, final double w, final double d) {
-        final double[][] corners = new double[4][];
+        final Land.Cover[] kinds = Land.Cover.values();
+        final double[][] corners = new double[4][kinds.length];
         for (int k = 0; k < 4; k++) {
             final double x = ax + (k & 1) * w;
             final double z = az + (k >> 1) * d;
-            corners[k] = new double[] {land.bare(x, z), land.paved(x, z)};
+            for (final Land.Cover c : kinds) {
+                corners[k][c.ordinal()] = land.cover(c, x, z);
+            }
         }
         final int looks = 4;
         for (int a = 0; a <= looks; a++) {
@@ -237,8 +240,11 @@ final class LandSheet {
                 final double t = (double) b / looks;
                 final double x = ax + s * w;
                 final double z = az + t * d;
-                final double[] here = {land.bare(x, z), land.paved(x, z)};
-                for (int c = 0; c < 2; c++) {
+                final double[] here = new double[kinds.length];
+                for (final Land.Cover c : kinds) {
+                    here[c.ordinal()] = land.cover(c, x, z);
+                }
+                for (int c = 0; c < kinds.length; c++) {
                     final double made = (corners[0][c] * (1 - s) + corners[1][c] * s) * (1 - t)
                             + (corners[2][c] * (1 - s) + corners[3][c] * s) * t;
                     if (Math.abs(here[c] - made) > COVER) {

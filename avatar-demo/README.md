@@ -331,8 +331,8 @@ the pavilions round it; the pyramids at the town's east edge; every land vehicle
 in the temple's courtyard, where the three monks hold their stand-up; a void deck part way up each
 tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
 on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
-before it starts. Then the **meadow village**: open country, a river winding across it, a footbridge over
-it, and a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
+before it starts. Then the **meadow village**: open country, a river winding across it, a highway along it
+and a road off it over a bridge into a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
@@ -837,21 +837,24 @@ through, and one loaded until a pillar gives and it falls.
   to the meadow over 4 m each side, no steeper than 30°, bare earth, the grass thinning out over their tops.
   Its water lies 1 m deep over its bed, its top meeting its banks (`WaterModel`), fading into the haze
   far off as the land does; walked down into and along and up out of, as yet without slowing.
-  A timber footbridge crosses it square where the village is, ramped up from each bank, railed. North of
-  it, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
+  Its roads are described as roads are (`RoadMap`, see [Roads](#roads)): a highway along the river, a
+  hundred metres south of it, its bends two and a half times less wide, across the world and past its ends,
+  7.5 m of asphalt; a road forking off it (`fork`, a vertex they share) round to the river and across it
+  square on a bridge (its deck as high as the road there, pinned 80 cm over the meadow, stone parapets either
+  side, its centre line painted), and on up to the village's square by the well; and the lane to the church.
+  North of the river, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
   woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
   each simply gone. Trees along both banks, and across the meadow, each standing on the land where it
-  grows, its foot as low as the ground under it goes. The avatar starts south of the river, the bridge and
-  the village ahead.
+  grows, its foot as low as the ground under it goes, none by a road. The avatar starts beside the road into
+  the village, south of the river, the bridge and the village ahead; a car and a motorcycle parked beside it.
   Its land (`Village.land`) is the meadow's map (`Terrains.meadow`, on the terrain bench), surveyed once,
-  the river's channel and a country road laid over it, drawn (`TerrainModel`, see the
+  the river's channel and its roads laid over it, drawn (`TerrainModel`, see the
   [terrain bench](#terrain-bench)): the river's valley across the world, its floor level where the river
   runs and the village stands, up gently north past a knoll and a hollow, filled with a pond (`Pond`), to a
   beacon hill, more steeply south to a ridge, moors at 100 m round the edge. The avatar walks on it.
   A few hundred metres north-west of the village, a small hill, its top level at 12 m, and on it the town's
-  church, of stone, its front to the village; a country road (`Road`, `Village.road`) winds up to it from
-  the village's edge, 4 m wide and level across, its line's heights the ground's smoothed along it, cut into
-  the rises and built up over the dips, no steeper than 14%; gravel, its edges worn into the grass.
+  church, of stone, its front to the village; a lane winds up to it from the village's edge, 4 m of gravel,
+  no steeper than 14%.
 - **The earth house** (`EarthHouse`, on the buildings bench): round, as homesteaders on open plains
   built them: its walls of earth, thick, battered a little and a little uneven, plastered smooth, their
   tops rising inward to meet its roof; a low cone of a roof on them, its eave drooping no lower than its
@@ -1161,11 +1164,12 @@ also picked on the bench; `-Dterrain.lines=2` draws the contour lines every so m
 
 In the game, a course's land is a `Land` (`Course.land`; level, at 0, where there is none): its lie,
 surveyed, and over it its features, each a layer of its own (`Land.Layer`), worked out apart from the
-rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`) and a road
+rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`) and roads
 (`Road`), each along a line (`Polyline`, kept by where its segments are on a grid of cells, so a point
 far from it is told so at once); in time, paths, ditches, the edges of level pads. The survey's 10 m
 between heights is plenty for the lie, which is smooth by nature; the detail is in the features. A
-feature says what covers the ground too: bare earth (`Land.bare`) or a road's gravel (`Land.paved`).
+feature says what covers the ground too (`Land.cover`): bare earth, gravel or asphalt. Roads are such
+features (see [Roads](#roads)).
 Water lies in the land as a body of its own: a river along its channel, as deep over its bed as it is
 (`River.top`), and a pond (`Pond`) filling it to its level within a loop whose rim is higher.
 
@@ -1193,6 +1197,53 @@ camera moves, height by height, and those near enough to have none are left alon
 haze are one picture lit by itself, its base colour alone lit by the sun: a picture lit and another
 lighting itself, each drawn from coarser copies of itself far off, would not go together, and the
 land would show dark streaks across it and a white edge against the sky.
+
+### Roads
+
+A road is described as an ordered list of vertices and, between each two in turn, a segment homogeneous
+in every attribute (`RoadMap`): its kind (a named set of attributes: width, surface, steepest grade,
+tightest curvature, whether a corner is allowed, side slope, camber, transition length, the length its
+grade takes to change), its curvature, signed (a straight, or an arc the short way round, bending left or
+right; half a circle at most), and whether it is a bridge. A vertex is a point, and may pin the road's
+height there, and may be a node other roads share, where they meet. Nothing else is described; everything
+else is worked out:
+
+- **its line** (`Alignment`): each segment a straight or an arc between its vertices; at each vertex where
+  the segments either side differ in anything, or meet at a kink, a transition, the line easing from the
+  one into the other over the transition's length, half before the vertex and half after, so neither where
+  it is nor which way it heads jumps. Splitting a segment where nothing changes changes nothing.
+- **its heights** (`Road`): fitted to the ground under its line as a whole, as near it as an even sweep can
+  be (the grade changing over its kind's vertical length, not with every lump), held through its pins and,
+  on its own ground, its ends; then kept within its steepest grade. Over a bridge the ground is not asked:
+  the road is carried across between its pins. So the ground's lumps show only in how deep a cutting is or
+  how high a bank, never in its surface.
+- **across it**: its kind's width and surface, its carriageway falling either side of its crown by its
+  camber; each eased from one segment's into the next's over the transition at the vertex between them.
+- **beside it**: a side slope from its edges down or up to the ground at its kind's slope, as wide as the
+  cutting is deep or the bank high, twice over for 1 in 2.
+- **where roads meet**: a road with a vertex another road laid before it shares is pinned as high as that
+  road is there, and laid over it.
+- **what is wrong with it** (`RoadMap.problems`, `Road.problems`): a curvature that cannot reach from one
+  vertex to the next, or is tighter than its kind turns; a kink where its kind allows no corner; a segment
+  too short for the transitions at its ends; roads crossing other than at a node they share; a grade it
+  could not keep to, to reach a pin.
+
+Roads are written as text, in metres, and read back the same:
+
+```
+kind lane width=4m surface=gravel grade=12% curve=1/15m slope=1:2 camber=0% transition=12m vertical=30m
+node square at=-40,98
+road "church lane" kind=lane
+  from square
+  to -62,131
+  to -95,170 curve=+1/25m
+  to -235,383 height=12m
+```
+
+Each `to` closes a segment, which carries on the attributes of the one before unless it says otherwise. A
+race track is a closed loop (`loop`) of four segments: two straights and two half circles. A road worked out
+is a feature of the land (`Road` is a `Land.Layer`), laid over it after the river's channel; a bridge is built
+on its bridge segment as the road has it there.
 
 ### Aircraft bench
 
@@ -1383,10 +1434,10 @@ of steps, and lets the rest go rather than falling ever further behind.
 
 | Package | What it is |
 |---|---|
-| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops), as heights worked out from it (`Survey`), and as it is gone over (`Land`, its features laid over it, such as a river's `Channel`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
+| `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops), as heights worked out from it (`Survey`), and as it is gone over (`Land`, its features laid over it, such as a river's `Channel` and the roads, described as `RoadMap` and worked out as `Alignment` and `Road`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`) and `Horizon` (the sky and the far ground) draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`), `WaterModel` (the water lying in it) and `Horizon` (the sky and the far ground) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

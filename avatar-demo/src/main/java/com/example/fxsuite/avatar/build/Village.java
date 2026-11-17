@@ -1,6 +1,8 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Alignment;
 import com.example.fxsuite.avatar.sim.Block;
+import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Channel;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Land;
@@ -10,6 +12,7 @@ import com.example.fxsuite.avatar.sim.Polyline;
 import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Prism;
 import com.example.fxsuite.avatar.sim.River;
+import com.example.fxsuite.avatar.sim.RoadMap;
 import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec2;
@@ -167,19 +170,6 @@ public final class Village {
         });
     }
 
-    /** The footbridge: so wide, its deck so high, so far past the banks each side; its ramps, one in four; its railings so high. */
-    public static final double BRIDGE_WIDE = 300;
-    public static final double DECK = 60;
-    private static final double BEYOND = 200;
-    private static final double RAMP = 4 * DECK;
-    private static final double RAILING = 100;
-    private static final double RAILING_THICK = 8;
-
-    /** Where the avatar starts: south of the river, before the bridge, the village beyond it. */
-    public static Vec3 start() {
-        return new Vec3(0, 0, riverAt(0) - 3_000);
-    }
-
     /**
      * The river's channel, cut into the meadow: its bed so wide, level, and so deep; its banks rising from
      * it to the meadow as far out as the river and its banks go. Its water so deep over its bed.
@@ -193,30 +183,173 @@ public final class Village {
         return new Channel(line(), BED, RIVER / 2 + BANK - BED / 2, DEPTH);
     }
 
-    /** The country road: so wide, its verges so wide, its line's heights smoothed over so far each way; a point so far apart along it. */
-    public static final double ROAD_WIDE = 400;
-    private static final double VERGE = 300;
-    private static final double SMOOTHED = 3_000;
-    private static final double ROAD_STEP = 200;
-    /** How far out from the well it starts, at the least: past the houses. */
-    private static final double ROAD_FROM = 7_000;
-    /** How far it winds out either side of the way straight up to the church, at each of its bends. */
-    private static final double[] WINDING = {0, 2_500, -3_000, 2_800, -2_000, 1_000, 0};
+    // --- its roads ---------------------------------------------------------------------------------------------
+
+    /** The kinds of road in the meadow ({@link RoadMap}): the highway, the road into the village, the lane to the church. */
+    static final RoadMap.Kind HIGHWAY = new RoadMap.Kind("highway", 750, Land.Cover.ASPHALT, 0.06, 1.0 / 20_000, false,
+            2, 0.02, 6_000, 8_000);
+    static final RoadMap.Kind VILLAGE_ROAD = new RoadMap.Kind("village", 600, Land.Cover.ASPHALT, 0.08, 1.0 / 3_000, false,
+            2, 0.02, 3_000, 5_000);
+    static final RoadMap.Kind LANE = new RoadMap.Kind("lane", 400, Land.Cover.GRAVEL, 0.14, 1.0 / 1_500, false,
+            2, 0, 1_200, 3_000);
+
+    /** The highway's vertices, so far apart along it; how far it runs past the world's ends; how far south of the river's mean line it runs. */
+    private static final double HIGHWAY_EVERY = 10_000;
+    private static final double HIGHWAY_PAST = 20_000;
+    private static final double HIGHWAY_SOUTH = 10_000;
+    /** Where the road into the village leaves it: so far east. */
+    private static final double FORK = 6_000;
 
     /**
-     * The country road's line: from the village's edge, out past its houses toward the church's hill, winding
-     * one way and the other up to the churchyard's edge; a point every {@link #ROAD_STEP}, through its bends
-     * smoothly (a Catmull-Rom curve). It starts where none of the houses is near it.
+     * Where the highway's middle is, north or south, at {@code x} east: along the river, a hundred metres south of
+     * it, the river's long bends a little over a third as wide, its short ones all but gone; so about two and a
+     * half times less winding.
      */
-    public static List<Vec2> road() {
+    public static double highwayAt(final double x) {
+        return 1_600 * Math.sin(x / 18_000 + 0.3) + 600 * Math.sin(x / 7_000 + 1.3) - 6_600 - HIGHWAY_SOUTH;
+    }
+
+    /** How far from the river's middle the bridge's ends are; how high its deck is over the meadow; its parapets. */
+    private static final double SPAN = 1_300;
+    public static final double DECK = 80;
+    private static final double DECK_DEEP = 60;
+    private static final double PARAPET = 90;
+    private static final double PARAPET_THICK = 30;
+    /** How far short of the well the road into the village ends: the village's square. */
+    private static final double SQUARE = 1_200;
+
+    /** Which way across the river the bridge goes: square across it, northward. */
+    private static Vec2 across() {
+        final Vec3 a = Num.heading(riverHeading(WELL.x()) - 90);
+        return new Vec2(a.x(), a.z());
+    }
+
+    /**
+     * The meadow's roads, as described: the highway along the river, west to east, a vertex every
+     * {@link #HIGHWAY_EVERY}, its curves worked out so it bends smoothly through each; the road into the village,
+     * forking off it at node {@code fork}, curving round to cross the river square on a bridge, its ends pinned
+     * over the meadow, and on up to the village's square; the lane from the village's edge winding up to the
+     * church.
+     */
+    public static RoadMap roads() {
+        final RoadMap.Node fork = new RoadMap.Node("fork", new Vec2(FORK, highwayAt(FORK)));
+        final List<RoadMap.Way> ways = new ArrayList<>();
+        // the highway: its vertices along it, each curve taking it on from where the last left it
+        final List<Vec2> points = new ArrayList<>();
+        final double reach = Body.EDGE + HIGHWAY_PAST;
+        for (double x = FORK - Math.floor((FORK + reach) / HIGHWAY_EVERY) * HIGHWAY_EVERY; x <= reach; x += HIGHWAY_EVERY) {
+            points.add(new Vec2(x, highwayAt(x)));
+        }
+        ways.add(smooth("highway", HIGHWAY.name(), points, fork));
+        // the road into the village: round from the fork to the bridge's south end, across, round up to the square
+        final Vec2 across = across();
+        final Vec2 middle = new Vec2(WELL.x(), riverAt(WELL.x()));
+        final Vec2 south = new Vec2(middle.x() - across.x() * SPAN, middle.z() - across.z() * SPAN);
+        final Vec2 north = new Vec2(middle.x() + across.x() * SPAN, middle.z() + across.z() * SPAN);
+        final Vec2 square = new Vec2(WELL.x(), WELL.z() - SQUARE);
+        final double toSouth = -Alignment.bending(south, new Vec2(-across.x(), -across.z()), fork.at());
+        final double toSquare = Alignment.bending(north, across, square);
+        ways.add(new RoadMap.Way("village road", List.of(
+                new RoadMap.Vertex(fork.at(), Double.NaN, fork.name()),
+                new RoadMap.Vertex(south, DECK, null),
+                new RoadMap.Vertex(north, DECK, null),
+                new RoadMap.Vertex(square)), List.of(
+                new RoadMap.Segment(VILLAGE_ROAD.name(), toSouth, false),
+                new RoadMap.Segment(VILLAGE_ROAD.name(), 0, true),
+                new RoadMap.Segment(VILLAGE_ROAD.name(), toSquare, false)), false));
+        ways.add(smooth("church lane", LANE.name(), churchLane(), null));
+        return new RoadMap(List.of(HIGHWAY, VILLAGE_ROAD, LANE), List.of(fork), ways);
+    }
+
+    /**
+     * A road of kind {@code kind} through {@code points}, laid along a smooth curve through them, with no kink: at
+     * each point heading the way the curve goes there (from the point before it to the one after), and between
+     * each two, two arcs (a biarc), each a segment, meeting at a vertex between them where they head the same way.
+     * The point at node {@code node}, if any, is that node.
+     */
+    private static RoadMap.Way smooth(final String name, final String kind, final List<Vec2> points, final RoadMap.Node node) {
+        final List<Vec2> headings = new ArrayList<>();
+        for (int k = 0; k < points.size(); k++) {
+            final Vec2 before = points.get(Math.max(0, k - 1));
+            final Vec2 after = points.get(Math.min(points.size() - 1, k + 1));
+            headings.add(unit(after.x() - before.x(), after.z() - before.z()));
+        }
+        return smooth(name, kind, new Through(points, headings), node);
+    }
+
+    /** As {@link #smooth(String, String, List, RoadMap.Node)}, heading at each point as {@code through} has it. */
+    private static RoadMap.Way smooth(final String name, final String kind, final Through through, final RoadMap.Node node) {
+        final List<Vec2> points = through.points();
+        final List<Vec2> headings = through.headings();
+        final List<RoadMap.Vertex> vertices = new ArrayList<>();
+        final List<RoadMap.Segment> segments = new ArrayList<>();
+        for (int k = 0; k < points.size(); k++) {
+            final Vec2 p = points.get(k);
+            final boolean isNode = node != null && node.at().equals(p);
+            vertices.add(new RoadMap.Vertex(p, Double.NaN, isNode ? node.name() : null));
+            if (k + 1 == points.size()) {
+                break;
+            }
+            final Vec2 q = points.get(k + 1);
+            final Vec2 joint = biarc(p, headings.get(k), q, headings.get(k + 1));
+            if (joint == null) {
+                segments.add(new RoadMap.Segment(kind, Alignment.bending(p, headings.get(k), q), false));
+                continue;
+            }
+            final double first = Alignment.bending(p, headings.get(k), joint);
+            vertices.add(new RoadMap.Vertex(joint));
+            segments.add(new RoadMap.Segment(kind, first, false));
+            segments.add(new RoadMap.Segment(kind, Alignment.bending(joint, Alignment.arriving(p, joint, first), q), false));
+        }
+        return new RoadMap.Way(name, vertices, segments, false);
+    }
+
+    /**
+     * Where two arcs from {@code p} heading {@code tp} to {@code q} heading {@code tq} meet, heading the same way
+     * (the joint of a biarc, its two tangents as long as each other); null if one arc does (or a straight).
+     */
+    private static Vec2 biarc(final Vec2 p, final Vec2 tp, final Vec2 q, final Vec2 tq) {
+        final double vx = q.x() - p.x();
+        final double vz = q.z() - p.z();
+        final double vv = vx * vx + vz * vz;
+        final double vt = vx * (tp.x() + tq.x()) + vz * (tp.z() + tq.z());
+        final double cos = tp.x() * tq.x() + tp.z() * tq.z();
+        final double d;
+        if (1 - cos < 1e-9) {
+            final double along = vx * tq.x() + vz * tq.z();
+            if (along <= 0 || Math.abs(vx * tp.z() - vz * tp.x()) < 1e-6 * Math.sqrt(vv)) {
+                return null;
+            }
+            d = vv / (4 * along);
+        } else {
+            d = (-vt + Math.sqrt(vt * vt + 2 * (1 - cos) * vv)) / (2 * (1 - cos));
+        }
+        return new Vec2((p.x() + d * tp.x() + q.x() - d * tq.x()) / 2, (p.z() + d * tp.z() + q.z() - d * tq.z()) / 2);
+    }
+
+    private static Vec2 unit(final double x, final double z) {
+        final double d = Math.hypot(x, z);
+        return new Vec2(x / d, z / d);
+    }
+
+    /** How far out from the well the church lane starts, at the least: past the houses. */
+    private static final double LANE_FROM = 7_000;
+    /** How far it winds out either side of the way straight up to the church, at each of its bends. */
+    private static final double[] WINDING = {0, 2_000, -2_400, 2_200, -1_600, 800, 0};
+
+    /**
+     * The church lane's vertices: from the village's edge, out past its houses toward the church's hill, winding
+     * one way and the other up to the churchyard's edge. It starts where none of the houses is near it.
+     */
+    private static Through churchLane() {
         final Vec2 hill = Terrains.CHURCH_HILL;
         final double dx = hill.x() - WELL.x();
         final double dz = hill.z() - WELL.z();
         final double away = Math.hypot(dx, dz);
         final double ux = dx / away;
         final double uz = dz / away;
-        double from = ROAD_FROM;
-        while (from < away / 2 && clearOfHouses(WELL.x() + ux * from, WELL.z() + uz * from) < ROAD_WIDE / 2 + VERGE + 300) {
+        double from = LANE_FROM;
+        while (from < away / 2 && clearOfHouses(WELL.x() + ux * from, WELL.z() + uz * from) < LANE.width() / 2 + 600) {
             from += 500;
         }
         final Vec2 start = new Vec2(WELL.x() + ux * from, WELL.z() + uz * from);
@@ -227,19 +360,58 @@ public final class Village {
             bends.add(new Vec2(start.x() + (end.x() - start.x()) * t - uz * WINDING[k],
                     start.z() + (end.z() - start.z()) * t + ux * WINDING[k]));
         }
-        final List<Vec2> line = new ArrayList<>();
+        return through(bends);
+    }
+
+    /** Points along a smooth curve, and which way it heads at each. */
+    private record Through(List<Vec2> points, List<Vec2> headings) {
+    }
+
+    /**
+     * A point every so far along a smooth curve through {@code bends} (a Catmull-Rom curve), and which way the
+     * curve heads at each.
+     */
+    private static Through through(final List<Vec2> bends) {
+        final List<Vec2> points = new ArrayList<>();
+        final List<Vec2> headings = new ArrayList<>();
         for (int k = 0; k + 1 < bends.size(); k++) {
             final Vec2 p0 = bends.get(Math.max(0, k - 1));
             final Vec2 p1 = bends.get(k);
             final Vec2 p2 = bends.get(k + 1);
             final Vec2 p3 = bends.get(Math.min(bends.size() - 1, k + 2));
-            final int steps = Math.max(1, (int) Math.ceil(Math.hypot(p2.x() - p1.x(), p2.z() - p1.z()) / ROAD_STEP));
+            final int steps = Math.max(1, (int) Math.ceil(Math.hypot(p2.x() - p1.x(), p2.z() - p1.z()) / LANE_EVERY));
             for (int s = 0; s < steps; s++) {
-                line.add(catmullRom(p0, p1, p2, p3, (double) s / steps));
+                final double t = (double) s / steps;
+                points.add(catmullRom(p0, p1, p2, p3, t));
+                headings.add(catmullRomHeading(p0, p1, p2, p3, t));
+            }
+            if (k + 2 == bends.size()) {
+                points.add(p2);
+                headings.add(catmullRomHeading(p0, p1, p2, p3, 1));
             }
         }
-        line.add(end);
-        return line;
+        return new Through(points, headings);
+    }
+
+    /** Which way a Catmull-Rom curve heads {@code t} of the way from {@code p1} to {@code p2}. */
+    private static Vec2 catmullRomHeading(final Vec2 p0, final Vec2 p1, final Vec2 p2, final Vec2 p3, final double t) {
+        final double x = 0.5 * ((-p0.x() + p2.x()) + 2 * (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t
+                + 3 * (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t * t);
+        final double z = 0.5 * ((-p0.z() + p2.z()) + 2 * (2 * p0.z() - 5 * p1.z() + 4 * p2.z() - p3.z()) * t
+                + 3 * (-p0.z() + 3 * p1.z() - 3 * p2.z() + p3.z()) * t * t);
+        return unit(x, z);
+    }
+
+    /** How far apart the church lane's vertices are, about. */
+    private static final double LANE_EVERY = 3_500;
+
+    private static Vec2 catmullRom(final Vec2 p0, final Vec2 p1, final Vec2 p2, final Vec2 p3, final double t) {
+        final double t2 = t * t;
+        final double t3 = t2 * t;
+        return new Vec2(0.5 * (2 * p1.x() + (-p0.x() + p2.x()) * t + (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t2
+                + (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t3),
+                0.5 * (2 * p1.z() + (-p0.z() + p2.z()) * t + (2 * p0.z() - 5 * p1.z() + 4 * p2.z() - p3.z()) * t2
+                        + (-p0.z() + 3 * p1.z() - 3 * p2.z() + p3.z()) * t3));
     }
 
     /** How far ({@code x}, {@code z}) is from the nearest house's eave. */
@@ -251,18 +423,9 @@ public final class Village {
         return clear;
     }
 
-    private static Vec2 catmullRom(final Vec2 p0, final Vec2 p1, final Vec2 p2, final Vec2 p3, final double t) {
-        final double t2 = t * t;
-        final double t3 = t2 * t;
-        return new Vec2(0.5 * (2 * p1.x() + (-p0.x() + p2.x()) * t + (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t2
-                + (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t3),
-                0.5 * (2 * p1.z() + (-p0.z() + p2.z()) * t + (2 * p0.z() - 5 * p1.z() + 4 * p2.z() - p3.z()) * t2
-                        + (-p0.z() + 3 * p1.z() - 3 * p2.z() + p3.z()) * t3));
-    }
-
     /**
      * The meadow's land: its lie ({@link Terrains#meadow}), surveyed; the river's channel cut into it
-     * ({@link Channel}); the country road laid over that ({@link Road}). Worked out once, when first wanted.
+     * ({@link Channel}); its roads laid over that, in turn ({@link #roads}). Worked out once, when first wanted.
      */
     public static Land land() {
         return Meadow.LAND;
@@ -273,21 +436,28 @@ public final class Village {
         return Meadow.LIE;
     }
 
-    /** The country road, as laid. */
-    public static Road country() {
-        return Meadow.ROAD;
+    /** Its roads, laid: the highway, the road into the village, the church lane. */
+    public static List<Road> laid() {
+        return Meadow.ROADS;
+    }
+
+    /** Road {@code name}, laid. */
+    public static Road laid(final String name) {
+        return Meadow.ROADS.stream().filter(r -> r.name().equals(name)).findFirst().orElseThrow();
     }
 
     private static final class Meadow {
         static final Survey LIE = Terrains.meadow().survey();
         static final Land CHANNELLED = new Land(LIE, List.of(channel()));
-        static final Road ROAD = Road.over(CHANNELLED, road(), ROAD_WIDE, VERGE, SMOOTHED);
-        static final Land LAND = CHANNELLED.with(ROAD);
-        /** Beside the road, where no tree grows: its top, its verges, and so much more. */
-        static final Polyline ROADSIDE = new Polyline(road(), ROAD_WIDE / 2 + VERGE + CLEAR);
+        static final List<Road> ROADS = roads().laid(CHANNELLED, Alignment.STEP);
+        static final Land LAND = CHANNELLED.with(ROADS);
+        /** Beside the roads, where no tree grows: each one's top, its side slopes, and so much more. */
+        static final List<Polyline> ROADSIDES = ROADS.stream()
+                .map(r -> new Polyline(r.line(), r.wide(0) / 2 + ROADSIDE)).toList();
     }
 
-    /** How far clear of the road's verges and the churchyard trees keep. */
+    /** How far clear of a road's edges, and of the churchyard, trees keep. */
+    private static final double ROADSIDE = 800;
     private static final double CLEAR = 300;
 
     /** The pond in the hollow up the slope east of the village: filled to a metre under the hollow's rim. */
@@ -296,6 +466,33 @@ public final class Village {
     }
 
     private static final double POND_DOWN = 100;
+
+    /**
+     * Where the avatar starts: beside the road into the village, on its west, so far south of the river, facing
+     * north, the bridge ahead.
+     */
+    public static Vec3 start() {
+        final Road road = laid("village road");
+        final List<Vec2> line = road.line();
+        final double z = riverAt(WELL.x()) - STARTS_SOUTH;
+        int best = 0;
+        for (int i = 0; i < line.size(); i++) {
+            if (Math.abs(line.get(i).z() - z) < Math.abs(line.get(best).z() - z)) {
+                best = i;
+            }
+        }
+        final Vec2 p = line.get(best);
+        final Vec2 q = line.get(Math.min(line.size() - 1, best + 1));
+        final double d = Math.hypot(q.x() - p.x(), q.z() - p.z());
+        // to its left, going along it
+        final double lx = -(q.z() - p.z()) / d;
+        final double lz = (q.x() - p.x()) / d;
+        final double out = road.wide(best) / 2 + STARTS_ASIDE;
+        return new Vec3(p.x() + lx * out, 0, p.z() + lz * out);
+    }
+
+    private static final double STARTS_SOUTH = 3_500;
+    private static final double STARTS_ASIDE = 500;
 
     /** Tells the simulation all of the meadow village: what stands in it, its river and pond, where the avatar starts, its land. */
     public static void tell() {
@@ -320,7 +517,8 @@ public final class Village {
     /** Where the church stands: the middle of its hill's level top, as high as that, its front to where the road comes up. */
     public static Place churchPlace() {
         final Vec2 hill = Terrains.CHURCH_HILL;
-        final Vec2 end = road().getLast();
+        final List<Vec2> lane = laid("church lane").line();
+        final Vec2 end = lane.getLast();
         return new Place(hill.x(), hill.z(), Terrains.CHURCHYARD_LEVEL,
                 Math.toDegrees(Math.atan2(end.x() - hill.x(), end.z() - hill.z())));
     }
@@ -330,9 +528,9 @@ public final class Village {
         return Town.building(solids(CHURCH), churchPlace(), KEYS + CHURCH, Church.standard().shape(), 1);
     }
 
-    /** Where the car and the motorcycle are parked: so far either side of the start, so far ahead of it. */
-    private static final double CAR_ASIDE = -500;
-    private static final double BIKE_ASIDE = 400;
+    /** Where the car and the motorcycle are parked: so far west of the start, away from the road, so far ahead of it. */
+    private static final double CAR_ASIDE = -400;
+    private static final double BIKE_ASIDE = -800;
     private static final double PARKED_AHEAD = 400;
 
     /**
@@ -379,29 +577,46 @@ public final class Village {
         return circle;
     }
 
+    /** How far past each end of the bridge's segment its deck goes, onto the road either side. */
+    private static final double DECK_PAST = 100;
+
     /**
-     * The footbridge, square across the river at the village: its deck on the level over the water and its
-     * banks, and past them; a ramp up to it from each side; its railings along both its sides over the deck.
+     * The bridge carrying the road into the village across the river: built on its bridge segment, as the road
+     * worked out has it there. Its deck as wide as the road and its parapets, as high as the road over it,
+     * so deep, and a little past each end onto the road; a stone parapet along each side.
      */
     private static List<Course.Piece> bridge() {
+        final Road road = laid("village road");
+        final List<Vec2> line = road.line();
+        int first = -1;
+        int last = -1;
+        for (int i = 0; i < line.size(); i++) {
+            if (road.bridged(i)) {
+                first = first < 0 ? i : first;
+                last = i;
+            }
+        }
+        // its segment ends at the vertex after its last point on it
+        last = Math.min(line.size() - 1, last + 1);
+        final Vec2 a = line.get(first);
+        final Vec2 b = line.get(last);
+        final double long_ = Math.hypot(b.x() - a.x(), b.z() - a.z());
+        final double yaw = Math.toDegrees(Math.atan2(b.x() - a.x(), b.z() - a.z()));
+        final double level = (road.level(first) + road.level(last)) / 2;
+        final double half = road.wide(first) / 2;
+        final double mx = (a.x() + b.x()) / 2;
+        final double mz = (a.z() + b.z()) / 2;
         final List<Course.Piece> bridge = new ArrayList<>();
-        final double x = WELL.x();
-        final double z = riverAt(x);
-        // square across the river: along the way it runs, turned a quarter
-        final double across = riverHeading(x) - 90;
-        final Vec3 ahead = Num.heading(across);
-        final double half = RIVER / 2 + BANK + BEYOND;
-        final Block deck = new Block(x, z, BRIDGE_WIDE / 2, half, across, 0, DECK);
-        bridge.add(new Course.Piece(deck, Course.Kind.GARDEN, Course.GARDEN_TIMBER, List.of(deck)));
-        for (final double end : new double[] {-1, 1}) {
-            final Vec3 head = new Vec3(x + ahead.x() * end * half, 0, z + ahead.z() * end * half);
-            final Vec3 foot = new Vec3(x + ahead.x() * end * (half + RAMP), 0, z + ahead.z() * end * (half + RAMP));
-            final Block ramp = Block.ramp(foot.x(), foot.z(), 0, head.x(), head.z(), DECK, BRIDGE_WIDE);
-            bridge.add(new Course.Piece(ramp, Course.Kind.GARDEN, Course.GARDEN_TIMBER, List.of(ramp)));
-            // a railing along each side of the deck
-            final Vec3 side = new Vec3(ahead.z(), 0, -ahead.x()).multiply(end * (BRIDGE_WIDE / 2 - RAILING_THICK / 2));
-            final Block railing = new Block(x + side.x(), z + side.z(), RAILING_THICK / 2, half, across, DECK, DECK + RAILING);
-            bridge.add(new Course.Piece(railing, Course.Kind.WALL, TIMBER, List.of(railing)));
+        final Block deck = new Block(mx, mz, half + PARAPET_THICK, long_ / 2 + DECK_PAST, yaw, level - DECK_DEEP, level);
+        bridge.add(new Course.Piece(deck, Course.Kind.ROAD, 0, List.of(deck)));
+        // to its side, going along it
+        final double sx = (b.z() - a.z()) / long_;
+        final double sz = -(b.x() - a.x()) / long_;
+        for (final double side : new double[] {-1, 1}) {
+            final double out = side * (half + PARAPET_THICK / 2);
+            final Block parapet = new Block(mx + sx * out, mz + sz * out, PARAPET_THICK / 2, long_ / 2 + DECK_PAST, yaw,
+                    level, level + PARAPET);
+            bridge.add(new Course.Piece(parapet, Course.Kind.WALL, 0, List.of(parapet)));
         }
         return bridge;
     }
@@ -440,7 +655,7 @@ public final class Village {
             final boolean byAHouse = VILLAGE.stream().anyMatch(h -> Math.hypot(h.place().x() - t.x(), h.place().z() - t.z())
                     < EarthHouse.of(h.size()).eave() + 500);
             final boolean byTheWell = Math.hypot(t.x() - WELL.x(), t.z() - WELL.z()) < 1_000;
-            final boolean byTheRoad = Meadow.ROADSIDE.distance(t.x(), t.z()) < Double.POSITIVE_INFINITY;
+            final boolean byTheRoad = Meadow.ROADSIDES.stream().anyMatch(r -> r.distance(t.x(), t.z()) < Double.POSITIVE_INFINITY);
             final boolean inTheChurchyard = Math.hypot(t.x() - Terrains.CHURCH_HILL.x(), t.z() - Terrains.CHURCH_HILL.z())
                     < Terrains.CHURCHYARD + CLEAR;
             if (wet || byTheBridge || byAHouse || byTheWell || byTheRoad || inTheChurchyard) {

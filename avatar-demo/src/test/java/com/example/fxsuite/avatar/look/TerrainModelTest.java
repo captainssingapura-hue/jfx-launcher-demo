@@ -1,5 +1,7 @@
 package com.example.fxsuite.avatar.look;
 
+import com.example.fxsuite.avatar.sim.Land;
+
 import org.junit.jupiter.api.Test;
 
 import javafx.scene.paint.Color;
@@ -45,14 +47,23 @@ class TerrainModelTest {
         }
         // low down, the meadow's grass: as the far ground is
         assertEquals(World.GRASS, TerrainModel.tint(0));
-        assertEquals(World.GRASS, TerrainModel.colour((int) TerrainModel.column(0, 0, 0)));
-        // and bare earth, beside the grass low down, no less than its base either
-        assertEquals(TerrainModel.EARTH, TerrainModel.colour((int) TerrainModel.column(1, 0, 0.7)));
-        assertEquals(TerrainModel.GRAVEL, TerrainModel.colour((int) TerrainModel.column(1, 1, 0.7)), "a road over bare earth, gravel");
-        for (int c = 0; c < 3; c++) {
-            assertTrue(channel(TerrainModel.EARTH, c) >= channel(TerrainModel.BASE, c));
-            assertTrue(channel(TerrainModel.GRAVEL, c) >= channel(TerrainModel.BASE, c));
+        final int covers = Land.Cover.values().length;
+        assertEquals(World.GRASS, TerrainModel.colour((int) TerrainModel.column(new double[covers], 0)));
+        // and each cover, all of it: its own colour, no less than the base in any channel either
+        final Color[] colours = {TerrainModel.EARTH, TerrainModel.GRAVEL, TerrainModel.ASPHALT};
+        for (final Land.Cover cover : Land.Cover.values()) {
+            final double[] all = new double[covers];
+            all[cover.ordinal()] = 1;
+            assertEquals(colours[cover.ordinal()], TerrainModel.colour((int) TerrainModel.column(all, 0.7)), cover.name());
+            for (int c = 0; c < 3; c++) {
+                assertTrue(channel(colours[cover.ordinal()], c) >= channel(TerrainModel.BASE, c));
+            }
         }
+        // a road over bare earth: the road's
+        final double[] both = new double[covers];
+        both[Land.Cover.EARTH.ordinal()] = 1;
+        both[Land.Cover.ASPHALT.ordinal()] = 1;
+        assertEquals(TerrainModel.ASPHALT, TerrainModel.colour((int) TerrainModel.column(both, 0.7)));
     }
 
     private static double channel(final Color colour, final int c) {

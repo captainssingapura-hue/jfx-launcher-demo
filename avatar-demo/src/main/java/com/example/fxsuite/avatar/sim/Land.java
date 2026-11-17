@@ -35,26 +35,27 @@ public final class Land {
         }
 
         /**
-         * How bare it leaves the ground at ({@code x}, {@code z}): 1 bare earth, no grass on it; 0 as grassed as
-         * ever; between, the grass thinning out. None does, but for what does.
+         * How much of {@code cover} it lays on the ground at ({@code x}, {@code z}): 1 all of it, 0 none, between,
+         * thinning out into the grass. None does, but for what does.
          */
-        default double bare(final double x, final double z) {
-            return 0;
-        }
-
-        /** How paved it leaves the ground at ({@code x}, {@code z}): 1 a road's top, 0 none of it. None does, but for what does. */
-        default double paved(final double x, final double z) {
+        default double cover(final Cover cover, final double x, final double z) {
             return 0;
         }
     }
 
-    /** How paved the ground at ({@code x}, {@code z}) is, by the most paved of its features: a road. */
-    public double paved(final double x, final double z) {
-        double paved = 0;
+    /**
+     * What covers the ground, where a feature lays something on it rather than grass: bare earth (a channel's bed
+     * and banks), gravel (a country road's top), asphalt (a road's).
+     */
+    public enum Cover { EARTH, GRAVEL, ASPHALT }
+
+    /** How much of {@code cover} there is on the ground at ({@code x}, {@code z}), by whichever of its features lays most. */
+    public double cover(final Cover cover, final double x, final double z) {
+        double most = 0;
         for (final Layer layer : layers) {
-            paved = Math.max(paved, layer.paved(x, z));
+            most = Math.max(most, layer.cover(cover, x, z));
         }
-        return paved;
+        return most;
     }
 
     /** The same land, {@code more} laid over it after its own features. */
@@ -64,13 +65,11 @@ public final class Land {
         return new Land(base, all);
     }
 
-    /** How bare the ground at ({@code x}, {@code z}) is, by the barest of its features: a channel's bed and banks. */
-    public double bare(final double x, final double z) {
-        double bare = 0;
-        for (final Layer layer : layers) {
-            bare = Math.max(bare, layer.bare(x, z));
-        }
-        return bare;
+    /** The same land, {@code more} laid over it in turn after its own features. */
+    public Land with(final List<? extends Layer> more) {
+        final List<Layer> all = new java.util.ArrayList<>(layers);
+        all.addAll(more);
+        return new Land(base, all);
     }
 
     private final Survey base;

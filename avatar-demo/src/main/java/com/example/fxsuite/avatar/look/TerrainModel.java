@@ -74,12 +74,17 @@ public final class TerrainModel {
      */
     static final Color BASE = Color.web("#55644d");
 
-    /** Bare earth, where no grass grows ({@link Land#bare}): a channel's bed and banks; and how many of the picture's columns are it. */
+    /**
+     * What covers the ground where a feature lays something on it ({@link Land#cover}), each its colour: bare
+     * earth (a channel's bed and banks), gravel (a country road's top), asphalt (a road's); in the order of
+     * {@link Land.Cover}. Each no darker than the base colour in any channel, so its picture is what it has more.
+     */
     static final Color EARTH = Color.web("#7d6a4e");
-    static final int EARTHY = 16;
-    /** A road's top ({@link Land#paved}): a country road's gravel; and how many of the picture's columns are it, the first. */
     static final Color GRAVEL = Color.web("#8a8578");
-    static final int GRAVELLY = 16;
+    static final Color ASPHALT = Color.web("#5f6566");
+    private static final Color[] COVERS = {EARTH, GRAVEL, ASPHALT};
+    /** How many of the picture's columns each cover is: the last cover first, then the one before, the grass after them all. */
+    static final int COVERED = 16;
 
     /** The land's tints, low to high. */
     private static final Color[] RAMP = {Color.web("#66775c"), Color.web("#6c7e55"), Color.web("#7b8857"),
@@ -255,7 +260,11 @@ public final class TerrainModel {
             final double tint = (made.heights()[v] - low) / span + MOTTLE * (2 * Num.hash(x, z) - 1);
             final double px = points[3 * v];
             final double pz = points[3 * v + 2];
-            coords[2 * v] = (float) ((column(land.bare(px, pz), land.paved(px, pz), tint) + 0.5) / TINTS);
+            final double[] covered = new double[Land.Cover.values().length];
+            for (final Land.Cover c : Land.Cover.values()) {
+                covered[c.ordinal()] = land.cover(c, px, pz);
+            }
+            coords[2 * v] = (float) ((column(covered, tint) + 0.5) / TINTS);
             coords[2 * v + 1] = (float) (0.5 / HAZES);
         }
         final TriangleMesh mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
@@ -335,24 +344,26 @@ public final class TerrainModel {
     }
 
     /**
-     * The picture's column for ground so {@code bare} (0 grassed, 1 bare earth) and so {@code paved} (1 a
-     * road's gravel), {@code t} of the way from the land's lowest to its highest: gravel in the first few,
-     * bare earth in the next, then the grass's tints, low to high. So between bare ground and the grass
-     * beside it the one goes into the other; and from a road into the grass beside it, through a thin edge
-     * of earth, as a country road's edges are worn.
+     * The picture's column for ground covered so much by each cover ({@code covers}, in the order of
+     * {@link Land.Cover}), {@code t} of the way from the land's lowest to its highest: asphalt in the first few,
+     * then gravel, then bare earth, then the grass's tints, low to high. Each cover laid over the grass in
+     * turn, so between bare ground and the grass beside it the one goes into the other; and from a road into
+     * the grass beside it, through a thin edge of what lies between them, as a road's edges are worn.
      */
-    static double column(final double bare, final double paved, final double t) {
-        final double grass = GRAVELLY + EARTHY + Math.clamp(t, 0, 1) * (TINTS - 1 - GRAVELLY - EARTHY);
-        final double ground = grass + (GRAVELLY + EARTHY / 2.0 - grass) * Math.clamp(bare, 0, 1);
-        return ground + (GRAVELLY / 2.0 - ground) * Math.clamp(paved, 0, 1);
+    static double column(final double[] covers, final double t) {
+        final int laid = COVERS.length * COVERED;
+        double column = laid + Math.clamp(t, 0, 1) * (TINTS - 1 - laid);
+        for (int c = 0; c < COVERS.length; c++) {
+            final double middle = (COVERS.length - 1 - c) * COVERED + COVERED / 2.0;
+            column += (middle - column) * Math.clamp(covers[c], 0, 1);
+        }
+        return column;
     }
 
-    /** The colour of the picture's column {@code x}: gravel, bare earth, or a tint of the grass. */
+    /** The colour of the picture's column {@code x}: a cover, or a tint of the grass. */
     static Color colour(final int x) {
-        if (x < GRAVELLY) {
-            return GRAVEL;
-        }
-        return x < GRAVELLY + EARTHY ? EARTH : tint((x - GRAVELLY - EARTHY) / (double) (TINTS - 1 - GRAVELLY - EARTHY));
+        final int laid = COVERS.length * COVERED;
+        return x < laid ? COVERS[COVERS.length - 1 - x / COVERED] : tint((x - laid) / (double) (TINTS - 1 - laid));
     }
 
     /** The land's tint {@code t} of the way from its lowest to its highest. */
