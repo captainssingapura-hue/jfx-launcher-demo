@@ -186,15 +186,16 @@ public final class Village {
     // --- its roads ---------------------------------------------------------------------------------------------
 
     /**
-     * The kinds of road in the meadow ({@link RoadMap}): each of the highway's carriageways, two lanes and their
-     * shoulders; its slip roads, one lane and its shoulders; the road into the village; the lane to the church.
+     * The kinds of road in the meadow ({@link RoadMap}): each of the highway's carriageways, a motorway's, a hard
+     * strip by the median, two lanes of 3.65 m, a hard shoulder of 3.3 m on its outside; its slip roads, a strip,
+     * one lane, a shoulder; the road into the village, a lane each way; the lane to the church, unmarked gravel.
      */
-    static final RoadMap.Kind CARRIAGEWAY = new RoadMap.Kind("carriageway", 900, Land.Cover.ASPHALT, 0.05, 1.0 / 20_000,
-            false, 2, 0.02, 6_000, 10_000);
-    static final RoadMap.Kind SLIP = new RoadMap.Kind("slip", 550, Land.Cover.ASPHALT, 0.07, 1.0 / 4_000, false,
-            2, 0.02, 3_000, 4_000);
+    static final RoadMap.Kind CARRIAGEWAY = new RoadMap.Kind("carriageway", 1_160, Land.Cover.ASPHALT, 0.05,
+            1.0 / 20_000, false, 2, 0.02, 6_000, 10_000, 2, 365, 100);
+    static final RoadMap.Kind SLIP = new RoadMap.Kind("slip", 565, Land.Cover.ASPHALT, 0.07, 1.0 / 4_000, false,
+            2, 0.02, 3_000, 4_000, 1, 365, 100);
     static final RoadMap.Kind VILLAGE_ROAD = new RoadMap.Kind("village", 600, Land.Cover.ASPHALT, 0.08, 1.0 / 3_000, false,
-            2, 0.02, 3_000, 5_000);
+            2, 0.02, 3_000, 5_000, 2, 300, 0);
     static final RoadMap.Kind LANE = new RoadMap.Kind("lane", 400, Land.Cover.GRAVEL, 0.14, 1.0 / 1_500, false,
             2, 0, 1_200, 3_000);
 
@@ -204,7 +205,7 @@ public final class Village {
     private static final double HIGHWAY_SOUTH = 10_000;
     /** How wide its median is, between its carriageways: so far apart their middles are. */
     public static final double MEDIAN = 1_000;
-    public static final double CARRIAGEWAYS_APART = MEDIAN + 900;
+    public static final double CARRIAGEWAYS_APART = MEDIAN + 1_160;
     /**
      * Where the exit to the village leaves the westbound carriageway, and the entry back onto it joins it: so far
      * east, each a vertex of it; and where the slip roads meet the road into the village, the junction: so far

@@ -106,6 +106,8 @@ public final class World {
     /** The land, where it rises and falls; null where it is level. And the water lying in it. */
     private final TerrainModel land;
     private final WaterModel water;
+    /** The lines painted on its roads, where the land is laid out. */
+    private final RoadModel markings;
     /** The cracks and fires put on each piece, by its number: taken off again when it is made whole ({@link #revive}). */
     private final Map<Integer, List<Node>> marks = new HashMap<>();
     private final double[] struckAt;
@@ -175,10 +177,14 @@ public final class World {
         root.getChildren().add(horizon.node());
 
         // its water: where the land is laid out, its rivers' in their channels and its ponds', lying in it
+        markings = land == null ? null : new RoadModel(course.land().layers().stream()
+                .filter(com.example.fxsuite.avatar.sim.Road.class::isInstance).map(com.example.fxsuite.avatar.sim.Road.class::cast)
+                .toList());
         water = land == null ? null : new WaterModel(course.land(), course.rivers(), course.ponds(),
                 Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         if (water != null) {
             root.getChildren().add(water.node());
+            root.getChildren().add(markings.node());
         }
         // on level ground, each river its water between its banks, side by side, none over another
         for (final com.example.fxsuite.avatar.sim.River river : land == null ? course.rivers()
@@ -617,6 +623,7 @@ public final class World {
         if (land != null) {
             land.seenFrom(eye);
             water.seenFrom(eye);
+            markings.seenFrom(eye);
         }
         for (final Map.Entry<Integer, BuildingModel.Leveled> each : leveled.entrySet()) {
             final Block box = pieces.get(each.getKey()).block();

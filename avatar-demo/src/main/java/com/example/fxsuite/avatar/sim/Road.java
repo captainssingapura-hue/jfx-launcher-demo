@@ -36,13 +36,15 @@ public final class Road implements Land.Layer {
     private final double[] slopes;
     private final double[][] covers;
     private final boolean[] bridged;
+    private final RoadMap.Kind[] kinds;
     private final Alignment alignment;
     private final double deepest;
     private final double tallest;
     private final List<String> problems;
 
     private Road(final String name, final Polyline line, final double[] levels, final double[] halves, final double[] cambers,
-                 final double[] slopes, final double[][] covers, final boolean[] bridged, final Alignment alignment,
+                 final double[] slopes, final double[][] covers, final boolean[] bridged, final RoadMap.Kind[] kinds,
+                 final Alignment alignment,
                  final double deepest, final double tallest, final List<String> problems) {
         this.name = name;
         this.line = line;
@@ -52,6 +54,7 @@ public final class Road implements Land.Layer {
         this.slopes = slopes;
         this.covers = covers;
         this.bridged = bridged;
+        this.kinds = kinds;
         this.alignment = alignment;
         this.deepest = deepest;
         this.tallest = tallest;
@@ -76,6 +79,7 @@ public final class Road implements Land.Layer {
         final double[] verticals = new double[n];
         final double[][] covers = new double[Land.Cover.values().length][n];
         final boolean[] bridged = new boolean[n];
+        final RoadMap.Kind[] kinds = new RoadMap.Kind[n];
         for (int i = 0; i < n; i++) {
             final int k = line.segment(i);
             final RoadMap.Segment seg = way.segments().get(k);
@@ -112,6 +116,7 @@ public final class Road implements Land.Layer {
                 covers[c][i] = mixed[3 + c];
             }
             bridged[i] = seg.bridge();
+            kinds[i] = kind;
         }
         // the ground under its line, but over a bridge; its pins
         final double[] ground = new double[n];
@@ -158,7 +163,7 @@ public final class Road implements Land.Layer {
             tallest = Math.max(tallest, -off);
             reach = Math.max(reach, halves[i] + Math.max(SLOPE, (Math.abs(off) + GROUNDED) * slopes[i]) + EDGE);
         }
-        return new Road(way.name(), new Polyline(points, reach), levels, halves, cambers, slopes, covers, bridged, line,
+        return new Road(way.name(), new Polyline(points, reach), levels, halves, cambers, slopes, covers, bridged, kinds, line,
                 deepest + GROUNDED, tallest + GROUNDED, problems);
     }
 
@@ -290,6 +295,16 @@ public final class Road implements Land.Layer {
     /** Whether its line's {@code i}th point is on a bridge. */
     public boolean bridged(final int i) {
         return bridged[i];
+    }
+
+    /** The kind of road its line's {@code i}th point is on: its lanes, and so its markings, among the rest. */
+    public RoadMap.Kind kind(final int i) {
+        return kinds[i];
+    }
+
+    /** How high its surface is so far ({@code across}) to the left of its line at its {@code i}th point: its camber. */
+    public double surface(final int i, final double across) {
+        return levels[i] - cambers[i] * Math.min(Math.abs(across), halves[i]);
     }
 
     /** How steep it is at most along it, rise over run, between any two of its line's points. */

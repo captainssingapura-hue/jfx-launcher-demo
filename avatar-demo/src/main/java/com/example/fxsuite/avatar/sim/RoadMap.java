@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
  * <p>Written as text, in metres:
  * <pre>
  * kind lane width=4m surface=gravel grade=12% curve=1/15m slope=1:2 camber=0% transition=12m vertical=30m
+ * kind motorway width=11.6m surface=asphalt grade=5% curve=1/200m slope=1:2 camber=2% transition=60m vertical=100m lanes=2x3.65m inner=1m
  * node square at=-40,98
  * road "church lane" kind=lane
  *   from square
@@ -39,18 +40,67 @@ public record RoadMap(List<Kind> kinds, List<Node> nodes, List<Way> ways) {
      * its steepest {@code grade}, rise over run; its {@code tightest} curvature (one over its least radius); whether
      * a {@code corner} (a kink at a vertex) is allowed; its side slopes {@code slope} across for each up or down;
      * its {@code camber}, rise over run either side of its crown; how long a {@code transition} at a vertex is; how
-     * long its grade takes to change ({@code vertical}).
+     * long its grade takes to change ({@code vertical}). And its lanes, if it is marked out in them: so many
+     * ({@code lanes}), each so wide ({@code lane}), from so far in from its left edge ({@code inner}, a strip on
+     * that side, a hard strip by a median); whatever is left of its width on its right, a shoulder. Its markings
+     * follow from them ({@link #markings}).
      */
     public record Kind(String name, double width, Land.Cover surface, double grade, double tightest, boolean corners,
-                       double slope, double camber, double transition, double vertical) {
+                       double slope, double camber, double transition, double vertical, int lanes, double lane,
+                       double inner) {
 
         public Kind {
             if (name == null || surface == null || !(width > 0) || !(grade > 0) || !(tightest > 0) || !(slope > 0)
                     || camber < 0 || transition < 0 || !(vertical >= 0)) {
                 throw new IllegalArgumentException("a kind of road has a name, a width, a surface and its limits");
             }
+            if (lanes < 0 || lanes > 0 && !(lane > 0) || inner < 0 || inner + lanes * lane > width + 1e-9) {
+                throw new IllegalArgumentException("a kind of road's lanes, and the strip on their left, fit across it");
+            }
+        }
+
+        /** A kind of road not marked out in lanes. */
+        public Kind(final String name, final double width, final Land.Cover surface, final double grade, final double tightest,
+                    final boolean corners, final double slope, final double camber, final double transition,
+                    final double vertical) {
+            this(name, width, surface, grade, tightest, corners, slope, camber, transition, vertical, 0, 0, 0);
+        }
+
+        /**
+         * Its markings, across it from its left edge: a solid line at each edge of its lanes, the left one at the end
+         * of its strip there and the right one where its shoulder starts; a dashed line between each two lanes.
+         * None, if it has no lanes.
+         */
+        public List<Marking> markings() {
+            final List<Marking> marks = new ArrayList<>();
+            if (lanes == 0) {
+                return marks;
+            }
+            marks.add(new Marking(inner, EDGE_LINE, 0, 0));
+            for (int k = 1; k < lanes; k++) {
+                marks.add(new Marking(inner + k * lane, LANE_LINE, DASH, GAP));
+            }
+            marks.add(new Marking(inner + lanes * lane, EDGE_LINE, 0, 0));
+            return marks;
         }
     }
+
+    /**
+     * A line painted along a road: its middle so far in from the road's left edge ({@code from}), so wide; dashed,
+     * so long each dash and so long each gap between ({@code dash} 0 for a solid line).
+     */
+    public record Marking(double from, double wide, double dash, double gap) {
+
+        public boolean solid() {
+            return dash == 0;
+        }
+    }
+
+    /** How wide an edge line is, and a line between lanes; how long a lane line's dashes are, and its gaps. */
+    public static final double EDGE_LINE = 20;
+    public static final double LANE_LINE = 15;
+    public static final double DASH = 300;
+    public static final double GAP = 900;
 
     /** A vertex roads share, by its name. */
     public record Node(String name, Vec2 at) {
@@ -199,7 +249,9 @@ public record RoadMap(List<Kind> kinds, List<Node> nodes, List<Way> ways) {
                     .append(k.surface().name().toLowerCase(Locale.ROOT)).append(" grade=").append(percent(k.grade()))
                     .append(" curve=").append(curve(k.tightest())).append(" slope=1:").append(plain(k.slope()))
                     .append(" camber=").append(percent(k.camber())).append(" transition=").append(metres(k.transition()))
-                    .append("m vertical=").append(metres(k.vertical())).append('m').append(k.corners() ? " corners" : "")
+                    .append("m vertical=").append(metres(k.vertical())).append('m')
+                    .append(k.lanes() > 0 ? " lanes=" + k.lanes() + "x" + metres(k.lane()) + "m inner=" + metres(k.inner()) + "m" : "")
+                    .append(k.corners() ? " corners" : "")
                     .append('\n');
         }
         for (final Node n : nodes) {
@@ -367,6 +419,9 @@ public record RoadMap(List<Kind> kinds, List<Node> nodes, List<Way> ways) {
         double camber = 0;
         double transition = 0;
         double vertical = 0;
+        int lanes = 0;
+        double lane = 0;
+        double inner = 0;
         for (int w = 2; w < words.length; w++) {
             if (words[w].equals("corners")) {
                 corners = true;
@@ -382,10 +437,20 @@ public record RoadMap(List<Kind> kinds, List<Node> nodes, List<Way> ways) {
                 case "camber" -> camber = fraction(v);
                 case "transition" -> transition = centimetres(v);
                 case "vertical" -> vertical = centimetres(v);
+                case "lanes" -> {
+                    final String[] parts = v.split("x");
+                    if (parts.length != 2) {
+                        throw new IllegalArgumentException("lanes are written so many x so wide: 2x3.65m, not " + v);
+                    }
+                    lanes = Integer.parseInt(parts[0]);
+                    lane = centimetres(parts[1]);
+                }
+                case "inner" -> inner = centimetres(v);
                 default -> throw new IllegalArgumentException("a kind has no " + key(words[w]));
             }
         }
-        return new Kind(words[1], width, surface, grade, tightest, corners, slope, camber, transition, vertical);
+        return new Kind(words[1], width, surface, grade, tightest, corners, slope, camber, transition, vertical, lanes, lane,
+                inner);
     }
 
     private static String key(final String word) {

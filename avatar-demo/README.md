@@ -839,9 +839,11 @@ through, and one loaded until a pillar gives and it falls.
   far off as the land does; walked down into and along and up out of, as yet without slowing.
   Its roads are described as roads are (`RoadMap`, see [Roads](#roads)): a highway along the river, a
   hundred metres south of it, its bends two and a half times less wide, across the world and past its ends;
-  a dual carriageway, each carriageway two lanes and their shoulders, 9 m of asphalt, running the way its
-  traffic does (driving on the right: east south of the median, west north of it), a 10 m median between
-  them planted with two lines of trees for 2.5 km either side of the village. An exit leaves the westbound
+  a dual carriageway, each carriageway a motorway's, 11.6 m of asphalt: a hard strip by the median, two
+  lanes of 3.65 m, a hard shoulder of 3.3 m, its lines painted (an edge line each side of its lanes, a
+  dashed line between them); each running the way its traffic does (driving on the right: east south of
+  the median, west north of it), a 10 m median between them planted with two lines
+  of trees for 2.5 km either side of the village. An exit leaves the westbound
   carriageway (`exit`, a vertex they share), a slip road easing out from it and curving round to a junction
   north of the highway (`junction`); an entry slip road from the junction curves round and eases back onto
   the carriageway further west (`entry`). From the junction a road runs to the river and across it square on
@@ -1212,7 +1214,8 @@ land would show dark streaks across it and a white edge against the sky.
 A road is described as an ordered list of vertices and, between each two in turn, a segment homogeneous
 in every attribute (`RoadMap`): its kind (a named set of attributes: width, surface, steepest grade,
 tightest curvature, whether a corner is allowed, side slope, camber, transition length, the length its
-grade takes to change), its curvature, signed (a straight, or an arc the short way round, bending left or
+grade takes to change; and its lanes, if it is marked out in them: how many, how wide, and the strip on
+their left), its curvature, signed (a straight, or an arc the short way round, bending left or
 right; half a circle at most), and whether it is a bridge. A vertex is a point, and may pin the road's
 height there, and may be a node other roads share, where they meet. Nothing else is described; everything
 else is worked out:
@@ -1228,6 +1231,9 @@ else is worked out:
   how high a bank, never in its surface.
 - **across it**: its kind's width and surface, its carriageway falling either side of its crown by its
   camber; each eased from one segment's into the next's over the transition at the vertex between them.
+- **its markings** (`RoadMap.Kind.markings`), from its lanes: a solid line at each edge of its lanes, a
+  dashed one between each two (3 m dashes, 9 m gaps); drawn as thin strips of their own (`RoadModel`), just
+  over its surface where they are across it, camber and all, shown within 350 m; none on a bridge.
 - **beside it**: a side slope from its edges down or up to the ground at its kind's slope, as wide as the
   cutting is deep or the bank high, twice over for 1 in 2.
 - **where roads meet**: a road with a vertex another road laid before it shares is pinned as high as that
@@ -1241,6 +1247,7 @@ Roads are written as text, in metres, and read back the same:
 
 ```
 kind lane width=4m surface=gravel grade=12% curve=1/15m slope=1:2 camber=0% transition=12m vertical=30m
+kind motorway width=11.6m surface=asphalt grade=5% curve=1/200m slope=1:2 camber=2% transition=60m vertical=100m lanes=2x3.65m inner=1m
 node square at=-40,98
 road "church lane" kind=lane
   from square
@@ -1446,7 +1453,7 @@ of steps, and lets the rest go rather than falling ever further behind.
 | `sim` | The one truth, stepped on its own clock (`Clock`; `Play` steps the avatar, the damage and what moves together: the airships on their routes and their bombs, `Sky`, and the platforms moved from their consoles, `Lift`, with what rides on them; the loose things, furniture and fruit, `Prop`; and the people, `Person`; whoever stands on what moves is carried with it), from inputs: what the keys mean to it (`Keys`), from the keyboard or a `Script` stamped by step, kept and played back as a `Recording`. What happened in each step is written to a `Journal`, stamped by step, which the effects and the sound each read through a reader of their own; the simulation never reads it. The avatar (`Avatar`, `Body`), its swing wings (`Wings`), and what it holds (`Weapon`; in `Arms`, the rounds and strokes, and what they strike; each gun fired as every gun is, by `Gun`, from wherever whatever holds it points it). The land, as a map (`Terrain`, its `Contour` loops), as heights worked out from it (`Survey`), and as it is gone over (`Land`, its features laid over it, such as a river's `Channel` and the roads, described as `RoadMap` and worked out as `Alignment` and `Road`). The world: `Course`, `Block`, `Obstacles` (and rays into it, meeting a `Hit` on a numbered piece), the gates' openings (`Gate`), and what the weapons have done to it (`Damage`: how worn each piece is, what is broken, and what still stands). The `Event`s each step reports: footfalls and landings (how hard, and on the ground or a block), jumps, bumps, take-offs, the pack, and each gate flown through, each round fired and stroke swung, what each struck, and what broke. Pure maths, with its own `Vec3`: no JavaFX at all |
 | `view` | The viewpoint (`Chase`): the camera for the graphics, and which way the listener faces. Pure |
 | `air` | Aircraft, as they are shaped: their bodies (`Fuselage`, `BoxBody`), the parts fixed to them (`Parts`), mounted (`Mount`), put together (`Craft`, `Crafts`). Pure: no JavaFX |
-| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`), `WaterModel` (the water lying in it) and `Horizon` (the sky and the far ground) draw it in JavaFX |
+| `look` | The graphics: `Gait` turns the simulation into a `Pose`, weapon holds and strokes included, with `Reach` working out an arm to put its hand on a point (the Gatling gun's lever); `BoxRig`, `JetPack`, `Arsenal` (the weapons, their flashes and casings), `Impacts` (tracers, sparks, dust, marks), `Wreckage` (the pieces of what broke, a drone's fireball, a bomb going off), `Bombs` (those falling), `Stall` (the people, standing, sat or knocked down, and how they react), `Reticle` (the crosshair, out in the world) and `World` (the course, the targets, their wear and the bars over them), `TerrainModel` (the land, as fine as it needs, `LandSheet`), `WaterModel` (the water lying in it), `RoadModel` (the lines painted on the roads) and `Horizon` (the sky and the far ground) draw it in JavaFX |
 | `sound` | What is heard. `Sound` lists what can be heard. A `Profile` decides how all of it sounds, and how the loops follow thrust and speed: `Robot` or `Arcade` (`Profiles`). `Cues` turns each frame's events, thrust and speed into what to play and from where. `Engine` describes an engine as it is heard, `EngineVoice` makes its sound from its revs and throttle as it runs, `Revs` revs it free, and `Driving` drives the `Vehicle` it is in, through its gears. Pure: no JavaFX, no sound library |
 | `audio` | Where it comes out (`Speakers`): OpenAL through LWJGL, Java Sound, or silence, whichever opens (`Outputs`). Clips play once or loop; a sound made as it plays (an engine) plays as a stream, which OpenAL keeps a few short buffers queued for, topped up each frame, and the mixer asks for as it mixes. Or, only when asked for, a recording to a WAV file (`RecordingSpeakers`). One spatial model (`Space`) serves all. For Java Sound and the recording, a software mixer (`Mix`) places and mixes the voices. No JavaFX, and only `OpenAlSpeakers` touches LWJGL |
 | `hear` | The game's sound, as `look` is its graphics (`Hearing`). Each frame it plays what `Cues` says, keeps the clips it has made, and steers the loops. No JavaFX |

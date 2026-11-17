@@ -51,6 +51,25 @@ class RoadMapTest {
     }
 
     @Test
+    void aKindsMarkingsFollowFromItsLanes() {
+        final RoadMap map = RoadMap.parse(KINDS + """
+                kind motorway width=11.6m surface=asphalt grade=5% curve=1/200m slope=1:2 camber=2% transition=60m vertical=100m lanes=2x3.65m inner=1m
+                """);
+        final RoadMap.Kind motorway = map.kind("motorway");
+        assertEquals(2, motorway.lanes());
+        assertEquals(365, motorway.lane());
+        assertEquals(100, motorway.inner());
+        assertEquals(map, RoadMap.parse(map.text()), "its lanes written and read back");
+        // a solid line at each edge of its lanes, a dashed one between them
+        assertEquals(List.of(new RoadMap.Marking(100, RoadMap.EDGE_LINE, 0, 0),
+                new RoadMap.Marking(465, RoadMap.LANE_LINE, RoadMap.DASH, RoadMap.GAP),
+                new RoadMap.Marking(830, RoadMap.EDGE_LINE, 0, 0)), motorway.markings());
+        assertEquals(List.of(), map.kind("lane").markings(), "no lanes, no lines");
+        assertThrows(IllegalArgumentException.class, () -> new RoadMap.Kind("narrow", 500, Land.Cover.ASPHALT, 0.05,
+                0.01, false, 2, 0, 0, 0, 2, 365, 0), "its lanes fit across it");
+    }
+
+    @Test
     void theTracksLineStraightsAndHalfCirclesEasedFromOneToTheNext() {
         final Alignment line = Alignment.of(RoadMap.parse(TRACK), RoadMap.parse(TRACK).ways().getFirst(), 100);
         // two straights of 160 m and two half circles 60 m round: 697 m, less the corners the transitions cut
