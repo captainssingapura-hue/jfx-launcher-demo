@@ -74,14 +74,15 @@ public final class VehiclePanel {
     /**
      * Seen, for {@code title}, with a button for each of {@code controls}; their words as things
      * are, the vehicle's gun under control ({@code gun}) or not, from the driver's eyes ({@code firstPerson})
-     * or not; and whether the mouse is free to click them ({@code free}).
+     * or not; driving a land vehicle ({@code driving}), where V is its cockpit and C its next camera, or not; and whether
+     * the mouse is free to click them ({@code free}).
      */
     public void show(final String title, final List<Control> controls, final boolean gun, final boolean firstPerson,
-                     final boolean free) {
+                     final boolean driving, final boolean free) {
         root.setVisible(true);
         // held in the world, the mouse is the aim's, and a click there the trigger's
         root.setMouseTransparent(!free);
-        final String now = title + controls + gun + firstPerson + free;
+        final String now = title + controls + gun + firstPerson + driving + free;
         if (now.equals(showing)) {
             return;
         }
@@ -90,19 +91,20 @@ public final class VehiclePanel {
         heading.setStyle(TITLE_STYLE);
         root.getChildren().setAll(heading);
         for (final Control control : controls) {
-            root.getChildren().add(button(control, gun, firstPerson));
+            root.getChildren().add(button(control, gun, firstPerson, driving));
         }
         final Label hint = new Label(free ? "Click a button, or Esc to take the mouse back" : "Esc frees the mouse to click these");
         hint.setStyle(HINT_STYLE);
         root.getChildren().add(hint);
     }
 
-    private Button button(final Control control, final boolean gun, final boolean firstPerson) {
+    private Button button(final Control control, final boolean gun, final boolean firstPerson, final boolean driving) {
         final String words = switch (control) {
             case GUN -> gun ? "Give up the gun" : "Take the gun";
             case BOMB -> "Drop a bomb";
-            case FIRST_PERSON -> firstPerson ? "View from behind" : "First person";
-            case BEHIND -> "Camera behind";
+            case FIRST_PERSON -> driving ? (firstPerson ? "Leave the cockpit" : "Cockpit")
+                    : firstPerson ? "View from behind" : "First person";
+            case BEHIND -> driving ? "Next camera" : "Camera behind";
             case LEAVE -> "Get out";
         };
         final String key = switch (control) {

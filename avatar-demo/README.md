@@ -34,7 +34,12 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   bed on wheels, a steering wheel on a column, and nothing else yet. The car's is 4 m long on four
   wheels; the truck's 7 m on six, its back four on two axles together. Stand beside the driver's door (or at the
   steering wheel, on a bare chassis): T gets in. W speeds it up, S brakes and then reverses, A and D steer,
-  Space is the handbrake, Shift goes gently; the mouse does not turn it. Only the front wheels
+  Space is the handbrake, Shift goes gently; the mouse does not turn it. Its views, as racing games have them
+  (`Game.DriveView`), C in turn: chase far (behind and above, as far back as it is big), chase near (closer,
+  lower), hood (over its front half; a two-wheeler's, over its bars), cockpit (the driver's seat; V, and V
+  again back), bumper (low at its front); the one chosen kept from one drive to the next. Driving, the mouse and
+  Q/E do not move the view: it stays with the vehicle, the way it heads, steady; B held looks back, from the
+  view (from its back, for the hood and the bumper), round at once. Only the front wheels
   steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
   it goes (`Steering`): its wheels turned no further than pulls it across as hard as a tyre holds,
   0.9 g, and gentler the faster it goes, and faster so, to 60% of that at its top; full lock at a crawl,
