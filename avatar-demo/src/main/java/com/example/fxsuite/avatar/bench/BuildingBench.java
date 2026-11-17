@@ -135,6 +135,10 @@ public final class BuildingBench extends Application {
         // the hull to lie across their roofs, built as a ship is: keel, frames, stringers, beams, bulkheads, plating
         COMPOSED.put(com.example.fxsuite.avatar.build.SkyHull.NAME,
                 com.example.fxsuite.avatar.build.SkyHull.standard().building());
+        // and the park on its deck: a pitch, a pool, a court, a garden
+        COMPOSED.put(com.example.fxsuite.avatar.build.SkyPark.NAME, com.example.fxsuite.avatar.build.SkyHull.standard()
+                .building(com.example.fxsuite.avatar.build.SkyPark.NAME, new com.example.fxsuite.avatar.build.SkyPark(
+                        com.example.fxsuite.avatar.build.SkyHull.standard()).solids()));
         // the earth house, as homesteaders built them
         COMPOSED.put(com.example.fxsuite.avatar.build.EarthHouse.NAME,
                 com.example.fxsuite.avatar.build.EarthHouse.standard().building());

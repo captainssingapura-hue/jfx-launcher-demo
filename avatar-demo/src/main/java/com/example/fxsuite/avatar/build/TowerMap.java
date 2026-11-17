@@ -47,6 +47,8 @@ public final class TowerMap {
     private static final WallTower TOWER = WallTower.standard();
     /** The hull lying on their roofs, bent round the curve they stand on. */
     private static final SkyHull HULL = SkyHull.of(SkyHull.Size.STANDARD);
+    /** The park on its deck: a pitch, a pool, a court, a garden. */
+    private static final List<Solid> PARK = new SkyPark(HULL).solids();
     private static List<Solid> drawn;
     private static List<Solid> hullDrawn;
     private static List<WallTower.Opening> openings;
@@ -115,7 +117,7 @@ public final class TowerMap {
     /** The hull on the roofs: drawn by its key after the towers', standing in its box; in the way through its inside. */
     static Course.Piece hull() {
         final Place at = hullAt();
-        final Interior interior = HULL.interior(at);
+        final Interior interior = HULL.interior(at, PARK);
         final Box inside = interior.placed().inside().bounds();
         final Block box = new Block(at.x(), at.z(), Math.max(-inside.minX(), inside.maxX()),
                 Math.max(-inside.minZ(), inside.maxZ()), at.yaw(), at.height(), at.height() + inside.high());
@@ -165,7 +167,7 @@ public final class TowerMap {
     public static synchronized List<Solid> solids(final int k) {
         if (k == TOWERS) {
             if (hullDrawn == null) {
-                hullDrawn = HULL.solids(SkyHull.palette());
+                hullDrawn = HULL.solids(SkyHull.palette(), PARK);
             }
             return hullDrawn;
         }

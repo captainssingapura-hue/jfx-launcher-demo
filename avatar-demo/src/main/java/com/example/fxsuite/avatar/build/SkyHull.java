@@ -235,6 +235,11 @@ public final class SkyHull {
      * steel, or glass, all of it or its starboard side and deck, cut away, to see how it is built inside.
      */
     public Building building() {
+        return building(NAME, List.of());
+    }
+
+    /** As {@link #building()}, called {@code name}, with {@code onDeck} on its deck ({@link SkyPark}). */
+    public Building building(final String name, final List<Solid> onDeck) {
         final Map<String, List<Building.Option>> choices = new LinkedHashMap<>();
         choices.put("Plating", List.of(
                 Building.Option.choosing("Steel", Map.of(), Map.of()),
@@ -242,8 +247,8 @@ public final class SkyHull {
                         Material.GLASS)),
                 Building.Option.choosing("Glass", Map.of(), Map.of(Role.WALL, Material.GLASS, Role.DRESSING,
                         Material.GLASS, Role.ROOF, Material.GLASS))));
-        final Building.Structure all = (skeleton, palette) -> solids(palette);
-        return new Building(NAME, skeleton(), List.of(), List.of(all), choices, List.of(palette()));
+        final Building.Structure all = (skeleton, palette) -> solids(palette, onDeck);
+        return new Building(name, skeleton(), List.of(), List.of(all), choices, List.of(palette()));
     }
 
     /**
@@ -299,8 +304,18 @@ public final class SkyHull {
      * plating, its skin strake by strake and its deck.
      */
     public List<Solid> solids(final Palette palette) {
+        return solids(palette, List.of());
+    }
+
+    /**
+     * As {@link #solids(Palette)}, and {@code onDeck} with it, laid out on its deck as it is straight (a park,
+     * {@link SkyPark}), bent with it.
+     */
+    public List<Solid> solids(final Palette palette, final List<Solid> onDeck) {
+        final List<Solid> all = new ArrayList<>(straight(palette));
+        all.addAll(onDeck);
         final List<Solid> bent = new ArrayList<>();
-        for (final Solid s : straight(palette)) {
+        for (final Solid s : all) {
             bent.add(new Solid(s.name(), s.role(), s.material(), s.corners().stream().map(this::bent).toList()));
         }
         return bent;
@@ -316,9 +331,19 @@ public final class SkyHull {
      * the way as its box, a little more than it is; its deck, its sides and its bottom, as they are.
      */
     public Interior interior(final Place at) {
+        return interior(at, List.of());
+    }
+
+    /**
+     * As {@link #interior(Place)}, with {@code onDeck} on its deck as it is laid out straight ({@link SkyPark}), in
+     * the way with it: all but its water, which a body goes into, to its pool's floor.
+     */
+    public Interior interior(final Place at, final List<Solid> onDeck) {
+        final List<Solid> solids = new ArrayList<>(straight(palette()));
+        onDeck.stream().filter(s -> s.material() != Material.WATER).forEach(solids::add);
         final List<Lean> parts = new ArrayList<>();
         Box all = null;
-        for (final Solid s : straight(palette())) {
+        for (final Solid s : solids) {
             final Box b = Built.box(s);
             final double mid = (b.minZ() + b.maxZ()) / 2;
             final Point c = bent(new Point(0, mid, 0));

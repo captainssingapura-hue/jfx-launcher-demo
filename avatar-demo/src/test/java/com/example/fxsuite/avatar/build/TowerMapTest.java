@@ -96,7 +96,8 @@ class TowerMapTest {
             assertEquals(TowerMap.roof(), hull.undersideAt(t.x(), t.z(), 32, TowerMap.roof() - 50), 1e-6,
                     "its bottom on tower " + i + "'s roof");
             final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
-            assertEquals(deck, world.footing(t.x(), t.z(), 32, deck + 20).height(), 1e-6, "its deck over tower " + i);
+            final double on = world.footing(t.x(), t.z(), 32, deck + 20).height();
+            assertTrue(on >= deck && on <= deck + 10, "its deck over tower " + i + ", or what is laid on it: " + (on - deck));
             // and its full beam there: its deck reaching past the roof each side
             final Vec3 out = Num.right(t.yaw());
             for (final double side : new double[] {-1, 1}) {
@@ -111,7 +112,8 @@ class TowerMapTest {
         final double x = -TowerMap.CURVE + TowerMap.CURVE * Math.cos(turn);
         final double z = TowerMap.CURVE * Math.sin(turn);
         final double deck = TowerMap.roof() + size.depth() + SkyHull.DECK;
-        assertEquals(deck, world.footing(x, z, 32, deck + 20).height(), 1e-6, "its deck over the cantilever");
+        final double on = world.footing(x, z, 32, deck + 20).height();
+        assertTrue(on >= deck && on <= deck + 10, "its deck over the cantilever, or its garden: " + (on - deck));
         assertEquals(0, world.footing(x, z, 32, TowerMap.roof() - 100).height(), 1e-6, "under it, the ground");
     }
 
