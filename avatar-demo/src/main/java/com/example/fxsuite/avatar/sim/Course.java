@@ -1339,15 +1339,17 @@ public final class Course {
         start = towerStart.get();
         pieces.addAll(tower.get());
         ponds.addAll(towerPonds.get());
+        ground.addAll(towerPeople.get());
     }
 
     /**
-     * What stands on the wall tower's ground, where the avatar starts there, and where water lies still: until told,
-     * nothing, the middle, none.
+     * What stands on the wall tower's ground, where the avatar starts there, where water lies still, and who is about:
+     * until told, nothing, the middle, none, no one.
      */
     private static java.util.function.Supplier<List<Piece>> tower = List::of;
     private static java.util.function.Supplier<Vec3> towerStart = () -> Vec3.ZERO;
     private static java.util.function.Supplier<List<Pond>> towerPonds = List::of;
+    private static java.util.function.Supplier<List<Cast>> towerPeople = List::of;
 
     /** Says what stands on the wall tower's ground, and where the avatar starts there. */
     public static void tower(final java.util.function.Supplier<List<Piece>> what,
@@ -1359,9 +1361,18 @@ public final class Course {
     public static void tower(final java.util.function.Supplier<List<Piece>> what,
                              final java.util.function.Supplier<Vec3> start,
                              final java.util.function.Supplier<List<Pond>> ponds) {
+        tower(what, start, ponds, List::of);
+    }
+
+    /** As {@link #tower(java.util.function.Supplier, java.util.function.Supplier, java.util.function.Supplier)}, and who is about there. */
+    public static void tower(final java.util.function.Supplier<List<Piece>> what,
+                             final java.util.function.Supplier<Vec3> start,
+                             final java.util.function.Supplier<List<Pond>> ponds,
+                             final java.util.function.Supplier<List<Cast>> people) {
         tower = what;
         towerStart = start;
         towerPonds = ponds;
+        towerPeople = people;
     }
 
     /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */

@@ -53,6 +53,8 @@ public final class TowerMap {
     private static final SkyPark LAID_OUT = new SkyPark(SHAPE);
     private static final SkyHull HULL = SHAPE.opened(LAID_OUT.holes());
     private static final List<Solid> PARK = LAID_OUT.solids();
+    /** The melon stall beside the park's court, and its stallholder and its customer. */
+    private static final DeckScene.Scene STALL = DeckScene.stall(onDeck(LAID_OUT.stall(), SkyPark.STALL_YAW));
     private static List<Solid> drawn;
     private static List<Solid> hullDrawn;
     private static List<WallTower.Opening> openings;
@@ -62,7 +64,7 @@ public final class TowerMap {
 
     /** Tells the simulation all of it: what stands on its ground, where the avatar starts. */
     public static void tell() {
-        Course.tower(TowerMap::pieces, () -> START, TowerMap::ponds);
+        Course.tower(TowerMap::pieces, () -> START, TowerMap::ponds, TowerMap::people);
     }
 
     /**
@@ -88,6 +90,8 @@ public final class TowerMap {
             pieces.add(tower(i, at(i)));
         }
         pieces.add(hull());
+        // the melon stall beside the court: its table, its fruit, its stool, loose on the lawn
+        pieces.addAll(STALL.things());
         pieces.addAll(trees());
         return pieces;
     }
@@ -140,6 +144,28 @@ public final class TowerMap {
             }
         }
         return List.of(new Pond(outline, at.height() + w.high()));
+    }
+
+    /** Who is about: at the melon stall on the deck, its stallholder and its customer. */
+    public static List<Course.Cast> people() {
+        return STALL.people();
+    }
+
+    /**
+     * A place on the hull's deck, at the middle of {@code spot} (laid out straight, across and along, its low how high),
+     * heading {@code yaw} in the hull's frame laid out straight: bent with the hull, set where it lies, turned with both.
+     */
+    static Place onDeck(final Box spot, final double yaw) {
+        final double across = (spot.minX() + spot.maxX()) / 2;
+        final double along = (spot.minZ() + spot.maxZ()) / 2;
+        final Place at = hullAt();
+        final Point p = SHAPE.bent(new Point(across, along, 0));
+        final Vec3 right = Num.right(at.yaw());
+        final Vec3 ahead = Num.heading(at.yaw());
+        final double turn = Math.toDegrees(along / SHAPE.size().curve());
+        return new Place(at.x() + right.x() * p.across() + ahead.x() * p.along(),
+                at.z() + right.z() * p.across() + ahead.z() * p.along(), at.height() + spot.low(),
+                Num.wrap(at.yaw() + yaw - turn));
     }
 
     /** The hull on the roofs: drawn by its key after the towers', standing in its box; in the way through its inside. */

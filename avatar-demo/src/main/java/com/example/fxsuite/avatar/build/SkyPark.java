@@ -122,6 +122,27 @@ public final class SkyPark {
         return new Box(pool.maxX() + PATH / 2, hull.size().beam() / 2 - CLEAR, pool.minZ(), pool.maxZ(), deck, deck);
     }
 
+    /** The melon stall's spot: how far out across it its middle is past the court's side and its path, and how big. */
+    static final double STALL_OUT = 230;
+    static final double STALL_FRONT = 130;
+    static final double STALL_BACK = 110;
+    static final double STALL_HALF = 190;
+
+    /**
+     * Where the melon stall stands ({@code DeckScene#stall}): on the lawn to starboard of the court, halfway along it;
+     * its table along the hull, its front, where its customer stands, toward the court, its stallholder on its far side.
+     * Its middle at the box's middle across and along; turned so its front faces the court ({@link #STALL_YAW}).
+     */
+    public Box stall() {
+        final Box court = court();
+        final double x = court.maxX() + RUN_OFF + PATH + STALL_OUT;
+        final double y = (court.minZ() + court.maxZ()) / 2;
+        return new Box(x - STALL_FRONT, x + STALL_BACK, y - STALL_HALF, y + STALL_HALF, deck + 3, deck + 3);
+    }
+
+    /** Which way the stall's frame heads, in the hull's frame laid out straight: out to starboard, its front to the court. */
+    public static final double STALL_YAW = 90;
+
     /** The basketball court, its lines: to the bow of the pitch, along the middle of the deck. */
     public Box court() {
         final double south = grass().maxZ() + 2 * PATH + RUN_OFF;
@@ -131,7 +152,7 @@ public final class SkyPark {
     /** What is laid out, each as far as it reaches, and a path's width round it: where no tree, no hedge, no bench is. */
     private List<Box> laid() {
         return List.of(grass().grown(PATH, 0), pool().grown(PATH, 0), lounge().grown(PATH / 2, 0),
-                court().grown(RUN_OFF + PATH, 0));
+                court().grown(RUN_OFF + PATH, 0), stall().grown(PATH / 2, 0));
     }
 
     /** Whether ({@code across}, {@code along}) is on the deck, {@code clear} in from its edge. */

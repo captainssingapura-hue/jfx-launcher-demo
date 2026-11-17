@@ -94,6 +94,17 @@ public final class DeckScene {
         }
     }
 
+    /**
+     * A melon stall set out on its own at {@code base} (its middle on the floor, its front, its -z, where its customer
+     * stands): its table, its watermelons and pineapples, its stallholder's stool; its stallholder, its customer.
+     */
+    public static Scene stall(final Place base) {
+        final List<Course.Piece> things = new ArrayList<>();
+        final List<Course.Cast> people = new ArrayList<>();
+        stall(base, things, people);
+        return new Scene(things, people);
+    }
+
     private static void stall(final Place base, final List<Course.Piece> things, final List<Course.Cast> people) {
         final Place table = on(base, 0, TABLE, 0, 0);
         things.add(Course.Piece.loose(Furniture.TABLE, Course.Kind.FURNITURE, table, 0));

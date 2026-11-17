@@ -183,4 +183,37 @@ class SkyParkTest {
                     "in under a wall: " + across);
         }
     }
+
+    @Test
+    void aMelonStallBesideTheCourtItsFruitStayingOnItsTableItsPeopleAtIt() {
+        // on the lawn to starboard of the court, halfway along it, clear of it and of the deck's edge
+        final Box stall = PARK.stall();
+        final Box court = PARK.court();
+        assertTrue(stall.minX() > court.maxX() + SkyPark.RUN_OFF + SkyPark.PATH, "beside the court, clear of it");
+        assertTrue(PARK.onDeck(stall.maxX(), stall.minZ(), SkyPark.CLEAR) && PARK.onDeck(stall.maxX(), stall.maxZ(),
+                SkyPark.CLEAR), "on the deck, clear of its edge");
+        assertEquals((court.minZ() + court.maxZ()) / 2, (stall.minZ() + stall.maxZ()) / 2, 1e-9, "halfway along it");
+        assertFalse(PARK.garden((stall.minX() + stall.maxX()) / 2, (stall.minZ() + stall.maxZ()) / 2, 0),
+                "kept clear of trees and hedges");
+        // in the game: its table and its fruit, loose; its stallholder and its customer
+        TowerMap.tell();
+        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demo.WALL_TOWER, true);
+        final double deck = TowerMap.hullAt().height() + PARK.deck();
+        final List<com.example.fxsuite.avatar.sim.Prop> fruit = start.props().stream()
+                .filter(p -> p.thing() instanceof com.example.fxsuite.avatar.sim.Fruit).toList();
+        assertEquals(16, fruit.size(), "twelve watermelons on its table, two by it, two pineapples");
+        assertEquals(2, new Course(Demo.WALL_TOWER).ground().size(), "its stallholder and its customer");
+        // a second on, its fruit where it was: on its table and on the lawn, 205 m up, none fallen through
+        com.example.fxsuite.avatar.sim.Play play = start;
+        for (int n = 0; n < 120; n++) {
+            play = play.step(Controls.NONE, Clock.STEP).play();
+        }
+        for (int k = 0; k < fruit.size(); k++) {
+            final com.example.fxsuite.avatar.sim.Prop was = fruit.get(k);
+            final com.example.fxsuite.avatar.sim.Prop now = play.props().stream().filter(p -> p.piece() == was.piece())
+                    .findFirst().orElseThrow();
+            assertEquals(was.place().height(), now.place().height(), 1, "where it was: " + k);
+            assertTrue(now.place().height() >= deck, "on the deck or on its table: " + k);
+        }
+    }
 }
