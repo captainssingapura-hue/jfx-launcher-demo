@@ -9,8 +9,8 @@ import java.util.Map;
 
 /**
  * A tower borne by walls, not columns: walls across it, one after another along its length, each the same shape,
- * the floors spanning between them, run out past the rooms as balconies, a glass rail at their edge, the rooms' glass
- * and doors set back inside them; the walls' ends showing as fins between the balconies.
+ * the floors spanning between them, run out past the rooms as balconies, a glass rail at their edge, the rooms'
+ * sliding doors set back inside them, four leaves, the middle two sliding open over the outer two; the walls' ends showing as fins between the balconies.
  * Its shape is one section, across it, carried along it: two legs from the ground, the west one all but upright, its
  * face curving out a little as it rises, more toward the top; the east one splayed out at its foot and curving in as it rises, to meet the
  * west one over an atrium between them; above where they meet, one shaft to the top. The storey where they meet
@@ -34,6 +34,16 @@ public final class WallTower {
     static final double BALCONY = 160;
     static final double RAIL = 110;
     static final double RAILING = 5;
+    /**
+     * Its balconies' sliding doors: how far apart their two tracks are, how deep their sill and head, how wide each
+     * leaf's stiles, how far the leaves lap over each other shut; how many of the doors stand open, some way or wide.
+     */
+    static final double TRACK = 12;
+    static final double SILL = 6;
+    static final double HEAD = 12;
+    static final double STILE = 6;
+    static final double LAP = 8;
+    static final double OPEN = 0.3;
 
     /**
      * How big it is built: {@code storeys} storeys of {@code storey} each, its legs meeting under storey {@code merge}
@@ -250,8 +260,8 @@ public final class WallTower {
                                     layer(face, 0, GLASS, east), y0, y1, p0, h1));
                             continue;
                         }
-                        solids.add(box(side + " pane " + j + ", storey " + k, Role.GLAZING, glass,
-                                layer(face, BALCONY, BALCONY + GLASS, east), y0, y1, p0, h1));
+                        solids.addAll(door(side + " door " + j + ", storey " + k, face, east, y0, y1, p0, h1,
+                                opening(k, j, east), glass, palette.of(Role.FRAME)));
                         final double[] rail = at(face, p0, p0 + RAIL, p0, h1);
                         solids.add(box(side + " rail " + j + ", storey " + k, Role.GLAZING, glass,
                                 layer(rail, 0, RAILING, east), y0, y1, p0, p0 + RAIL));
@@ -264,6 +274,52 @@ public final class WallTower {
         final double[][] roof = {{westOuter(top), westOuter(top)}, {eastOuter(top), eastOuter(top)}};
         solids.add(box("roof", Role.ROOF, palette.of(Role.ROOF), roof, -size.length() / 2, size.length() / 2, top, top + FLOOR));
         return solids;
+    }
+
+    /**
+     * The sliding door at the back of a balcony, set back {@link #BALCONY} from face {@code face} (its across from
+     * {@code p0} to {@code h1}), from {@code y0} to {@code y1} along: in a frame, a sill and a head, four leaves of
+     * glass each between two stiles; the outer two fixed, on the track on the room's side, the middle two on the track
+     * on the balcony's side, slid out over them toward the sides by {@code open} of a leaf's width.
+     */
+    List<Solid> door(final String name, final double[] face, final boolean east, final double y0, final double y1,
+                     final double p0, final double h1, final double open, final Material glass, final Material metal) {
+        final List<Solid> door = new ArrayList<>();
+        final double back = BALCONY + TRACK + GLASS;
+        door.add(box(name + ", sill", Role.FRAME, metal, layer(at(face, p0, p0 + SILL, p0, h1), BALCONY, back, east),
+                y0, y1, p0, p0 + SILL));
+        door.add(box(name + ", head", Role.FRAME, metal, layer(at(face, h1 - HEAD, h1, p0, h1), BALCONY, back, east),
+                y0, y1, h1 - HEAD, h1));
+        final double q = (y1 - y0) / 4;
+        final double slide = Math.clamp(open, 0, 1) * q;
+        // each leaf: from, to along; how far in from the face its track is
+        final double[][] leaves = {
+                {y0, y0 + q + LAP, BALCONY + TRACK},
+                {y0 + q - slide, y0 + 2 * q + LAP / 2 - slide, BALCONY},
+                {y0 + 2 * q - LAP / 2 + slide, y1 - q + slide, BALCONY},
+                {y1 - q - LAP, y1, BALCONY + TRACK}};
+        final double l0 = p0 + SILL;
+        final double l1 = h1 - HEAD;
+        final double[] lit = at(face, l0, l1, p0, h1);
+        final String[] called = {"fixed left", "sliding left", "sliding right", "fixed right"};
+        for (int n = 0; n < leaves.length; n++) {
+            final double[][] track = layer(lit, leaves[n][2], leaves[n][2] + GLASS, east);
+            final double a = leaves[n][0];
+            final double b = leaves[n][1];
+            door.add(box(name + ", " + called[n] + " stile", Role.FRAME, metal, track, a, a + STILE, l0, l1));
+            door.add(box(name + ", " + called[n] + " glass", Role.GLAZING, glass, track, a + STILE, b - STILE, l0, l1));
+            door.add(box(name + ", " + called[n] + " far stile", Role.FRAME, metal, track, b - STILE, b, l0, l1));
+        }
+        return door;
+    }
+
+    /**
+     * How far open the door of balcony {@code j} of storey {@code k} is, on its east face or its west: most shut, some
+     * open a little or wide, as the rooms behind them are lived in; the same every time, worked out from where it is.
+     */
+    static double opening(final int k, final int j, final boolean east) {
+        final double h = com.example.fxsuite.avatar.sim.Num.hash(k, j, east ? 1 : 0, 0x3A11);
+        return h < 1 - OPEN ? 0 : (h - (1 - OPEN)) / OPEN;
     }
 
     /**
