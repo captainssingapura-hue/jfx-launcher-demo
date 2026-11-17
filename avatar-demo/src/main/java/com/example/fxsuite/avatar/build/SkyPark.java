@@ -98,6 +98,24 @@ public final class SkyPark {
         return List.of(new Box(p.minX(), p.maxX(), p.minZ(), p.maxZ(), p.low() - FLOOR, p.high()));
     }
 
+    /**
+     * The pool's water: a little under its rim, its edges in under its walls. Not one of its solids: where the park
+     * lies, it is still water, as a pond is, drawn as the rivers' and the ponds' is, never in the way.
+     */
+    public Box water() {
+        final Box p = pool();
+        final double t = POOL_WALL / 2;
+        final double surface = deck - SURFACE;
+        return new Box(p.minX() + t, p.maxX() - t, p.minZ() + t, p.maxZ() - t, surface, surface);
+    }
+
+    /** The pool's water as a solid, a thin sheet: where there is no still water to draw it as (a bench). */
+    public Solid waterSolid() {
+        final Box w = water();
+        return slab("pool water", Role.GLAZING, Material.WATER, w.minX(), w.maxX(), w.minZ(), w.maxZ(), w.low() - 1,
+                w.high());
+    }
+
     /** The deck to lie by the pool: beside it, to starboard. */
     Box lounge() {
         final Box pool = pool();
@@ -221,8 +239,7 @@ public final class SkyPark {
                 p.minZ() + t, low, deck));
         solids.add(slab("pool north wall", Role.STRUCTURE, Material.POOL_TILE, p.minX() + t, p.maxX() - t,
                 p.maxZ() - t, p.maxZ(), low, deck));
-        solids.add(slab("pool water", Role.GLAZING, Material.WATER, p.minX() + t / 2, p.maxX() - t / 2,
-                p.minZ() + t / 2, p.maxZ() - t / 2, surface - 1, surface));
+        // its water not among its solids: it lies in it as still water does, drawn as the rivers' and the ponds' is ({@link #water})
         final int steps = (int) Math.ceil(POOL_DEEP / STEP_UP);
         for (int k = 1; k <= steps; k++) {
             solids.add(slab("pool step " + k, Role.STRUCTURE, Material.POOL_TILE, p.maxX() - t - STEPS_WIDE,

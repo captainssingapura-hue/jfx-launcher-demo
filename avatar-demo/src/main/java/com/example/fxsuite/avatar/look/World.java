@@ -195,11 +195,15 @@ public final class World {
         // its roads: each a strip of its own over the land, and the lines painted on them
         roads = land == null ? null : new RoadSurface(laid, Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         markings = land == null ? null : new RoadModel(laid);
-        // its water: where the land is laid out, its rivers' in their channels and its ponds', lying in it
-        water = land == null ? null : new WaterModel(course.land(), course.rivers(), course.ponds(),
+        // its water: where the land is laid out, its rivers' in their channels; and its ponds', lying in it, or wherever
+        // they lie on level ground (a pool on a roof)
+        water = land == null && course.ponds().isEmpty() ? null
+                : new WaterModel(course.land(), land == null ? List.of() : course.rivers(), course.ponds(),
                 Horizon.lighting(AMBIENT, SUNLIGHT, SUN));
         if (water != null) {
             root.getChildren().add(water.node());
+        }
+        if (land != null) {
             root.getChildren().add(roads.node());
             root.getChildren().add(markings.node());
         }
@@ -701,9 +705,11 @@ public final class World {
      */
     public void seenFrom(final View view, final double seconds) {
         final Vec3 eye = view.eye();
+        if (water != null) {
+            water.seenFrom(view);
+        }
         if (land != null) {
             land.seenFrom(view, seconds);
-            water.seenFrom(view);
             roads.seenFrom(view);
             markings.seenFrom(view);
         }

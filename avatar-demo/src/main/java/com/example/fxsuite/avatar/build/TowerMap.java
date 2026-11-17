@@ -6,6 +6,8 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Pond;
+import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import java.util.ArrayList;
@@ -60,7 +62,7 @@ public final class TowerMap {
 
     /** Tells the simulation all of it: what stands on its ground, where the avatar starts. */
     public static void tell() {
-        Course.tower(TowerMap::pieces, () -> START);
+        Course.tower(TowerMap::pieces, () -> START, TowerMap::ponds);
     }
 
     /**
@@ -114,6 +116,30 @@ public final class TowerMap {
         final double turn = hullMiddle() / CURVE;
         return new Place(-CURVE + CURVE * Math.cos(turn), CURVE * Math.sin(turn), roof(),
                 Num.wrap(-Math.toDegrees(turn)));
+    }
+
+    /**
+     * Where water lies still: the park's pool, its water's outline bent with the hull and set where the hull lies, a
+     * point every metre along each long side; its level a little under the pool's rim. Drawn as the rivers' and the
+     * ponds' water is; gone into, to the pool's floor.
+     */
+    public static List<Pond> ponds() {
+        final Box w = LAID_OUT.water();
+        final Place at = hullAt();
+        final Vec3 right = Num.right(at.yaw());
+        final Vec3 ahead = Num.heading(at.yaw());
+        final int n = (int) Math.ceil((w.maxZ() - w.minZ()) / 100);
+        final List<Vec2> outline = new ArrayList<>();
+        for (int side = 0; side < 2; side++) {
+            for (int k = 0; k <= n; k++) {
+                final double y = side == 0 ? w.minZ() + (w.maxZ() - w.minZ()) * k / n
+                        : w.maxZ() - (w.maxZ() - w.minZ()) * k / n;
+                final Point p = HULL.bent(new Point(side == 0 ? w.maxX() : w.minX(), y, 0));
+                outline.add(new Vec2(at.x() + right.x() * p.across() + ahead.x() * p.along(),
+                        at.z() + right.z() * p.across() + ahead.z() * p.along()));
+            }
+        }
+        return List.of(new Pond(outline, at.height() + w.high()));
     }
 
     /** The hull on the roofs: drawn by its key after the towers', standing in its box; in the way through its inside. */

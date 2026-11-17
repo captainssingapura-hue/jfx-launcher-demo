@@ -139,7 +139,8 @@ public final class BuildingBench extends Application {
         final com.example.fxsuite.avatar.build.SkyPark park = new com.example.fxsuite.avatar.build.SkyPark(
                 com.example.fxsuite.avatar.build.SkyHull.standard());
         COMPOSED.put(com.example.fxsuite.avatar.build.SkyPark.NAME, com.example.fxsuite.avatar.build.SkyHull.standard()
-                .opened(park.holes()).building(com.example.fxsuite.avatar.build.SkyPark.NAME, park.solids()));
+                .opened(park.holes()).building(com.example.fxsuite.avatar.build.SkyPark.NAME, java.util.stream.Stream.concat(
+                        park.solids().stream(), java.util.stream.Stream.of(park.waterSolid())).toList()));
         // the earth house, as homesteaders built them
         COMPOSED.put(com.example.fxsuite.avatar.build.EarthHouse.NAME,
                 com.example.fxsuite.avatar.build.EarthHouse.standard().building());

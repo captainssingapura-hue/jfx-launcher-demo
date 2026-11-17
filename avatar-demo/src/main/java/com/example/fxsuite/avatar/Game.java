@@ -976,7 +976,9 @@ public final class Game {
         final double reach = sight.at(over, seconds);
         world.horizon().follow(at, reach);
         eye.setFarClip(reach * FAR_CLIP);
-        layers(over, cockpit != null);
+        // and what it follows lifted into a layer of its own only when it is high over whatever is under it, not over
+        // the ground: on a roof, it is among what is round it, and hidden as that hides it (in a pool, its legs)
+        layers(-at.y() - standingWas.floor(at.x(), at.z(), 0, -at.y()), cockpit != null);
         final long seeing = System.nanoTime();
         world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(),
                 reach, Math.max(0, over)), seconds);

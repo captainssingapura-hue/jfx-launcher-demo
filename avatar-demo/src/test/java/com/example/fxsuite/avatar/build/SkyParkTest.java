@@ -156,4 +156,31 @@ class SkyParkTest {
                 + (body.height() - deck));
         assertTrue(Double.isFinite(west));
     }
+
+    @Test
+    void itsWaterStillWaterAsAPondsIsALittleUnderItsRimWithinItsWalls() {
+        TowerMap.tell();
+        final List<com.example.fxsuite.avatar.sim.Pond> ponds = new Course(Demo.WALL_TOWER).ponds();
+        assertEquals(1, ponds.size(), "the pool's water, and no other");
+        final com.example.fxsuite.avatar.sim.Pond pond = ponds.getFirst();
+        final Place at = TowerMap.hullAt();
+        assertEquals(at.height() + PARK.deck() - SkyPark.SURFACE, pond.level(), 1e-9, "a little under its rim");
+        assertTrue(SOLIDS.stream().noneMatch(s -> s.material() == Material.WATER), "not one of its solids");
+        // each point of its outline within the pool, in under its walls: as far in from its rim as half a wall
+        final Interior hull = (Interior) new Course(Demo.WALL_TOWER).obstacles().volumes().get(TowerMap.TOWERS);
+        final Placed placed = hull.placed();
+        final Box pool = PARK.pool();
+        for (final com.example.fxsuite.avatar.sim.Vec2 p : pond.outline()) {
+            // back into the hull's frame, and unbent: across out from the curve's middle, along round it
+            final double a = placed.across(p.x(), p.z());
+            final double l = placed.along(p.x(), p.z());
+            final double r = HULL.size().curve();
+            final double across = Math.hypot(a + r, l) - r;
+            final double along = r * Math.atan2(l, a + r);
+            assertTrue(across > pool.minX() && across < pool.maxX(), "within its walls across: " + across);
+            assertTrue(along > pool.minZ() && along < pool.maxZ(), "within its walls along: " + along);
+            assertTrue(across < pool.minX() + SkyPark.POOL_WALL || across > pool.maxX() - SkyPark.POOL_WALL,
+                    "in under a wall: " + across);
+        }
+    }
 }
