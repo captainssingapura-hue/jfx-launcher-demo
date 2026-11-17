@@ -83,8 +83,8 @@ public final class TowerMap {
     }
 
     /**
-     * What the tower is drawn as, by its key from {@link #KEYS}, about its middle: all of it that never moves; its
-     * doors' sliding leaves drawn apart, each as far open as it is ({@link #leaves}).
+     * What the tower is drawn as, by its key from {@link #KEYS}, about its middle: all of it but its balconies' doors;
+     * those drawn apart, each as far open as it is, unless it is broken ({@link #door}).
      */
     public static synchronized List<Solid> solids(final int k) {
         if (k != 0) {
@@ -97,9 +97,9 @@ public final class TowerMap {
         return drawn;
     }
 
-    /** Door {@code door}'s sliding leaves, {@code open} as far open, 0 shut to 1 wide, as the tower's solids are laid out. */
-    public static List<Solid> leaves(final int door, final double open) {
+    /** Door {@code door}, all of it, {@code open} as far open, 0 shut to 1 wide, as the tower's solids are laid out. */
+    public static List<Solid> door(final int door, final double open) {
         solids(0);
-        return openings.get(door).leaves(open, WallTower.palette());
+        return openings.get(door).solids(open, WallTower.palette());
     }
 }

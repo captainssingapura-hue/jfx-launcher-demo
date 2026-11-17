@@ -2,6 +2,10 @@ package com.example.fxsuite.avatar.build;
 
 import com.example.fxsuite.avatar.sim.Action;
 import com.example.fxsuite.avatar.sim.Avatar;
+import com.example.fxsuite.avatar.sim.Blow;
+import com.example.fxsuite.avatar.sim.Damage;
+import com.example.fxsuite.avatar.sim.Hit;
+import com.example.fxsuite.avatar.sim.Weapon;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
@@ -61,8 +65,8 @@ class TowerDoorTest {
             final WallTower.Opening o = openings.get(d);
             assertEquals(WallTower.opening(Integer.parseInt(o.name().replaceAll(".*storey ", "")),
                     Integer.parseInt(o.name().replaceAll("^\\w+ door (\\d+),.*", "$1")), o.east()), interior.open(d));
-            final List<Solid> leaves = o.leaves(o.open(), WallTower.palette());
-            assertEquals(TowerMap.leaves(d, o.open()), leaves);
+            final List<Solid> leaves = o.solids(o.open(), WallTower.palette());
+            assertEquals(TowerMap.door(d, o.open()), leaves);
             for (int k = 0; k < leaves.size(); k++) {
                 final Solid leaf = leaves.get(k);
                 assertTrue(solids.contains(leaf), "built as " + leaf.name());
@@ -71,8 +75,8 @@ class TowerDoorTest {
             }
         }
         // the rest of it drawn in one, without them
-        assertEquals(solids.size() - 6 * openings.size(), TowerMap.solids(0).size());
-        assertTrue(TowerMap.solids(0).stream().noneMatch(WallTower::sliding));
+        assertEquals(solids.size() - 14 * openings.size(), TowerMap.solids(0).size());
+        assertTrue(TowerMap.solids(0).stream().noneMatch(WallTower::doorPart));
     }
 
     /** A body on the balcony of storey {@code k}, bay {@code j}, before its west door, facing in. */
@@ -91,8 +95,8 @@ class TowerDoorTest {
         return play;
     }
 
-    @Test
-    void tAtAShutDoorOpensItAndInAgainShutsIt() {
+    /** The first shut west door from storey 40 up: its storey and bay. */
+    private static int[] shutDoor() {
         int k = 40;
         int j = 1;
         while (WallTower.opening(k, j, false) != 0) {
@@ -102,6 +106,73 @@ class TowerDoorTest {
                 k++;
             }
         }
+        return new int[] {k, j};
+    }
+
+    @Test
+    void everyDoorUprightABalconyInFromWhereItsFaceComesFurthestIn() {
+        for (final WallTower.Opening o : TOWER.openings()) {
+            for (final Solid s : o.solids(o.open(), WallTower.palette())) {
+                final List<Point> c = s.corners();
+                assertEquals(c.get(0).across(), c.get(4).across(), 1e-9, "upright: " + s.name());
+                assertEquals(c.get(1).across(), c.get(5).across(), 1e-9, "upright: " + s.name());
+            }
+            // its sill a balcony in from where its face comes furthest in, at the storey's floor or at its ceiling
+            final List<Point> sill = o.solids(0, WallTower.palette()).get(0).corners();
+            final double in = o.east() ? Math.min(o.face()[0], o.face()[1]) - WallTower.BALCONY
+                    : Math.max(o.face()[0], o.face()[1]) + WallTower.BALCONY;
+            assertEquals(in, o.east() ? sill.get(1).across() : sill.get(0).across(), 1e-9, o.name());
+        }
+        // low on the east leg, where its face leans most, the balcony deeper at its floor than at its ceiling
+        final WallTower.Opening low = TOWER.openings().stream().filter(o -> o.east() && o.name().endsWith("storey 0"))
+                .max(java.util.Comparator.comparingDouble(o -> o.face()[0])).orElseThrow();
+        assertTrue(low.face()[0] - low.middle() > WallTower.BALCONY + 100, "deeper at its floor");
+        assertEquals(WallTower.BALCONY, low.face()[1] - low.middle(), 1e-9);
+    }
+
+    @Test
+    void aDoorShotThroughGoneTheTowerStanding() {
+        final int[] at = shutDoor();
+        final double floor = at[0] * SIZE.storey() + WallTower.FLOOR;
+        final double face = TOWER.westOuter(floor);
+        final double along = (TOWER.wallAt(at[1]) + TOWER.wallAt(at[1] + 1)) / 2;
+        final Play play = onBalcony(at[0], at[1]);
+        final int door = play.doorAtHand().orElseThrow().door();
+        // a rifle round at a time, from the balcony, at its glass
+        final Vec3 from = new Vec3(face + 40, -(floor + 120), along + 100);
+        final Vec3 east = new Vec3(1, 0, 0);
+        Damage damage = play.damage();
+        int rounds = 0;
+        while (!tower(damage).broken(door)) {
+            final Hit hit = damage.obstacles().ray(from, east, 1_000);
+            assertEquals(0, hit.piece(), "the tower's");
+            assertEquals(WallTower.BALCONY - 40, hit.distance(), 1, "at its glass");
+            damage = damage.took(List.of(new Blow(hit.at(), hit.normal(), hit.on(), Weapon.RIFLES, hit.piece()))).damage();
+            rounds++;
+            assertTrue(rounds <= 12);
+        }
+        assertEquals(Damage.DOOR / Weapon.RIFLES.blow(), rounds, 1e-9, "as tough as a drone");
+        assertEquals(1, damage.left(0), 1e-9, "the tower none the worse");
+        // gone: the round goes on into the room; T finds no door; walked through where it was
+        final Hit through = damage.obstacles().ray(from, east, 1_000);
+        assertTrue(through == null || through.distance() > WallTower.BALCONY + 100, "into the room");
+        final Play after = new Play(play.avatar(), damage, play.sky(), play.lifts(), play.people(), play.props(),
+                play.turrets());
+        assertFalse(after.doorAtHand().isPresent());
+        assertTrue(walked(after, 360).avatar().body().position().x() > face + WallTower.BALCONY + 300, "walked in");
+        // its neighbours whole and in the way still
+        assertFalse(tower(damage).broken(door + 1));
+    }
+
+    private static Interior tower(final Damage damage) {
+        return (Interior) damage.obstacles().volumes().get(0);
+    }
+
+    @Test
+    void tAtAShutDoorOpensItAndInAgainShutsIt() {
+        final int[] at = shutDoor();
+        final int k = at[0];
+        final int j = at[1];
         final double face = TOWER.westOuter(k * SIZE.storey() + WallTower.FLOOR);
         // shut: kept out
         Play play = onBalcony(k, j);

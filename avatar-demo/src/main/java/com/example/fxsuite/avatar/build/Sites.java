@@ -14,11 +14,11 @@ public final class Sites {
     }
 
     /**
-     * Building {@code key}'s door {@code door}'s leaves that slide, {@code open} as far open, about the middle of its
-     * box as its solids are: drawn apart from them, as the door is opened and shut. None for a building without doors.
+     * Building {@code key}'s door {@code door}, all of it, {@code open} as far open, about the middle of its box as its
+     * solids are: drawn apart from them, as the door is opened and shut, and broken. None for a building without doors.
      */
-    public static List<Solid> leaves(final int key, final int door, final double open) {
-        return key >= TowerMap.KEYS ? TowerMap.leaves(door, open) : List.of();
+    public static List<Solid> door(final int key, final int door, final double open) {
+        return key >= TowerMap.KEYS ? TowerMap.door(door, open) : List.of();
     }
 
     /** Building {@code key}'s solids, about the middle of its box. */

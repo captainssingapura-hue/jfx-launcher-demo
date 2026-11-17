@@ -97,10 +97,10 @@ public final class World {
     /** Each building drawn in its levels ({@link Detail}), by its piece; and which of them are shown, as last seen. */
     private final Map<Integer, BuildingModel.Leveled> leveled = new HashMap<>();
     private final Map<Integer, boolean[]> levelsShown = new HashMap<>();
-    /** How many doors' sliding leaves are drawn as one: redrawn together when one of them is opened or shut. */
+    /** How many doors are drawn as one: redrawn together when one of them is opened, shut or broken. */
     private static final int DOORS_DRAWN = 32;
 
-    /** A building's doors' sliding leaves as drawn: its key, its inside as they were drawn from, and their groups. */
+    /** A building's doors as drawn: its key, its inside as they were drawn from, and their groups. */
     private record Doors(int key, Interior drawn, Group[] groups) {
     }
 
@@ -625,7 +625,7 @@ public final class World {
         final BuildingModel.Leveled drawn = BuildingModel.levels(com.example.fxsuite.avatar.build.Sites.drawn(site));
         drawn.node().setTranslateY((block.top() - block.bottom()) / 2);
         part.getChildren().add(drawn.node());
-        // its doors' sliding leaves, drawn apart from it, each as far open as it is: in the same frame
+        // its doors, drawn apart from it, each as far open as it is: in the same frame
         final Interior inside = interior(pieces.get(piece));
         if (inside != null && !inside.doors().isEmpty()) {
             final Group[] groups = new Group[(inside.doors().size() + DOORS_DRAWN - 1) / DOORS_DRAWN];
@@ -654,16 +654,18 @@ public final class World {
                 .orElse(null);
     }
 
-    /** Group {@code g} of building {@code key}'s doors' sliding leaves, each door as far open as {@code inside} says. */
+    /** Group {@code g} of building {@code key}'s doors, each as far open as {@code inside} says; the broken ones gone. */
     private static Group doorLeaves(final int key, final Interior inside, final int g) {
         final List<com.example.fxsuite.avatar.build.Solid> leaves = new ArrayList<>();
         for (int d = g * DOORS_DRAWN; d < Math.min(inside.doors().size(), (g + 1) * DOORS_DRAWN); d++) {
-            leaves.addAll(com.example.fxsuite.avatar.build.Sites.leaves(key, d, inside.open(d)));
+            if (!inside.broken(d)) {
+                leaves.addAll(com.example.fxsuite.avatar.build.Sites.door(key, d, inside.open(d)));
+            }
         }
         return BuildingModel.of(leaves);
     }
 
-    /** Each building's doors, redrawn where one has been opened or shut since they were last drawn: only its group. */
+    /** Each building's doors, redrawn where one has been opened, shut or broken since they were last drawn: only its group. */
     private void doorsMoved(final Damage damage) {
         for (final Map.Entry<Integer, Doors> each : doors.entrySet()) {
             final Doors was = each.getValue();
@@ -673,7 +675,7 @@ public final class World {
             }
             final java.util.Set<Integer> changed = new java.util.TreeSet<>();
             for (int d = 0; d < now.doors().size(); d++) {
-                if (now.open(d) != was.drawn().open(d)) {
+                if (now.open(d) != was.drawn().open(d) || now.broken(d) != was.drawn().broken(d)) {
                     changed.add(d / DOORS_DRAWN);
                 }
             }

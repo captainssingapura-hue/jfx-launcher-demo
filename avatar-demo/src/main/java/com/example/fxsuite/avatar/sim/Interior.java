@@ -31,6 +31,10 @@ public final class Interior implements Volume {
     private final Bounds bounds;
     private final List<Door> doors;
     private final double[] open;
+    /** How much of each door is whole, 1 to 0 broken; which door each part is of, -1 none; which parts are gone, broken. */
+    private final double[] whole;
+    private final int[] doorOf;
+    private final boolean[] gone;
 
     /** Its parts, each given in its own frame, and filed in the cells of its inside; set in the world as it is placed. */
     public Interior(final Placed placed, final List<Lean> parts) {
@@ -49,6 +53,11 @@ public final class Interior implements Volume {
         this.local = List.copyOf(parts);
         this.doors = List.copyOf(doors);
         this.open = open.clone();
+        this.whole = new double[doors.size()];
+        java.util.Arrays.fill(this.whole, 1);
+        this.doorOf = new int[parts.size()];
+        java.util.Arrays.fill(this.doorOf, -1);
+        this.gone = new boolean[parts.size()];
         final Box[] filed = new Box[parts.size()];
         for (int p = 0; p < parts.size(); p++) {
             filed[p] = parts.get(p).box();
@@ -58,6 +67,7 @@ public final class Interior implements Volume {
             final Door door = doors.get(d);
             for (int k = 0; k < door.parts().length; k++) {
                 final int p = door.parts()[k];
+                doorOf[p] = d;
                 final Box wide = parts.get(p).slid(door.travel()[k]).box();
                 final Box shut = filed[p];
                 filed[p] = new Box(Math.min(shut.minX(), wide.minX()), Math.max(shut.maxX(), wide.maxX()),
@@ -87,8 +97,15 @@ public final class Interior implements Volume {
         bounds = new Bounds(b.minX(), b.maxX(), b.minZ(), b.maxZ());
     }
 
-    /** The same, its parts in the world {@code parts} and its doors as far open as {@code open}: all else shared. */
-    private Interior(final Interior was, final List<Lean> parts, final double[] open) {
+    /**
+     * The same, its parts in the world {@code parts}, its doors as far open as {@code open}, as whole as {@code whole},
+     * the parts {@code gone} gone: all else shared.
+     */
+    private Interior(final Interior was, final List<Lean> parts, final double[] open, final double[] whole,
+                     final boolean[] gone) {
+        this.whole = whole;
+        this.gone = gone;
+        this.doorOf = was.doorOf;
         this.placed = was.placed;
         this.local = was.local;
         this.parts = parts;
@@ -114,6 +131,9 @@ public final class Interior implements Volume {
 
     /** The same, door {@code door} {@code now} open: its parts slid as far, all else as it was. */
     public Interior opened(final int door, final double now) {
+        if (broken(door)) {
+            return this;
+        }
         final double share = Num.clamp(now, 0, 1);
         final double[] opened = open.clone();
         opened[door] = share;
@@ -123,7 +143,7 @@ public final class Interior implements Volume {
             final int p = d.parts()[k];
             moved.set(p, local.get(p).slid(d.travel()[k] * share).within(placed.at(), 1));
         }
-        return new Interior(this, List.copyOf(moved), opened);
+        return new Interior(this, List.copyOf(moved), opened, whole, gone);
     }
 
     /**
@@ -138,7 +158,7 @@ public final class Interior implements Volume {
         double best = REACH;
         for (int d = 0; d < doors.size(); d++) {
             final Door door = doors.get(d);
-            if (Math.abs(u - door.up()) > REACH) {
+            if (broken(d) || Math.abs(u - door.up()) > REACH) {
                 continue;
             }
             final double away = Math.hypot(a - door.across(), l - door.along());
@@ -150,9 +170,64 @@ public final class Interior implements Volume {
         return nearest;
     }
 
-    /** All its parts, in the world. */
+    /** How much of door {@code door} is whole: 1 unharmed, 0 broken. */
+    public double whole(final int door) {
+        return whole[door];
+    }
+
+    /** Whether door {@code door} is broken, and gone. */
+    public boolean broken(final int door) {
+        return whole[door] <= 0;
+    }
+
+    /** The same, door {@code door} struck, {@code share} of it worn away; worn away entirely, gone: all its parts. */
+    public Interior struck(final int door, final double share) {
+        final double[] left = whole.clone();
+        // worn to within a hair of nothing, broken: shares of a whole, added up, may not come to it exactly
+        left[door] = left[door] - share <= 1e-9 ? 0 : left[door] - share;
+        boolean[] without = gone;
+        if (left[door] <= 0) {
+            without = gone.clone();
+            for (final int p : doors.get(door).parts()) {
+                without[p] = true;
+            }
+        }
+        return new Interior(this, parts, open, left, without);
+    }
+
+    /**
+     * The door whose part a point in the world is on, or in (a round's, a blade's, where it met it), as far open as
+     * the door is; -1 if it is on no door's, or on a broken one's.
+     */
+    public int doorAt(final Vec3 at) {
+        final double h = -at.y();
+        final double a = placed.across(at.x(), at.z());
+        final double l = placed.along(at.x(), at.z());
+        final double u = placed.up(h);
+        for (final int p : near(new Box(at.x() - 1, at.x() + 1, at.z() - 1, at.z() + 1, h - 1, h + 1))) {
+            final int d = doorOf[p];
+            if (d < 0 || gone[p]) {
+                continue;
+            }
+            final Door door = doors.get(d);
+            for (int k = 0; k < door.parts().length; k++) {
+                if (door.parts()[k] == p
+                        && local.get(p).slid(door.travel()[k] * open[d]).box().grown(1, 1).holds(a, l, u)) {
+                    return d;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /** All its parts, in the world: those of a broken door among them, but {@linkplain #gone gone}. */
     public List<Lean> parts() {
         return parts;
+    }
+
+    /** Whether part {@code part} is gone, with the door it was of: in no one's way, met by no ray. */
+    public boolean gone(final int part) {
+        return gone[part];
     }
 
     /** The parts filed in the cells a box in the world reaches: each once, in order. */
@@ -220,6 +295,9 @@ public final class Interior implements Volume {
         for (double to = Math.min(below, high()); to >= floor; to -= BAND) {
             final double from = to - BAND;
             for (final int p : near(column(x, z, radius, from, to))) {
+                if (gone[p]) {
+                    continue;
+                }
                 best = Math.max(best, parts.get(p).topAt(x, z, radius, below));
             }
             if (best >= from) {
@@ -237,6 +315,9 @@ public final class Interior implements Volume {
         for (double from = Math.max(above, low()); from <= roof; from += BAND) {
             final double to = from + BAND;
             for (final int p : near(column(x, z, radius, from, to))) {
+                if (gone[p]) {
+                    continue;
+                }
                 best = Math.min(best, parts.get(p).undersideAt(x, z, radius, above));
             }
             if (best <= to) {
@@ -267,6 +348,9 @@ public final class Interior implements Volume {
         boolean pushed = false;
         for (int pass = 0; pass < 2; pass++) {
             for (final int p : near) {
+                if (gone[p]) {
+                    continue;
+                }
                 final Lean part = parts.get(p);
                 final Vec2 push = point ? part.push(ax + dx, az + dz, radius, feet, head)
                         : part.push(ax + dx, az + dz, bx + dx, bz + dz, radius, feet, head);
@@ -320,7 +404,7 @@ public final class Interior implements Volume {
                     Math.min(a.z(), b.z()) - 1, Math.max(a.z(), b.z()) + 1, Math.min(-a.y(), -b.y()) - 1,
                     Math.max(-a.y(), -b.y()) + 1);
             for (final int p : near(stride)) {
-                if (tried.get(p)) {
+                if (tried.get(p) || gone[p]) {
                     continue;
                 }
                 tried.set(p);
@@ -341,7 +425,7 @@ public final class Interior implements Volume {
         final Vec2 reach = new Vec2(block.halfWidth() + block.halfDepth(), block.halfWidth() + block.halfDepth());
         for (final int p : near(new Box(block.x() - reach.x(), block.x() + reach.x(), block.z() - reach.z(),
                 block.z() + reach.z(), block.bottom(), block.highest()))) {
-            if (parts.get(p).overlaps(block)) {
+            if (!gone[p] && parts.get(p).overlaps(block)) {
                 return true;
             }
         }

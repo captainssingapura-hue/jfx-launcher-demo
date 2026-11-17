@@ -36,6 +36,8 @@ public final class Damage {
     public static final double PLATFORM = 600;
     /** How tough a bunker is: concrete, most of a minute of the hand-held Gatling gun. */
     public static final double BUNKER = 2500;
+    /** A building's door, glass in a light frame: as tough as a drone; broken on its own, the building standing. */
+    public static final double DOOR = 120;
     /** A building, broken as a whole: ten bunkers' worth. */
     public static final double BUILDING = 25_000;
     /** A unit of a wall: so much for each cubic metre of its box, a brick wall's worth; no less than a crate's. */
@@ -192,6 +194,8 @@ public final class Damage {
     public Taken took(final List<Blow> blows, final java.util.function.IntFunction<Course.Piece> where) {
         double[] left = null;
         Obstacles standing = obstacles;
+        Obstacles wholeNow = whole;
+        List<Course.Piece> changed = null;
         final List<Event> happened = new ArrayList<>();
         for (final Blow blow : blows) {
             final int piece = blow.piece();
@@ -205,6 +209,20 @@ public final class Damage {
                 happened.add(Event.Struck.of(blow, 0));
                 continue;
             }
+            // on a building's door: the door worn, not the building; worn through, the door is gone, the building stands
+            final Interior building = interior((changed == null ? pieces : changed).get(piece));
+            final int door = building == null ? -1 : building.doorAt(blow.at());
+            if (door >= 0) {
+                final Interior struck = building.struck(door, harm(piece, blow) / DOOR);
+                if (changed == null) {
+                    changed = new ArrayList<>(pieces);
+                }
+                changed.set(piece, changed.get(piece).reshaped(building, struck));
+                standing = standing.reshaped(piece, building, struck);
+                wholeNow = wholeNow.reshaped(piece, building, struck);
+                happened.add(Event.Struck.of(blow, share(piece, now)));
+                continue;
+            }
             if (left == null) {
                 left = health.clone();
             }
@@ -216,8 +234,21 @@ public final class Damage {
                 happened.add(new Event.Broke(piece, what.kind(), what.block(), blow.at(), blow.by(), what.fruit()));
             }
         }
-        return left == null ? new Taken(this, happened)
-                : new Taken(new Damage(pieces, toughness, left, standing, whole, ground), happened);
+        if (left == null && changed == null) {
+            return new Taken(this, happened);
+        }
+        return new Taken(new Damage(changed == null ? pieces : List.copyOf(changed), toughness,
+                left == null ? health : left, standing, wholeNow, ground), happened);
+    }
+
+    /** A piece's inside ({@link Interior}), if it is a building that has one; else null. */
+    private static Interior interior(final Course.Piece piece) {
+        for (final Volume v : piece.volumes()) {
+            if (v instanceof Interior inside) {
+                return inside;
+            }
+        }
+        return null;
     }
 
     /** How much harm {@code blow} does piece {@code piece}: what its weapon does, less a body's plating, if it wears one. */

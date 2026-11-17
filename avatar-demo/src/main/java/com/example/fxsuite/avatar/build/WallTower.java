@@ -325,14 +325,16 @@ public final class WallTower {
         final double[] open = new double[openings.size()];
         for (int d = 0; d < openings.size(); d++) {
             final Opening o = openings.get(d);
-            final List<Solid> leaves = o.leaves(0, palette());
+            final List<Solid> leaves = o.solids(0, palette());
             final int[] which = new int[leaves.size()];
             final double[] travel = new double[leaves.size()];
             for (int k = 0; k < leaves.size(); k++) {
                 which[k] = parts.size();
                 parts.add(lean(leaves.get(k)));
-                // the left one slides toward the start of the bay, the right toward its end, a leaf's width each
-                travel[k] = (leaves.get(k).name().contains("sliding left") ? -1 : 1) * o.leaf();
+                // the sliding left leaf goes toward the start of the bay, the right toward its end, a leaf's width
+                // each; its frame and its outer leaves stay
+                final String name = leaves.get(k).name();
+                travel[k] = name.contains("sliding left") ? -o.leaf() : name.contains("sliding right") ? o.leaf() : 0;
             }
             doors.add(new Door(o.middle(), (o.y0() + o.y1()) / 2, o.p0(), which, travel));
             open[d] = o.open();
@@ -340,9 +342,23 @@ public final class WallTower {
         return new Interior(new Placed(at, inside()), parts, doors, open);
     }
 
-    /** All of it but its doors' sliding leaves: what never moves. */
+    /** All of it but its balconies' doors: what never moves, and stands however the doors are shot at. */
     public List<Solid> fixed(final Palette palette) {
-        return solids(palette).stream().filter(s -> !sliding(s)).toList();
+        return solids(palette).stream().filter(s -> !doorPart(s)).toList();
+    }
+
+    /** Whether a solid is part of a balcony's door: its sill, its head, a leaf or a stile. */
+    static boolean doorPart(final Solid solid) {
+        return solid.name().matches("(west|east) door \\d+, storey \\d+, .*");
+    }
+
+    /**
+     * A face (its across at a storey's floor and its top) stood upright: where it comes furthest into the tower,
+     * east of a west face, west of an east one, all the way up.
+     */
+    static double[] upright(final double[] face, final boolean east) {
+        final double line = east ? Math.min(face[0], face[1]) : Math.max(face[0], face[1]);
+        return new double[] {line, line};
     }
 
     /** Whether a solid is a door's sliding leaf, or part of one. */
@@ -360,7 +376,7 @@ public final class WallTower {
 
         /** How far across its middle is, on its tracks: a balcony in from its face. */
         public double middle() {
-            return face[0] + (east ? -1 : 1) * BALCONY;
+            return upright(face, east)[0] + (east ? -1 : 1) * BALCONY;
         }
 
         /** How wide a leaf is, and so how far each sliding one goes, wide open. */
@@ -368,10 +384,9 @@ public final class WallTower {
             return (y1 - y0) / 4;
         }
 
-        /** Its two sliding leaves, as far open as {@code open} says. */
-        public List<Solid> leaves(final double open, final Palette palette) {
-            return door(name, face, east, y0, y1, p0, h1, open, palette.of(Role.GLAZING),
-                    palette.of(Role.FRAME)).stream().filter(WallTower::sliding).toList();
+        /** All of it, its sill, its head and its four leaves, as far open as {@code open} says. */
+        public List<Solid> solids(final double open, final Palette palette) {
+            return door(name, face, east, y0, y1, p0, h1, open, palette.of(Role.GLAZING), palette.of(Role.FRAME));
         }
     }
 
@@ -414,8 +429,10 @@ public final class WallTower {
      * glass each between two stiles; the outer two fixed, on the track on the room's side, the middle two on the track
      * on the balcony's side, slid out over them toward the sides by {@code open} of a leaf's width.
      */
-    static List<Solid> door(final String name, final double[] face, final boolean east, final double y0, final double y1,
+    static List<Solid> door(final String name, final double[] facing, final boolean east, final double y0, final double y1,
                      final double p0, final double h1, final double open, final Material glass, final Material metal) {
+        // upright, however its face leans: a balcony in from wherever its face comes furthest in up the storey
+        final double[] face = upright(facing, east);
         final List<Solid> door = new ArrayList<>();
         final double back = BALCONY + TRACK + GLASS;
         door.add(box(name + ", sill", Role.FRAME, metal, layer(at(face, p0, p0 + SILL, p0, h1), BALCONY, back, east),
