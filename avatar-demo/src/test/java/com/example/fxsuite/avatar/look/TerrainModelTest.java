@@ -45,11 +45,13 @@ class TerrainModelTest {
         }
         // low down, the meadow's grass: as the far ground is
         assertEquals(World.GRASS, TerrainModel.tint(0));
-        assertEquals(World.GRASS, TerrainModel.colour((int) TerrainModel.column(0, 0)));
+        assertEquals(World.GRASS, TerrainModel.colour((int) TerrainModel.column(0, 0, 0)));
         // and bare earth, beside the grass low down, no less than its base either
-        assertEquals(TerrainModel.EARTH, TerrainModel.colour((int) TerrainModel.column(1, 0.7)));
+        assertEquals(TerrainModel.EARTH, TerrainModel.colour((int) TerrainModel.column(1, 0, 0.7)));
+        assertEquals(TerrainModel.GRAVEL, TerrainModel.colour((int) TerrainModel.column(1, 1, 0.7)), "a road over bare earth, gravel");
         for (int c = 0; c < 3; c++) {
             assertTrue(channel(TerrainModel.EARTH, c) >= channel(TerrainModel.BASE, c));
+            assertTrue(channel(TerrainModel.GRAVEL, c) >= channel(TerrainModel.BASE, c));
         }
     }
 

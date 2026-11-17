@@ -835,7 +835,8 @@ through, and one loaded until a pillar gives and it falls.
   winds across the whole world, two long gentle waves laid over each other, 12 m wide with its banks. Its
   channel is cut into the land (`Channel`): a level bed 9 m wide and 1.5 m deep, its banks easing up from it
   to the meadow over 4 m each side, no steeper than 30°, bare earth, the grass thinning out over their tops.
-  It is dry for now, walked down into and along and up out of: its water is to come.
+  Its water lies 1 m deep over its bed, its top meeting its banks (`WaterModel`), fading into the haze
+  far off as the land does; walked down into and along and up out of, as yet without slowing.
   A timber footbridge crosses it square where the village is, ramped up from each bank, railed. North of
   it, twelve earth houses round a stone well, each facing it, each its own size, walls, roof, window and
   woodwork, as its seed draws them, dry of the river, apart, the way down to the bridge left clear; broken,
@@ -843,10 +844,14 @@ through, and one loaded until a pillar gives and it falls.
   grows, its foot as low as the ground under it goes. The avatar starts south of the river, the bridge and
   the village ahead.
   Its land (`Village.land`) is the meadow's map (`Terrains.meadow`, on the terrain bench), surveyed once,
-  the river's channel laid over it, drawn (`TerrainModel`, see the [terrain bench](#terrain-bench)): the
-  river's valley across the world, its floor level where the river runs and the village stands, up gently
-  north past a knoll and a hollow to a beacon hill, more steeply south to a ridge, moors at 100 m round
-  the edge. The avatar walks on it.
+  the river's channel and a country road laid over it, drawn (`TerrainModel`, see the
+  [terrain bench](#terrain-bench)): the river's valley across the world, its floor level where the river
+  runs and the village stands, up gently north past a knoll and a hollow, filled with a pond (`Pond`), to a
+  beacon hill, more steeply south to a ridge, moors at 100 m round the edge. The avatar walks on it.
+  A few hundred metres north-west of the village, a small hill, its top level at 12 m, and on it the town's
+  church, of stone, its front to the village; a country road (`Road`, `Village.road`) winds up to it from
+  the village's edge, 4 m wide and level across, its line's heights the ground's smoothed along it, cut into
+  the rises and built up over the dips, no steeper than 14%; gravel, its edges worn into the grass.
 - **The earth house** (`EarthHouse`, on the buildings bench): round, as homesteaders on open plains
   built them: its walls of earth, thick, battered a little and a little uneven, plastered smooth, their
   tops rising inward to meet its roof; a low cone of a roof on them, its eave drooping no lower than its
@@ -1156,10 +1161,13 @@ also picked on the bench; `-Dterrain.lines=2` draws the contour lines every so m
 
 In the game, a course's land is a `Land` (`Course.land`; level, at 0, where there is none): its lie,
 surveyed, and over it its features, each a layer of its own (`Land.Layer`), worked out apart from the
-rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`, its line
-kept by where it is on a grid of cells, so a point far from it is told so at once); in time, paths,
-ditches, the edges of level pads. The survey's 10 m between heights is plenty for the lie, which is
-smooth by nature; the detail is in the features.
+rest and exactly, however fine, wherever it is asked: so far, a river's channel (`Channel`) and a road
+(`Road`), each along a line (`Polyline`, kept by where its segments are on a grid of cells, so a point
+far from it is told so at once); in time, paths, ditches, the edges of level pads. The survey's 10 m
+between heights is plenty for the lie, which is smooth by nature; the detail is in the features. A
+feature says what covers the ground too: bare earth (`Land.bare`) or a road's gravel (`Land.paved`).
+Water lies in the land as a body of its own: a river along its channel, as deep over its bed as it is
+(`River.top`), and a pond (`Pond`) filling it to its level within a loop whose rim is higher.
 
 Everything that goes over the ground stands on it: the world (`Obstacles`) holds it, and what the feet,
 a vehicle's wheels, a person or a loose thing stand on (`footing`) is the land, or a block's top over it;
@@ -1176,7 +1184,9 @@ smaller's corners are, so no crack shows; so open meadow comes out in squares of
 river's bank in squares of half a metre. A skirt hangs from each tile's edges so no gap shows where a
 fine tile meets a coarse one. It is shaded by the sun as its slopes face it and tinted by height, a
 little mottled: the meadow's grass low down, drier grass up the slopes, moor on the heights; bare
-earth where a feature leaves it so (`Land.bare`), the grass thinning out into it. From 1.2 km out it fades into the haze as the far ground round the
+earth where a feature leaves it so, a road's gravel, each thinning out into the grass, the squares
+finer where what covers the ground changes, so its edges are smooth. From 1.2 km out it fades into
+the haze as the far ground round the
 camera does (`Horizon.haze`), its slopes lit more and more as level ground is, so the hills at the
 world's edge go into the sky with no line between them; each tile's haze is worked out again as the
 camera moves, height by height, and those near enough to have none are left alone. Its tint and its

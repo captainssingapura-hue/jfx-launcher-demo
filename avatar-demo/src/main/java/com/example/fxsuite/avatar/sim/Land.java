@@ -41,6 +41,27 @@ public final class Land {
         default double bare(final double x, final double z) {
             return 0;
         }
+
+        /** How paved it leaves the ground at ({@code x}, {@code z}): 1 a road's top, 0 none of it. None does, but for what does. */
+        default double paved(final double x, final double z) {
+            return 0;
+        }
+    }
+
+    /** How paved the ground at ({@code x}, {@code z}) is, by the most paved of its features: a road. */
+    public double paved(final double x, final double z) {
+        double paved = 0;
+        for (final Layer layer : layers) {
+            paved = Math.max(paved, layer.paved(x, z));
+        }
+        return paved;
+    }
+
+    /** The same land, {@code more} laid over it after its own features. */
+    public Land with(final Layer more) {
+        final List<Layer> all = new java.util.ArrayList<>(layers);
+        all.add(more);
+        return new Land(base, all);
     }
 
     /** How bare the ground at ({@code x}, {@code z}) is, by the barest of its features: a channel's bed and banks. */

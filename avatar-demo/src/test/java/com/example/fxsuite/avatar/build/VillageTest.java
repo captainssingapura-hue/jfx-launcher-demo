@@ -7,8 +7,12 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
+import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Polyline;
+import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.River;
 import com.example.fxsuite.avatar.sim.Land;
+import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 import org.junit.jupiter.api.Test;
@@ -73,7 +77,8 @@ class VillageTest {
         // the same every time
         assertEquals(houses, Village.VILLAGE);
         final List<Course.Piece> pieces = Village.pieces();
-        final List<Course.Piece> built = pieces.stream().filter(p -> p.kind() == Course.Kind.BUILDING).toList();
+        final List<Course.Piece> built = pieces.stream().filter(p -> p.kind() == Course.Kind.BUILDING
+                && p.tint() < Village.KEYS + Village.CHURCH).toList();
         assertEquals(houses.size(), built.size());
         for (final Course.Piece house : built) {
             assertTrue(house.tint() >= Village.KEYS, "drawn by its own key");
@@ -104,6 +109,58 @@ class VillageTest {
         for (final Course.Piece vehicle : parked) {
             assertTrue(rest.stream().noneMatch(p -> p.block().overlaps(vehicle.block())), "clear");
         }
+    }
+
+    @Test
+    void aChurchOnItsHillAndACountryRoadWindingUpToIt() {
+        final Land land = Village.land();
+        final Place church = Village.churchPlace();
+        assertEquals(Terrains.CHURCHYARD_LEVEL, church.height());
+        assertEquals(church.height(), land.height(church.x(), church.z()), 1e-6, "on its hill's level top");
+        final List<Vec2> road = Village.road();
+        final Vec2 end = road.getLast();
+        // its front to where the road comes up
+        final Vec3 front = Num.heading(church.yaw());
+        final Vec3 toRoad = new Vec3(end.x() - church.x(), 0, end.z() - church.z()).normalize();
+        assertTrue(front.x() * toRoad.x() + front.z() * toRoad.z() > 0.99, "facing the road");
+        assertTrue(Math.hypot(end.x() - church.x(), end.z() - church.z()) < Terrains.CHURCHYARD, "up to the churchyard");
+        // from the village's edge, clear of its houses all the way, winding, and gently
+        final Vec2 start = road.getFirst();
+        assertTrue(Math.hypot(start.x() - Village.WELL.x(), start.z() - Village.WELL.z()) < 12_000, "from the village's edge");
+        final Polyline line = new Polyline(road, Village.ROAD_WIDE / 2 + 300);
+        for (final Village.House house : Village.VILLAGE) {
+            assertTrue(line.distance(house.place().x(), house.place().z()) > EarthHouse.of(house.size()).eave(),
+                    "clear of the houses");
+            assertEquals(0, land.height(house.place().x(), house.place().z()), 1e-6, "each house on the ground as it was");
+        }
+        assertTrue(line.length() > 1.15 * Math.hypot(end.x() - start.x(), end.z() - start.z()), "winding");
+        assertTrue(Village.country().steepest() < 0.15, "a country road's climb: " + Village.country().steepest());
+        assertEquals(1, land.paved(start.x(), start.z()), 1e-9);
+        // and the church among the village's buildings, drawn by its own key
+        final List<Course.Piece> built = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.BUILDING).toList();
+        assertEquals(Village.HOUSES + 1, built.size());
+        assertTrue(built.stream().anyMatch(p -> p.tint() == Village.KEYS + Village.CHURCH && p.block().bottom() == church.height()));
+        assertFalse(Sites.drawn(Village.KEYS + Village.CHURCH).isEmpty());
+    }
+
+    @Test
+    void waterInTheRiversChannelAndInThePond() {
+        final Land land = Village.land();
+        final River river = Village.rivers().getFirst();
+        assertEquals(Village.WATER, river.top());
+        // its water's edge where its top meets the banks: as far down them as its water is under the meadow
+        assertEquals(Village.DEPTH - Village.WATER, Village.channel().cut(river.wide() / 2), 1e-6, "its top meeting its bank");
+        final double x = 200_000;
+        assertEquals(-Village.DEPTH + Village.WATER, land.height(x, Village.riverAt(x)) + river.top(), 1e-6,
+                "its top under the meadow");
+        final Pond pond = Village.ponds().getFirst();
+        assertTrue(pond.wet(land, Terrains.HOLLOW.x(), Terrains.HOLLOW.z()), "the hollow filled");
+        assertFalse(pond.wet(land, Village.WELL.x(), Village.WELL.z()));
+        for (final Vec2 rim : pond.outline()) {
+            assertTrue(land.height(rim.x(), rim.z()) > pond.level(), "its rim over its top all the way round");
+        }
+        Village.tell();
+        assertEquals(1, new Course(Demo.VILLAGE).ponds().size());
     }
 
     @Test

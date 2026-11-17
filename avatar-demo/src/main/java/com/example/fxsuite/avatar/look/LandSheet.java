@@ -191,7 +191,13 @@ final class LandSheet {
         }
         final double ax = x0 + ix * w;
         final double az = z0 + iz * d;
-        if (size > featured && land.featured(ax, az, ax + w, az + d)) {
+        final boolean feature = land.featured(ax, az, ax + w, az + d);
+        if (size > featured && feature) {
+            return true;
+        }
+        // where what covers the ground changes across it (a road's edge, a bank's top), finer: its colour is
+        // worked out at its corners, and read between them
+        if (feature && covered(ax, az, w, d)) {
             return true;
         }
         // how far the land is from what its corners alone make of it, looked at across it
@@ -207,6 +213,37 @@ final class LandSheet {
                 final double made = (h00 * (1 - s) + h10 * s) * (1 - t) + (h01 * (1 - s) + h11 * s) * t;
                 if (Math.abs(land.height(ax + s * w, az + t * d) - made) > tolerance) {
                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** How far what covers the ground may be from what a square's corners make of it, and it still be left whole. */
+    static final double COVER = 0.08;
+
+    /** Whether how bare or paved the ground is changes across a square more than its corners alone would have it. */
+    private boolean covered(final double ax, final double az, final double w, final double d) {
+        final double[][] corners = new double[4][];
+        for (int k = 0; k < 4; k++) {
+            final double x = ax + (k & 1) * w;
+            final double z = az + (k >> 1) * d;
+            corners[k] = new double[] {land.bare(x, z), land.paved(x, z)};
+        }
+        final int looks = 4;
+        for (int a = 0; a <= looks; a++) {
+            for (int b = 0; b <= looks; b++) {
+                final double s = (double) a / looks;
+                final double t = (double) b / looks;
+                final double x = ax + s * w;
+                final double z = az + t * d;
+                final double[] here = {land.bare(x, z), land.paved(x, z)};
+                for (int c = 0; c < 2; c++) {
+                    final double made = (corners[0][c] * (1 - s) + corners[1][c] * s) * (1 - t)
+                            + (corners[2][c] * (1 - s) + corners[3][c] * s) * t;
+                    if (Math.abs(here[c] - made) > COVER) {
+                        return true;
+                    }
                 }
             }
         }

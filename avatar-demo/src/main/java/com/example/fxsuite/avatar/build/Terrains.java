@@ -116,16 +116,43 @@ public final class Terrains {
         return new Vec2(Math.round(x / 100) * 100.0, Math.round(z / 100) * 100.0);
     }
 
-    /** Where the meadow's knoll tops out, its hill's beacon stands, and its hollow (a pond, in time) is deepest. */
+    /** A loop round {@code at}, {@code r} out, all but round, to the metre: level inside, if {@code flat}. */
+    private static Contour circle(final double height, final Vec2 at, final double r, final int points, final boolean flat) {
+        final List<Vec2> loop = new ArrayList<>();
+        for (int k = 0; k < points; k++) {
+            final double a = 2 * Math.PI * k / points;
+            final double out = r * (1 + 0.04 * Math.sin(3 * a + 0.5));
+            loop.add(metre(at.x() + out * Math.cos(a), at.z() + out * Math.sin(a)));
+        }
+        return new Contour(height, loop, flat);
+    }
+
+    /** Where the meadow's knoll tops out, its hill's beacon stands, and its hollow (a pond) is deepest. */
     public static final Vec2 KNOLL = between(2, -90_000, 0.5);
     public static final Vec2 BEACON = between(3, 150_000, 0.5);
     public static final Vec2 HOLLOW = between(1, 45_000, 0.45);
 
     /**
+     * The church's hill, north-west of the village, a few hundred metres up the slope from it: its foot so far
+     * round, its shoulder so far, and its top, the churchyard, level, so far round and so high.
+     */
+    public static final Vec2 CHURCH_HILL = between(1, -25_000, 0.3);
+    public static final double CHURCH_HILL_FOOT = 11_000;
+    public static final double CHURCH_HILL_SHOULDER = 6_500;
+    public static final double CHURCHYARD = 3_000;
+    public static final double CHURCHYARD_LEVEL = 1_200;
+
+    /** The hollow's loop, at 4 m: a pond, filled to under that, lies within it. */
+    public static Contour hollow() {
+        return round(400, HOLLOW, Math.min(6_000, room(1, HOLLOW.x()) * 0.25), 14, 0.9);
+    }
+
+    /**
      * The meadow round the village ({@link Village}), 5 km each way: the river's valley across it west
      * to east, its floor level at 0 where the river runs and the village stands, 80 to 190 m wide; the
      * land rising gently northward, 3 m 300 m out, 10 m at 700 m, 25 m at 1.4 km, past a knoll (34 m)
-     * and a hollow for a pond, to a beacon hill (66 m) 2 km out; southward more steeply, to a ridge;
+     * and a hollow for a pond, to a beacon hill (66 m) 2 km out; a small hill a few hundred metres north-west of
+     * the village, its top level at 12 m for a church; southward more steeply, to a ridge;
      * moors at 100 m round the edge, framing the sky.
      */
     public static Terrain meadow() {
@@ -140,7 +167,11 @@ public final class Terrains {
         loops.add(round(5_500, BEACON, beacon, 24, 1.7));
         loops.add(round(6_000, BEACON, beacon * 0.45, 16, 2.3));
         // the hollow, between the 3 m and 10 m lines, sinking to 1 m
-        loops.add(round(400, HOLLOW, Math.min(6_000, room(1, HOLLOW.x()) * 0.25), 14, 0.9));
+        loops.add(hollow());
+        // the church's hill, between the 3 m and 10 m lines too, its top level for the church and its yard
+        loops.add(circle(600, CHURCH_HILL, CHURCH_HILL_FOOT, 28, false));
+        loops.add(circle(900, CHURCH_HILL, CHURCH_HILL_SHOULDER, 24, false));
+        loops.add(circle(CHURCHYARD_LEVEL, CHURCH_HILL, CHURCHYARD, 20, true));
         return new Terrain("meadow", Body.EDGE, 1_000, MOORS, 11, new Terrain.Noise(40, 8_000, 2), loops,
                 List.of(new Terrain.Spot(KNOLL, 3_400), new Terrain.Spot(BEACON, 6_600)));
     }

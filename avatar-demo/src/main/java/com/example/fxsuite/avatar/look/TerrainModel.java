@@ -77,6 +77,9 @@ public final class TerrainModel {
     /** Bare earth, where no grass grows ({@link Land#bare}): a channel's bed and banks; and how many of the picture's columns are it. */
     static final Color EARTH = Color.web("#7d6a4e");
     static final int EARTHY = 16;
+    /** A road's top ({@link Land#paved}): a country road's gravel; and how many of the picture's columns are it, the first. */
+    static final Color GRAVEL = Color.web("#8a8578");
+    static final int GRAVELLY = 16;
 
     /** The land's tints, low to high. */
     private static final Color[] RAMP = {Color.web("#66775c"), Color.web("#6c7e55"), Color.web("#7b8857"),
@@ -250,7 +253,9 @@ public final class TerrainModel {
             final long x = Math.round(points[3 * v] / MOTTLED);
             final long z = Math.round(points[3 * v + 2] / MOTTLED);
             final double tint = (made.heights()[v] - low) / span + MOTTLE * (2 * Num.hash(x, z) - 1);
-            coords[2 * v] = (float) ((column(land.bare(points[3 * v], points[3 * v + 2]), tint) + 0.5) / TINTS);
+            final double px = points[3 * v];
+            final double pz = points[3 * v + 2];
+            coords[2 * v] = (float) ((column(land.bare(px, pz), land.paved(px, pz), tint) + 0.5) / TINTS);
             coords[2 * v + 1] = (float) (0.5 / HAZES);
         }
         final TriangleMesh mesh = new TriangleMesh(VertexFormat.POINT_NORMAL_TEXCOORD);
@@ -330,18 +335,24 @@ public final class TerrainModel {
     }
 
     /**
-     * The picture's column for ground so {@code bare} (0 grassed, 1 bare earth), {@code t} of the way from the land's lowest to its highest:
-     * bare earth in the first few, then the grass's tints, low to high, so between bare ground and the
-     * grass beside it the one goes into the other.
+     * The picture's column for ground so {@code bare} (0 grassed, 1 bare earth) and so {@code paved} (1 a
+     * road's gravel), {@code t} of the way from the land's lowest to its highest: gravel in the first few,
+     * bare earth in the next, then the grass's tints, low to high. So between bare ground and the grass
+     * beside it the one goes into the other; and from a road into the grass beside it, through a thin edge
+     * of earth, as a country road's edges are worn.
      */
-    static double column(final double bare, final double t) {
-        final double grass = EARTHY + Math.clamp(t, 0, 1) * (TINTS - 1 - EARTHY);
-        return grass + (EARTHY / 2.0 - grass) * Math.clamp(bare, 0, 1);
+    static double column(final double bare, final double paved, final double t) {
+        final double grass = GRAVELLY + EARTHY + Math.clamp(t, 0, 1) * (TINTS - 1 - GRAVELLY - EARTHY);
+        final double ground = grass + (GRAVELLY + EARTHY / 2.0 - grass) * Math.clamp(bare, 0, 1);
+        return ground + (GRAVELLY / 2.0 - ground) * Math.clamp(paved, 0, 1);
     }
 
-    /** The colour of the picture's column {@code x}: bare earth, or a tint of the grass. */
+    /** The colour of the picture's column {@code x}: gravel, bare earth, or a tint of the grass. */
     static Color colour(final int x) {
-        return x < EARTHY ? EARTH : tint((x - EARTHY) / (double) (TINTS - 1 - EARTHY));
+        if (x < GRAVELLY) {
+            return GRAVEL;
+        }
+        return x < GRAVELLY + EARTHY ? EARTH : tint((x - GRAVELLY - EARTHY) / (double) (TINTS - 1 - GRAVELLY - EARTHY));
     }
 
     /** The land's tint {@code t} of the way from its lowest to its highest. */

@@ -6,8 +6,11 @@ import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Polyline;
+import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Prism;
 import com.example.fxsuite.avatar.sim.River;
+import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -23,18 +26,21 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <ul>
  *   <li><b>The river</b> ({@link River}): across the whole world, east to west, its middle two long
- *       gentle waves laid over each other; its channel cut into the land ({@link Channel}), dry as yet.</li>
+ *       gentle waves laid over each other; its channel cut into the land ({@link Channel}), its water a metre deep in it.</li>
  *   <li><b>A footbridge</b> over it where the village is, square across it: a timber deck on the level,
  *       ramped up to from each bank, railed along both sides.</li>
  *   <li><b>The village</b>, north of the river: earth houses ({@link EarthHouse}) round a stone well,
  *       each facing it, each its own size and finish, as its seed has them: its walls, its roof, its
  *       window, its woodwork.</li>
  *   <li><b>Trees</b> along both banks, and here and there across the meadow.</li>
+ *   <li><b>A church</b> ({@link Church}) on a small hill north-west of the village, and <b>a country road</b>
+ *       ({@link Road}) winding up to it from the village's edge.</li>
+ *   <li><b>A pond</b> ({@link Pond}) in the hollow up the slope east of the village.</li>
  *   <li><b>A car and a motorcycle</b>, parked just ahead of where the avatar starts, facing the river.</li>
  * </ul>
  *
  * <p>The avatar starts south of the river, before the bridge, the village beyond it. Its houses are
- * drawn by their keys from {@link #KEYS}.
+ * drawn by their keys from {@link #KEYS}, the church's after them ({@link #CHURCH}).
  */
 public final class Village {
 
@@ -46,10 +52,9 @@ public final class Village {
     /** What is of timber standing about (a railing, a post) is drawn as a wall of this colour: timber. */
     private static final int TIMBER = 2;
 
-    /** The river: so wide, its banks so wide each side; its water and its banks so high over the ground. */
+    /** The river: so wide, its banks so wide each side; on level ground, its banks so high over it. */
     public static final double RIVER = 1_200;
     public static final double BANK = 250;
-    public static final double WATER_TOP = 10;
     public static final double BANK_TOP = 3;
     /** Its line, a point so far apart, from one edge of the world to the other. */
     private static final double STEP = 500;
@@ -66,13 +71,21 @@ public final class Village {
         return Math.toDegrees(Math.atan2(1, slope));
     }
 
-    /** The river across the world. */
-    public static List<River> rivers() {
+    /** The river's middle line, across the world. */
+    static List<Vec2> line() {
         final List<Vec2> line = new ArrayList<>();
         for (double x = -REACH; x <= REACH; x += STEP) {
             line.add(new Vec2(x, riverAt(x)));
         }
-        return List.of(new River(line, RIVER, WATER_TOP));
+        return line;
+    }
+
+    /**
+     * The river across the world: its water {@link #WATER} deep over its channel's bed, as wide as it is
+     * where its top meets the banks.
+     */
+    public static List<River> rivers() {
+        return List.of(new River(line(), 2 * channel().across(DEPTH - WATER), WATER));
     }
 
     /** The well, the village's middle: so far north of the world's middle; its stone ring so far round, so high; its water within. */
@@ -137,9 +150,16 @@ public final class Village {
 
     private static final Map<Integer, List<Solid>> DRESSED = new ConcurrentHashMap<>();
 
-    /** House {@code k}, dressed: of what it is built. Worked out once, when first wanted. */
+    /** The church's key among the village's: after its houses'. */
+    public static final int CHURCH = HOUSES;
+
+    /** House {@code k}, or the church ({@link #CHURCH}), dressed: of what it is built. Worked out once, when first wanted. */
     public static List<Solid> solids(final int k) {
         return DRESSED.computeIfAbsent(k, i -> {
+            if (i == CHURCH) {
+                final Building church = Church.standard().building();
+                return church.dressed(church.own(), Palette.STONE);
+            }
             final House house = VILLAGE.get(i);
             return EarthHouse.of(house.size()).solids(EarthHouse.palette().with(Map.of(Role.WALL, house.walls(),
                     Role.SPIRE, house.walls(), Role.ROOF, house.roof(), Role.GLAZING, house.window(),
@@ -162,33 +182,124 @@ public final class Village {
 
     /**
      * The river's channel, cut into the meadow: its bed so wide, level, and so deep; its banks rising from
-     * it to the meadow as far out as the river and its banks go.
+     * it to the meadow as far out as the river and its banks go. Its water so deep over its bed.
      */
     public static final double BED = 900;
     public static final double DEPTH = 150;
+    public static final double WATER = 100;
+
+    /** The river's channel, along its line. */
+    static Channel channel() {
+        return new Channel(line(), BED, RIVER / 2 + BANK - BED / 2, DEPTH);
+    }
+
+    /** The country road: so wide, its verges so wide, its line's heights smoothed over so far each way; a point so far apart along it. */
+    public static final double ROAD_WIDE = 400;
+    private static final double VERGE = 300;
+    private static final double SMOOTHED = 3_000;
+    private static final double ROAD_STEP = 200;
+    /** How far out from the well it starts, at the least: past the houses. */
+    private static final double ROAD_FROM = 7_000;
+    /** How far it winds out either side of the way straight up to the church, at each of its bends. */
+    private static final double[] WINDING = {0, 2_500, -3_000, 2_800, -2_000, 1_000, 0};
 
     /**
-     * The meadow's land: its lie ({@link Terrains#meadow}), surveyed, and the river's channel cut into it
-     * ({@link Channel}); worked out once, when first wanted.
+     * The country road's line: from the village's edge, out past its houses toward the church's hill, winding
+     * one way and the other up to the churchyard's edge; a point every {@link #ROAD_STEP}, through its bends
+     * smoothly (a Catmull-Rom curve). It starts where none of the houses is near it.
+     */
+    public static List<Vec2> road() {
+        final Vec2 hill = Terrains.CHURCH_HILL;
+        final double dx = hill.x() - WELL.x();
+        final double dz = hill.z() - WELL.z();
+        final double away = Math.hypot(dx, dz);
+        final double ux = dx / away;
+        final double uz = dz / away;
+        double from = ROAD_FROM;
+        while (from < away / 2 && clearOfHouses(WELL.x() + ux * from, WELL.z() + uz * from) < ROAD_WIDE / 2 + VERGE + 300) {
+            from += 500;
+        }
+        final Vec2 start = new Vec2(WELL.x() + ux * from, WELL.z() + uz * from);
+        final Vec2 end = new Vec2(hill.x() - ux * (Terrains.CHURCHYARD - 300), hill.z() - uz * (Terrains.CHURCHYARD - 300));
+        final List<Vec2> bends = new ArrayList<>();
+        for (int k = 0; k < WINDING.length; k++) {
+            final double t = (double) k / (WINDING.length - 1);
+            bends.add(new Vec2(start.x() + (end.x() - start.x()) * t - uz * WINDING[k],
+                    start.z() + (end.z() - start.z()) * t + ux * WINDING[k]));
+        }
+        final List<Vec2> line = new ArrayList<>();
+        for (int k = 0; k + 1 < bends.size(); k++) {
+            final Vec2 p0 = bends.get(Math.max(0, k - 1));
+            final Vec2 p1 = bends.get(k);
+            final Vec2 p2 = bends.get(k + 1);
+            final Vec2 p3 = bends.get(Math.min(bends.size() - 1, k + 2));
+            final int steps = Math.max(1, (int) Math.ceil(Math.hypot(p2.x() - p1.x(), p2.z() - p1.z()) / ROAD_STEP));
+            for (int s = 0; s < steps; s++) {
+                line.add(catmullRom(p0, p1, p2, p3, (double) s / steps));
+            }
+        }
+        line.add(end);
+        return line;
+    }
+
+    /** How far ({@code x}, {@code z}) is from the nearest house's eave. */
+    private static double clearOfHouses(final double x, final double z) {
+        double clear = Double.POSITIVE_INFINITY;
+        for (final House h : VILLAGE) {
+            clear = Math.min(clear, Math.hypot(h.place().x() - x, h.place().z() - z) - EarthHouse.of(h.size()).eave());
+        }
+        return clear;
+    }
+
+    private static Vec2 catmullRom(final Vec2 p0, final Vec2 p1, final Vec2 p2, final Vec2 p3, final double t) {
+        final double t2 = t * t;
+        final double t3 = t2 * t;
+        return new Vec2(0.5 * (2 * p1.x() + (-p0.x() + p2.x()) * t + (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t2
+                + (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t3),
+                0.5 * (2 * p1.z() + (-p0.z() + p2.z()) * t + (2 * p0.z() - 5 * p1.z() + 4 * p2.z() - p3.z()) * t2
+                        + (-p0.z() + 3 * p1.z() - 3 * p2.z() + p3.z()) * t3));
+    }
+
+    /**
+     * The meadow's land: its lie ({@link Terrains#meadow}), surveyed; the river's channel cut into it
+     * ({@link Channel}); the country road laid over that ({@link Road}). Worked out once, when first wanted.
      */
     public static Land land() {
         return Meadow.LAND;
     }
 
-    /** The meadow's lie alone, surveyed, under its river's channel. */
+    /** The meadow's lie alone, surveyed, under its features. */
     public static Survey lie() {
         return Meadow.LIE;
     }
 
-    private static final class Meadow {
-        static final Survey LIE = Terrains.meadow().survey();
-        static final Land LAND = new Land(LIE, List.of(
-                new Channel(rivers().getFirst().line(), BED, RIVER / 2 + BANK - BED / 2, DEPTH)));
+    /** The country road, as laid. */
+    public static Road country() {
+        return Meadow.ROAD;
     }
 
-    /** Tells the simulation all of the meadow village: what stands in it, its river, where the avatar starts, its land. */
+    private static final class Meadow {
+        static final Survey LIE = Terrains.meadow().survey();
+        static final Land CHANNELLED = new Land(LIE, List.of(channel()));
+        static final Road ROAD = Road.over(CHANNELLED, road(), ROAD_WIDE, VERGE, SMOOTHED);
+        static final Land LAND = CHANNELLED.with(ROAD);
+        /** Beside the road, where no tree grows: its top, its verges, and so much more. */
+        static final Polyline ROADSIDE = new Polyline(road(), ROAD_WIDE / 2 + VERGE + CLEAR);
+    }
+
+    /** How far clear of the road's verges and the churchyard trees keep. */
+    private static final double CLEAR = 300;
+
+    /** The pond in the hollow up the slope east of the village: filled to a metre under the hollow's rim. */
+    public static List<Pond> ponds() {
+        return List.of(new Pond(Terrains.hollow().loop(), Terrains.hollow().height() - POND_DOWN));
+    }
+
+    private static final double POND_DOWN = 100;
+
+    /** Tells the simulation all of the meadow village: what stands in it, its river and pond, where the avatar starts, its land. */
     public static void tell() {
-        Course.village(Village::pieces, Village::rivers, Village::start, Village::land);
+        Course.village(Village::pieces, Village::rivers, Village::ponds, Village::start, Village::land);
     }
 
     /** What stands in the meadow: its houses, each one piece; the well; the footbridge; the trees. */
@@ -198,11 +309,25 @@ public final class Village {
             final House house = VILLAGE.get(k);
             pieces.add(Town.building(solids(k), house.place(), KEYS + k, EarthHouse.of(house.size()).shape(), 1));
         }
+        pieces.add(church());
         pieces.addAll(well());
         pieces.addAll(bridge());
         pieces.addAll(trees());
         pieces.addAll(parked());
         return pieces;
+    }
+
+    /** Where the church stands: the middle of its hill's level top, as high as that, its front to where the road comes up. */
+    public static Place churchPlace() {
+        final Vec2 hill = Terrains.CHURCH_HILL;
+        final Vec2 end = road().getLast();
+        return new Place(hill.x(), hill.z(), Terrains.CHURCHYARD_LEVEL,
+                Math.toDegrees(Math.atan2(end.x() - hill.x(), end.z() - hill.z())));
+    }
+
+    /** The church on its hill: the town's, as first drawn, of stone. */
+    private static Course.Piece church() {
+        return Town.building(solids(CHURCH), churchPlace(), KEYS + CHURCH, Church.standard().shape(), 1);
     }
 
     /** Where the car and the motorcycle are parked: so far either side of the start, so far ahead of it. */
@@ -315,7 +440,10 @@ public final class Village {
             final boolean byAHouse = VILLAGE.stream().anyMatch(h -> Math.hypot(h.place().x() - t.x(), h.place().z() - t.z())
                     < EarthHouse.of(h.size()).eave() + 500);
             final boolean byTheWell = Math.hypot(t.x() - WELL.x(), t.z() - WELL.z()) < 1_000;
-            if (wet || byTheBridge || byAHouse || byTheWell) {
+            final boolean byTheRoad = Meadow.ROADSIDE.distance(t.x(), t.z()) < Double.POSITIVE_INFINITY;
+            final boolean inTheChurchyard = Math.hypot(t.x() - Terrains.CHURCH_HILL.x(), t.z() - Terrains.CHURCH_HILL.z())
+                    < Terrains.CHURCHYARD + CLEAR;
+            if (wet || byTheBridge || byAHouse || byTheWell || byTheRoad || inTheChurchyard) {
                 continue;
             }
             // standing on the ground there: its foot as low as the ground under it goes, so it is never clear of it
