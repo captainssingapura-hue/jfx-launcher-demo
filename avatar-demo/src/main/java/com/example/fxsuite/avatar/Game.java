@@ -133,6 +133,7 @@ public final class Game {
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.build.Town.tell();
         com.example.fxsuite.avatar.build.Village.tell();
+        com.example.fxsuite.avatar.build.TowerMap.tell();
     }
 
     private static final double FIELD_OF_VIEW = 48;
@@ -413,6 +414,8 @@ public final class Game {
     private Scene scene;
     /** The camera: behind the avatar, or, at a vehicle's controls, behind the vehicle. */
     private Chase chase;
+    /** The world as last shown: the buildings' walls the chase camera is kept short of ({@link Chase#position(Obstacles)}). */
+    private Obstacles standingWas = Obstacles.NONE;
     private MouseLook look;
     private Hearing hearing;
     /** The trigger: the left mouse button held while the mouse is captured. */
@@ -878,7 +881,7 @@ public final class Game {
         final boolean ownEyes = cockpit != null && flying.isEmpty() && alone.isEmpty();
         rig.fromItsEyes(ownEyes);
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
-        final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position();
+        final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position(standingWas);
         // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
         rig.node().setVisible(!inside && (cockpit == null || ownEyes));
@@ -909,6 +912,8 @@ public final class Game {
         final double behind = (1 - ticked.blend()) * Clock.STEP;
         final Play now = new Play(this.avatar, damage, sky, lifts, people, props, turrets);
         final Obstacles standing = now.obstacles();
+        // what the camera is kept inside a building by, the next frame as this one: its walls do not move
+        standingWas = standing;
         impacts.show(avatar, forImpacts.read().entries());
         wreckage.show(avatar, forWreckage.read().events(), world, standing);
         world.show(damage, shownAt, lifts, seconds, chase.yaw());
@@ -963,7 +968,7 @@ public final class Game {
         fieldOfView = Num.ease(fieldOfView, (riderView ? RIDER_VIEW : FIELD_OF_VIEW) + BOOST_VIEW * boost, 4, seconds);
         eye.setFieldOfView(fieldOfView);
         eye.setNearClip(nearClip(cockpit != null));
-        final Vec3 at = cockpit != null ? cockpit.at() : chase.position();
+        final Vec3 at = cockpit != null ? cockpit.at() : chase.position(standingWas);
         eyeAt.setX(at.x());
         // how far it sees, by how high it is over the ground under it ({@link Sight}): the sky, the haze and how far it
         // draws as far as that
@@ -971,7 +976,9 @@ public final class Game {
         final double reach = sight.at(over, seconds);
         world.horizon().follow(at, reach);
         eye.setFarClip(reach * FAR_CLIP);
-        layers(over, cockpit != null);
+        // and what it follows lifted into a layer of its own only when it is high over whatever is under it, not over
+        // the ground: on a roof, it is among what is round it, and hidden as that hides it (in a pool, its legs)
+        layers(-at.y() - standingWas.floor(at.x(), at.z(), 0, -at.y()), cockpit != null);
         final long seeing = System.nanoTime();
         world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(),
                 reach, Math.max(0, over)), seconds);
@@ -1177,7 +1184,7 @@ public final class Game {
                         : lift.craft() instanceof Course.Chassis chassis
                                 ? (chassis.twoWheels() ? " · T: get on" : " · T: get in") : " · T: take the controls")
                 .orElse(here.gunWithinReach().isPresent() ? (here.gunWithinReach().get().mount().seat().equals(here.gunWithinReach().get().mount().station()) ? " · T: man the gun" : " · T: get in")
-                        : "");
+                        : here.doorAtHand().map(at -> at.open() ? " · T: shut the door" : " · T: open the door").orElse(""));
         final String free = look.captured() ? "" : " · mouse free: Esc to turn with it";
         // at a vehicle's controls, what there is to say is the vehicle's, and its keys are the help
         final Optional<Lift> flown = here.atControls();

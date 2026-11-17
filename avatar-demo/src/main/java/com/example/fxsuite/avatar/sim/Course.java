@@ -112,6 +112,12 @@ public final class Course {
             volumes = List.copyOf(volumes);
         }
 
+        /** The same, its volume {@code was} {@code now} instead: a building's door opened. */
+        public Piece reshaped(final Volume was, final Volume now) {
+            return new Piece(block, kind, tint, solid, shape, place, route, carrier, loose, body,
+                    volumes.stream().map(v -> v == was ? now : v).toList());
+        }
+
         /** As given, in the way only as its blocks are. */
         public Piece(final Block block, final Kind kind, final int tint, final List<Block> solid, final Shape shape,
                      final Place place, final Route route, final int carrier, final Loose loose, final Bodywork body) {
@@ -1248,6 +1254,7 @@ public final class Course {
             case TOWN -> townDemo();
             case SIEGE -> siegeDemo(siege);
             case VILLAGE -> villageDemo();
+            case WALL_TOWER -> towerDemo();
             case PLAYGROUND -> playground();
             case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
@@ -1325,6 +1332,47 @@ public final class Course {
         villagePonds = ponds;
         villageStart = start;
         villageLand = land;
+    }
+
+    /** The wall tower's demo: the tower, what stands round it, where the avatar starts; on level ground, ruled. */
+    private void towerDemo() {
+        start = towerStart.get();
+        pieces.addAll(tower.get());
+        ponds.addAll(towerPonds.get());
+        ground.addAll(towerPeople.get());
+    }
+
+    /**
+     * What stands on the wall tower's ground, where the avatar starts there, where water lies still, and who is about:
+     * until told, nothing, the middle, none, no one.
+     */
+    private static java.util.function.Supplier<List<Piece>> tower = List::of;
+    private static java.util.function.Supplier<Vec3> towerStart = () -> Vec3.ZERO;
+    private static java.util.function.Supplier<List<Pond>> towerPonds = List::of;
+    private static java.util.function.Supplier<List<Cast>> towerPeople = List::of;
+
+    /** Says what stands on the wall tower's ground, and where the avatar starts there. */
+    public static void tower(final java.util.function.Supplier<List<Piece>> what,
+                             final java.util.function.Supplier<Vec3> start) {
+        tower(what, start, List::of);
+    }
+
+    /** As {@link #tower(java.util.function.Supplier, java.util.function.Supplier)}, and where water lies still (a pool on a roof). */
+    public static void tower(final java.util.function.Supplier<List<Piece>> what,
+                             final java.util.function.Supplier<Vec3> start,
+                             final java.util.function.Supplier<List<Pond>> ponds) {
+        tower(what, start, ponds, List::of);
+    }
+
+    /** As {@link #tower(java.util.function.Supplier, java.util.function.Supplier, java.util.function.Supplier)}, and who is about there. */
+    public static void tower(final java.util.function.Supplier<List<Piece>> what,
+                             final java.util.function.Supplier<Vec3> start,
+                             final java.util.function.Supplier<List<Pond>> ponds,
+                             final java.util.function.Supplier<List<Cast>> people) {
+        tower = what;
+        towerStart = start;
+        towerPonds = ponds;
+        towerPeople = people;
     }
 
     /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */

@@ -49,6 +49,8 @@ public final class Stall {
     private static final String[] HAIR = {"#1c1c1c", "#6b4a2b", "#c9a14a", "#2a1d14", "#8a8a8a"};
     /** The shirts of those at a bar. */
     private static final String[] SHIRTS = {"#b04a3a", "#3a6ea5", "#e0c35a", "#5d8a54", "#8a5aa8", "#d9d4c7"};
+    /** What guests wear below: shorts, light or dark. */
+    private static final String[] SHORTS = {"#d8cfb8", "#2e3440", "#6b7f99", "#9a8566"};
 
     private final Group root = new Group();
     private final Set<Integer> fruit = new HashSet<>();
@@ -83,6 +85,12 @@ public final class Stall {
             case BARTENDER -> new Figure("#f1f0ea", "#1d1f22", "#2a1d14", false);
             // at the bar, their hands on its counter before them; each in a shirt of their own
             case DRINKER -> new Figure(SHIRTS[person.id() % SHIRTS.length], "#2e3440", HAIR[(person.id() + 2) % HAIR.length], true);
+            // out to enjoy a place: each in a shirt and shorts of their own
+            case GUEST -> new Figure(SHIRTS[(person.id() + 3) % SHIRTS.length], SHORTS[person.id() % SHORTS.length],
+                    HAIR[(person.id() + 1) % HAIR.length], false);
+            // at a game, in their side's colours: red, or blue, white below
+            case HOME_PLAYER -> new Figure("#c0392b", "#f1f0ea", HAIR[person.id() % HAIR.length], false);
+            case AWAY_PLAYER -> new Figure("#2a6fb0", "#f1f0ea", HAIR[(person.id() + 3) % HAIR.length], false);
         };
     }
 

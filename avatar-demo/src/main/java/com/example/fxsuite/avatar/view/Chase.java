@@ -1,6 +1,8 @@
 package com.example.fxsuite.avatar.view;
 
+import com.example.fxsuite.avatar.sim.Hit;
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Vec3;
 
 
@@ -89,5 +91,22 @@ public record Chase(Vec3 pivot, double yaw, double pitch, double distance) {
             return this;
         }
         return new Chase(pivot, yaw, Math.toDegrees(Math.asin(Math.max(-1, most))), distance);
+    }
+
+    /** How far short of a wall between it and the pivot the camera is kept; and the nearest it comes to the pivot. */
+    public static final double WALL_GAP = 20;
+    public static final double NEAREST = 10;
+
+    /**
+     * Where the camera is in {@code world}: where it would be, or, where a building's wall is between it and the
+     * pivot, pulled in to just short of the wall, so it stays in the room the avatar is in.
+     */
+    public Vec3 position(final Obstacles world) {
+        final Vec3 back = forward().multiply(-1);
+        final Hit wall = world.walls(pivot, back, distance);
+        if (wall == null) {
+            return position();
+        }
+        return pivot.add(back.multiply(Math.max(NEAREST, wall.distance() - WALL_GAP)));
     }
 }

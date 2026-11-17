@@ -335,7 +335,7 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of five demos (`Demo.playable`), the **town** first: its buildings round the
+It opens on a choice of six demos (`Demo.playable`), the **town** first: its buildings round the
 temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
 park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
 the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
@@ -343,7 +343,9 @@ in the temple's courtyard, where the three monks hold their stand-up; a void dec
 tower with a bar and a melon stall on it; and before the town the melon stall and the stand-up, each
 on its platform. Then the **temple siege**, the town attacked by airships without end (below), set
 before it starts. Then the **meadow village**: open country, a river winding across it, a dual carriageway along it
-with an exit off it, over a bridge into a small village of earth houses round a well (below). Then the **playground**, the rest at once (the course, its targets and the bombers,
+with an exit off it, over a bridge into a small village of earth houses round a well (below). Then the **wall
+towers**: three towers borne by walls, end to end along a slight curve, trees scattered round them for
+kilometres, every room of each entered by the jet-pack, a balcony at a time (`TowerMap`). Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
@@ -375,7 +377,7 @@ the window, so clicks stay free for actions.
 | Space | Jump | Climb |
 | Ctrl | | Descend |
 | J | Put the jet-pack on, or take it off | Take it off (and fall) |
-| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, board the gunship, beside its cockpit door, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine, or the gunship's | |
+| T | Take a platform's controls, behind its console, a chassis's, at its steering wheel, board an airship, under the hatch in its gondola's floor, board the gunship, beside its cockpit door, or man a bunker's gun, at its door, or a mounted gun, behind it; or let go of them (step out). With none of those at hand, open the sliding door within reach (a balcony's, on the wall tower), or shut it. At them, W/S/A/D, the mouse, Space and Ctrl fly it, and F starts or cuts a platform's engine, or the gunship's | |
 | F | Take off (wearing the pack) | Stop flying |
 | Q / E (held) | Swing the camera round (at the gunship's controls, slide it aside; the mouse looks round instead) | Swing the camera round |
 | C | Camera behind | Camera behind |

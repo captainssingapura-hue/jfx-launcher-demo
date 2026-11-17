@@ -109,6 +109,17 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers, land);
     }
 
+    /** The same world with volume {@code was} of piece {@code piece} {@code now} instead: a building's door opened. */
+    public Obstacles reshaped(final int piece, final Volume was, final Volume now) {
+        final List<Volume> changed = new ArrayList<>(volumes);
+        for (int i = 0; i < changed.size(); i++) {
+            if (volumePieces.get(i) == piece && changed.get(i) == was) {
+                changed.set(i, now);
+            }
+        }
+        return new Obstacles(blocks, gates, pieces, changed, volumePieces, land);
+    }
+
     /**
      * The same world with piece {@code piece}'s blocks, in order, {@code now} instead: it has moved.
      * As many blocks as it had.
@@ -179,7 +190,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
                 final double top = volume.topAt(x, z, radius, within);
                 // too steep to stand on (rising more than a step from under the circle to as far again
                 // out): not footing, as a ramp that steep is not, so nothing creeps up it a step at a time
-                if (top == Double.NEGATIVE_INFINITY || volume.topAt(x, z, 2 * radius) - top > Body.STEP) {
+                if (top == Double.NEGATIVE_INFINITY || volume.steep(x, z, radius, top)) {
                     continue;
                 }
                 if (top > floor && top <= within) {
@@ -222,6 +233,25 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
             final Hit hit = volumes.get(i).ray(from, direction, first == null ? reach : first.distance());
             if (hit != null && (first == null || hit.distance() < first.distance())) {
                 first = hit.on(volumePieces.get(i));
+            }
+        }
+        return first;
+    }
+
+    /**
+     * The first wall of a building ({@link Interior}) a ray from {@code from} along {@code direction} meets within
+     * {@code reach}, and nothing else: not the ground, not a vehicle; {@code null} if none. What a camera is kept
+     * inside a room by.
+     */
+    public Hit walls(final Vec3 from, final Vec3 direction, final double reach) {
+        Hit first = null;
+        for (final int i : volumesNear(from.x() + direction.x() * reach / 2, from.z() + direction.z() * reach / 2,
+                reach / 2 + 1)) {
+            if (volumes.get(i) instanceof Interior building) {
+                final Hit hit = building.ray(from, direction, first == null ? reach : first.distance());
+                if (hit != null && (first == null || hit.distance() < first.distance())) {
+                    first = hit.on(volumePieces.get(i));
+                }
             }
         }
         return first;
