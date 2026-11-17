@@ -31,7 +31,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TowerDoorTest {
 
-    private static final WallTower TOWER = WallTower.standard();
+    private static final WallTower TOWER = TowerMap.tower(0);
+    /** Tower 0: on the octagon's east side, its frame the world's, moved out east; its doors from seed 1. */
+    private static final double X0 = TowerMap.APOTHEM;
+    private static final long SEED = 1;
     private static final WallTower.Size SIZE = TOWER.size();
     private static final Controls T = new Controls(0, 0, 0, 0, false, false, 0, List.of(Action.TAKE));
     private static final Controls WALK = new Controls(1, 0, 0, 0, false, false, 0);
@@ -64,7 +67,7 @@ class TowerDoorTest {
         for (int d = 0; d < openings.size(); d += 37) {
             final WallTower.Opening o = openings.get(d);
             assertEquals(WallTower.opening(Integer.parseInt(o.name().replaceAll(".*storey ", "")),
-                    Integer.parseInt(o.name().replaceAll("^\\w+ door (\\d+),.*", "$1")), o.east()), interior.open(d));
+                    Integer.parseInt(o.name().replaceAll("^\\w+ door (\\d+),.*", "$1")), o.east(), SEED), interior.open(d));
             final List<Solid> leaves = o.solids(o.open(), WallTower.palette());
             assertEquals(TowerMap.door(d, o.open()), leaves);
             for (int k = 0; k < leaves.size(); k++) {
@@ -83,7 +86,7 @@ class TowerDoorTest {
     private static Play onBalcony(final int k, final int j) {
         final double floor = k * SIZE.storey() + WallTower.FLOOR;
         final double along = (TOWER.wallAt(j) + TOWER.wallAt(j + 1)) / 2;
-        final Body body = Body.standing(new Vec3(TOWER.westOuter(floor) + WallTower.BALCONY / 2, -floor, along), 90);
+        final Body body = Body.standing(new Vec3(X0 + TOWER.westOuter(floor) + WallTower.BALCONY / 2, -floor, along), 90);
         return new Play(new Avatar(body, true), start.damage(), start.sky(), start.lifts(), start.people(),
                 start.props(), start.turrets());
     }
@@ -99,7 +102,7 @@ class TowerDoorTest {
     private static int[] shutDoor() {
         int k = 40;
         int j = 1;
-        while (WallTower.opening(k, j, false) != 0) {
+        while (WallTower.opening(k, j, false, SEED) != 0) {
             j++;
             if (j == SIZE.walls() - 1) {
                 j = 0;
@@ -139,7 +142,7 @@ class TowerDoorTest {
         final Play play = onBalcony(at[0], at[1]);
         final int door = play.doorAtHand().orElseThrow().door();
         // a rifle round at a time, from the balcony, at its glass
-        final Vec3 from = new Vec3(face + 40, -(floor + 120), along + 100);
+        final Vec3 from = new Vec3(X0 + face + 40, -(floor + 120), along + 100);
         final Vec3 east = new Vec3(1, 0, 0);
         Damage damage = play.damage();
         int rounds = 0;
@@ -159,7 +162,7 @@ class TowerDoorTest {
         final Play after = new Play(play.avatar(), damage, play.sky(), play.lifts(), play.people(), play.props(),
                 play.turrets());
         assertFalse(after.doorAtHand().isPresent());
-        assertTrue(walked(after, 360).avatar().body().position().x() > face + WallTower.BALCONY + 300, "walked in");
+        assertTrue(walked(after, 360).avatar().body().position().x() - X0 > face + WallTower.BALCONY + 300, "walked in");
         // its neighbours whole and in the way still
         assertFalse(tower(damage).broken(door + 1));
     }
@@ -177,18 +180,18 @@ class TowerDoorTest {
         // shut: kept out
         Play play = onBalcony(k, j);
         assertTrue(play.doorAtHand().isPresent() && !play.doorAtHand().get().open());
-        assertTrue(walked(play, 360).avatar().body().position().x() < face + WallTower.BALCONY, "kept out");
+        assertTrue(walked(play, 360).avatar().body().position().x() - X0 < face + WallTower.BALCONY, "kept out");
         // T: wide open; in
         play = play.step(T, Clock.STEP).play();
         final int door = play.doorAtHand().orElseThrow().door();
         assertEquals(1, tower(play).open(door));
         assertTrue(play.doorAtHand().get().open());
         final Play in = walked(play, 360);
-        assertTrue(in.avatar().body().position().x() > face + WallTower.BALCONY + 300, "walked in");
+        assertTrue(in.avatar().body().position().x() - X0 > face + WallTower.BALCONY + 300, "walked in");
         // T again, back on the balcony: shut, kept out again
         play = play.step(T, Clock.STEP).play();
         assertEquals(0, tower(play).open(door));
-        assertTrue(walked(play, 360).avatar().body().position().x() < face + WallTower.BALCONY, "kept out again");
+        assertTrue(walked(play, 360).avatar().body().position().x() - X0 < face + WallTower.BALCONY, "kept out again");
         // and the same T, the same world: one door changed, no other
         final Interior before = tower(start);
         final Interior after = tower(onBalcony(k, j).step(T, Clock.STEP).play());

@@ -12,20 +12,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The wall tower's ground ({@code Demo.WALL_TOWER}): the tower ({@link WallTower}) alone in the middle of open level
- * ground, its length along the world's z, its balconied west face toward the start; trees scattered round it for
- * kilometres, so it stands in a world many times its size, as one thing among hundreds. In the way through its rooms
- * ({@link Interior}): every room of it entered by the jet-pack, a balcony at a time; no stairs, no lifts.
+ * The wall towers' ground ({@code Demo.WALL_TOWER}): eight towers ({@link WallTower}) on open level ground, one at the
+ * middle of each side of an octagon, as the trigrams stand round the bagua; each along its side, its splayed leg's
+ * great arch facing out, its balconies looking in on the courtyard between them; each the same tower, its doors open
+ * and shut as its own seed draws them. Trees scattered round them for kilometres, so they stand in a world many times
+ * their size, eight things among hundreds. Each in the way through its rooms ({@link Interior}): every room entered by
+ * the jet-pack, a balcony at a time; no stairs, no lifts.
  */
 public final class TowerMap {
 
-    /** The tower's key among the buildings drawn ({@link Sites}): after the village's. */
+    /** The towers' keys among the buildings drawn ({@link Sites}): after the village's, one each. */
     public static final int KEYS = 600;
-    /** Where it stands: the world's middle, its length along z, its west face toward -x. */
-    public static final Place AT = new Place(0, 0, 0, 0);
-    /** Where the avatar starts: 150 m west of it, facing its balconies. */
-    public static final Vec3 START = new Vec3(-15_000, 0, 0);
-    /** How many trees, how far out they are scattered, and how far they keep from the tower and the start. */
+    /** How many towers: one on each side of the octagon. */
+    public static final int TOWERS = 8;
+    /**
+     * How far each tower's shaft stands from the octagon's middle, square to its side: so each tower's end stands a
+     * little over 13 m short of its corner, its neighbour's about 25 m from it across the corner, a bridge's span.
+     */
+    public static final double APOTHEM = 10_500;
+    /** Where the avatar starts: 250 m west of the middle, facing the great arch of the tower on the west side. */
+    public static final Vec3 START = new Vec3(-25_000, 0, 0);
+    /** How many trees, how far out they are scattered, and how far they keep from the towers' feet and the start. */
     static final int TREES = 400;
     static final double SCATTERED = 500_000;
     static final double CLEAR = 4_000;
@@ -45,35 +52,55 @@ public final class TowerMap {
         Course.tower(TowerMap::pieces, () -> START);
     }
 
-    /** The tower, as one piece; and the trees, each one. */
+    /**
+     * Where tower {@code i} stands: at the middle of the octagon's side {@code i}, counted round from the east ({@code
+     * i * 45°} from +x toward +z); across it, west to east, pointing out from the middle, so its splayed leg faces out;
+     * along it, the side.
+     */
+    public static Place at(final int i) {
+        final double out = Math.toRadians(45.0 * i);
+        // across a tower is Num.right(yaw), (cos yaw, -sin yaw): pointing out, (cos out, sin out), at yaw = -out
+        return new Place(APOTHEM * Math.cos(out), APOTHEM * Math.sin(out), 0, Num.wrap(-45.0 * i));
+    }
+
+    /** Tower {@code i}: the same tower, its doors drawn from its own seed. */
+    public static WallTower tower(final int i) {
+        return TOWER.seeded(i + 1);
+    }
+
+    /** The towers, each one piece; and the trees, each one. */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>();
-        pieces.add(tower());
+        for (int i = 0; i < TOWERS; i++) {
+            pieces.add(tower(i, at(i)));
+        }
         pieces.addAll(trees());
         return pieces;
     }
 
-    /** The tower: drawn by its key, standing in its box; in the way through its rooms. */
-    static Course.Piece tower() {
-        final Interior interior = TOWER.interior(AT);
+    /** Tower {@code i}, set {@code at} its place: drawn by its key, standing in its box; in the way through its rooms. */
+    static Course.Piece tower(final int i, final Place at) {
+        final Interior interior = tower(i).interior(at);
         final Box inside = interior.placed().inside().bounds();
-        final double half = Math.max(-inside.minX(), inside.maxX());
-        final Block box = new Block(AT.x(), AT.z(), half, Math.max(-inside.minZ(), inside.maxZ()), AT.yaw(), AT.height(),
-                AT.height() + inside.high());
-        return Course.Piece.shaped(box, Course.Kind.BUILDING, KEYS, List.of(), List.of(interior), AT);
+        final Block box = new Block(at.x(), at.z(), Math.max(-inside.minX(), inside.maxX()),
+                Math.max(-inside.minZ(), inside.maxZ()), at.yaw(), at.height(), at.height() + inside.high());
+        return Course.Piece.shaped(box, Course.Kind.BUILDING, KEYS + i, List.of(), List.of(interior), at);
     }
 
-    /** Trees scattered over the ground round it, each where its seed puts it, none by the tower or the start. */
+    /** How far out from the middle the towers' feet reach, splayed: no tree nearer than this and a little more. */
+    static double reach() {
+        return Math.hypot(APOTHEM + TOWER.eastOuter(0), TOWER.size().length() / 2);
+    }
+
+    /** Trees scattered over the ground round them, each where its seed puts it, none by the towers or the start. */
     static List<Course.Piece> trees() {
         final List<Course.Piece> trees = new ArrayList<>();
         for (int k = 0; k < TREES; k++) {
             final Vec3 way = Num.heading(360 * Num.hash(k, 0x7EE5));
             final double out = SCATTERED * Math.sqrt(Num.hash(k, 0x7EE6));
-            final double x = AT.x() + way.x() * out;
-            final double z = AT.z() + way.z() * out;
-            if (Math.abs(x - AT.x()) < TOWER.size().length() / 2 + CLEAR
-                    && Math.abs(z - AT.z()) < TOWER.size().length() / 2 + CLEAR
-                    || Math.hypot(x - START.x(), z - START.z()) < CLEAR) {
+            final double x = way.x() * out;
+            final double z = way.z() * out;
+            if (out < reach() + CLEAR || Math.hypot(x - START.x(), z - START.z()) < CLEAR) {
                 continue;
             }
             final Block trunk = new Block(x, z, TRUNK / 2, TRUNK / 2, 0, 0, TREE);
@@ -83,12 +110,13 @@ public final class TowerMap {
     }
 
     /**
-     * What the tower is drawn as, by its key from {@link #KEYS}, about its middle: all of it but its balconies' doors;
-     * those drawn apart, each as far open as it is, unless it is broken ({@link #door}).
+     * What tower {@code k} is drawn as, by its key from {@link #KEYS}, about its middle: all of it but its balconies'
+     * doors, the same for every one; its doors drawn apart, each as far open as it is, unless it is broken
+     * ({@link #door}).
      */
     public static synchronized List<Solid> solids(final int k) {
-        if (k != 0) {
-            throw new IllegalArgumentException("one tower here, not " + (k + 1));
+        if (k < 0 || k >= TOWERS) {
+            throw new IllegalArgumentException(TOWERS + " towers here, not " + (k + 1));
         }
         if (drawn == null) {
             drawn = TOWER.fixed(WallTower.palette());
@@ -97,7 +125,7 @@ public final class TowerMap {
         return drawn;
     }
 
-    /** Door {@code door}, all of it, {@code open} as far open, 0 shut to 1 wide, as the tower's solids are laid out. */
+    /** Door {@code door}, all of it, {@code open} as far open, 0 shut to 1 wide, as a tower's solids are laid out. */
     public static List<Solid> door(final int door, final double open) {
         solids(0);
         return openings.get(door).solids(open, WallTower.palette());

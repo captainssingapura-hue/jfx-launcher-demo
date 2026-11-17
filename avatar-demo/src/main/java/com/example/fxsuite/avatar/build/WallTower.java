@@ -97,13 +97,21 @@ public final class WallTower {
     }
 
     private final Size size;
+    /** What its doors' openings are drawn from: one tower's lived in otherwise than its neighbour's. */
+    private final long seed;
 
-    private WallTower(final Size size) {
+    private WallTower(final Size size, final long seed) {
         this.size = size;
+        this.seed = seed;
     }
 
     public static WallTower of(final Size size) {
-        return new WallTower(size);
+        return new WallTower(size, 0);
+    }
+
+    /** The same tower, its doors open and shut as {@code seed} draws them: the same every time for the same seed. */
+    public WallTower seeded(final long seed) {
+        return new WallTower(size, seed);
     }
 
     public static WallTower standard() {
@@ -286,7 +294,7 @@ public final class WallTower {
                             continue;
                         }
                         solids.addAll(door(side + " door " + j + ", storey " + k, face, east, y0, y1, p0, h1,
-                                opening(k, j, east), glass, palette.of(Role.FRAME)));
+                                opening(k, j, east, seed), glass, palette.of(Role.FRAME)));
                         final double[] rail = at(face, p0, p0 + RAIL, p0, h1);
                         solids.add(box(side + " rail " + j + ", storey " + k, Role.GLAZING, glass,
                                 layer(rail, 0, RAILING, east), y0, y1, p0, p0 + RAIL));
@@ -407,7 +415,7 @@ public final class WallTower {
                     for (final boolean east : new boolean[] {false, true}) {
                         final String side = east ? "east" : "west";
                         openings.add(new Opening(side + " door " + j + ", storey " + k,
-                                at(east ? leg[1] : leg[0], p0, h1, h0, h1), east, y0, y1, p0, h1, opening(k, j, east)));
+                                at(east ? leg[1] : leg[0], p0, h1, h0, h1), east, y0, y1, p0, h1, opening(k, j, east, seed)));
                     }
                 }
             }
@@ -467,7 +475,13 @@ public final class WallTower {
      * open a little or wide, as the rooms behind them are lived in; the same every time, worked out from where it is.
      */
     static double opening(final int k, final int j, final boolean east) {
-        final double h = com.example.fxsuite.avatar.sim.Num.hash(k, j, east ? 1 : 0, 0x3A11);
+        return opening(k, j, east, 0);
+    }
+
+    /** As {@link #opening(int, int, boolean)}, in a tower seeded {@code seed}. */
+    static double opening(final int k, final int j, final boolean east, final long seed) {
+        final double h = seed == 0 ? com.example.fxsuite.avatar.sim.Num.hash(k, j, east ? 1 : 0, 0x3A11)
+                : com.example.fxsuite.avatar.sim.Num.hash(k, j, east ? 1 : 0, 0x3A11, seed);
         return h < 1 - OPEN ? 0 : (h - (1 - OPEN)) / OPEN;
     }
 

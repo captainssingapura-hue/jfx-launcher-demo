@@ -6,7 +6,9 @@ import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Interior;
+import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
+import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Vec3;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -18,13 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The wall tower's ground: the tower one piece among hundreds of trees scattered for kilometres, drawn as its solids,
+ * The wall towers' ground: eight towers round an octagon, each one piece among hundreds of trees scattered for kilometres, drawn as its solids,
  * in the way through its rooms, one entry in the world's grid; the avatar starting west of it, facing it; dropped onto
  * one of its balconies, standing on it, walking in through an open door; at a shut one, kept out.
  */
 class TowerMapTest {
 
-    private static final WallTower TOWER = WallTower.standard();
+    private static final WallTower TOWER = TowerMap.tower(0);
+    /** Tower 0: on the octagon's east side, its frame the world's, moved out east; its doors from seed 1. */
+    private static final double X0 = TowerMap.APOTHEM;
+    private static final long SEED = 1;
     private static final WallTower.Size SIZE = TOWER.size();
     private static Course course;
     private static Obstacles world;
@@ -37,22 +42,58 @@ class TowerMapTest {
     }
 
     @Test
-    void theTowerOnePieceAmongHundredsOfTreesOneEntryInTheWorldsGrid() {
+    void eightTowersRoundAnOctagonEachOnePieceAmongHundredsOfTreesOneEntryInTheWorldsGrid() {
         final List<Course.Piece> pieces = course.pieces();
-        assertEquals(Course.Kind.BUILDING, pieces.get(0).kind());
-        assertEquals(TowerMap.KEYS, pieces.get(0).tint());
+        for (int i = 0; i < TowerMap.TOWERS; i++) {
+            assertEquals(Course.Kind.BUILDING, pieces.get(i).kind());
+            assertEquals(TowerMap.KEYS + i, pieces.get(i).tint());
+            assertSame(TowerMap.solids(0), Sites.drawn(TowerMap.KEYS + i), "each drawn as the same solids");
+            assertTrue(world.volumes().get(i) instanceof Interior);
+            // at the middle of its side, its splayed leg out: its across pointing away from the middle
+            final Place at = TowerMap.at(i);
+            assertEquals(TowerMap.APOTHEM, Math.hypot(at.x(), at.z()), 1e-6);
+            final Vec3 out = Num.right(at.yaw());
+            assertEquals(1, (out.x() * at.x() + out.z() * at.z()) / TowerMap.APOTHEM, 1e-9, "tower " + i + " facing out");
+            assertEquals(1, world.volumesNear(at.x(), at.z(), 100).length, "tower " + i + " one entry where it stands");
+        }
+        assertEquals(TowerMap.TOWERS, world.volumes().size());
         assertTrue(pieces.stream().filter(p -> p.kind() == Course.Kind.TREE).count() > 300, "hundreds of trees");
         assertTrue(pieces.stream().anyMatch(p -> p.kind() == Course.Kind.TREE && Math.hypot(p.block().x(), p.block().z())
                 > 300_000), "kilometres out");
-        assertSame(TowerMap.solids(0), Sites.drawn(TowerMap.KEYS), "drawn as its solids");
-        assertEquals(1, world.volumes().size());
-        assertTrue(world.volumes().get(0) instanceof Interior);
-        assertEquals(1, world.volumesNear(0, 0, 100).length, "the tower one entry where it stands");
+        assertEquals(0, world.volumesNear(0, 0, 100).length, "the courtyard open");
         assertEquals(0, world.volumesNear(TowerMap.START.x(), TowerMap.START.z(), 100).length, "and nothing at the start");
-        // the start west of it, facing it, its balconies ahead
+        // each the same tower, its doors its own
+        assertTrue(java.util.stream.IntStream.range(0, 200).anyMatch(d -> ((Interior) world.volumes().get(0)).open(d)
+                != ((Interior) world.volumes().get(1)).open(d)), "doors of their own");
+        // the start west of them, facing the great arch on the west side
         assertEquals(TowerMap.START, course.start());
         assertEquals(90, Demo.WALL_TOWER.startYaw());
-        assertTrue(TowerMap.START.x() < TOWER.westOuter(SIZE.high()) - 10_000);
+        assertTrue(TowerMap.START.x() < -TowerMap.reach() - 5_000);
+    }
+
+    @Test
+    void neighboursABridgesSpanApartAcrossEachCornerNeverMeeting() {
+        for (int i = 0; i < TowerMap.TOWERS; i++) {
+            final Interior a = (Interior) world.volumes().get(i);
+            final Interior b = (Interior) world.volumes().get((i + 1) % TowerMap.TOWERS);
+            // where its shaft's end meets its neighbour's, at the bridges' height: a little over 25 m apart
+            final double up = 40 * SIZE.storey();
+            final double end = SIZE.length() / 2;
+            final double gap = Math.hypot(a.placed().x(0, end) - b.placed().x(0, -end),
+                    a.placed().z(0, end) - b.placed().z(0, -end));
+            assertEquals(2 * (TowerMap.APOTHEM * Math.tan(Math.PI / 8) - end) * Math.sin(3 * Math.PI / 8), gap, 1e-6);
+            assertTrue(gap > 2_000 && gap < 3_000, "a bridge's span: " + gap);
+            // no part of one in the other, anywhere up them
+            for (double h = 0; h < SIZE.high(); h += SIZE.storey()) {
+                for (final double side : new double[] {-1, 1}) {
+                    for (final double across : new double[] {TOWER.westOuter(h), TOWER.eastOuter(h)}) {
+                        final double x = a.placed().x(across, side * end);
+                        final double z = a.placed().z(across, side * end);
+                        assertEquals(-1, b.placed().cell(x, z, h + 1), "tower " + i + "'s corner in its neighbour");
+                    }
+                }
+            }
+        }
     }
 
     /** Where a body ends up, dropped onto storey {@code k}'s balcony in bay {@code j}, and then walking east, in. */
@@ -60,7 +101,7 @@ class TowerMapTest {
         final double floor = k * SIZE.storey() + WallTower.FLOOR;
         final double face = TOWER.westOuter(floor);
         final double along = (TOWER.wallAt(j) + TOWER.wallAt(j + 1)) / 2;
-        Body body = Body.standing(new Vec3(face + WallTower.BALCONY / 2, -(floor + 100), along), 90);
+        Body body = Body.standing(new Vec3(X0 + face + WallTower.BALCONY / 2, -(floor + 100), along), 90);
         for (int n = 0; n < 240; n++) {
             body = body.step(Controls.NONE, Clock.STEP, world);
         }
@@ -78,10 +119,10 @@ class TowerMapTest {
         int shut = -1;
         for (int k = 30; k < 50 && (open < 0 || shut < 0); k++) {
             for (int j = 1; j < SIZE.walls() - 2; j++) {
-                if (open < 0 && WallTower.opening(k, j, false) > 0.9) {
+                if (open < 0 && WallTower.opening(k, j, false, SEED) > 0.9) {
                     open = k * 100 + j;
                 }
-                if (shut < 0 && WallTower.opening(k, j, false) == 0) {
+                if (shut < 0 && WallTower.opening(k, j, false, SEED) == 0) {
                     shut = k * 100 + j;
                 }
             }
@@ -91,12 +132,12 @@ class TowerMapTest {
         final double openFloor = open / 100 * SIZE.storey() + WallTower.FLOOR;
         assertEquals(openFloor, landed.get(0), 1e-6, "standing on the balcony");
         assertEquals(openFloor, in.height(), 1e-6, "on the room's floor");
-        assertTrue(in.position().x() > TOWER.westOuter(openFloor) + WallTower.BALCONY + 400,
-                "well into the room: " + (in.position().x() - TOWER.westOuter(openFloor)));
+        assertTrue(in.position().x() - X0 > TOWER.westOuter(openFloor) + WallTower.BALCONY + 400,
+                "well into the room: " + (in.position().x() - X0 - TOWER.westOuter(openFloor)));
         final Body out = droppedAndWalkedIn(shut / 100, shut % 100, landed);
         final double shutFloor = shut / 100 * SIZE.storey() + WallTower.FLOOR;
         assertEquals(shutFloor, landed.get(1), 1e-6);
-        assertTrue(out.position().x() < TOWER.westOuter(shutFloor) + WallTower.BALCONY,
-                "kept on the balcony: " + (out.position().x() - TOWER.westOuter(shutFloor)));
+        assertTrue(out.position().x() - X0 < TOWER.westOuter(shutFloor) + WallTower.BALCONY,
+                "kept on the balcony: " + (out.position().x() - X0 - TOWER.westOuter(shutFloor)));
     }
 }
