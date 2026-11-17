@@ -36,10 +36,14 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   steering wheel, on a bare chassis): T gets in. W speeds it up, S brakes and then reverses, A and D steer,
   Space is the handbrake, Shift goes gently; the mouse does not turn it. Only the front wheels
   steer, so it turns about its back wheels, as racing games have it, the less sharply the faster
-  it goes. Each wheel finds the ground under it: it drives up and down ramps and over the
-  flyover, tipped as the slope is, leaps off a ramp's head, and stops dead against anything
-  standing higher than a kerb. The driver sits in a seat behind the steering wheel, kart-fashion,
-  its legs out ahead and its hands on the wheel, and is carried with it.
+  it goes (`Steering`): its wheels turned no further than pulls it across as hard as a tyre holds,
+  0.9 g, and gentler the faster it goes, and faster so, to 60% of that at its top; full lock at a crawl,
+  1.35° at 108 km/h, a quarter of a degree at 216 km/h; a key held turning them in over a time, the
+  longer the faster it goes (0.15 s at a crawl, half a second at its top), let go, back twice as fast;
+  so at speed a tap is a correction, not a swerve. Each wheel finds the ground under it: it drives up
+  and down ramps and over the flyover, tipped as the slope is, leaps off a ramp's head, and stops dead
+  against anything standing higher than a kerb. The driver sits in a seat behind the steering wheel,
+  kart-fashion, its legs out ahead and its hands on the wheel, and is carried with it.
   Low on the right, as racing games have them, its instruments: a round tachometer, its needle
   sweeping up toward the red line (6,500 for a V6, 6,000 for a V8) and dropping back at each change
   of gear; the gear, big, in the middle of the dial, R going back; and the speed in km/h under it.
@@ -122,7 +126,7 @@ engines, one for the Gatling guns), and a fourth on the vehicles' models.
   sits astride, as the bike has it: upright on the scooter, feet forward on the floorboard;
   tucked over the tank on the sport bike; sat back on the cruiser, feet out ahead, arms out to
   wide bars; upright on the boxer, feet forward, knees wide round its cylinders. Each leans into its turns as a rider would lean it to balance going round
-  (`Lift.lean`): the harder the faster it goes round, at most 45°, upright going straight, the
+  (`Lift.lean`): as far as balances the pull across it, atan of it over g, at most 45°, upright going straight, the
   rider leaning with it about where its tyres touch the ground; only how it is shown, to the
   world it stands as ever. Each has its engine from the engine bench: the scooter a 125 cc
   single on a CVT, which holds it most of the way up its revs as the speed builds (D on the

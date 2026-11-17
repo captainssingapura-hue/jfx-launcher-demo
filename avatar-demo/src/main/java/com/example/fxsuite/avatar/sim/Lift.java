@@ -148,7 +148,6 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double MOST_ROLL = 35;
     /** Shoved sideways, a land vehicle's tyres scrub that off this hard, units a second, a second: a g and a half. */
     public static final double SCRUB = 1500;
-    private static final double LEANING = 1.4;
     /** How thick a platform's deck is: how far below where it is its underside is. */
     public static final double THICK = 40;
 
@@ -414,7 +413,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     public static final double KERB = 60;
     /** How far below its wheels the ground may fall away and it still keeps to it, rather than leaving it. */
     public static final double SNAP = 25;
-    /** At this speed, its wheels turn half as far as at a crawl. */
+    /** At this speed, a sidecar outfit's bars turn half as far as at a crawl, before its table has its say. */
     public static final double STEER_FADE = 1800;
     /** The handbrake, how much harder than the brakes it stops it. */
     public static final double HANDBRAKE = 1.5;
@@ -430,14 +429,14 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
     private Lift drive(final Course.Chassis chassis, final Controls controls, final double seconds,
                        final Obstacles world, final Collection<Integer> aboard, final List<Block> also) {
         final Course.Drive drive = chassis.drive();
-        // the front wheels: turned as asked, the less the faster it goes, no faster than they turn
+        // the front wheels: turned as asked, as far and as fast as its speed lets them ({@link Steering})
         final double asked = held ? Num.clamp(controls.sideways(), -1, 1) : 0;
-        double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
-        double rate = drive.steerRate();
-        boolean gentle = false;
+        final double nowSteer;
         if (chassis.sidecar() != null) {
             // a sidecar outfit's bars, gently, the more so the faster it goes, by its table: toward the
             // way asked, or, let go, the way they are turned
+            double most = drive.steer() / (1 + Math.abs(ahead) / STEER_FADE);
+            double rate = drive.steerRate();
             final Outfit outfit = Outfit.of(chassis);
             final List<Outfit.Row> table = Outfit.table(chassis);
             final double way = asked != 0 ? asked : steer;
@@ -445,13 +444,14 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 most = outfit.lock(table, ahead, way, most);
                 rate = outfit.rate(table, ahead, way, rate);
             }
-            gentle = true;
+            final double wanted = asked * most;
+            // and let back faster than they are turned in, to catch a lifting chair
+            final boolean backing = Math.abs(wanted) < Math.abs(steer) || wanted * steer < 0;
+            final double turning = rate * (backing ? Outfit.BACK_OFF : 1) * seconds;
+            nowSteer = steer + Num.clamp(wanted - steer, -turning, turning);
+        } else {
+            nowSteer = Steering.turned(chassis, steer, asked, ahead, seconds);
         }
-        final double wanted = asked * most;
-        // and on an outfit, let back faster than they are turned in, to catch a lifting chair
-        final boolean backing = Math.abs(wanted) < Math.abs(steer) || wanted * steer < 0;
-        final double turning = rate * (gentle && backing ? Outfit.BACK_OFF : 1) * seconds;
-        final double nowSteer = steer + Num.clamp(wanted - steer, -turning, turning);
         // the pedals: ahead speeds it up (braking first, going back), back brakes then reverses
         final double pedal = held ? Num.clamp(controls.forward(), -1, 1) : 0;
         final double top = held && !controls.run() ? drive.top() * CAREFUL : drive.top();
@@ -496,7 +496,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /**
      * How far it leans into its turn, if it is a two-wheeler, in degrees, to the right: as a rider
-     * leans one to balance going round, the further the harder it is going round, never past
+     * leans one to balance the pull across it going round (atan of it over the world's own g), never past
      * {@link #MOST_LEAN}; upright going straight, or stopped. Only how it is shown: to the world it
      * stands as ever. Not a two-wheeler, 0.
      */
@@ -506,7 +506,7 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
         }
         // how hard it is going round: its speed, times how fast it turns
         final double round = ahead * ahead / chassis.wheelbase() * Math.tan(Math.toRadians(steer));
-        return MOST_LEAN * Math.tanh(round / (LEANING * Body.GRAVITY));
+        return Num.clamp(Math.toDegrees(Math.atan(round / Steering.G)), -MOST_LEAN, MOST_LEAN);
     }
 
     /** {@code value} brought toward {@code target} by no more than {@code by}. */
