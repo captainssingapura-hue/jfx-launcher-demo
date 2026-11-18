@@ -1,6 +1,10 @@
 package com.example.fxsuite.avatar.bench;
 
 import com.example.fxsuite.avatar.Game;
+import com.example.fxsuite.avatar.bench.kit.Bus;
+import com.example.fxsuite.avatar.bench.kit.Orbit;
+import com.example.fxsuite.avatar.bench.kit.Shell;
+import com.example.fxsuite.avatar.bench.kit.Workshop;
 import com.example.fxsuite.avatar.look.RoadworkModel;
 import com.example.fxsuite.avatar.roads.Ground;
 import com.example.fxsuite.avatar.roads.Roadway;
@@ -14,13 +18,8 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.scene.AmbientLight;
-import javafx.scene.DirectionalLight;
 import javafx.scene.Group;
-import javafx.scene.PerspectiveCamera;
-import javafx.scene.Scene;
-import javafx.scene.SceneAntialiasing;
-import javafx.scene.SubScene;
+import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -31,19 +30,15 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
-import javafx.scene.input.MouseButton;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
-import javafx.scene.transform.Rotate;
-import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,6 +62,9 @@ import java.util.Map;
  * {@code -Droads.drive=true} opens the scene to drive in at once. {@code -Droads.inland=true} drives on the pavement in
  * the land, not as a thing of its own.
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
+ *
+ * <p>Put together of the bench kit's parts ({@code bench.kit}): its window ({@link Shell}), its view ({@link Orbit}),
+ * its heavy work done away from the screen in stages ({@link Workshop}), asked and answered by message ({@link Bus}).
  */
 public final class RoadBench extends Application {
 
@@ -92,24 +90,32 @@ public final class RoadBench extends Application {
     private final ComboBox<Integer> taller = new ComboBox<>();
     private final Slider atSlider = new Slider(0, RoadScenes.LENGTH / 100, RoadScenes.LENGTH / 200);
     private final TextArea text = new TextArea(Sections.STANDARD);
-    private final Label figures = new Label();
-    private final Label problems = new Label();
     private final Button drive = new Button("Drive");
     private final CheckBox ownPavement = new CheckBox("Own pavement");
 
     private final Canvas along = new Canvas(800, 220);
     private final Canvas across = new Canvas(520, 220);
 
-    private final PerspectiveCamera eye = new PerspectiveCamera(true);
-    private final Rotate yaw = new Rotate(-35, Rotate.Y_AXIS);
-    private final Rotate pitch = new Rotate(-22, Rotate.X_AXIS);
-    private final Translate back = new Translate(0, 0, -9_000);
-    private final Translate target = new Translate(0, 0, 0);
+    /** What is asked of it and made for it, by message; its view; its window. */
+    private final Bus bus = new Bus();
+    private final Orbit view = Orbit.standard();
+    private final Shell shell = new Shell("Roads bench", bus);
     private final Group groundGroup = new Group();
     private final Group roadGroup = new Group();
     private final Group waterGroup = new Group();
-    private double lastX;
-    private double lastY;
+
+    /**
+     * Where the heavy work is done, away from the screen ({@link #make}): the roads designed, as the scene, its knobs
+     * and the kind across are; their ground drawn, as designed and as asked to be shown; their water; each made again
+     * only when what it is made from has changed.
+     */
+    private final Workshop<Asked, Made> workshop = new Workshop<>("roads bench", bus, Asked.class, this::make);
+    private final Workshop<Asked, Made>.Stage<Design> design = workshop.stage("design",
+            a -> Arrays.asList(a.scene(), a.section(), a.set()), RoadBench::designed);
+    private final Workshop<Asked, Made>.Stage<Group> ground = workshop.stage("ground",
+            a -> Arrays.asList(design.of(a).works(), a.earthworks(), a.built()), this::ground);
+    private final Workshop<Asked, Made>.Stage<Node> water = workshop.stage("water",
+            a -> Arrays.asList(design.of(a).works(), a.scene()), this::water);
 
     private RoadScenes.Scene scene;
     private Roadworks works;
@@ -119,50 +125,18 @@ public final class RoadBench extends Application {
     private boolean redesigning;
     /** Whether the roads are being designed again for a change made on the kind's panel, which is left as it is. */
     private boolean fromPanel;
-    /** Where the heavy work is done, away from the screen: designing the roads, making their meshes, their figures. */
-    private final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-        final Thread thread = new Thread(r, "roads bench");
-        thread.setDaemon(true);
-        return thread;
-    });
-    /** The latest asked of the worker: anything asked before it, done late, is not shown. */
-    private final java.util.concurrent.atomic.AtomicLong asked = new java.util.concurrent.atomic.AtomicLong();
-    /** On the worker alone: the roads as last designed there, their plans, how long that took, how many times. */
-    private Roadworks designedThere;
-    private List<Roadworks.Plan> plansThere;
-    private double designedMs;
-    private long designs;
-    /** On the worker alone: whether the roads are owed a redesign, one asked for having been passed over. */
-    private boolean owedDesign;
-    /** Whether the ground is owed drawing again, one asked for having been passed over, or not shown. */
-    private final java.util.concurrent.atomic.AtomicBoolean owedGround = new java.util.concurrent.atomic.AtomicBoolean();
-    /** Which design of the roads is shown. */
-    private long shownDesign = -1;
+    /** The ground shown, as made. */
+    private Group shownGround;
     /** Whether the point looked at is being moved to where a new scene is first looked at: nothing cut away again for it. */
     private boolean framing;
     /** Where along it to look at first, metres, as asked at the start; and whether to drive it as soon as it is shown. */
     private Double startAt;
     private boolean driveWhenShown;
-    /** Shown while the worker is at work. */
-    private final Label working = new Label();
 
     @Override
     public void start(final Stage stage) {
-        eye.setNearClip(10);
-        eye.setFarClip(2_000_000);
-        eye.setFieldOfView(40);
-        eye.getTransforms().addAll(target, yaw, pitch, back);
-        final AmbientLight ambient = new AmbientLight(Color.web("#8e959c"));
-        final DirectionalLight sun = new DirectionalLight(Color.web("#9a978f"));
-        sun.setDirection(new javafx.geometry.Point3D(0.45, 1, 0.35));
-        final Group world = new Group(groundGroup, roadGroup, waterGroup, eye, ambient, sun);
-        final SubScene view = new SubScene(world, 900, 520, true, SceneAntialiasing.BALANCED);
-        view.setFill(Color.web("#c9dbe8"));
-        view.setCamera(eye);
-        final Pane holder = new Pane(view);
-        view.widthProperty().bind(holder.widthProperty());
-        view.heightProperty().bind(holder.heightProperty());
-        orbit(view);
+        view.add(groundGroup, roadGroup, waterGroup);
+        bus.subscribe(Made.class, this::show, Bus.SCREEN);
 
         sceneBox.getItems().setAll(scenes.keySet());
         sceneBox.setValue(System.getProperty("roads.scene", "valley").toLowerCase(Locale.ROOT));
@@ -205,13 +179,13 @@ public final class RoadBench extends Application {
                 looked = roadBox.getSelectionModel().getSelectedIndex();
                 atSlider.setMax(road().length() / 100);
                 lookedAt(false);
-                request(false, false, false);
+                request(false);
             }
         });
-        showEarthworks.setOnAction(e -> request(false, false, true));
-        asBuilt.setOnAction(e -> request(false, false, true));
+        showEarthworks.setOnAction(e -> request(false));
+        asBuilt.setOnAction(e -> request(false));
         for (final CheckBox box : List.of(showPavement, showMarkings, showStructures, cutAway)) {
-            box.setOnAction(e -> request(false, false, false));
+            box.setOnAction(e -> request(false));
         }
         showWater.setOnAction(e -> waterGroup.setVisible(showWater.isSelected()));
         showGround.setOnAction(e -> groundGroup.setVisible(showGround.isSelected()));
@@ -232,9 +206,6 @@ public final class RoadBench extends Application {
         });
         text.setFont(Font.font("Monospaced", 11));
         text.setPrefColumnCount(52);
-        figures.setWrapText(true);
-        problems.setWrapText(true);
-        problems.setTextFill(Color.web("#b03a2e"));
         final VBox written = new VBox(6, text, new HBox(6, apply, reset));
         written.setPadding(new Insets(6, 0, 0, 0));
         VBox.setVgrow(text, Priority.ALWAYS);
@@ -242,17 +213,10 @@ public final class RoadBench extends Application {
         controls.setFitToWidth(true);
         final TabPane tabs = new TabPane(new Tab("Kind", controls), new Tab("Text", written));
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        VBox.setVgrow(tabs, Priority.ALWAYS);
-        final VBox side = new VBox(6, new Label("Kinds across"), tabs, figures, problems);
-        side.setPadding(new Insets(8));
-        side.setPrefWidth(420);
-
-        final HBox bar = new HBox(8, new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"),
-                roadBox, showGround, showEarthworks, asBuilt, showPavement, showMarkings, showStructures, showWater,
-                cutAway, new Label("Heights ×"), taller, drive, ownPavement, working);
-        working.setStyle("-fx-text-fill: #8a5a00; -fx-font-style: italic;");
-        bar.setPadding(new Insets(6, 8, 6, 8));
-        bar.setAlignment(Pos.CENTER_LEFT);
+        shell.side(new Label("Kinds across"), tabs, 420);
+        shell.bar(List.of(new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"), roadBox,
+                showGround, showEarthworks, asBuilt, showPavement, showMarkings, showStructures, showWater, cutAway,
+                new Label("Heights ×"), taller, drive, ownPavement));
         final HBox atBar = new HBox(8, new Label("Along (m)"), atSlider);
         atBar.setPadding(new Insets(4, 8, 4, 8));
         atBar.setAlignment(Pos.CENTER_LEFT);
@@ -263,27 +227,23 @@ public final class RoadBench extends Application {
         along.setOnMouseDragged(e -> pick(e.getX()));
         final SplitPane drawings = new SplitPane(alongHolder, acrossHolder);
         drawings.setDividerPositions(0.55);
-        final SplitPane middle = new SplitPane(holder, drawings);
+        final SplitPane middle = new SplitPane(view.node(), drawings);
         middle.setOrientation(Orientation.VERTICAL);
         middle.setDividerPositions(0.62);
-        final BorderPane root = new BorderPane(new VBox(middle, atBar));
         VBox.setVgrow(middle, Priority.ALWAYS);
-        root.setTop(bar);
-        root.setRight(side);
-        root.setStyle("-fx-background-color: #f4f5f7;");
-        final Scene windowScene = new Scene(root, 1560, 940);
+        shell.middle(new VBox(middle, atBar));
 
         looked = Integer.getInteger("roads.road", 0);
         startAt = at == null ? null : Double.parseDouble(at);
         driveWhenShown = Boolean.getBoolean("roads.drive");
         design(true);
-        yaw.setAngle(Double.parseDouble(System.getProperty("roads.yaw", "-35")));
-        pitch.setAngle(-Double.parseDouble(System.getProperty("roads.pitch", "22")));
-        back.setZ(-100 * Double.parseDouble(System.getProperty("roads.distance", "90")));
-        stage.setTitle("Roads bench");
-        stage.setScene(windowScene);
-        stage.show();
-        SoundBench.snapshotIfAsked(windowScene);
+        view.from("roads", -35, 22, 90);
+        shell.show(stage, 1560, 940);
+    }
+
+    @Override
+    public void stop() {
+        workshop.close();
     }
 
     /**
@@ -349,7 +309,7 @@ public final class RoadBench extends Application {
             catalogue = Sections.read(text.getText());
             sections = catalogue.sections();
         } catch (final IllegalArgumentException e) {
-            problems.setText(e.getMessage());
+            bus.publish(new Bus.Problems(e.getMessage()));
             return;
         }
         final String was = sectionBox.getValue();
@@ -368,90 +328,71 @@ public final class RoadBench extends Application {
             kind.show(section);
             setting.show(scene, knobs.getOrDefault(scene.name(), Map.of()));
         }
-        request(true, frame, true);
+        request(frame);
     }
 
-    /** What is asked of the worker: what to do again, and the bench as it is when asked. */
-    private record Asked(long ticket, boolean redesign, boolean frame, boolean ground, RoadScenes.Scene scene,
-                         Section section, Map<String, Double> set, int looked, boolean earthworks, boolean built,
-                         boolean pavement, boolean markings, boolean structures, double upTo) {
+    /** What is asked of the workshop: the bench as it is when asked, and whether to look at it afresh. */
+    private record Asked(boolean frame, RoadScenes.Scene scene, Section section, Map<String, Double> set, int looked,
+                         boolean earthworks, boolean built, boolean pavement, boolean markings, boolean structures,
+                         double upTo) {
     }
 
-    /** What the worker made of it, to be shown: the roads (as designed, the {@code design}th time), and their drawing. */
-    private record Made(Asked asked, long design, Roadworks works, List<Roadworks.Plan> plans, int looked,
-                        double[] bounds, Group ground, Group roads, javafx.scene.Node water, String figures,
-                        String problems) {
+    /** The roads as designed, and the plans they were laid by. */
+    private record Design(List<Roadworks.Plan> plans, Roadworks works) {
     }
 
     /**
-     * Asks the worker for the roads again: designed afresh ({@code redesign}), their ground drawn again ({@code ground});
-     * their pavements, markings and structures always, and the figures. Done away from the screen, one after another; one
-     * asked for before another, and not yet begun, is passed over, owing what it would have done to the next.
+     * What the workshop made of it, to be shown: the roads as designed, the road looked at, their bounds; their ground,
+     * pavements, markings, structures and water drawn; their figures and problems.
      */
-    private void request(final boolean redesign, final boolean frame, final boolean ground) {
+    private record Made(Asked asked, Roadworks works, List<Roadworks.Plan> plans, int looked, double[] bounds,
+                        Group ground, Group roads, Node water, String figures, String problems) {
+    }
+
+    /**
+     * Asks the workshop for the roads again, as the bench now is: what has changed made again, the pavements, markings and
+     * structures always, and the figures; looked at afresh, if {@code frame}d.
+     */
+    private void request(final boolean frame) {
         final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
         final double upTo = cutAway.isSelected() ? atSlider.getValue() * 100 : Double.POSITIVE_INFINITY;
-        final Asked a = new Asked(asked.incrementAndGet(), redesign, frame, ground, scene, section,
-                Map.copyOf(knobs.getOrDefault(scene.name(), Map.of())), looked, showEarthworks.isSelected(),
-                asBuilt.isSelected(), showPavement.isSelected(), showMarkings.isSelected(), showStructures.isSelected(),
-                upTo);
-        working.setText("Working…");
-        worker.submit(() -> work(a));
+        bus.publish(new Asked(frame, scene, section, Map.copyOf(knobs.getOrDefault(scene.name(), Map.of())), looked,
+                showEarthworks.isSelected(), asBuilt.isSelected(), showPavement.isSelected(), showMarkings.isSelected(),
+                showStructures.isSelected(), upTo));
     }
 
-    /** On the worker: what {@code a} asks, unless something has been asked since; then shown, on the screen's thread. */
-    private void work(final Asked a) {
-        if (a.ticket() != asked.get()) {
-            owedDesign |= a.redesign();
-            if (a.ground() || a.redesign()) {
-                owedGround.set(true);
-            }
-            return;
-        }
-        try {
-            if (a.redesign() || owedDesign || designedThere == null) {
-                final long started = System.nanoTime();
-                plansThere = a.scene().roads(a.section(), a.set());
-                designedThere = Roadworks.design(a.scene().profile(), plansThere);
-                designedMs = (System.nanoTime() - started) / 1e6;
-                designs++;
-                owedDesign = false;
-                owedGround.set(true);
-            }
-            final Roadworks w = designedThere;
-            final int look = a.frame() && a.looked() >= w.roads().size() ? 0
-                    : Math.max(0, Math.min(a.looked(), w.roads().size() - 1));
-            final double[] b = RoadworkModel.bounds(w.roads());
-            Group groundNode = null;
-            if (owedGround.getAndSet(false) || a.ground()) {
-                groundNode = RoadworkModel.ground(a.earthworks() ? w.ground() : Ground.untouched(w.raw()), a.built(), b);
-            }
-            final javafx.scene.Node water = a.scene().watered() ? RoadworkModel.water(a.scene().water(), b) : null;
-            final Made made = new Made(a, designs, w, plansThere, look, b, groundNode, roads(w, look, a), water,
-                    figures(w, look, designedMs), String.join("\n", w.problems()));
-            Platform.runLater(() -> show(made));
-        } catch (final RuntimeException e) {
-            owedDesign = true;
-            Platform.runLater(() -> {
-                if (a.ticket() == asked.get()) {
-                    problems.setText(String.valueOf(e.getMessage()));
-                    working.setText("");
-                }
-            });
-        }
+    /** The roads of {@code a}'s scene and kind across, as its knobs set them, designed. */
+    private static Design designed(final Asked a) {
+        final List<Roadworks.Plan> plans = a.scene().roads(a.section(), a.set());
+        return new Design(plans, Roadworks.design(a.scene().profile(), plans));
     }
 
-    /** On the screen's thread: what the worker made, shown, unless something has been asked since. */
+    /** The ground of the roads designed, as prepared or as it was, as built or grown over. */
+    private Group ground(final Asked a) {
+        final Roadworks w = design.of(a).works();
+        return RoadworkModel.ground(a.earthworks() ? w.ground() : Ground.untouched(w.raw()), a.built(),
+                RoadworkModel.bounds(w.roads()));
+    }
+
+    /** The scene's water, if it has any, as far as the roads designed reach. */
+    private Node water(final Asked a) {
+        return a.scene().watered()
+                ? RoadworkModel.water(a.scene().water(), RoadworkModel.bounds(design.of(a).works().roads())) : null;
+    }
+
+    /** On the workshop's worker: what {@code a} asks for, made, each stage again only if what it is made from changed. */
+    private Made make(final Asked a) {
+        final Design d = design.of(a);
+        final Roadworks w = d.works();
+        final int look = a.frame() && a.looked() >= w.roads().size() ? 0
+                : Math.max(0, Math.min(a.looked(), w.roads().size() - 1));
+        return new Made(a, w, d.plans(), look, RoadworkModel.bounds(w.roads()), ground.of(a), roads(w, look, a),
+                water.of(a), figures(w, look, design.millis()), String.join("\n", w.problems()));
+    }
+
+    /** On the screen's thread: what the workshop made, shown; the roads' list and water only if they were designed again. */
     private void show(final Made m) {
-        if (m.asked().ticket() != asked.get()) {
-            if (m.ground() != null) {
-                owedGround.set(true);
-            }
-            return;
-        }
-        working.setText("");
-        if (m.design() != shownDesign) {
-            shownDesign = m.design();
+        if (m.works() != works) {
             works = m.works();
             plans = m.plans();
             bounds = m.bounds();
@@ -467,12 +408,13 @@ public final class RoadBench extends Application {
             }
             waterGroup.setVisible(showWater.isSelected());
         }
-        if (m.ground() != null) {
+        if (m.ground() != shownGround) {
+            shownGround = m.ground();
             groundGroup.getChildren().setAll(m.ground());
         }
         roadGroup.getChildren().setAll(m.roads());
-        figures.setText(m.figures());
-        problems.setText(m.problems());
+        bus.publish(new Bus.Figures(m.figures()));
+        bus.publish(new Bus.Problems(m.problems()));
         if (m.asked().frame()) {
             framing = true;
             atSlider.setValue(startAt != null ? startAt : scene.at() / 100);
@@ -551,11 +493,9 @@ public final class RoadBench extends Application {
         final Roadway road = road();
         final int i = road.nearestPoint(at);
         final Vec2 p = road.point(i);
-        target.setX(p.x());
-        target.setY(-road.level(i));
-        target.setZ(p.z());
+        view.lookAt(p.x(), -road.level(i), p.z());
         if (cut) {
-            request(false, false, false);
+            request(false);
         }
         drawSections();
     }
@@ -578,30 +518,5 @@ public final class RoadBench extends Application {
         final double right = 12;
         final double t = (x - left) / (along.getWidth() - left - right);
         atSlider.setValue(Math.clamp(t, 0, 1) * road().length() / 100);
-    }
-
-    /** Dragged, it turns round the point looked at; right-dragged, moves across; scrolled, nearer or further. */
-    private void orbit(final SubScene view) {
-        view.setOnMousePressed(e -> {
-            lastX = e.getSceneX();
-            lastY = e.getSceneY();
-        });
-        view.setOnMouseDragged(e -> {
-            final double dx = e.getSceneX() - lastX;
-            final double dy = e.getSceneY() - lastY;
-            lastX = e.getSceneX();
-            lastY = e.getSceneY();
-            if (e.getButton() == MouseButton.SECONDARY || e.isShiftDown()) {
-                final double scale = -back.getZ() / 900;
-                final double turn = Math.toRadians(yaw.getAngle());
-                target.setX(target.getX() - (dx * Math.cos(turn)) * scale);
-                target.setZ(target.getZ() + (dx * Math.sin(turn)) * scale);
-                target.setY(target.getY() - dy * scale);
-            } else {
-                yaw.setAngle(yaw.getAngle() + dx * 0.4);
-                pitch.setAngle(Math.clamp(pitch.getAngle() - dy * 0.4, -89, 89));
-            }
-        });
-        view.setOnScroll(e -> back.setZ(Math.clamp(back.getZ() * Math.pow(1.0015, -e.getDeltaY()), -200_000, -300)));
     }
 }
