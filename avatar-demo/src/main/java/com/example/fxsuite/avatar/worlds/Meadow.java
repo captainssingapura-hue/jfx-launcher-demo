@@ -2,7 +2,8 @@ package com.example.fxsuite.avatar.worlds;
 
 import com.example.fxsuite.avatar.build.Village;
 import com.example.fxsuite.avatar.look.DrawnDemo;
-import com.example.fxsuite.avatar.look.RoadworkModel;
+import com.example.fxsuite.avatar.look.RoadScenery;
+import com.example.fxsuite.avatar.look.Scenery;
 import com.example.fxsuite.avatar.roads.Carrier;
 import com.example.fxsuite.avatar.roads.Decks;
 import com.example.fxsuite.avatar.roads.Roadway;
@@ -15,9 +16,6 @@ import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.RoadMap;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Volume;
-
-import javafx.scene.Group;
-import javafx.scene.Node;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,19 +173,9 @@ public final class Meadow implements DrawnDemo {
                 .ways(works.roads().stream().map(r -> (Volume) r.pavement()).toList()).ruled(false);
     }
 
-    /** Its roads' pavements and markings, each drawn once where one lies over another. */
+    /** Its roads' pavements and markings, each drawn once where one lies over another, in stretches, as they are seen. */
     @Override
-    public Node scenery() {
-        final Roadworks works = roads();
-        final Group drawn = new Group();
-        for (int k = 0; k < works.roads().size(); k++) {
-            final int before = k;
-            final RoadworkModel.Covered covered = (x, z) -> works.pavedBefore(before, x, z);
-            final Roadway road = works.roads().get(k);
-            drawn.getChildren().addAll(RoadworkModel.pavement(road, Double.POSITIVE_INFINITY, covered),
-                    RoadworkModel.markings(road, Double.POSITIVE_INFINITY, covered));
-        }
-        drawn.getChildren().add(RoadworkModel.walls(works));
-        return drawn;
+    public Scenery scenery() {
+        return RoadScenery.of(roads());
     }
 }

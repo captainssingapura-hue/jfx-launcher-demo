@@ -290,6 +290,8 @@ public final class Game {
     private Map<Integer, Block> movedNow = Map.of();
     private final World world;
     private final Impacts impacts;
+    /** What the demo draws besides its pieces, if it draws anything: told each frame what is seen. */
+    private com.example.fxsuite.avatar.look.Scenery scenery = com.example.fxsuite.avatar.look.Scenery.still(new Group());
     private final Wreckage wreckage = new Wreckage();
     /** The people as drawn, and what they sit on at the stall on the barge. */
     private final Stall stall;
@@ -601,7 +603,8 @@ public final class Game {
                 reticle.node(), eye);
         // what a demo draws besides its pieces: first, so the world's see-through water is drawn after it
         if (demo instanceof DrawnDemo drawn) {
-            scene3d.getChildren().addFirst(drawn.scenery());
+            scenery = drawn.scenery();
+            scene3d.getChildren().addFirst(scenery.node());
         }
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
@@ -1004,8 +1007,10 @@ public final class Game {
         // the ground: on a roof, it is among what is round it, and hidden as that hides it (in a pool, its legs)
         layers(-at.y() - standingWas.floor(at.x(), at.z(), 0, -at.y()), cockpit != null);
         final long seeing = System.nanoTime();
-        world.seenFrom(new com.example.fxsuite.avatar.look.View(at, cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(),
-                reach, Math.max(0, over)), seconds);
+        final com.example.fxsuite.avatar.look.View seen = new com.example.fxsuite.avatar.look.View(at,
+                cockpit != null ? cockpit.yaw() : chase.yaw(), sideways(), reach, Math.max(0, over));
+        world.seenFrom(seen, seconds);
+        scenery.seenFrom(seen);
         drawingNanos = System.nanoTime() - seeing;
         seenAt = at;
         eyeAt.setY(at.y());

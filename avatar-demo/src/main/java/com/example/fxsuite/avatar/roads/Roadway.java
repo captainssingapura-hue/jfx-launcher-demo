@@ -59,6 +59,13 @@ public final class Roadway {
     public record Clearance(double from, double to, double over) {
     }
 
+    /**
+     * Of kind {@code section} from {@code from} along it on, eased into from the kind before over {@code transition},
+     * half before {@code from} and half after.
+     */
+    public record Part(double from, Section section, double transition) {
+    }
+
     /** Its surface held exactly {@code height} high {@code along} it: a bridge's end, a gate. */
     public record Pin(double along, double height) {
     }
@@ -115,7 +122,11 @@ public final class Roadway {
             off = Math.max(off, Math.abs(levels[i] - ground[i]));
         }
         final Earthworks e = section.earthworks();
-        final double reach = Math.max(section.edge(-1), section.edge(1)) + e.ditchWide()
+        double widest = 0;
+        for (final Section kind : across) {
+            widest = Math.max(widest, Math.max(kind.edge(-1), kind.edge(1)));
+        }
+        final double reach = widest + e.ditchWide()
                 + (off + 1_500) * Math.max(e.fill(), e.cut()) + 500;
         this.line = new Polyline(points, reach);
     }
@@ -143,6 +154,16 @@ public final class Roadway {
     public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
                                  final List<Given> given, final List<Clearance> clearances, final double tilt,
                                  final List<Pin> pins) {
+        return design(name, line, section, profile, given, clearances, tilt, pins, List.of());
+    }
+
+    /**
+     * The same, of kind {@code section} but where {@code parts} say otherwise: each of its kinds over its stretch, eased
+     * from the one before over that part's transition, about where the one ends and the other begins ({@link Section#blend}).
+     */
+    public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
+                                 final List<Given> given, final List<Clearance> clearances, final double tilt,
+                                 final List<Pin> pins, final List<Part> parts) {
         final boolean loop = line.size() > 3 && distance(line.getFirst(), line.getLast()) < 1;
         final List<Vec2> points = loop ? resampledLoop(line, STEP) : resampled(line, STEP);
         final int n = points.size();
@@ -198,7 +219,7 @@ public final class Roadway {
             }
         }
         return new Roadway(name, section, profile, points, along, levels, ground, carriers, problems, loop,
-                tilted(points, along, section, tilt, loop));
+                tilted(points, along, kinds(along, section, parts), tilt, loop));
     }
 
     /** Its heights, as near the ground as they may be where it counts, held over its clearances, within its grade. */
@@ -561,7 +582,11 @@ public final class Roadway {
             widest = Math.max(widest, Math.max(s.pavedEdge(-1), s.pavedEdge(1)));
         }
         final double wide = widest;
-        final double deepest = section.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
+        double deep = 0;
+        for (final Section s : across) {
+            deep = Math.max(deep, s.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0));
+        }
+        final double deepest = deep;
         for (int i = 0; i < points.size(); i++) {
             final Vec2 p = points.get(i);
             minX = Math.min(minX, p.x() - wide);
@@ -621,8 +646,8 @@ public final class Roadway {
             return false;
         }
         final Carrier c = carriers[near.segment()];
-        return (c == Carrier.GROUND || c == Carrier.ON) && near.across() >= -section.edge(-1)
-                && near.across() <= section.edge(1);
+        final Section s = across[near.segment()];
+        return (c == Carrier.GROUND || c == Carrier.ON) && near.across() >= -s.edge(-1) && near.across() <= s.edge(1);
     }
 
     /**
@@ -835,6 +860,30 @@ public final class Roadway {
         return out;
     }
 
+    /**
+     * Its kind across at each of its points, as {@code parts} have it ({@code section} where none does): at each change,
+     * eased from the one to the other over the later's transition.
+     */
+    static Section[] kinds(final double[] along, final Section section, final List<Part> parts) {
+        final Section[] kinds = new Section[along.length];
+        for (int i = 0; i < along.length; i++) {
+            final double s = along[i];
+            Section kind = section;
+            for (int k = 0; k < parts.size(); k++) {
+                final Part part = parts.get(k);
+                final Section before = k == 0 ? section : parts.get(k - 1).section();
+                final double half = part.transition() / 2;
+                if (s >= part.from() + half) {
+                    kind = part.section();
+                } else if (s > part.from() - half && half > 0) {
+                    kind = Section.blend(before, part.section(), (s - part.from() + half) / part.transition());
+                }
+            }
+            kinds[i] = kind;
+        }
+        return kinds;
+    }
+
     /** The steepest its outer edge may climb against its line as a tilt is run in: 1 in 200. */
     static final double EDGE_CLIMB = 1.0 / 200;
     /** How sharply it must turn to be on a bend: at least as sharply as a circle a kilometre round. */
@@ -851,11 +900,11 @@ public final class Roadway {
      * from falling outward to rising; its inner half falling as it does until the outer rises as much, then both turning
      * on together to the tilt. Its line as high as it is: the carriageway turns about it.
      */
-    static Section[] tilted(final List<Vec2> points, final double[] along, final Section section, final double tilt,
+    static Section[] tilted(final List<Vec2> points, final double[] along, final Section[] kinds, final double tilt,
                             final boolean loop) {
         final int n = points.size();
-        final Section[] out = new Section[n];
-        Arrays.fill(out, section);
+        final Section[] out = kinds.clone();
+        final Section section = kinds[0];
         if (!(tilt > 0)) {
             return out;
         }
@@ -906,7 +955,7 @@ public final class Roadway {
             final double inner = Math.max(crown, -outer);
             // turning right, its inside is its right: its left the outer side
             final boolean right = turn[nearestBend[i]] > 0;
-            out[i] = right ? section.withFalls(outer, inner) : section.withFalls(inner, outer);
+            out[i] = right ? kinds[i].withFalls(outer, inner) : kinds[i].withFalls(inner, outer);
         }
         if (loop) {
             out[n - 1] = out[0];

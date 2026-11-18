@@ -101,6 +101,12 @@ final class RoadScenes {
                 (x, z, below) -> -0.35 * x + 400 * Math.sin(z / 12_000) - 1_400 * bump(z - 31_000, 2_200),
                 section -> divided("mountain", section, straight(), z -> 1_500 * bump(z - 25_000, 10_000)),
                 Double.NaN));
+        // a road a lane wider each way along its middle: its kind changing along it, a lane growing out of its edge
+        // and narrowing back into it, over as long as set
+        scenes.put("widening", new Scene("widening", "two-lane road", 12_000,
+                (x, z, below) -> 0.004 * x + 120 * Math.sin(z / 9_000),
+                RoadScenes::widening, Double.NaN,
+                List.of(new Knob(WIDER_LANES, 1, 3, 1, 1), new Knob(WIDER_TRANSITION, 10, 150, 5, 60))));
         return scenes;
     }
 
@@ -146,6 +152,22 @@ final class RoadScenes {
                 List.of(new Roadway.Given(0, Double.MAX_VALUE, Carrier.STRUCTURE)),
                 List.of(new Roadway.Clearance(0, Double.MAX_VALUE, up)),
                 Math.tan(Math.toRadians(set.getOrDefault(LOOP_TILT, 0.0)))));
+    }
+
+    /** The widening's knobs: how many lanes more each way along its middle; how long its kind takes to change, in metres. */
+    static final String WIDER_LANES = "Lanes more";
+    static final String WIDER_TRANSITION = "Transition (m)";
+
+    /**
+     * The widening: one road along a gentle bend, of the kind chosen; from a fifth of the way along to four fifths, so
+     * many lanes more each way as set, the change each way as long as set, centred where it is.
+     */
+    static List<Roadworks.Plan> widening(final Section section, final Map<String, Double> set) {
+        final Section wider = section.withLanes(section.lanes() + (int) Math.round(set.get(WIDER_LANES)));
+        final double transition = set.get(WIDER_TRANSITION) * 100;
+        return List.of(new Roadworks.Plan("widening road", line(z -> 3_000 * Math.sin(z / LENGTH * Math.PI)), section,
+                List.of(), List.of(), 0, List.of(), List.of(new Roadway.Part(LENGTH / 5, wider, transition),
+                        new Roadway.Part(LENGTH * 4 / 5, section, transition))));
     }
 
     /** One road, {@code name}, of whatever kind, along {@code line}. */

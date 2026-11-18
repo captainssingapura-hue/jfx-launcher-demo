@@ -193,6 +193,72 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
                 : new Section(name, left, strips, earthworks, grade, vertical);
     }
 
+    /** The narrowest a strip is drawn, eased in or out: so a road changing kind keeps its strips, however narrow. */
+    static final double NARROWEST = 0.5;
+
+    /**
+     * Between {@code a} and {@code b}, {@code t} of the way from the one to the other (0 to 1): each side's strips matched
+     * in their groups, those inside its lanes, its lanes, those outside them, each eased from the one's to the other's;
+     * a lane more grows from nothing, a lane fewer shrinks to nothing, each a shoulder until it is a lane again, so no
+     * lane is painted that is not yet one. Its limits and its earthworks the nearer's.
+     */
+    public static Section blend(final Section a, final Section b, final double t) {
+        if (t <= 0) {
+            return a;
+        }
+        if (t >= 1) {
+            return b;
+        }
+        final Section near = t < 0.5 ? a : b;
+        return new Section(near.name, blended(a.left, b.left, t), blended(a.right, b.right, t), near.earthworks,
+                near.grade, near.vertical);
+    }
+
+    private static List<Strip> blended(final List<Strip> a, final List<Strip> b, final double t) {
+        final List<List<Strip>> ga = groups(a);
+        final List<List<Strip>> gb = groups(b);
+        final List<Strip> out = new ArrayList<>();
+        for (int g = 0; g < 3; g++) {
+            final List<Strip> sa = ga.get(g);
+            final List<Strip> sb = gb.get(g);
+            for (int k = 0; k < Math.max(sa.size(), sb.size()); k++) {
+                final Strip x = k < sa.size() ? sa.get(k) : null;
+                final Strip y = k < sb.size() ? sb.get(k) : null;
+                out.add(eased(x, y, t));
+            }
+        }
+        return out;
+    }
+
+    /** A side's strips in three: those inside its lanes, its lanes, those outside them. */
+    private static List<List<Strip>> groups(final List<Strip> side) {
+        int first = -1;
+        int last = -1;
+        for (int k = 0; k < side.size(); k++) {
+            if (side.get(k).use() == Strip.Use.LANE) {
+                first = first < 0 ? k : first;
+                last = k;
+            }
+        }
+        if (first < 0) {
+            return List.of(side, List.of(), List.of());
+        }
+        return List.of(side.subList(0, first), side.subList(first, last + 1), side.subList(last + 1, side.size()));
+    }
+
+    /** A strip {@code t} of the way from {@code x} to {@code y}, either missing: growing from nothing, or shrinking to it. */
+    private static Strip eased(final Strip x, final Strip y, final double t) {
+        if (x == null || y == null) {
+            final Strip s = x == null ? y : x;
+            final double share = x == null ? t : 1 - t;
+            final Strip.Use use = s.use() == Strip.Use.LANE ? Strip.Use.SHOULDER : s.use();
+            return new Strip(use, Math.max(NARROWEST, s.width() * share), s.courses(), s.cover(), s.fall(), s.rise() * share);
+        }
+        final Strip like = t < 0.5 ? x : y;
+        return new Strip(like.use(), Math.max(NARROWEST, x.width() + (y.width() - x.width()) * t), like.courses(),
+                like.cover(), x.fall() + (y.fall() - x.fall()) * t, x.rise() + (y.rise() - x.rise()) * t);
+    }
+
     /** Like it, asking {@code earthworks} of the ground. */
     public Section withEarthworks(final Earthworks earthworks) {
         return new Section(name, left, right, earthworks, grade, vertical);

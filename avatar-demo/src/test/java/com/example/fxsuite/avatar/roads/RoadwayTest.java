@@ -291,4 +291,49 @@ class RoadwayTest {
         }
         assertEquals(a.stretches(), b.stretches());
     }
+    @Test
+    void aKindBlendedIsEachEndAtItsEndsALaneGrowingAsAShoulderBetween() {
+        final Section wider = ROAD.withLanes(2);
+        assertEquals(ROAD, Section.blend(ROAD, wider, 0));
+        assertEquals(wider, Section.blend(ROAD, wider, 1));
+        final Section half = Section.blend(ROAD, wider, 0.5);
+        // as many strips as the wider, the new lane half as wide, not yet a lane
+        assertEquals(wider.laid().size(), half.laid().size());
+        assertEquals(1, half.lanes(), "the lane coming is a shoulder till it is one");
+        final double grown = (wider.edge(1) - ROAD.edge(1)) / 2;
+        assertEquals(ROAD.edge(1) + grown, half.edge(1), 1);
+        assertEquals(ROAD.edge(-1) + grown, half.edge(-1), 1);
+        // narrowing back: as wide as on the way out
+        assertEquals(half.edge(1), Section.blend(wider, ROAD, 0.5).edge(1), 1);
+    }
+
+    @Test
+    void itsKindChangingAlongItEasedOverItsTransitionCentredWhereItIsSaid() {
+        final Section wider = ROAD.withLanes(2);
+        final List<Roadway.Part> parts = List.of(new Roadway.Part(15_000, wider, 6_000),
+                new Roadway.Part(35_000, ROAD, 6_000));
+        final Roadway road = Roadway.design("widening", straight(), ROAD, Profile.level(0), List.of(), List.of(), 0,
+                List.of(), parts);
+        double was = 0;
+        for (int i = 0; i < road.size(); i++) {
+            final double s = road.along(i);
+            final double edge = road.section(i).edge(1);
+            if (s <= 12_000 || s >= 38_000) {
+                assertEquals(ROAD.edge(1), edge, 1e-6, "its own kind at " + s);
+            } else if (s >= 18_000 && s <= 32_000) {
+                assertEquals(wider.edge(1), edge, 1e-6, "the wider at " + s);
+            }
+            if (s <= 25_000) {
+                assertTrue(edge >= was - 1e-6, "widening steadily at " + s);
+            }
+            was = edge;
+        }
+        // half way through the first change, half as much wider
+        final int mid = (int) Math.round(15_000 / (LENGTH / (road.size() - 1)));
+        assertEquals((ROAD.edge(1) + wider.edge(1)) / 2, road.section(mid).edge(1), 30);
+        // paved where it is wider, not where it is not
+        final double out = (ROAD.pavedEdge(1) + wider.pavedEdge(1)) / 2;
+        assertFalse(Double.isNaN(road.surface(out, 25_000)), "the new lane paved");
+        assertTrue(Double.isNaN(road.surface(out, 5_000)), "nothing there before it widens");
+    }
 }

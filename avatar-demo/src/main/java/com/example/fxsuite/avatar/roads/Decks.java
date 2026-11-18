@@ -69,12 +69,8 @@ public final class Decks {
     private static Course.Piece piece(final Roadway road, final Roadway.Structure s, final Ground ground, final int key,
                                       final List<Solid> solids, final boolean ownPavement) {
         final List<Lean> parts = new ArrayList<>();
-        final Section section = road.section();
         // what is drawn of each part: as it is, but the deck, drawn down from the formation, under the pavement
         final java.util.Map<Lean, Double> decks = new java.util.HashMap<>();
-        final double paved = section.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
-        final double west = -section.pavedEdge(-1);
-        final double east = section.pavedEdge(1);
         final double t = Roadway.PARAPET_THICK;
         for (int j = s.stretch().from(); j < s.stretch().to(); j++) {
             final Vec2 a = road.point(j);
@@ -89,6 +85,9 @@ public final class Decks {
             // tilted into a bend, or on its way: its deck under its lowest edge, each parapet over its own edge
             final Section here = road.section(j);
             final Section there = road.section(j + 1);
+            final double paved = here.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
+            final double west = -here.pavedEdge(-1);
+            final double east = here.pavedEdge(1);
             final double low = Math.min(lowest(here), lowest(there));
             final double bottom = top + low - road.deck(j);
             final double deckTop = ownPavement ? top + low - paved : top;
@@ -104,7 +103,10 @@ public final class Decks {
             final Vec2 p = road.point(i);
             final Vec2 r = road.right(i);
             final double yaw = Math.toDegrees(Math.atan2(-r.z(), r.x()));
-            final double under = road.level(i) + lowest(road.section(i)) - road.deck(i);
+            final Section section = road.section(i);
+            final double west = -section.pavedEdge(-1);
+            final double east = section.pavedEdge(1);
+            final double under = road.level(i) + lowest(section) - road.deck(Math.min(i, road.size() - 2));
             final double middle = (west + east) / 2;
             final double half = (east - west) / 2 * 0.9;
             parts.add(new Lean(p.x(), p.z(), yaw, -CROSSHEAD_ALONG / 2, CROSSHEAD_ALONG / 2, middle - half, middle + half,

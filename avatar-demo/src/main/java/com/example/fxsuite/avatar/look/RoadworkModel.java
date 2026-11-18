@@ -192,13 +192,25 @@ public final class RoadworkModel {
 
     /** The same, but where {@code covered} says another road's pavement already lies: drawn once, the other's. */
     public static Group pavement(final Roadway road, final double upTo, final Covered covered) {
+        return pavement(road, 0, road.size() - 1, upTo, covered);
+    }
+
+    /** Its pavement from its {@code from}th point to its {@code to}th, as {@link #pavement(Roadway, double, Covered)} draws it all: a stretch of it. */
+    public static Group pavement(final Roadway road, final int from, final int to, final Covered covered) {
+        return pavement(road, from, to, Double.POSITIVE_INFINITY, covered);
+    }
+
+    private static Group pavement(final Roadway road, final int first, final int past, final double upTo,
+                                  final Covered covered) {
         final Map<Course.Stuff, Faces> meshes = new EnumMap<>(Course.Stuff.class);
         final int last = road.size() - 2;
-        for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
+        for (int j = first; j < past && j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
             // as it is across at either end of the segment: tilted, it may be, the one more than the other
             final List<Section.Laid> here = road.section(j).laid();
-            final List<Section.Laid> there = road.section(j + 1).laid();
+            // a strip more or fewer at its far end (its kind changing there): drawn as at its near end
+            final List<Section.Laid> far = road.section(j + 1).laid();
+            final List<Section.Laid> there = far.size() == here.size() ? far : here;
             final Vec2 ahead = heading(road, j);
             for (int k = 0; k < here.size(); k++) {
                 final Section.Laid l0 = here.get(k);
@@ -283,8 +295,18 @@ public final class RoadworkModel {
 
     /** The same, but none where {@code covered} says another road's pavement already lies, with its own. */
     public static Group markings(final Roadway road, final double upTo, final Covered covered) {
+        return markings(road, 0, road.size() - 1, upTo, covered);
+    }
+
+    /** Its markings from its {@code from}th point to its {@code to}th: a stretch of them. */
+    public static Group markings(final Roadway road, final int from, final int to, final Covered covered) {
+        return markings(road, from, to, Double.POSITIVE_INFINITY, covered);
+    }
+
+    private static Group markings(final Roadway road, final int first, final int past, final double upTo,
+                                  final Covered covered) {
         final Faces paint = new Faces(covered);
-        for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
+        for (int j = first; j < past && j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
             final double s0 = road.along(j);
             final double length = road.along(j + 1) - s0;
@@ -478,13 +500,13 @@ public final class RoadworkModel {
             final int at = 9 * faceCount;
             faces[at] = a;
             faces[at + 1] = normal;
-            faces[at + 2] = 0;
+            faces[at + 2] = a;
             faces[at + 3] = b;
             faces[at + 4] = normal;
-            faces[at + 5] = 0;
+            faces[at + 5] = b;
             faces[at + 6] = c;
             faces[at + 7] = normal;
-            faces[at + 8] = 0;
+            faces[at + 8] = c;
             faceCount++;
         }
 
@@ -492,10 +514,13 @@ public final class RoadworkModel {
             final TriangleMesh mesh = new TriangleMesh(javafx.scene.shape.VertexFormat.POINT_NORMAL_TEXCOORD);
             mesh.getPoints().setAll(points, 0, 3 * pointCount);
             mesh.getNormals().setAll(normals, 0, 3 * normalCount);
-            mesh.getTexCoords().setAll(0, 0);
+            // a corner of its own for each point, as far into the haze as it is: none, till it is hazed
+            final float[] coords = new float[2 * pointCount];
+            java.util.Arrays.fill(coords, (float) Haze.CLEAR);
+            mesh.getTexCoords().setAll(coords);
             mesh.getFaces().setAll(faces, 0, 9 * faceCount);
             final MeshView view = new MeshView(mesh);
-            view.setMaterial(material);
+            view.setMaterial(Haze.of(material));
             view.setCullFace(CullFace.BACK);
             return view;
         }
@@ -631,10 +656,10 @@ public final class RoadworkModel {
         final MeshBuilder built = new MeshBuilder();
         for (final Roadworks.Wall w : works.wanted()) {
             final Roadway road = works.roads().get(w.road());
-            final double edge = w.side() * road.section().edge(w.side());
             final int from = road.nearestPoint(w.from());
             final int to = Math.min(road.nearestPoint(w.to()), road.size() - 1);
             for (int i = from; i < Math.max(to, from + 1) && i + 1 < road.size(); i++) {
+                final double edge = w.side() * road.section(i).edge(w.side());
                 final double[] a = works.span(w, i);
                 final double[] b = works.span(w, i + 1);
                 final double low = Math.min(a[0], b[0]) - FOOTING - road.level(i);

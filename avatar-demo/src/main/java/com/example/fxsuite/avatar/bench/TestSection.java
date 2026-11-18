@@ -1,7 +1,8 @@
 package com.example.fxsuite.avatar.bench;
 
 import com.example.fxsuite.avatar.look.DrawnDemo;
-import com.example.fxsuite.avatar.look.RoadworkModel;
+import com.example.fxsuite.avatar.look.RoadScenery;
+import com.example.fxsuite.avatar.look.Scenery;
 import com.example.fxsuite.avatar.roads.Decks;
 import com.example.fxsuite.avatar.roads.Roadway;
 import com.example.fxsuite.avatar.roads.Roadworks;
@@ -14,9 +15,6 @@ import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Terrain;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
-
-import javafx.scene.Group;
-import javafx.scene.Node;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +32,7 @@ import java.util.List;
  *   <li><b>its vehicles</b>: one of each land chassis, parked one after another along the first road's leftmost
  *       lane from 20 m on, facing along it; the avatar starting just behind them;</li>
  *   <li><b>drawn</b>: the roads' pavements, markings and walls wanted, by the roads' own drawing
- *       ({@link RoadworkModel}); their structures as buildings are, by their keys; the land and the water as the game
+ *       ({@link RoadScenery}); their structures as buildings are, by their keys; the land and the water as the game
  *       draws any. A tunnel's lining not yet.</li>
  * </ul>
  */
@@ -122,18 +120,8 @@ final class TestSection implements DrawnDemo {
     }
 
     @Override
-    public Node scenery() {
-        final Group drawn = new Group();
-        for (int k = 0; k < works.roads().size(); k++) {
-            // where a road before it has its pavement, that drawn, not this
-            final int before = k;
-            final RoadworkModel.Covered covered = (x, z) -> works.pavedBefore(before, x, z);
-            final Roadway road = works.roads().get(k);
-            drawn.getChildren().addAll(RoadworkModel.pavement(road, Double.POSITIVE_INFINITY, covered),
-                    RoadworkModel.markings(road, Double.POSITIVE_INFINITY, covered));
-        }
-        drawn.getChildren().add(RoadworkModel.walls(works));
-        return drawn;
+    public Scenery scenery() {
+        return RoadScenery.of(works);
     }
 
     /** The road the vehicles are parked on, and the avatar starts by. */
