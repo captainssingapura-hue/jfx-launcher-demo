@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.bench;
 
+import com.example.fxsuite.avatar.bench.kit.Played;
 import com.example.fxsuite.avatar.roads.Carrier;
 import com.example.fxsuite.avatar.roads.Roadway;
 import com.example.fxsuite.avatar.roads.Roadworks;
@@ -134,7 +135,7 @@ class LoopSceneTest {
     void theVehiclesParkedOnItsDeckItsPavementStoodOnAllRound() {
         final Roadworks works = laid(1_000, 80, 6);
         final TestSection section = new TestSection(LOOP, ROAD, works);
-        final Course course = new Course(section);
+        final Course course = new Course(new Played(section, Played.Guests.of(TestSection.guests())));
         final Obstacles world = course.obstacles();
         for (final Course.Piece car : course.pieces().stream().filter(p -> p.kind() == Course.Kind.CAR).toList()) {
             assertTrue(car.place().height() > 600, "up on the deck");

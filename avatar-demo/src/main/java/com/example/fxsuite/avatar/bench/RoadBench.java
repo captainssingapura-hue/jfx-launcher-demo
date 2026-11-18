@@ -1,8 +1,8 @@
 package com.example.fxsuite.avatar.bench;
 
-import com.example.fxsuite.avatar.Game;
 import com.example.fxsuite.avatar.bench.kit.Bus;
 import com.example.fxsuite.avatar.bench.kit.Orbit;
+import com.example.fxsuite.avatar.bench.kit.Player;
 import com.example.fxsuite.avatar.bench.kit.Shell;
 import com.example.fxsuite.avatar.bench.kit.Workshop;
 import com.example.fxsuite.avatar.look.RoadworkModel;
@@ -14,7 +14,6 @@ import com.example.fxsuite.avatar.roads.Sections;
 import com.example.fxsuite.avatar.sim.Vec2;
 
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -103,6 +102,8 @@ public final class RoadBench extends Application {
     private final Group groundGroup = new Group();
     private final Group roadGroup = new Group();
     private final Group waterGroup = new Group();
+    /** How its scene is played: who comes, chosen on its Play tab; one of each land vehicle to start with. */
+    private final Player player = new Player(this::played, TestSection.guests());
 
     /**
      * Where the heavy work is done, away from the screen ({@link #make}): the roads designed, as the scene, its knobs
@@ -211,7 +212,8 @@ public final class RoadBench extends Application {
         VBox.setVgrow(text, Priority.ALWAYS);
         final javafx.scene.control.ScrollPane controls = new javafx.scene.control.ScrollPane(new VBox(setting, kind));
         controls.setFitToWidth(true);
-        final TabPane tabs = new TabPane(new Tab("Kind", controls), new Tab("Text", written));
+        final TabPane tabs = new TabPane(new Tab("Kind", controls), new Tab("Text", written),
+                new Tab("Play", player.panel()));
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         shell.side(new Label("Kinds across"), tabs, 420);
         shell.bar(List.of(new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"), roadBox,
@@ -235,7 +237,7 @@ public final class RoadBench extends Application {
 
         looked = Integer.getInteger("roads.road", 0);
         startAt = at == null ? null : Double.parseDouble(at);
-        driveWhenShown = Boolean.getBoolean("roads.drive");
+        driveWhenShown = Boolean.getBoolean("roads.drive") || Boolean.getBoolean("bench.play");
         design(true);
         view.from("roads", -35, 22, 90);
         shell.show(stage, 1560, 940);
@@ -247,18 +249,21 @@ public final class RoadBench extends Application {
     }
 
     /**
-     * The scene as it is now, its roads of the kind chosen, played in a game window of its own ({@link TestSection}): one
-     * of each vehicle parked at the start. Closing the window ends that game; Tab in it closes it.
+     * The scene as it is now, its roads of the kind chosen, played in a game window of its own ({@link TestSection}), with
+     * whoever is chosen on the Play tab: at first, one of each land vehicle parked at the start. Closing the window ends
+     * that game; Tab in it closes it.
      */
     private void drive() {
+        player.play();
+    }
+
+    /** The scene as it is now, as a world to play; none, until its roads are shown. */
+    private TestSection played() {
         if (works == null) {
-            return;
+            return null;
         }
         final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
-        final TestSection demo = new TestSection(scene, section, works, ownPavement.isSelected());
-        final Stage window = new Stage();
-        final Game game = new Game(window, demo, () -> Platform.runLater(window::close), other -> { });
-        window.setOnHidden(e -> game.stop());
+        return new TestSection(scene, section, works, ownPavement.isSelected());
     }
 
     /** The road looked at. */

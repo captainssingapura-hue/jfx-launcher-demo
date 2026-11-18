@@ -1,6 +1,8 @@
 package com.example.fxsuite.avatar.bench;
 
-import com.example.fxsuite.avatar.look.DrawnDemo;
+import com.example.fxsuite.avatar.bench.kit.Guest;
+import com.example.fxsuite.avatar.bench.kit.PlayWorld;
+import com.example.fxsuite.avatar.bench.kit.Spot;
 import com.example.fxsuite.avatar.look.RoadScenery;
 import com.example.fxsuite.avatar.look.Scenery;
 import com.example.fxsuite.avatar.roads.Decks;
@@ -14,40 +16,44 @@ import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Terrain;
 import com.example.fxsuite.avatar.sim.Vec2;
-import com.example.fxsuite.avatar.sim.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A scene of the roads bench played: its roads as laid ({@link Roadworks}), of the kind across the bench has now, as a
- * world to drive in. A demo made on the fly ({@link DrawnDemo}): never offered, never looked up by name, its runs not
- * recorded.
+ * A scene of the roads bench as a world to play ({@link PlayWorld}): its roads as laid ({@link Roadworks}), of the kind
+ * across the bench has now, to drive in, with whoever the bench brings.
  *
  * <ul>
  *   <li><b>its land</b>: the ground as the roads leave it, and under each pavement where the ground carries it, the
  *       pavement's top a little lower than drawn ({@link #SINK}): what wheels and feet stand on;</li>
  *   <li><b>its structures</b> in the way ({@link Decks}): decks to drive over, parapets, piers;</li>
  *   <li><b>its water</b>, as the scene has it;</li>
- *   <li><b>its vehicles</b>: one of each land chassis, parked one after another along the first road's leftmost
- *       lane from 20 m on, facing along it; the avatar starting just behind them;</li>
+ *   <li><b>its spots</b>: vehicles parked one after another along the first road's leftmost lane from 20 m on, nose to
+ *       tail with room between, facing along it; the avatar starting just behind them; people standing along the
+ *       road's far edge from beside the avatar, facing across at the vehicles;</li>
  *   <li><b>drawn</b>: the roads' pavements, markings and walls wanted, by the roads' own drawing
  *       ({@link RoadScenery}); their structures as buildings are, by their keys; the land and the water as the game
  *       draws any. A tunnel's lining not yet.</li>
  * </ul>
  */
-final class TestSection implements DrawnDemo {
+final class TestSection implements PlayWorld {
 
     /** How far under the pavement as drawn its top is stood on: out of sight under it. */
     static final double SINK = 3;
     /** The keys its structures are drawn by, as buildings are. */
     static final int KEYS = 900_000;
-    /** The land chassis parked at the start, in the order parked. */
+    /** The land chassis it brings unless asked otherwise, in the order parked. */
     static final List<Course.Chassis> VEHICLES = List.of(Course.CAR_CHASSIS, Course.PICKUP_CHASSIS, Course.TRUCK_CHASSIS,
             Course.SCOOTER, Course.SPORT_BIKE, Course.CRUISER, Course.BOXER, Course.BOXER_SIDECAR);
-    /** Where along the first road the first is parked, and how far apart they are, nose to nose. */
+    /** Where along the first road the first is parked, how far apart their middles are at least, and the room between. */
     static final double FIRST = 2_000;
     static final double APART = 900;
+    static final double ROOM = 200;
+    /** How far behind the first vehicle's spot the avatar starts; how far apart people stand, and in from the far edge. */
+    static final double BEHIND = 600;
+    static final double PEOPLE_APART = 150;
+    static final double EDGE_IN = 100;
 
     private final RoadScenes.Scene scene;
     private final Section section;
@@ -70,9 +76,9 @@ final class TestSection implements DrawnDemo {
         this.footing = works.land(ownPavement ? Double.NaN : SINK);
     }
 
-    @Override
-    public String name() {
-        return "TEST_SECTION";
+    /** The vehicles it brings unless asked otherwise: one of each land chassis. */
+    static List<Guest> guests() {
+        return VEHICLES.stream().map(c -> (Guest) new Guest.Vehicle(c)).toList();
     }
 
     @Override
@@ -83,17 +89,7 @@ final class TestSection implements DrawnDemo {
     @Override
     public String description() {
         return "The roads bench's " + scene.name() + " scene, its roads of kind \"" + section.name()
-                + "\", to drive on: one of each vehicle parked at the start.";
-    }
-
-    @Override
-    public double startYaw() {
-        return yaw(first(), 0);
-    }
-
-    @Override
-    public boolean offered() {
-        return false;
+                + "\", to drive on.";
     }
 
     @Override
@@ -107,9 +103,7 @@ final class TestSection implements DrawnDemo {
         final Terrain flat = new Terrain("test section", box[0], box[2], box[1], box[3], every, 0, 0, Terrain.Noise.NONE,
                 List.of(), List.of());
         final Land land = new Land(flat.survey(), List.of(footing));
-        final List<Course.Piece> pieces = new ArrayList<>(parked());
-        pieces.addAll(Decks.pieces(works, KEYS, ownPavement));
-        world.land(land).pieces(pieces).ruled(false).start(start());
+        world.land(land).pieces(Decks.pieces(works, KEYS, ownPavement)).ruled(false);
         if (ownPavement) {
             world.ways(works.roads().stream().flatMap(r -> r.pavements().stream())
                     .map(p -> (com.example.fxsuite.avatar.sim.Volume) p).toList());
@@ -125,31 +119,54 @@ final class TestSection implements DrawnDemo {
         return RoadScenery.of(works);
     }
 
+    /** Just behind the first vehicle's spot, in its lane, on the road, facing along it. */
+    @Override
+    public Spot start() {
+        return lane("start", FIRST - BEHIND);
+    }
+
+    /** Along the first road's leftmost lane from {@link #FIRST}, each {@link #APART} after the last or more, if long. */
+    @Override
+    public List<Spot> parked(final List<Double> lengths) {
+        final List<Spot> spots = new ArrayList<>();
+        double along = FIRST;
+        for (int k = 0; k < lengths.size(); k++) {
+            if (k > 0) {
+                along += Math.max(APART, (lengths.get(k - 1) + lengths.get(k)) / 2 + ROOM);
+            }
+            spots.add(lane("parked " + (k + 1), along));
+        }
+        return spots;
+    }
+
+    /**
+     * Along the first road's far edge, a metre in from it, one after another from beside where the avatar starts,
+     * facing across at the vehicles: out of the way of the avatar, and of the camera behind it.
+     */
+    @Override
+    public List<Spot> standing(final int count) {
+        final Roadway road = first();
+        final double across = road.section().pavedEdge(1) - EDGE_IN;
+        final List<Spot> spots = new ArrayList<>();
+        for (int k = 0; k < count; k++) {
+            final int i = road.nearestPoint(FIRST - BEHIND + k * PEOPLE_APART);
+            final Vec2 at = road.at(i, across);
+            spots.add(new Spot("standing " + (k + 1), new Place(at.x(), at.z(), stood(at), yaw(road, i) - 90)));
+        }
+        return spots;
+    }
+
     /** The road the vehicles are parked on, and the avatar starts by. */
     private Roadway first() {
         return works.roads().getFirst();
     }
 
-    /** One of each land chassis, along the first road's leftmost lane, nose to nose, facing along it, on its top. */
-    private List<Course.Piece> parked() {
+    /** {@code along} the first road, in the middle of its leftmost lane, on what is stood on there, facing along it. */
+    private Spot lane(final String name, final double along) {
         final Roadway road = first();
-        final double across = lane(road.section());
-        final List<Course.Piece> parked = new ArrayList<>();
-        for (int k = 0; k < VEHICLES.size(); k++) {
-            final Course.Chassis chassis = VEHICLES.get(k);
-            final int i = road.nearestPoint(FIRST + k * APART);
-            final Vec2 at = road.at(i, across);
-            parked.add(Course.Piece.vehicle(chassis, null, new Place(at.x(), at.z(), stood(at) + chassis.ride(),
-                    yaw(road, i)), k % 4));
-        }
-        return parked;
-    }
-
-    /** Where the avatar starts: just behind the first vehicle, in its lane, standing on the road. */
-    private Vec3 start() {
-        final Roadway road = first();
-        final Vec2 at = road.at(road.nearestPoint(FIRST - 600), lane(road.section()));
-        return new Vec3(at.x(), -stood(at), at.z());
+        final int i = road.nearestPoint(along);
+        final Vec2 at = road.at(i, lane(road.section()));
+        return new Spot(name, new Place(at.x(), at.z(), stood(at), yaw(road, i)));
     }
 
     /** How high what is stood on at {@code at} is: the land, or a pavement of its own over it. */

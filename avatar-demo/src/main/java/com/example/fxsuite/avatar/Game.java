@@ -492,7 +492,7 @@ public final class Game {
         impacts = new Impacts(world);
         stall = new Stall(course, wreckage);
         avatar = startedAt(new Avatar(Body.standing(course.start(), demo.startYaw()),
-                replay != null ? replay.pack() : Boolean.getBoolean("avatar.pack")));
+                replay != null ? replay.pack() : demo.packed() || Boolean.getBoolean("avatar.pack")));
         before = avatar;
         seen = avatar;
         // the camera: behind, at its usual distance, or -Davatar.zoom times it (0.5 twice as near)
@@ -735,6 +735,11 @@ public final class Game {
             }
         };
         timer.start();
+    }
+
+    /** Where the avatar is now, and which way it faces: for whatever played it to play it again from there. */
+    public com.example.fxsuite.avatar.sim.Body avatar() {
+        return avatar.body();
     }
 
     /** Stops it: the frames, the sound, the mouse; and keeps the inputs, if they are being kept. */

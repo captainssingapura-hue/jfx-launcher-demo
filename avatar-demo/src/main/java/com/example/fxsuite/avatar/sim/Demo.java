@@ -19,6 +19,11 @@ public interface Demo {
     /** Which way the avatar faces at the start, degrees. */
     double startYaw();
 
+    /** Whether the avatar starts wearing the jet-pack: not, unless it says so (or {@code -Davatar.pack} does). */
+    default boolean packed() {
+        return false;
+    }
+
     /** Whether it is offered to play in the menu. */
     default boolean offered() {
         return true;
