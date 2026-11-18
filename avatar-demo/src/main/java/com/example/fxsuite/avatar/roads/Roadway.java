@@ -68,7 +68,6 @@ public final class Roadway {
 
     private final String name;
     private final Section section;
-    private final Section bare;
     private final Profile profile;
     private final List<Vec2> points;
     private final double[] along;
@@ -84,7 +83,6 @@ public final class Roadway {
                     final List<String> problems) {
         this.name = name;
         this.section = section;
-        this.bare = section.bare();
         this.profile = profile;
         this.points = List.copyOf(points);
         this.along = along;
@@ -311,9 +309,14 @@ public final class Roadway {
         return section;
     }
 
-    /** Its kind across as it is on its {@code j}th segment: bare on a structure or in a tunnel. */
+    /** Its kind across on its {@code j}th segment. Its ground strips there only where the ground carries it ({@link #grounded}). */
     public Section section(final int j) {
-        return carriers[j] == Carrier.STRUCTURE || carriers[j] == Carrier.TUNNEL ? bare : section;
+        return section;
+    }
+
+    /** Whether the ground carries its {@code j}th segment, and so its ground strips are there: graded, covered. */
+    public boolean grounded(final int j) {
+        return carriers[j] == Carrier.GROUND;
     }
 
     /** What it was designed against. */
@@ -453,35 +456,64 @@ public final class Roadway {
         return new Near(j, near.t(), along[j] + near.t() * len, side < 0 ? -near.distance() : near.distance());
     }
 
-    /** How high its surface is at (x, z); not a number off it. */
+    /** How high its pavement's surface is at (x, z); not a number off it, on its ground strips or beyond its edges. */
     public double surface(final double x, final double z) {
         final Near near = nearest(x, z);
         if (near == null) {
             return Double.NaN;
         }
         final Section s = section(near.segment());
-        if (near.across() < -s.edge(-1) || near.across() > s.edge(1)) {
+        if (near.across() < -s.edge(-1) || near.across() > s.edge(1) || !s.at(near.across()).strip().paved()) {
             return Double.NaN;
         }
         return top(near.segment(), near.t(), near.across());
     }
 
+    /** How high its formation is at (x, z), under its pavement; not a number off it. */
+    public double formation(final double x, final double z) {
+        final Near near = nearest(x, z);
+        if (near == null || Double.isNaN(surface(x, z))) {
+            return Double.NaN;
+        }
+        return formation(near.segment(), near.t(), near.across());
+    }
+
     /**
-     * The ground at (x, z), {@code under} high as it was, as this road leaves it. Where the ground carries it, its
-     * formation under it, and from its edges its side slopes down or up to the ground, a ditch at the foot of a
+     * Whether (x, z) is its own: across its strips, paved and ground, where the ground or a structure already there
+     * carries it. No other road's prepared ground may change it.
+     */
+    public boolean occupies(final double x, final double z) {
+        final Near near = nearest(x, z);
+        if (near == null) {
+            return false;
+        }
+        final Carrier c = carriers[near.segment()];
+        return (c == Carrier.GROUND || c == Carrier.ON) && near.across() >= -section.edge(-1)
+                && near.across() <= section.edge(1);
+    }
+
+    /**
+     * The ground at (x, z), {@code under} high as it was, as this road leaves it: its prepared ground. Where the
+     * ground carries it, one profile across: its formation under its paved strips, its ground strips at their
+     * surface, and from its edges its side slopes down or up to the ground as it was, a ditch at the foot of a
      * cutting. Where a structure carries it, as it was, but for the banks it comes off: each ending under the
      * structure in a slope as steep as its side slopes. In a tunnel, or on a structure already there, as it was.
      */
     public double shape(final double x, final double z, final double under) {
+        return prepared(x, z, under).height();
+    }
+
+    /** The ground at (x, z), {@code under} high as it was, as this road prepares it, and what covers it. */
+    public Prepared prepared(final double x, final double z, final double under) {
         final Near near = nearest(x, z);
         if (near == null) {
-            return under;
+            return new Prepared(under, null);
         }
         final int j = near.segment();
         return switch (carriers[j]) {
             case GROUND -> earthwork(level(j, near.t()), section, near.across(), under);
             case STRUCTURE -> endSlopes(j, near, under);
-            case TUNNEL, ON -> under;
+            case TUNNEL, ON -> new Prepared(under, null);
         };
     }
 
@@ -490,8 +522,13 @@ public final class Roadway {
         return (x, z, below) -> shape(x, z, profile.height(x, z, below));
     }
 
+    /** The ground as this road prepares it, on what was there before it: how high, and what covers it. */
+    public Ground ground() {
+        return (x, z) -> prepared(x, z, profile.height(x, z));
+    }
+
     /** The banks a structure comes off, each running on under it, its end sloping down as its sides do. */
-    private double endSlopes(final int j, final Near near, final double under) {
+    private Prepared endSlopes(final int j, final Near near, final double under) {
         double h = under;
         for (final Stretch s : stretches) {
             if (j < s.from() || j >= s.to()) {
@@ -501,22 +538,24 @@ public final class Roadway {
                 final boolean grounded = end == s.from() ? end > 0 && carriers[end - 1] == Carrier.GROUND
                         : end < carriers.length && carriers[end] == Carrier.GROUND;
                 if (grounded) {
-                    final double bank = earthwork(levels[end], section, near.across(), under);
+                    final double bank = earthwork(levels[end], section, near.across(), under).height();
                     if (bank > under) {
                         h = Math.max(h, bank - Math.abs(near.along() - along[end]) / section.earthworks().fill());
                     }
                 }
             }
         }
-        return h;
+        return new Prepared(h, h > under ? Cover.GRASS : null);
     }
 
-    /** The ground {@code across} from a line {@code level} high, {@code under} high as it was, shaped to {@code s}. */
-    private static double earthwork(final double level, final Section s, final double across, final double under) {
+    /** The ground {@code across} from a line {@code level} high, {@code under} high as it was, prepared for {@code s}. */
+    private static Prepared earthwork(final double level, final Section s, final double across, final double under) {
         final int side = across < 0 ? -1 : 1;
         final double edge = s.edge(side);
         if (Math.abs(across) <= edge) {
-            return level + s.formation(across);
+            // under a paved strip its formation, bare until paved; a ground strip at its surface, covered
+            final Cover cover = s.cover(across);
+            return new Prepared(level + s.formation(across), cover == null ? Cover.EARTH : cover);
         }
         final double edgeTop = level + s.top(side * edge);
         final double d = Math.abs(across) - edge;
@@ -524,11 +563,13 @@ public final class Roadway {
         if (under > edgeTop) {
             final double w = e.ditched() ? e.ditchWide() : 0;
             if (d < w) {
-                return Math.min(under, edgeTop - e.ditchDeep() * (1 - Math.abs(2 * d / w - 1)));
+                return new Prepared(Math.min(under, edgeTop - e.ditchDeep() * (1 - Math.abs(2 * d / w - 1))), Cover.EARTH);
             }
-            return Math.min(under, edgeTop + (d - w) / e.cut());
+            final double h = edgeTop + (d - w) / e.cut();
+            return h < under ? new Prepared(h, Cover.GRASS) : new Prepared(under, null);
         }
-        return Math.max(under, edgeTop - d / e.fill());
+        final double h = edgeTop - d / e.fill();
+        return h > under ? new Prepared(h, Cover.GRASS) : new Prepared(under, null);
     }
 
     /**

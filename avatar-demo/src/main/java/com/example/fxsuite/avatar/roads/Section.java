@@ -131,25 +131,33 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
         return top(across) - depth(across);
     }
 
-    /**
-     * As it is on a structure or in a tunnel: without the verges at its outer edges, grass having nothing to grow
-     * in there. As it is, if it is nothing but verges.
-     */
-    public Section bare() {
-        final List<Strip> l = trimmed(left);
-        final List<Strip> r = trimmed(right);
-        if (l.isEmpty() && r.isEmpty() || l.size() == left.size() && r.size() == right.size()) {
-            return this;
-        }
-        return new Section(name, l, r, earthworks, grade, vertical);
+    /** The ground's cover {@code across}, where a ground strip is; null over a paved one, or a side with none. */
+    public Cover cover(final double across) {
+        final Laid l = at(across);
+        return l == null ? null : l.strip().cover();
     }
 
-    private static List<Strip> trimmed(final List<Strip> side) {
-        int keep = side.size();
-        while (keep > 0 && side.get(keep - 1).use() == Strip.Use.VERGE) {
-            keep--;
+    /** Its paved strips as they lie, from its left edge to its right: what a structure carries. */
+    public List<Laid> paved() {
+        return laid().stream().filter(l -> l.strip().paved()).toList();
+    }
+
+    /** How far the outer edge of its outermost paved strip is from the line on one side; nothing if it has none there. */
+    public double pavedEdge(final int side) {
+        double edge = 0;
+        for (final Laid l : laid(side)) {
+            if (l.strip().paved()) {
+                edge = l.outer();
+            }
         }
-        return side.subList(0, keep);
+        return edge;
+    }
+
+    /** The one side its paved strips are on, -1 or +1: a carriageway's; 0 if they are on both, or neither. */
+    public int pavedSide() {
+        final boolean l = left.stream().anyMatch(Strip::paved);
+        final boolean r = right.stream().anyMatch(Strip::paved);
+        return l == r ? 0 : l ? -1 : 1;
     }
 
     /**

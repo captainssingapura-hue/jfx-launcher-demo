@@ -3,8 +3,12 @@ package com.example.fxsuite.avatar.bench;
 import com.example.fxsuite.avatar.look.RoadworkModel;
 import com.example.fxsuite.avatar.roads.Carrier;
 import com.example.fxsuite.avatar.roads.Course;
+import com.example.fxsuite.avatar.roads.Cover;
+import com.example.fxsuite.avatar.roads.Ground;
+import com.example.fxsuite.avatar.roads.Prepared;
 import com.example.fxsuite.avatar.roads.Profile;
 import com.example.fxsuite.avatar.roads.Roadway;
+import com.example.fxsuite.avatar.roads.Roadworks;
 import com.example.fxsuite.avatar.roads.Section;
 import com.example.fxsuite.avatar.sim.Vec2;
 
@@ -40,6 +44,9 @@ final class RoadDrawings {
     private static final Color WATER = Color.web("#7fb0cc");
     private static final Color LINE = Color.web("#1d1f22");
     private static final Color FORMATION = Color.web("#c0392b");
+    private static final Color OTHER = Color.web("#55595e");
+    private static final Map<Cover, Color> COVERS = Map.of(
+            Cover.GRASS, Color.web("#5f9a3a"), Cover.EARTH, Color.web("#8a6a45"), Cover.GRAVEL, Color.web("#9a958a"));
     private static final Color CONCRETE = Color.web("#9fa7b0");
     private static final Color CURSOR = Color.web("#e67e22");
     private static final Color INK = Color.web("#4a4f55");
@@ -52,7 +59,7 @@ final class RoadDrawings {
 
     /** The long section, {@code w} by {@code h}, its point looked at {@code at} along it. */
     static void longSection(final GraphicsContext g, final double w, final double h, final Roadway road,
-                            final RoadScenes.Scene scene, final double at) {
+                            final List<Roadway.Clearance> clearances, final RoadScenes.Scene scene, final double at) {
         g.setFill(PAPER);
         g.fillRect(0, 0, w, h);
         final int n = road.size();
@@ -72,7 +79,7 @@ final class RoadDrawings {
         if (scene.watered()) {
             low = Math.min(low, scene.water());
         }
-        for (final Roadway.Clearance c : scene.clearances()) {
+        for (final Roadway.Clearance c : clearances) {
             high = Math.max(high, c.over());
         }
         final double pad = Math.max(200, (high - low) * 0.12);
@@ -146,7 +153,7 @@ final class RoadDrawings {
         g.setStroke(FORMATION);
         g.setLineWidth(1);
         g.setLineDashes(6, 4);
-        for (final Roadway.Clearance c : scene.clearances()) {
+        for (final Roadway.Clearance c : clearances) {
             g.strokeLine(s.x(c.from()), s.y(c.over()), s.x(c.to()), s.y(c.over()));
         }
         // the formation under the line
@@ -154,7 +161,7 @@ final class RoadDrawings {
         g.beginPath();
         for (int i = 0; i < n; i++) {
             final int j = Math.min(i, n - 2);
-            final double f = road.level(i) + road.section(j).formation(0);
+            final double f = road.level(i) + road.section(j).formation(road.section(j).pavedSide());
             if (i == 0) {
                 g.moveTo(s.x(road.along(i)), s.y(f));
             } else {
@@ -213,40 +220,50 @@ final class RoadDrawings {
 
     // ---- the cross-section
 
-    /** The cross-section at the {@code i}th point, {@code w} by {@code h}, heights drawn {@code taller} times. */
-    static void crossSection(final GraphicsContext g, final double w, final double h, final Roadway road,
-                             final RoadScenes.Scene scene, final int i, final double taller) {
+    /**
+     * The cross-section at the {@code i}th point of the {@code which}th of {@code works}' roads, {@code w} by
+     * {@code h}, heights drawn {@code taller} times: the ground as they all leave it, its cover along its top; as it
+     * was, dashed; any other road's pavement the section crosses, dark.
+     */
+    static void crossSection(final GraphicsContext g, final double w, final double h, final Roadworks works,
+                             final int which, final RoadScenes.Scene scene, final int i, final double taller) {
         g.setFill(PAPER);
         g.fillRect(0, 0, w, h);
+        final Roadway road = works.roads().get(which);
         final int j = Math.min(i, road.size() - 2);
         final Section section = road.section(j);
         final double level = road.level(i);
-        final Profile was = road.profile();
-        final Profile now = road.shaped();
-        // as far across as the road changes anything, and some
+        final Profile was = works.raw();
+        final Ground now = works.ground();
+        // as far across as the roads change anything, and some
         double reach = Math.max(section.edge(-1), section.edge(1)) + 300;
         for (double a = -road.reach(); a <= road.reach(); a += 25) {
             final Vec2 p = road.at(i, a);
-            if (Math.abs(now.height(p.x(), p.z()) - was.height(p.x(), p.z())) > 1) {
+            if (Math.abs(now.at(p.x(), p.z()).height() - was.height(p.x(), p.z())) > 1) {
                 reach = Math.max(reach, Math.abs(a) + 300);
             }
         }
         final double sx = (w - 20) / (2 * reach);
         final double sy = sx * taller;
-        // heights about the road's, and the ground's at its edges
+        // heights about the road's
         final double mid = level - (h * 0.42) / sy;
-        final Scale s = new Scale(w / 2, 0, sx, sy, mid, h * 0.92);
-        final Scale across = new Scale(w / 2 - sx * 0, 0, sx, sy, mid, h * 0.92);
-        // the ground: as the road leaves it, filled; as it was, dashed
+        final Scale across = new Scale(w / 2, 0, sx, sy, mid, h * 0.92);
+        final Scale s = across;
+        // the ground: as the roads leave it, filled, its cover along its top; as it was, dashed
         final int samples = (int) (w / 2);
         final double[] xs = new double[samples + 2];
         final double[] ys = new double[samples + 2];
-        double[] wasY = new double[samples];
+        final double[] wasY = new double[samples];
+        final Cover[] covers = new Cover[samples];
+        final Vec2[] at = new Vec2[samples];
         for (int k = 0; k < samples; k++) {
             final double a = -reach + 2 * reach * k / (samples - 1);
             final Vec2 p = road.at(i, a);
+            final Prepared prepared = now.at(p.x(), p.z());
+            at[k] = p;
             xs[k] = across.xAcross(a);
-            ys[k] = s.y(now.height(p.x(), p.z()));
+            ys[k] = s.y(prepared.height());
+            covers[k] = prepared.cover();
             wasY[k] = s.y(was.height(p.x(), p.z()));
         }
         xs[samples] = xs[samples - 1];
@@ -259,44 +276,63 @@ final class RoadDrawings {
         }
         g.setFill(GROUND);
         g.fillPolygon(xs, ys, samples + 2);
+        g.setLineWidth(3);
+        for (int k = 0; k + 1 < samples; k++) {
+            g.setStroke(covers[k] == null ? GROUND_LINE : COVERS.get(covers[k]));
+            g.strokeLine(xs[k], ys[k], xs[k + 1], ys[k + 1]);
+        }
         g.setStroke(GROUND_LINE);
-        g.setLineWidth(1.2);
-        g.strokePolyline(xs, ys, samples);
         g.setLineDashes(4, 3);
         g.setLineWidth(1);
         g.strokePolyline(xs, wasY, samples);
         g.setLineDashes();
-        // a structure or a tunnel under and round it
+        // the other roads' pavements the section crosses
+        g.setFill(OTHER);
+        for (int r = 0; r < works.roads().size(); r++) {
+            if (r == which) {
+                continue;
+            }
+            final Roadway other = works.roads().get(r);
+            for (int k = 0; k + 1 < samples; k++) {
+                final double t0 = other.surface(at[k].x(), at[k].z());
+                final double t1 = other.surface(at[k + 1].x(), at[k + 1].z());
+                if (!Double.isNaN(t0) && !Double.isNaN(t1)) {
+                    final double f0 = other.formation(at[k].x(), at[k].z());
+                    final double f1 = other.formation(at[k + 1].x(), at[k + 1].z());
+                    g.fillPolygon(new double[] {xs[k], xs[k + 1], xs[k + 1], xs[k]},
+                            new double[] {s.y(t0), s.y(t1), s.y(f1), s.y(f0)}, 4);
+                }
+            }
+        }
+        // a structure or a tunnel under and round its pavement
         final Carrier carrier = road.carrier(j);
         if (carrier == Carrier.STRUCTURE) {
             g.setFill(CONCRETE);
-            for (final Section.Laid l : section.laid()) {
+            g.setStroke(Color.web("#00000040"));
+            g.setLineWidth(0.5);
+            for (final Section.Laid l : section.paved()) {
                 final double d = l.strip().depth();
                 quad(g, across, level, l.innerAcross(), l.outerAcross(), -Roadway.DECK, l.innerTop() - d,
                         -Roadway.DECK, l.outerTop() - d);
             }
             for (final int side : new int[] {-1, 1}) {
-                final List<Section.Laid> laid = section.laid(side);
-                if (!laid.isEmpty()) {
-                    final Section.Laid o = laid.getLast();
-                    final double t = o.outerTop() + Roadway.PARAPET;
-                    quad(g, across, level, o.outerAcross(), o.outerAcross() + side * Roadway.PARAPET_THICK,
-                            -Roadway.DECK, t, -Roadway.DECK, t);
-                }
+                final double edge = side * section.pavedEdge(side);
+                final double t = section.top(edge) + Roadway.PARAPET;
+                quad(g, across, level, edge, edge + side * Roadway.PARAPET_THICK, -Roadway.DECK, t, -Roadway.DECK, t);
             }
         } else if (carrier == Carrier.TUNNEL) {
             g.setFill(CONCRETE);
-            final double l = -section.edge(-1) - 50;
-            final double r = section.edge(1) + 50;
-            final double low = section.formation(0) - 100;
+            final double l = -section.pavedEdge(-1) - 50;
+            final double r = section.pavedEdge(1) + 50;
+            final double low = section.formation(section.pavedSide()) - 100;
             quad(g, across, level, l - Roadway.LINING, l, low, Roadway.HEADROOM, low, Roadway.HEADROOM);
             quad(g, across, level, r, r + Roadway.LINING, low, Roadway.HEADROOM, low, Roadway.HEADROOM);
             quad(g, across, level, l - Roadway.LINING, r + Roadway.LINING, Roadway.HEADROOM,
                     Roadway.HEADROOM + Roadway.LINING, Roadway.HEADROOM, Roadway.HEADROOM + Roadway.LINING);
         }
-        // every strip's every course
+        // every paved strip's every course
         g.setLineWidth(0.5);
-        for (final Section.Laid l : section.laid()) {
+        for (final Section.Laid l : section.paved()) {
             double down = 0;
             for (final Course c : l.strip().courses()) {
                 g.setFill(RoadworkModel.colour(c.stuff()));
@@ -306,11 +342,11 @@ final class RoadDrawings {
                 down += c.thick();
             }
         }
-        // the formation
+        // the formation under the pavement
         g.setStroke(FORMATION);
         g.setLineWidth(1.2);
         g.setLineDashes(4, 3);
-        for (final Section.Laid l : section.laid()) {
+        for (final Section.Laid l : section.paved()) {
             final double d = l.strip().depth();
             g.strokeLine(across.xAcross(l.innerAcross()), s.y(level + l.innerTop() - d),
                     across.xAcross(l.outerAcross()), s.y(level + l.outerTop() - d));
@@ -345,9 +381,11 @@ final class RoadDrawings {
         g.setTextAlign(TextAlignment.LEFT);
         g.setTextBaseline(VPos.TOP);
         g.setFill(LINE);
-        g.fillText(String.format(Locale.ROOT, "%s m along: %s, %s, %s m wide, %s m deep  ·  heights ×%.0f",
-                metres(road.along(i), 0), section.name(), carrier.name().toLowerCase(Locale.ROOT),
-                metres(section.width(), 2), metres(section.depth(0), 2), taller), 8, 6);
+        final double paved = section.pavedEdge(-1) + section.pavedEdge(1);
+        final double deepest = section.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
+        g.fillText(String.format(Locale.ROOT, "%s, %s m along: %s, %s; %s m wide, %s m paved, %s m deep  ·  heights ×%.0f",
+                road.name(), metres(road.along(i), 0), section.name(), carrier.name().toLowerCase(Locale.ROOT),
+                metres(section.width(), 2), metres(paved, 2), metres(deepest, 2), taller), 8, 6);
         // a metre, to measure by
         g.setStroke(LINE);
         g.setLineWidth(2);

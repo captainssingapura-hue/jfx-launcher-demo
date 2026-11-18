@@ -2,8 +2,12 @@ package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.roads.Carrier;
 import com.example.fxsuite.avatar.roads.Course;
+import com.example.fxsuite.avatar.roads.Cover;
+import com.example.fxsuite.avatar.roads.Ground;
+import com.example.fxsuite.avatar.roads.Prepared;
 import com.example.fxsuite.avatar.roads.Profile;
 import com.example.fxsuite.avatar.roads.Roadway;
+import com.example.fxsuite.avatar.roads.Roadworks;
 import com.example.fxsuite.avatar.roads.Section;
 import com.example.fxsuite.avatar.sim.Vec2;
 
@@ -39,8 +43,11 @@ public final class RoadworkModel {
     private static final Map<Course.Stuff, PhongMaterial> STUFF = new EnumMap<>(Course.Stuff.class);
     private static final PhongMaterial PAINT = matte("#f2f2ec");
     private static final PhongMaterial STRUCTURE = matte("#a9afb6");
+    private static final PhongMaterial WALL = matte("#c76b4f");
     private static final PhongMaterial GRASS = matte("#7da05a");
+    private static final PhongMaterial SEEDED = matte("#93b86a");
     private static final PhongMaterial EARTH = matte("#9a8062");
+    private static final PhongMaterial GRAVEL = matte("#a39d90");
     private static final PhongMaterial WATER = new PhongMaterial(Color.web("#3d6f8a", 0.62));
 
     /** How far over the surface its markings lie, and how thick they are. */
@@ -54,6 +61,8 @@ public final class RoadworkModel {
     /** A seat's depth under a deck, and how far it runs back into the bank. */
     private static final double SEAT = 150;
     private static final double SEAT_BACK = 150;
+    /** How thick a wall wanted is drawn. */
+    private static final double WALL_THICK = 40;
     /** How far a tunnel's walls stand off the road's edges. */
     private static final double TUNNEL_SIDE = 50;
     /** The most points the ground is drawn with. */
@@ -80,78 +89,83 @@ public final class RoadworkModel {
         return STUFF.get(stuff).getDiffuseColor();
     }
 
-    /** The box round a road and as far as it reaches: min x, max x, min z, max z. */
-    public static double[] bounds(final Roadway road) {
+    /** The box round roads and as far as they reach: min x, max x, min z, max z. */
+    public static double[] bounds(final List<Roadway> roads) {
         double x0 = Double.POSITIVE_INFINITY;
         double x1 = Double.NEGATIVE_INFINITY;
         double z0 = Double.POSITIVE_INFINITY;
         double z1 = Double.NEGATIVE_INFINITY;
-        for (int i = 0; i < road.size(); i++) {
-            final Vec2 p = road.point(i);
-            x0 = Math.min(x0, p.x());
-            x1 = Math.max(x1, p.x());
-            z0 = Math.min(z0, p.z());
-            z1 = Math.max(z1, p.z());
+        double reach = 0;
+        for (final Roadway road : roads) {
+            for (int i = 0; i < road.size(); i++) {
+                final Vec2 p = road.point(i);
+                x0 = Math.min(x0, p.x());
+                x1 = Math.max(x1, p.x());
+                z0 = Math.min(z0, p.z());
+                z1 = Math.max(z1, p.z());
+            }
+            reach = Math.max(reach, road.reach() + 1_000);
         }
-        final double reach = road.reach() + 1_000;
         return new double[] {x0 - reach, x1 + reach, z0 - reach, z1 + reach};
     }
 
     /**
-     * The ground over {@code bounds}, as {@code ground} has it: grass where it is as {@code was} had it, bare earth
-     * where it is not.
+     * The ground over {@code bounds}, as {@code ground} has it, coloured by its cover: grass where no road has
+     * touched it; where one has prepared it, the grass it has seeded a fresher green, bare earth where it has left
+     * it bare. {@code asBuilt}: all it has touched bare, before anything grows.
      */
-    public static Group ground(final Profile was, final Profile ground, final double[] bounds) {
+    public static Group ground(final Ground ground, final boolean asBuilt, final double[] bounds) {
         final double w = bounds[1] - bounds[0];
         final double d = bounds[3] - bounds[2];
         final double cell = Math.max(100, Math.sqrt(w * d / GROUND_POINTS));
         final int nx = (int) Math.ceil(w / cell) + 1;
         final int nz = (int) Math.ceil(d / cell) + 1;
         final float[] points = new float[3 * nx * nz];
-        final boolean[] moved = new boolean[nx * nz];
+        final Cover[] covers = new Cover[nx * nz];
         for (int iz = 0; iz < nz; iz++) {
             final double z = Math.min(bounds[2] + iz * cell, bounds[3]);
             for (int ix = 0; ix < nx; ix++) {
                 final double x = Math.min(bounds[0] + ix * cell, bounds[1]);
-                final double h = ground.height(x, z);
+                final Prepared p = ground.at(x, z);
                 final int k = iz * nx + ix;
                 points[3 * k] = (float) x;
-                points[3 * k + 1] = (float) -h;
+                points[3 * k + 1] = (float) -p.height();
                 points[3 * k + 2] = (float) z;
-                moved[k] = Math.abs(h - was.height(x, z)) > 1;
+                covers[k] = p.cover() != null && asBuilt ? Cover.EARTH : p.cover();
             }
         }
-        final int[] grass = new int[6 * 2 * (nx - 1) * (nz - 1)];
-        final int[] earth = new int[grass.length];
-        int g = 0;
-        int e = 0;
+        // each square as its corners' covers say: bare if any is, gravel if any is, seeded if any is, else as it was
+        final List<PhongMaterial> looks = List.of(GRASS, SEEDED, EARTH, GRAVEL);
+        final int[][] faces = new int[looks.size()][6 * 2 * (nx - 1) * (nz - 1)];
+        final int[] counts = new int[looks.size()];
         for (int iz = 0; iz + 1 < nz; iz++) {
             for (int ix = 0; ix + 1 < nx; ix++) {
                 final int a = iz * nx + ix;
                 final int b = a + 1;
                 final int c = a + nx;
                 final int dd = c + 1;
-                final boolean bare = moved[a] || moved[b] || moved[c] || moved[dd];
-                final int[] into = bare ? earth : grass;
-                int at = bare ? e : g;
-                for (final int p : new int[] {a, c, b, b, c, dd}) {
-                    into[at] = p;
-                    into[at + 1] = 0;
-                    at += 2;
+                int look = 0;
+                for (final int k : new int[] {a, b, c, dd}) {
+                    if (covers[k] != null) {
+                        look = Math.max(look, switch (covers[k]) {
+                            case GRASS -> 1;
+                            case GRAVEL -> 2;
+                            case EARTH -> 3;
+                        });
+                    }
                 }
-                if (bare) {
-                    e = at;
-                } else {
-                    g = at;
+                final int into = look == 0 ? 0 : look == 1 ? 1 : look == 2 ? 3 : 2;
+                for (final int p : new int[] {a, c, b, b, c, dd}) {
+                    faces[into][counts[into]++] = p;
+                    faces[into][counts[into]++] = 0;
                 }
             }
         }
         final Group group = new Group();
-        if (g > 0) {
-            group.getChildren().add(mesh(points, grass, g, GRASS));
-        }
-        if (e > 0) {
-            group.getChildren().add(mesh(points, earth, e, EARTH));
+        for (int m = 0; m < looks.size(); m++) {
+            if (counts[m] > 0) {
+                group.getChildren().add(mesh(points, faces[m], counts[m], looks.get(m)));
+            }
         }
         return group;
     }
@@ -165,12 +179,12 @@ public final class RoadworkModel {
         return mesh(points, new int[] {0, 0, 2, 0, 1, 0, 1, 0, 2, 0, 3, 0}, 12, WATER);
     }
 
-    /** Its pavement: every strip's every course, from its start to {@code upTo} along it. */
+    /** Its pavement: every paved strip's every course, from its start to {@code upTo} along it. Its ground strips are the ground's. */
     public static Group pavement(final Roadway road, final double upTo) {
         final Map<Course.Stuff, MeshBuilder> meshes = new EnumMap<>(Course.Stuff.class);
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
-            for (final Section.Laid l : road.section(j).laid()) {
+            for (final Section.Laid l : road.section(j).paved()) {
                 double down = 0;
                 for (final Course c : l.strip().courses()) {
                     final double from = down;
@@ -246,23 +260,21 @@ public final class RoadworkModel {
         return group;
     }
 
-    /** A deck under the formation, down to {@link Roadway#DECK} under the line; parapets at its edges. */
+    /**
+     * A deck under the formation of its paved strips, down to {@link Roadway#DECK} under the line; a parapet at
+     * each edge of them. Its ground strips not on it: there is no ground there.
+     */
     private static void deck(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built) {
         for (int j = stretch.from(); j < stretch.to(); j++) {
             final Section section = road.section(j);
-            for (final Section.Laid l : section.laid()) {
+            for (final Section.Laid l : section.paved()) {
                 final double depth = l.strip().depth();
                 built.box(corners(road, j, 1, l.innerAcross(), l.outerAcross(),
                         -Roadway.DECK, l.innerTop() - depth, -Roadway.DECK, l.outerTop() - depth));
             }
             for (final int side : new int[] {-1, 1}) {
-                final List<Section.Laid> laid = section.laid(side);
-                if (laid.isEmpty()) {
-                    continue;
-                }
-                final Section.Laid outer = laid.getLast();
-                final double edge = outer.outerAcross();
-                final double top = outer.outerTop() + Roadway.PARAPET;
+                final double edge = side * section.pavedEdge(side);
+                final double top = section.top(edge) + Roadway.PARAPET;
                 built.box(corners(road, j, 1, edge, edge + side * Roadway.PARAPET_THICK,
                         -Roadway.DECK, top, -Roadway.DECK, top));
             }
@@ -272,8 +284,10 @@ public final class RoadworkModel {
     /** A pier at its {@code i}th point: a crosshead under the deck, one column or two down into the ground. */
     private static void pier(final Roadway road, final int i, final Profile ground, final MeshBuilder built) {
         final Section section = road.section(Math.min(i, road.size() - 2));
-        final double left = -section.edge(-1) * 0.9;
-        final double right = section.edge(1) * 0.9;
+        final double l = -section.pavedEdge(-1);
+        final double r0 = section.pavedEdge(1);
+        final double left = (l + r0) / 2 - (r0 - l) / 2 * 0.9;
+        final double right = (l + r0) / 2 + (r0 - l) / 2 * 0.9;
         final double under = road.level(i) - Roadway.DECK;
         final Vec2 r = road.right(i);
         final Vec2 h = new Vec2(-r.z(), r.x());
@@ -302,25 +316,52 @@ public final class RoadworkModel {
             final Vec2 h = new Vec2(-r.z(), r.x());
             final double back = end == stretch.from() ? -1 : 1;
             final double under = road.level(end) - Roadway.DECK;
-            built.box(box(road.point(end), r, h, -section.edge(-1) - Roadway.PARAPET_THICK,
-                    section.edge(1) + Roadway.PARAPET_THICK, Math.min(0, back * SEAT_BACK), Math.max(0, back * SEAT_BACK),
+            built.box(box(road.point(end), r, h, -section.pavedEdge(-1) - Roadway.PARAPET_THICK,
+                    section.pavedEdge(1) + Roadway.PARAPET_THICK, Math.min(0, back * SEAT_BACK), Math.max(0, back * SEAT_BACK),
                     under - SEAT, under));
         }
     }
 
-    /** A tunnel's lining: a wall each side off the road's edges, a roof over its headroom. */
+    /** A tunnel's lining: a wall each side off its pavement's edges, a roof over its headroom. */
     private static void lining(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built) {
         for (int j = stretch.from(); j < stretch.to(); j++) {
             final Section section = road.section(j);
-            final double l = -section.edge(-1) - TUNNEL_SIDE;
-            final double r = section.edge(1) + TUNNEL_SIDE;
-            final double low = section.formation(0) - 100;
+            final double l = -section.pavedEdge(-1) - TUNNEL_SIDE;
+            final double r = section.pavedEdge(1) + TUNNEL_SIDE;
+            final double low = section.formation(section.pavedSide()) - 100;
             final double high = Roadway.HEADROOM;
             built.box(corners(road, j, 1, l - Roadway.LINING, l, low, high, low, high));
             built.box(corners(road, j, 1, r, r + Roadway.LINING, low, high, low, high));
             built.box(corners(road, j, 1, l - Roadway.LINING, r + Roadway.LINING, high, high + Roadway.LINING,
                     high, high + Roadway.LINING));
         }
+    }
+
+    /**
+     * The walls the roads want where the ground between them steps too much for a slope ({@link Roadworks#wanted}),
+     * as they would stand: along a road's edge, from the lower ground to the higher, a footing deep. Drawn in a warning
+     * colour: wanted, not yet built.
+     */
+    public static Group walls(final Roadworks works) {
+        final MeshBuilder built = new MeshBuilder();
+        for (final Roadworks.Wall w : works.wanted()) {
+            final Roadway road = works.roads().get(w.road());
+            final double edge = w.side() * road.section().edge(w.side());
+            final int from = road.nearestPoint(w.from());
+            final int to = Math.min(road.nearestPoint(w.to()), road.size() - 1);
+            for (int i = from; i < Math.max(to, from + 1) && i + 1 < road.size(); i++) {
+                final double[] a = works.span(w, i);
+                final double[] b = works.span(w, i + 1);
+                final double low = Math.min(a[0], b[0]) - FOOTING - road.level(i);
+                final double high = Math.max(a[1], b[1]) - road.level(i);
+                built.box(corners(road, i, 1, edge, edge + w.side() * WALL_THICK, low, high, low, high));
+            }
+        }
+        final Group group = new Group();
+        if (!built.empty()) {
+            group.getChildren().add(built.view(WALL));
+        }
+        return group;
     }
 
     /** How far along its {@code j}th segment it is drawn: all of it, or up to {@code upTo}. */

@@ -86,6 +86,32 @@ class RoadwayTest {
     }
 
     @Test
+    void itsGroundStripsGradedToTheirSurfaceTheGroundUpToItsPavementsTop() {
+        final Roadway road = on(HILL);
+        final double paved = ROAD.pavedEdge(1);
+        final double edge = ROAD.edge(1);
+        for (int i = 5; i + 5 < road.size(); i += 13) {
+            final Vec2 in = road.at(i, paved - 1);
+            final Vec2 out = road.at(i, paved + 1);
+            final Prepared under = road.prepared(in.x(), in.z(), HILL.height(in.x(), in.z()));
+            final Prepared verge = road.prepared(out.x(), out.z(), HILL.height(out.x(), out.z()));
+            assertEquals(road.level(i) + ROAD.top(paved - 1) - 55, under.height(), 1e-6, "its formation, under its pavement");
+            assertEquals(Cover.EARTH, under.cover(), "bare under it, till paved");
+            assertEquals(road.level(i) + ROAD.top(paved + 1), verge.height(), 1e-6, "the verge at its surface");
+            assertEquals(Cover.GRASS, verge.cover());
+            assertTrue(Math.abs(verge.height() - (road.level(i) + ROAD.top(paved))) < 1,
+                    "the ground graded up to the pavement's top: no step but the pavement's own side");
+            // at the verge's outer edge, on into the side slope without a step
+            final Vec2 a = road.at(i, edge - 1);
+            final Vec2 b = road.at(i, edge + 1);
+            assertEquals(road.shape(a.x(), a.z(), HILL.height(a.x(), a.z())),
+                    road.shape(b.x(), b.z(), HILL.height(b.x(), b.z())), 2, "no step at the verge's edge");
+        }
+        assertTrue(Double.isNaN(road.surface(road.at(50, paved + 50).x(), road.at(50, paved + 50).z())),
+                "its pavement's surface not on its verge");
+    }
+
+    @Test
     void itsSideSlopesAtItsKindsRatiosOutToTheGroundAndNoFurther() {
         final Roadway road = on(HILL);
         final Earthworks e = ROAD.earthworks();
@@ -126,7 +152,7 @@ class RoadwayTest {
         final Vec2 p = road.at(i, 100);
         assertEquals(VALLEY.height(p.x(), p.z()), road.shape(p.x(), p.z(), VALLEY.height(p.x(), p.z())), 1e-9);
         assertFalse(road.structures().getFirst().piers().isEmpty(), "piers down to it");
-        assertEquals(ROAD.bare(), road.section(i), "bare on it");
+        assertFalse(road.grounded(i), "no ground on it for its verges");
     }
 
     @Test

@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +21,7 @@ class SectionsTest {
 
     @Test
     void theStandardKindsAllRead() {
-        assertEquals(List.of("two-lane road", "town street", "dual carriageway", "country lane", "footpath"),
+        assertEquals(List.of("two-lane road", "town street", "carriageway", "country lane", "footpath"),
                 List.copyOf(STANDARD.keySet()));
         final Section road = STANDARD.get("two-lane road");
         assertEquals(3, road.left().size());
@@ -48,7 +49,8 @@ class SectionsTest {
         final Section road = STANDARD.get("two-lane road");
         assertEquals(55, road.depth(100), 1e-9, "asphalt, binder, base, subbase");
         assertEquals(-55, road.formation(0), 1e-9);
-        assertEquals(20, road.depth(600), 1e-9, "turf and topsoil");
+        assertEquals(0, road.depth(600), 1e-9, "a verge: ground, no courses");
+        assertEquals(road.top(600), road.formation(600), 1e-9, "graded to its surface");
         for (double a = -700; a <= 700; a += 37) {
             assertEquals(road.top(a) - road.depth(a), road.formation(a), 1e-9);
         }
@@ -71,23 +73,30 @@ class SectionsTest {
         assertTrue(!road.get(1).solid(), "the centre line dashed");
         assertTrue(road.get(0).solid() && road.get(2).solid(), "the edge lines solid");
         assertEquals(350 - Section.EDGE_LINE / 2, road.get(2).across(), 1e-9, "just inside the lane");
-        // a dual carriageway: no centre line, an edge line by the median, a lane line, an edge line by the shoulder
-        final List<Section.Marking> dual = STANDARD.get("dual carriageway").markings();
-        assertEquals(6, dual.size());
-        assertTrue(dual.stream().noneMatch(m -> Math.abs(m.across()) < 1));
-        assertEquals(2, dual.stream().filter(m -> !m.solid()).count());
+        // a carriageway, one way: no centre line; an edge line by the median, a lane line, an edge line by the shoulder
+        final List<Section.Marking> one = STANDARD.get("carriageway").markings();
+        assertEquals(3, one.size());
+        assertTrue(one.stream().allMatch(m -> m.across() < 0), "all on its paved side");
+        assertEquals(1, one.stream().filter(m -> !m.solid()).count());
         // a footpath: none
         assertEquals(List.of(), STANDARD.get("footpath").markings());
     }
 
     @Test
-    void onAStructureItsOuterVergesGo() {
+    void itsStripsPavedOrGroundAndItsPavementBetweenItsPavedEdges() {
         final Section road = STANDARD.get("two-lane road");
-        final Section bare = road.bare();
-        assertEquals(900, bare.width(), 1e-9);
-        assertEquals(road.top(300), bare.top(300), 1e-9);
-        final Section street = STANDARD.get("town street");
-        assertSame(street, street.bare(), "nothing to take off");
+        assertTrue(road.left().get(1).paved());
+        assertFalse(road.left().get(2).paved(), "a verge is ground");
+        assertEquals(Cover.GRASS, road.cover(600));
+        assertNull(road.cover(100), "a lane has none: it is paved");
+        assertEquals(450, road.pavedEdge(-1), 1e-9);
+        assertEquals(450, road.pavedEdge(1), 1e-9);
+        assertEquals(4, road.paved().size(), "lanes and shoulders");
+        assertEquals(0, road.pavedSide(), "paved both sides");
+        final Section one = STANDARD.get("carriageway");
+        assertEquals(-1, one.pavedSide(), "paved on its left: keeping left");
+        assertEquals(0, one.pavedEdge(1), 1e-9, "its median half ground");
+        assertEquals(150, one.edge(1), 1e-9);
     }
 
     @Test
@@ -95,14 +104,14 @@ class SectionsTest {
         final IllegalArgumentException unknown = assertThrows(IllegalArgumentException.class, () -> Sections.parse("""
                 courses verge: turf 50mm
                 section "x"
-                  lane 3m carriageway
+                  lane 3m tarmac
                   |
                 """));
         assertTrue(unknown.getMessage().startsWith("line 3:"), unknown.getMessage());
         final IllegalArgumentException unlined = assertThrows(IllegalArgumentException.class, () -> Sections.parse("""
                 courses verge: turf 50mm
                 section "x"
-                  verge 3m verge
+                  verge 3m grass
                 """));
         assertTrue(unlined.getMessage().contains("no line"), unlined.getMessage());
     }

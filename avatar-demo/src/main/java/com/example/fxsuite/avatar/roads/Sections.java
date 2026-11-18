@@ -13,39 +13,38 @@ import java.util.Map;
  *
  * <pre>
  * courses carriageway: asphalt 40mm, binder 60mm, base 200mm, subbase 250mm
- * courses verge: turf 50mm, topsoil 150mm
  *
  * section "two-lane road" grade=6% vertical=60m fill=2 cut=1.5 ditch=1.2m,0.6m bank=6m cutting=8m
- *   verge    2.5m  verge        fall=5%
+ *   verge    2.5m  grass        fall=5%
  *   lane     3.5m  carriageway  fall=2.5%
  *   |
  *   lane     3.5m  carriageway  fall=2.5%
- *   verge    2.5m  verge        fall=5%
+ *   verge    2.5m  grass        fall=5%
  * </pre>
  *
  * <p>A strip's {@code fall} is going away from the line, so a footway rising from its kerb falls less than nothing;
- * its {@code rise} is the step up at its inner edge, a kerb's upstand.
+ * its {@code rise} is the step up at its inner edge, a kerb's upstand. A strip naming courses is paved, built of them;
+ * one naming a cover ({@code grass}, {@code earth}, {@code gravel}) is ground, graded to it and covered so.
  */
 public final class Sections {
 
     /** The kinds drawn so far. */
     public static final String STANDARD = """
-            # what the strips are built of, top down
+            # what the paved strips are built of, top down; a ground strip names its cover: grass, earth, gravel
             courses carriageway: asphalt 40mm, binder 60mm, base 200mm, subbase 250mm
             courses lane: asphalt 30mm, base 150mm, subbase 150mm
             courses footway: paving 60mm, sand 30mm, base 150mm
             courses kerb: concrete 250mm, base 150mm
-            courses verge: turf 50mm, topsoil 150mm
             courses path: gravel 50mm, base 100mm
 
             section "two-lane road" grade=6% vertical=60m fill=2 cut=1.5 ditch=1.2m,0.6m bank=6m cutting=8m
-              verge     2.5m   verge        fall=5%
+              verge     2.5m   grass        fall=5%
               shoulder  1m     carriageway  fall=2.5%
               lane      3.5m   carriageway  fall=2.5%
               |
               lane      3.5m   carriageway  fall=2.5%
               shoulder  1m     carriageway  fall=2.5%
-              verge     2.5m   verge        fall=5%
+              verge     2.5m   grass        fall=5%
 
             section "town street" grade=8% vertical=30m fill=1.5 cut=1 ditch=0,0 bank=4m cutting=5m
               footway   2m     footway      fall=-2.5%
@@ -56,25 +55,22 @@ public final class Sections {
               kerb      15cm   kerb         rise=12cm
               footway   2m     footway      fall=-2.5%
 
-            section "dual carriageway" grade=4% vertical=100m fill=2 cut=2 ditch=1.5m,0.8m bank=8m cutting=10m
-              verge     3m     verge        fall=5%
+            # one way of a divided road: its line at its inner edge, by the median, its half of which is its own
+            section "carriageway" grade=5% vertical=100m fill=2 cut=1.5 ditch=1.5m,0.8m bank=8m cutting=10m
+              verge     3m     grass        fall=5%
               shoulder  3.3m   carriageway  fall=2.5%
               lane      3.65m  carriageway  fall=2.5%
               lane      3.65m  carriageway  fall=2.5%
-              median    1.5m   verge
+              shoulder  1m     carriageway  fall=2.5%
               |
-              median    1.5m   verge
-              lane      3.65m  carriageway  fall=2.5%
-              lane      3.65m  carriageway  fall=2.5%
-              shoulder  3.3m   carriageway  fall=2.5%
-              verge     3m     verge        fall=5%
+              median    1.5m   grass        fall=5%
 
             section "country lane" grade=10% vertical=25m fill=1.5 cut=1 ditch=0.8m,0.4m bank=4m cutting=5m
-              verge     1m     verge        fall=6%
+              verge     1m     grass        fall=6%
               lane      2.75m  lane         fall=3%
               |
               lane      2.75m  lane         fall=3%
-              verge     1m     verge        fall=6%
+              verge     1m     grass        fall=6%
 
             section "footpath" grade=12% vertical=5m fill=1.5 cut=1 ditch=0,0 bank=3m cutting=3m
               path      1m     path         fall=2%
@@ -208,7 +204,7 @@ public final class Sections {
     private static Strip strip(final String line, final Map<String, List<Course>> courses) {
         final String[] bits = line.split("\\s+");
         if (bits.length < 3) {
-            throw new IllegalArgumentException("a strip is a use, a width and its courses: lane 3.5m carriageway");
+            throw new IllegalArgumentException("a strip is a use, a width and its courses or its cover: lane 3.5m carriageway");
         }
         final Strip.Use use;
         try {
@@ -216,9 +212,15 @@ public final class Sections {
         } catch (final IllegalArgumentException e) {
             throw new IllegalArgumentException("no such strip as \"" + bits[0] + "\"");
         }
+        // courses written before it, by name, if there are; else a cover
         final List<Course> built = courses.get(bits[2]);
+        Cover cover = null;
         if (built == null) {
-            throw new IllegalArgumentException("no courses \"" + bits[2] + "\" written before it");
+            try {
+                cover = Cover.valueOf(bits[2].toUpperCase(Locale.ROOT));
+            } catch (final IllegalArgumentException e) {
+                throw new IllegalArgumentException("no courses \"" + bits[2] + "\" written before it, nor such a cover");
+            }
         }
         double fall = 0;
         double rise = 0;
@@ -230,7 +232,8 @@ public final class Sections {
                 default -> throw new IllegalArgumentException("a strip has no \"" + kv[0] + "\"");
             }
         }
-        return new Strip(use, length(bits[1]), built, fall, rise);
+        return built != null ? Strip.paved(use, length(bits[1]), built, fall, rise)
+                : Strip.ground(use, length(bits[1]), cover, fall, rise);
     }
 
     private static String[] keyValue(final String part) {
