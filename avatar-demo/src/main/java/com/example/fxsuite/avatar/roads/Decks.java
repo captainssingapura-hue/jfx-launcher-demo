@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * The structures roads are carried on, in the way: each one piece, its inside its parts ({@link Interior}). Along each
  * of its segments, its deck, its top the pavement's along the road's line, from its paved strips' one edge to the
- * other, {@link Roadway#DECK} deep; a parapet at each edge; at each of its piers, a crosshead and its columns down to
+ * other, as deep as the road says ({@link Roadway#deck}); a parapet at each edge; at each of its piers, a crosshead and its columns down to
  * the ground. Drawn by its key as concrete: its deck down from the formation, under the pavement the roads draw
  * themselves; its parapets; its piers.
  */
@@ -90,7 +90,7 @@ public final class Decks {
             final Section here = road.section(j);
             final Section there = road.section(j + 1);
             final double low = Math.min(lowest(here), lowest(there));
-            final double bottom = top + low - Roadway.DECK;
+            final double bottom = top + low - road.deck(j);
             final double deckTop = ownPavement ? top + low - paved : top;
             final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, bottom, deckTop);
             parts.add(deck);
@@ -104,7 +104,7 @@ public final class Decks {
             final Vec2 p = road.point(i);
             final Vec2 r = road.right(i);
             final double yaw = Math.toDegrees(Math.atan2(-r.z(), r.x()));
-            final double under = road.level(i) + lowest(road.section(i)) - Roadway.DECK;
+            final double under = road.level(i) + lowest(road.section(i)) - road.deck(i);
             final double middle = (west + east) / 2;
             final double half = (east - west) / 2 * 0.9;
             parts.add(new Lean(p.x(), p.z(), yaw, -CROSSHEAD_ALONG / 2, CROSSHEAD_ALONG / 2, middle - half, middle + half,

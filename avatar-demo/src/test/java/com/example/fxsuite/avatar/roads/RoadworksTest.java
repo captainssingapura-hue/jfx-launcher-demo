@@ -87,6 +87,24 @@ class RoadworksTest {
     }
 
     @Test
+    void aRoadJoiningAnotherJoinsItAtItsSurfaceNotItsFormation() {
+        final Section road = Sections.standard().get("two-lane road");
+        final Roadworks.Plan main = new Roadworks.Plan("main", straight(), road, List.of(), List.of());
+        // a road off it westward, from in its left lane, a metre from its crown
+        final List<Vec2> off = List.of(new Vec2(-100, 25_000), new Vec2(-10_000, 25_000), new Vec2(-30_000, 25_000));
+        final Roadworks works = Roadworks.design(Profile.level(0),
+                List.of(main, new Roadworks.Plan("off", off, road, List.of(), List.of())));
+        final Roadway joining = works.roads().get(1);
+        final double surface = works.roads().getFirst().surface(-100, 25_000);
+        assertEquals(surface, joining.level(0), 1, "at its surface, as its end is pinned to what is under it");
+        assertTrue(surface - joining.level(0) < 50, "not half a metre under it, at its formation");
+        // drawn once where they lie over each other: the first's
+        assertTrue(works.pavedBefore(1, -100, 25_000));
+        assertFalse(works.pavedBefore(0, -100, 25_000));
+        assertFalse(works.pavedBefore(1, -20_000, 25_000));
+    }
+
+    @Test
     void eachDesignedAgainstWhatThoseBeforeItOccupyAndTheGroundAsItWasElsewhere() {
         final Roadworks works = Roadworks.design(GENTLE,
                 Roadworks.carriageways("dual", straight(), CARRIAGEWAY, List.of(), List.of()));

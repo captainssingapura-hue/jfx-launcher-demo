@@ -493,11 +493,14 @@ public final class RoadBench extends Application {
             final Roadway r = w.roads().get(k);
             // cut away the road looked at only
             final double to = k == look ? a.upTo() : Double.POSITIVE_INFINITY;
+            // where a road before it has its pavement, that drawn, not this
+            final int before = k;
+            final RoadworkModel.Covered covered = (x, z) -> w.pavedBefore(before, x, z);
             if (a.pavement()) {
-                drawn.getChildren().add(RoadworkModel.pavement(r, to));
+                drawn.getChildren().add(RoadworkModel.pavement(r, to, covered));
             }
             if (a.markings()) {
-                drawn.getChildren().add(RoadworkModel.markings(r, to));
+                drawn.getChildren().add(RoadworkModel.markings(r, to, covered));
             }
             if (a.structures()) {
                 drawn.getChildren().add(RoadworkModel.structures(r, w.ground().profile()));

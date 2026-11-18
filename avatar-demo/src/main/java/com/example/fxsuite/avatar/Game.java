@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar;
 import com.example.fxsuite.avatar.audio.Speakers;
 import com.example.fxsuite.avatar.hear.Hearing;
 import com.example.fxsuite.avatar.look.Bombs;
+import com.example.fxsuite.avatar.look.DrawnDemo;
 import com.example.fxsuite.avatar.look.BoxRig;
 import com.example.fxsuite.avatar.look.Gait;
 import com.example.fxsuite.avatar.look.Sight;
@@ -148,7 +149,7 @@ public final class Game {
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.build.Town.tell();
-        com.example.fxsuite.avatar.build.Village.tell();
+        com.example.fxsuite.avatar.sim.Demos.register(com.example.fxsuite.avatar.worlds.Meadow.DEMO);
         com.example.fxsuite.avatar.build.TowerMap.tell();
         com.example.fxsuite.avatar.build.MarinaBay.tell();
     }

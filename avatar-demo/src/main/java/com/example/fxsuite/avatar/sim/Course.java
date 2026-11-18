@@ -1279,6 +1279,12 @@ public final class Course {
             return this;
         }
 
+        /** Rivers run across it as {@code these} do. */
+        public Layout rivers(final List<River> these) {
+            rivers.addAll(these);
+            return this;
+        }
+
         /** Water lies still in {@code these}. */
         public Layout ponds(final List<Pond> these) {
             ponds.addAll(these);
@@ -1314,7 +1320,6 @@ public final class Course {
             switch (demo) {
                 case TOWN -> townDemo();
                 case SIEGE -> siegeDemo(siege);
-                case VILLAGE -> villageDemo();
                 case WALL_TOWER -> towerDemo();
                 case PLAYGROUND -> playground();
                 case TRACK -> trackDemo();
@@ -1360,40 +1365,6 @@ public final class Course {
     /** Where the avatar starts, on the ground: the world's middle, or as the course has it. */
     public Vec3 start() {
         return start;
-    }
-
-    /**
-     * The meadow village's demo: a meadow, a river winding across it, a footbridge over it, and a small
-     * village of earth houses by its bank, as whoever designs them says ({@link #village}); no grid ruled
-     * on its ground.
-     */
-    private void villageDemo() {
-        start = villageStart.get();
-        pieces.addAll(village.get());
-        rivers.addAll(villageRivers.get());
-        ponds.addAll(villagePonds.get());
-        land = villageLand.get();
-        grid = false;
-    }
-
-    /** What stands in the meadow village, its rivers, where the avatar starts there, and its land: until told, nothing, none, the middle, level. */
-    private static java.util.function.Supplier<List<Piece>> village = List::of;
-    private static java.util.function.Supplier<List<River>> villageRivers = List::of;
-    private static java.util.function.Supplier<List<Pond>> villagePonds = List::of;
-    private static java.util.function.Supplier<Vec3> villageStart = () -> Vec3.ZERO;
-    private static java.util.function.Supplier<Land> villageLand = () -> Land.LEVEL;
-
-    /** Says what stands in the meadow village, its rivers and ponds, where the avatar starts there, and its land. */
-    public static void village(final java.util.function.Supplier<List<Piece>> what,
-                               final java.util.function.Supplier<List<River>> rivers,
-                               final java.util.function.Supplier<List<Pond>> ponds,
-                               final java.util.function.Supplier<Vec3> start,
-                               final java.util.function.Supplier<Land> land) {
-        village = what;
-        villageRivers = rivers;
-        villagePonds = ponds;
-        villageStart = start;
-        villageLand = land;
     }
 
     /** The wall tower's demo: the tower, what stands round it, where the avatar starts; on level ground, ruled. */

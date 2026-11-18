@@ -16,9 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DemoTest {
 
     @Test
-    void theTownFirstThenItsSiegeTheVillageTheWallTowerThePlaygroundAndTheTrackAloneThenThoseToldOf() {
-        assertEquals(List.of(Demos.TOWN, Demos.SIEGE, Demos.VILLAGE, Demos.WALL_TOWER, Demos.PLAYGROUND, Demos.TRACK),
-                Demos.playable().subList(0, 6));
+    void theTownFirstThenItsSiegeTheWallTowerThePlaygroundAndTheTrackAloneThenThoseToldOf() {
+        assertEquals(List.of(Demos.TOWN, Demos.SIEGE, Demos.WALL_TOWER, Demos.PLAYGROUND, Demos.TRACK),
+                Demos.playable().subList(0, 5));
         for (final Demo demo : Demos.values()) {
             assertEquals(Demos.playable().contains(demo), demo.offered(), demo.title());
             assertTrue(demo.recordable(), "a built-in found again by its name");
@@ -28,7 +28,7 @@ class DemoTest {
         final Demo told = new Laid("TOLD_OF", true, List.of());
         Demos.register(told);
         assertEquals(told, Demos.named("TOLD_OF"));
-        assertTrue(Demos.playable().indexOf(told) >= 6);
+        assertTrue(Demos.playable().indexOf(told) >= 5);
         assertEquals(null, Demos.named("NONE_SUCH"));
     }
 

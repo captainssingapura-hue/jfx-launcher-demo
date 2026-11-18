@@ -1,6 +1,6 @@
 package com.example.fxsuite.avatar.bench;
 
-import com.example.fxsuite.avatar.DrawnDemo;
+import com.example.fxsuite.avatar.look.DrawnDemo;
 import com.example.fxsuite.avatar.look.RoadworkModel;
 import com.example.fxsuite.avatar.roads.Decks;
 import com.example.fxsuite.avatar.roads.Roadway;
@@ -124,9 +124,13 @@ final class TestSection implements DrawnDemo {
     @Override
     public Node scenery() {
         final Group drawn = new Group();
-        for (final Roadway road : works.roads()) {
-            drawn.getChildren().addAll(RoadworkModel.pavement(road, Double.POSITIVE_INFINITY),
-                    RoadworkModel.markings(road, Double.POSITIVE_INFINITY));
+        for (int k = 0; k < works.roads().size(); k++) {
+            // where a road before it has its pavement, that drawn, not this
+            final int before = k;
+            final RoadworkModel.Covered covered = (x, z) -> works.pavedBefore(before, x, z);
+            final Roadway road = works.roads().get(k);
+            drawn.getChildren().addAll(RoadworkModel.pavement(road, Double.POSITIVE_INFINITY, covered),
+                    RoadworkModel.markings(road, Double.POSITIVE_INFINITY, covered));
         }
         drawn.getChildren().add(RoadworkModel.walls(works));
         return drawn;

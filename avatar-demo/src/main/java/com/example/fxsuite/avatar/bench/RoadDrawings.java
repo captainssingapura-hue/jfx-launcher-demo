@@ -70,7 +70,7 @@ final class RoadDrawings {
         double low = Double.POSITIVE_INFINITY;
         double high = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < n; i++) {
-            low = Math.min(low, Math.min(road.ground(i), road.level(i) - Roadway.DECK));
+            low = Math.min(low, Math.min(road.ground(i), road.level(i) - road.deck(i)));
             high = Math.max(high, Math.max(road.ground(i), road.level(i)));
             if (road.carrier(Math.min(i, n - 2)) == Carrier.TUNNEL) {
                 high = Math.max(high, road.level(i) + Roadway.HEADROOM);
@@ -130,12 +130,12 @@ final class RoadDrawings {
                     final double x0 = s.x(road.along(i));
                     final double x1 = s.x(road.along(i + 1));
                     g.fillPolygon(new double[] {x0, x1, x1, x0}, new double[] {s.y(road.level(i)), s.y(road.level(i + 1)),
-                        s.y(road.level(i + 1) - Roadway.DECK), s.y(road.level(i) - Roadway.DECK)}, 4);
+                        s.y(road.level(i + 1) - road.deck(i)), s.y(road.level(i) - road.deck(i))}, 4);
                 }
                 g.setStroke(INK);
                 g.setLineWidth(3);
                 for (final int p : st.piers()) {
-                    g.strokeLine(s.x(road.along(p)), s.y(road.level(p) - Roadway.DECK), s.x(road.along(p)),
+                    g.strokeLine(s.x(road.along(p)), s.y(road.level(p) - road.deck(p)), s.x(road.along(p)),
                             s.y(road.ground(p)));
                 }
             } else if (str.carrier() == Carrier.TUNNEL) {
@@ -312,7 +312,7 @@ final class RoadDrawings {
             g.setLineWidth(0.5);
             // its deck under its lowest edge, tilted or not
             final double under = section.paved().stream().mapToDouble(l -> Math.min(l.innerTop(), l.outerTop()))
-                    .min().orElse(0) - Roadway.DECK;
+                    .min().orElse(0) - road.deck(j);
             for (final Section.Laid l : section.paved()) {
                 final double d = l.strip().depth();
                 quad(g, across, level, l.innerAcross(), l.outerAcross(), under, l.innerTop() - d,

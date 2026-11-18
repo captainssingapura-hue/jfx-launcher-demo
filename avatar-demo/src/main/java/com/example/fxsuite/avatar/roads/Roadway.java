@@ -38,6 +38,9 @@ public final class Roadway {
     public static final double PARAPET_THICK = 30;
     /** How far apart a structure's piers are, about. */
     public static final double SPAN = 3_000;
+    /** The shallowest a deck is: a slab; and how much room it leaves under itself, at least, where it is low. */
+    public static final double SHALLOWEST = 40;
+    static final double ROOM = 20;
     /** How much room there must be under a deck for a pier there. */
     public static final double CLEAR = 200;
     /** How much headroom a tunnel leaves over the road's line, and how thick its lining. */
@@ -54,6 +57,10 @@ public final class Roadway {
 
     /** Its surface held at least {@code over} high from {@code from} to {@code to} along it: over water, over a road. */
     public record Clearance(double from, double to, double over) {
+    }
+
+    /** Its surface held exactly {@code height} high {@code along} it: a bridge's end, a gate. */
+    public record Pin(double along, double height) {
     }
 
     /** A stretch of it from its {@code from}th point to its {@code to}th, carried by {@code carrier}. */
@@ -83,6 +90,8 @@ public final class Roadway {
     private final boolean loop;
     /** Its kind across at each of its points: as it is, or tilted into a bend, or on its way to or from one. */
     private final Section[] across;
+    /** How deep a deck is under each segment, where a structure carries it: as deep as {@link #DECK}, or as the room under it lets it be. */
+    private final double[] decks;
 
     private Roadway(final String name, final Section section, final Profile profile, final List<Vec2> points,
                     final double[] along, final double[] levels, final double[] ground, final Carrier[] carriers,
@@ -99,6 +108,7 @@ public final class Roadway {
         this.carriers = carriers;
         this.problems = List.copyOf(problems);
         this.stretches = stretches(carriers);
+        this.decks = decks(stretches, levels, ground, carriers.length);
         // as far as its side slopes may reach: its widest, and its highest bank or deepest cutting, and some, sloped
         double off = 0;
         for (int i = 0; i < levels.length; i++) {
@@ -126,6 +136,13 @@ public final class Roadway {
      */
     public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
                                  final List<Given> given, final List<Clearance> clearances, final double tilt) {
+        return design(name, line, section, profile, given, clearances, tilt, List.of());
+    }
+
+    /** The same, its surface held exactly as high as {@code pins} say where they say, as well as at its ends. */
+    public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
+                                 final List<Given> given, final List<Clearance> clearances, final double tilt,
+                                 final List<Pin> pins) {
         final boolean loop = line.size() > 3 && distance(line.getFirst(), line.getLast()) < 1;
         final List<Vec2> points = loop ? resampledLoop(line, STEP) : resampled(line, STEP);
         final int n = points.size();
@@ -152,7 +169,7 @@ public final class Roadway {
         List<String> found = List.of();
         for (int round = 0; round < 4; round++) {
             final List<String> these = new ArrayList<>();
-            levels = levels(name, section, along, ground, at, clearances, these, loop);
+            levels = levels(name, section, along, ground, at, clearances, these, loop, pins);
             final Carrier[] next = chosen(section.earthworks(), along, levels, ground, told, at);
             found = these;
             if (Arrays.equals(next, at)) {
@@ -187,7 +204,7 @@ public final class Roadway {
     /** Its heights, as near the ground as they may be where it counts, held over its clearances, within its grade. */
     private static double[] levels(final String name, final Section section, final double[] along, final double[] ground,
                                    final Carrier[] at, final List<Clearance> clearances, final List<String> problems,
-                                   final boolean loop) {
+                                   final boolean loop, final List<Pin> pins) {
         final int n = along.length;
         final double[] weight = new double[n];
         final double[] pinned = new double[n];
@@ -198,6 +215,9 @@ public final class Roadway {
         if (!loop) {
             pinned[0] = ground[0];
             pinned[n - 1] = ground[n - 1];
+        }
+        for (final Pin p : pins) {
+            pinned[nearest(along, p.along())] = p.height();
         }
         double[] levels = null;
         for (int round = 0; round < 12; round++) {
@@ -702,7 +722,7 @@ public final class Roadway {
                 final List<Integer> piers = new ArrayList<>();
                 for (int m = 1; m < spans; m++) {
                     final int i = nearestPoint(from + (to - from) * m / spans);
-                    if (levels[i] - DECK - ground[i] > CLEAR) {
+                    if (levels[i] - decks[Math.min(i, decks.length - 1)] - ground[i] > CLEAR) {
                         piers.add(i);
                     }
                 }
@@ -712,6 +732,46 @@ public final class Roadway {
             }
         }
         return built;
+    }
+
+    /**
+     * How deep a deck is under each segment: as deep as {@link #DECK} where there is room, shallower where a structure
+     * is low over what is under it, so it leaves {@link #ROOM} under it, down to a slab ({@link #SHALLOWEST}).
+     */
+    private static double[] decks(final List<Stretch> stretches, final double[] levels, final double[] ground,
+                                  final int segments) {
+        final double[] decks = new double[segments];
+        Arrays.fill(decks, DECK);
+        for (final Stretch s : stretches) {
+            if (s.carrier() != Carrier.STRUCTURE) {
+                continue;
+            }
+            // over its own points: its ends are its banks' last, easing down to it
+            double room = Double.POSITIVE_INFINITY;
+            final boolean inner = s.to() - s.from() >= 2;
+            for (int i = inner ? s.from() + 1 : s.from(); i <= (inner ? s.to() - 1 : s.to()); i++) {
+                room = Math.min(room, levels[i] - ground[i]);
+            }
+            final double deck = Num.clamp(room - ROOM, SHALLOWEST, DECK);
+            Arrays.fill(decks, s.from(), s.to(), deck);
+        }
+        return decks;
+    }
+
+    /** How deep the deck is under its {@code j}th segment, where a structure carries it: under its lowest edge. */
+    public double deck(final int j) {
+        return decks[Math.max(0, Math.min(j, decks.length - 1))];
+    }
+
+    /** Which of the points {@code along} is nearest {@code s}. */
+    private static int nearest(final double[] along, final double s) {
+        int best = 0;
+        for (int i = 1; i < along.length; i++) {
+            if (Math.abs(along[i] - s) < Math.abs(along[best] - s)) {
+                best = i;
+            }
+        }
+        return best;
     }
 
     /** Which of its points is nearest {@code s} along it. */

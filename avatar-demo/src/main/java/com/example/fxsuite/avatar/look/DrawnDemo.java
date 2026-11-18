@@ -1,4 +1,4 @@
-package com.example.fxsuite.avatar;
+package com.example.fxsuite.avatar.look;
 
 import com.example.fxsuite.avatar.sim.Demo;
 

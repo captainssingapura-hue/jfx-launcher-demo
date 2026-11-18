@@ -12,7 +12,6 @@ import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Prism;
 import com.example.fxsuite.avatar.sim.River;
 import com.example.fxsuite.avatar.sim.RoadMap;
-import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.Survey;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -36,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *       window, its woodwork.</li>
  *   <li><b>Trees</b> along both banks, and here and there across the meadow.</li>
  *   <li><b>A church</b> ({@link Church}) on a small hill north-west of the village, and <b>a country road</b>
- *       ({@link Road}) winding up to it from the village's edge.</li>
+ *       winding up to it from the village's edge.</li>
  *   <li><b>A pond</b> ({@link Pond}) in the hollow up the slope east of the village.</li>
  *   <li><b>A car and a motorcycle</b>, parked just ahead of where the avatar starts, facing the river.</li>
  * </ul>
@@ -252,9 +251,6 @@ public final class Village {
     /** How far from the river's middle the bridge's ends are; how high its deck is over the meadow; its parapets. */
     private static final double SPAN = 1_300;
     public static final double DECK = 80;
-    private static final double DECK_DEEP = 60;
-    private static final double PARAPET = 90;
-    private static final double PARAPET_THICK = 30;
     /** How far short of the well the road into the village ends: the village's square. */
     private static final double SQUARE = 1_200;
 
@@ -496,11 +492,12 @@ public final class Village {
     }
 
     /**
-     * The meadow's land: its lie ({@link Terrains#meadow}), surveyed; the river's channel cut into it
-     * ({@link Channel}); its roads laid over that, in turn ({@link #roads}). Worked out once, when first wanted.
+     * The meadow's ground before its roads: its lie ({@link Terrains#meadow}), surveyed; the river's channel cut into
+     * it ({@link Channel}). Its roads are laid over it by whatever lays them ({@link #roads}, as described). Worked out
+     * once, when first wanted.
      */
-    public static Land land() {
-        return Meadow.LAND;
+    public static Land ground() {
+        return Meadow.CHANNELLED;
     }
 
     /** The meadow's lie alone, surveyed, under its features. */
@@ -508,24 +505,34 @@ public final class Village {
         return Meadow.LIE;
     }
 
-    /** Its roads, laid: the highway, the road into the village, the church lane. */
-    public static List<Road> laid() {
-        return Meadow.ROADS;
+    /** Where road {@code name} runs: its line as described, worked out ({@link Alignment}), a point every so far. */
+    public static List<Vec2> line(final String name) {
+        return Meadow.LINES.get(name);
     }
 
-    /** Road {@code name}, laid. */
-    public static Road laid(final String name) {
-        return Meadow.ROADS.stream().filter(r -> r.name().equals(name)).findFirst().orElseThrow();
+    /** How wide road {@code name} is, edge to edge, as its kind is described. */
+    public static double wide(final String name) {
+        final RoadMap map = Meadow.MAP;
+        return map.ways().stream().filter(w -> w.name().equals(name)).findFirst()
+                .map(w -> map.kind(w.segments().getFirst().kind()).width()).orElseThrow();
     }
 
     private static final class Meadow {
         static final Survey LIE = Terrains.meadow().survey();
         static final Land CHANNELLED = new Land(LIE, List.of(channel()));
-        static final List<Road> ROADS = roads().laid(CHANNELLED, Alignment.STEP);
-        static final Land LAND = CHANNELLED.with(ROADS);
+        static final RoadMap MAP = roads();
+        static final java.util.Map<String, List<Vec2>> LINES = lines(MAP);
         /** Beside the roads, where no tree grows: each one's top, its side slopes, and so much more. */
-        static final List<Polyline> ROADSIDES = ROADS.stream()
-                .map(r -> new Polyline(r.line(), r.wide(0) / 2 + ROADSIDE)).toList();
+        static final List<Polyline> ROADSIDES = MAP.ways().stream()
+                .map(w -> new Polyline(LINES.get(w.name()), wide(w.name()) / 2 + ROADSIDE)).toList();
+
+        private static java.util.Map<String, List<Vec2>> lines(final RoadMap map) {
+            final java.util.Map<String, List<Vec2>> lines = new java.util.LinkedHashMap<>();
+            for (final RoadMap.Way way : map.ways()) {
+                lines.put(way.name(), Alignment.of(map, way, Alignment.STEP).points());
+            }
+            return lines;
+        }
     }
 
     /** How far clear of a road's edges, and of the churchyard, trees keep. */
@@ -544,8 +551,7 @@ public final class Village {
      * north, the bridge ahead.
      */
     public static Vec3 start() {
-        final Road road = laid("village road");
-        final List<Vec2> line = road.line();
+        final List<Vec2> line = line("village road");
         final double z = riverAt(WELL.x()) - STARTS_SOUTH;
         int best = 0;
         for (int i = 0; i < line.size(); i++) {
@@ -559,20 +565,18 @@ public final class Village {
         // to its left, going along it
         final double lx = -(q.z() - p.z()) / d;
         final double lz = (q.x() - p.x()) / d;
-        final double out = road.wide(best) / 2 + STARTS_ASIDE;
+        final double out = wide("village road") / 2 + STARTS_ASIDE;
         return new Vec3(p.x() + lx * out, 0, p.z() + lz * out);
     }
 
     private static final double STARTS_SOUTH = 3_500;
     private static final double STARTS_ASIDE = 500;
 
-    /** Tells the simulation all of the meadow village: what stands in it, its river and pond, where the avatar starts, its land. */
-    public static void tell() {
-        Course.village(Village::pieces, Village::rivers, Village::ponds, Village::start, Village::land);
-    }
-
-    /** What stands in the meadow: its houses, each one piece; the well; the footbridge; the trees. */
-    public static List<Course.Piece> pieces() {
+    /**
+     * What stands in the meadow: its houses, each one piece; the well; the trees; the car and the motorcycle; each
+     * standing on {@code land}, the meadow's ground as its roads leave it. Its bridge is its road's, built with it.
+     */
+    public static List<Course.Piece> pieces(final Land land) {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int k = 0; k < VILLAGE.size(); k++) {
             final House house = VILLAGE.get(k);
@@ -580,17 +584,16 @@ public final class Village {
         }
         pieces.add(church());
         pieces.addAll(well());
-        pieces.addAll(bridge());
-        pieces.addAll(trees());
-        pieces.addAll(avenue());
-        pieces.addAll(parked());
+        pieces.addAll(trees(land));
+        pieces.addAll(avenue(land));
+        pieces.addAll(parked(land));
         return pieces;
     }
 
     /** Where the church stands: the middle of its hill's level top, as high as that, its front to where the road comes up. */
     public static Place churchPlace() {
         final Vec2 hill = Terrains.CHURCH_HILL;
-        final List<Vec2> lane = laid("church lane").line();
+        final List<Vec2> lane = line("church lane");
         final Vec2 end = lane.getLast();
         return new Place(hill.x(), hill.z(), Terrains.CHURCHYARD_LEVEL,
                 Math.toDegrees(Math.atan2(end.x() - hill.x(), end.z() - hill.z())));
@@ -608,9 +611,9 @@ public final class Village {
 
     /**
      * A car (the roadster) and a motorcycle (the sport bike), parked side by side just ahead of where the
-     * avatar starts, facing the river: on the land, as high as it is there.
+     * avatar starts, facing the river: on {@code land}, as high as it is there.
      */
-    public static List<Course.Piece> parked() {
+    public static List<Course.Piece> parked(final Land land) {
         final Vec3 start = start();
         final List<Course.Piece> parked = new ArrayList<>();
         final Object[][] vehicles = {{Course.CAR_CHASSIS, Course.ROADSTER, CAR_ASIDE}, {Course.SPORT_BIKE, null, BIKE_ASIDE}};
@@ -619,7 +622,7 @@ public final class Village {
             final double x = start.x() + (double) v[2];
             final double z = start.z() + PARKED_AHEAD;
             parked.add(Course.Piece.vehicle(chassis, (Course.Bodywork) v[1],
-                    new Place(x, z, land().height(x, z) + chassis.ride(), 0), 0));
+                    new Place(x, z, land.height(x, z) + chassis.ride(), 0), 0));
         }
         return parked;
     }
@@ -650,50 +653,6 @@ public final class Village {
         return circle;
     }
 
-    /** How far past each end of the bridge's segment its deck goes, onto the road either side. */
-    private static final double DECK_PAST = 100;
-
-    /**
-     * The bridge carrying the road into the village across the river: built on its bridge segment, as the road
-     * worked out has it there. Its deck as wide as the road and its parapets, as high as the road over it,
-     * so deep, and a little past each end onto the road; a stone parapet along each side.
-     */
-    private static List<Course.Piece> bridge() {
-        final Road road = laid("village road");
-        final List<Vec2> line = road.line();
-        int first = -1;
-        int last = -1;
-        for (int i = 0; i < line.size(); i++) {
-            if (road.bridged(i)) {
-                first = first < 0 ? i : first;
-                last = i;
-            }
-        }
-        // its segment ends at the vertex after its last point on it
-        last = Math.min(line.size() - 1, last + 1);
-        final Vec2 a = line.get(first);
-        final Vec2 b = line.get(last);
-        final double long_ = Math.hypot(b.x() - a.x(), b.z() - a.z());
-        final double yaw = Math.toDegrees(Math.atan2(b.x() - a.x(), b.z() - a.z()));
-        final double level = (road.level(first) + road.level(last)) / 2;
-        final double half = road.wide(first) / 2;
-        final double mx = (a.x() + b.x()) / 2;
-        final double mz = (a.z() + b.z()) / 2;
-        final List<Course.Piece> bridge = new ArrayList<>();
-        final Block deck = new Block(mx, mz, half + PARAPET_THICK, long_ / 2 + DECK_PAST, yaw, level - DECK_DEEP, level);
-        bridge.add(new Course.Piece(deck, Course.Kind.ROAD, 0, List.of(deck)));
-        // to its side, going along it
-        final double sx = (b.z() - a.z()) / long_;
-        final double sz = -(b.x() - a.x()) / long_;
-        for (final double side : new double[] {-1, 1}) {
-            final double out = side * (half + PARAPET_THICK / 2);
-            final Block parapet = new Block(mx + sx * out, mz + sz * out, PARAPET_THICK / 2, long_ / 2 + DECK_PAST, yaw,
-                    level, level + PARAPET);
-            bridge.add(new Course.Piece(parapet, Course.Kind.WALL, 0, List.of(parapet)));
-        }
-        return bridge;
-    }
-
     /**
      * The highway's median planted: two lines of trees down it, so far either side of its middle, a tree every so
      * far, so far east and west of the village.
@@ -703,22 +662,22 @@ public final class Village {
     private static final double AVENUE_REACH = 250_000;
 
     /** The two lines of trees down the highway's median, between its carriageways, each standing on the land. */
-    private static List<Course.Piece> avenue() {
+    private static List<Course.Piece> avenue(final Land land) {
         final List<Course.Piece> trees = new ArrayList<>();
         for (double x = -AVENUE_REACH; x <= AVENUE_REACH; x += AVENUE_EVERY) {
             for (final double row : new double[] {-AVENUE_ROW, AVENUE_ROW}) {
-                trees.add(tree(offHighway(x, row), 1));
+                trees.add(tree(offHighway(x, row), 1, land));
             }
         }
         return trees;
     }
 
     /** A tree at {@code at}, of kind {@code kind}, its foot as low as the ground under it goes, so it is never clear of it. */
-    private static Course.Piece tree(final Vec2 at, final int kind) {
+    private static Course.Piece tree(final Vec2 at, final int kind, final Land land) {
         double foot = Double.POSITIVE_INFINITY;
         for (final double dx : new double[] {-TRUNK / 2, TRUNK / 2}) {
             for (final double dz : new double[] {-TRUNK / 2, TRUNK / 2}) {
-                foot = Math.min(foot, land().height(at.x() + dx, at.z() + dz));
+                foot = Math.min(foot, land.height(at.x() + dx, at.z() + dz));
             }
         }
         final Block trunk = new Block(at.x(), at.z(), TRUNK / 2, TRUNK / 2, 0, foot, foot + 320);
@@ -736,7 +695,7 @@ public final class Village {
      * Its trees: along both banks, every so far, a little in and out; and across the meadow here and there;
      * none in the water, by the bridge, or by a house.
      */
-    private static List<Course.Piece> trees() {
+    private static List<Course.Piece> trees(final Land land) {
         final SplittableRandom random = new SplittableRandom(SEED + 1);
         final List<Vec2> at = new ArrayList<>();
         for (double x = -WOODED; x <= WOODED; x += ALONG) {
@@ -769,7 +728,7 @@ public final class Village {
             double foot = Double.POSITIVE_INFINITY;
             for (final double dx : new double[] {-TRUNK / 2, TRUNK / 2}) {
                 for (final double dz : new double[] {-TRUNK / 2, TRUNK / 2}) {
-                    foot = Math.min(foot, land().height(t.x() + dx, t.z() + dz));
+                    foot = Math.min(foot, land.height(t.x() + dx, t.z() + dz));
                 }
             }
             final Block trunk = new Block(t.x(), t.z(), TRUNK / 2, TRUNK / 2, 0, foot, foot + 320);

@@ -37,10 +37,6 @@ public enum Demos implements Demo {
     SIEGE("Temple siege", "The town under siege: airships come in from every side without end to bomb the temple's"
             + " hall until it falls. Shoot them down from the tower guns, the vehicles' guns or your own. Set how"
             + " many, how fast, how tough before it starts.", 0, true),
-    /** A meadow, a river winding across it, and a small village of earth houses by its bank. */
-    VILLAGE("Meadow village", "A meadow with a river winding across it, a footbridge over it, and a small village of"
-            + " earth houses round a well by its bank, each its own size and finish: walk in, wade across, look round.",
-            0, true),
     /**
      * Three towers borne by walls, end to end along a slight curve, trees scattered round them for kilometres: every
      * room of each enterable, by the jet-pack, a balcony at a time.

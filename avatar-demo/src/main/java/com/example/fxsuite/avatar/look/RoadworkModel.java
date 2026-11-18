@@ -187,6 +187,11 @@ public final class RoadworkModel {
      * face drawn from its outside only. Its ground strips are the ground's.
      */
     public static Group pavement(final Roadway road, final double upTo) {
+        return pavement(road, upTo, NOWHERE);
+    }
+
+    /** The same, but where {@code covered} says another road's pavement already lies: drawn once, the other's. */
+    public static Group pavement(final Roadway road, final double upTo, final Covered covered) {
         final Map<Course.Stuff, Faces> meshes = new EnumMap<>(Course.Stuff.class);
         final int last = road.size() - 2;
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
@@ -203,7 +208,7 @@ public final class RoadworkModel {
                 final Section.Laid l1 = there.get(k);
                 final Course.Stuff surface = l0.strip().courses().getFirst().stuff();
                 // its top
-                faces(meshes, surface).quad(along(road, j, 0, t1, l0.innerAcross(), l0.outerAcross(),
+                faces(meshes, surface, covered).quad(along(road, j, 0, t1, l0.innerAcross(), l0.outerAcross(),
                         (outer, top, t) -> top(l0, l1, outer, t)), up());
                 // its sides: where it meets nothing paved, course by course; where it meets a lower paved strip, the step
                 for (final boolean outer : new boolean[] {false, true}) {
@@ -219,7 +224,7 @@ public final class RoadworkModel {
                         for (final Course c : l0.strip().courses()) {
                             final double from = down;
                             final double to = down + c.thick();
-                            faces(meshes, c.stuff()).quad(edgeFace(road, j, t1, edge,
+                            faces(meshes, c.stuff(), covered).quad(edgeFace(road, j, t1, edge,
                                     t -> top(l0, l1, outer, t) - to, t -> top(l0, l1, outer, t) - from), flat(facing));
                             down = to;
                         }
@@ -227,7 +232,7 @@ public final class RoadworkModel {
                         // a step down to the next strip: its face, from the next's top up to this one's
                         final double step0 = top(l0, l1, outer, 0) - nextTop(n0, n1, edge, 0);
                         if (step0 > 0.5) {
-                            faces(meshes, surface).quad(edgeFace(road, j, t1, edge,
+                            faces(meshes, surface, covered).quad(edgeFace(road, j, t1, edge,
                                     t -> nextTop(n0, n1, edge, t), t -> top(l0, l1, outer, t)), flat(facing));
                         }
                     }
@@ -246,7 +251,7 @@ public final class RoadworkModel {
                         for (final Course c : l0.strip().courses()) {
                             final double from = down;
                             final double to = down + c.thick();
-                            faces(meshes, c.stuff()).quad(endFace(road, j, t, l0.innerAcross(), l0.outerAcross(),
+                            faces(meshes, c.stuff(), covered).quad(endFace(road, j, t, l0.innerAcross(), l0.outerAcross(),
                                     outer -> top(l0, l1, outer, t) - to, outer -> top(l0, l1, outer, t) - from),
                                     flat(facing));
                             down = to;
@@ -273,7 +278,12 @@ public final class RoadworkModel {
 
     /** Its markings, painted on its surface, from its start to {@code upTo} along it: each a face on its top. */
     public static Group markings(final Roadway road, final double upTo) {
-        final Faces paint = new Faces();
+        return markings(road, upTo, NOWHERE);
+    }
+
+    /** The same, but none where {@code covered} says another road's pavement already lies, with its own. */
+    public static Group markings(final Roadway road, final double upTo, final Covered covered) {
+        final Faces paint = new Faces(covered);
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
             final double s0 = road.along(j);
@@ -408,6 +418,16 @@ public final class RoadworkModel {
         private int pointCount;
         private int normalCount;
         private int faceCount;
+        /** Where no face is put: its middle there. */
+        private final Covered covered;
+
+        Faces() {
+            this(NOWHERE);
+        }
+
+        Faces(final Covered covered) {
+            this.covered = covered;
+        }
 
         boolean empty() {
             return faceCount == 0;
@@ -419,6 +439,11 @@ public final class RoadworkModel {
          */
         void quad(final Point3D[] corners, final Point3D outward) {
             Point3D[] c = corners.length == 8 ? new Point3D[] {corners[2], corners[3], corners[7], corners[6]} : corners;
+            // where something else is drawn already, nothing
+            if (covered.at((c[0].getX() + c[1].getX() + c[2].getX() + c[3].getX()) / 4,
+                    (c[0].getZ() + c[1].getZ() + c[2].getZ() + c[3].getZ()) / 4)) {
+                return;
+            }
             final Point3D turn = c[1].subtract(c[0]).crossProduct(c[2].subtract(c[0]));
             if (turn.dotProduct(outward) * WINDING < 0) {
                 c = new Point3D[] {c[0], c[3], c[2], c[1]};
@@ -476,13 +501,23 @@ public final class RoadworkModel {
         }
     }
 
-    /** {@code materials}' faces for {@code stuff}, begun if there are none yet. */
-    private static Faces faces(final Map<Course.Stuff, Faces> materials, final Course.Stuff stuff) {
-        return materials.computeIfAbsent(stuff, s -> new Faces());
+    /** {@code materials}' faces for {@code stuff}, begun if there are none yet, none where {@code covered}. */
+    private static Faces faces(final Map<Course.Stuff, Faces> materials, final Course.Stuff stuff,
+                               final Covered covered) {
+        return materials.computeIfAbsent(stuff, s -> new Faces(covered));
     }
 
+    /** Where something else is drawn already, at (x, z): another road's pavement, say. */
+    @FunctionalInterface
+    public interface Covered {
+        boolean at(double x, double z);
+    }
+
+    /** Nowhere. */
+    public static final Covered NOWHERE = (x, z) -> false;
+
     /**
-     * A deck under the formation of its paved strips, down to {@link Roadway#DECK} under the formation's lowest edge,
+     * A deck under the formation of its paved strips, as deep as the road says ({@link Roadway#deck}) under its lowest edge,
      * tilted or not; a parapet at each edge of them. Its ground strips not on it: there is no ground there.
      */
     private static void deck(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built,
@@ -492,7 +527,7 @@ public final class RoadworkModel {
         for (int j = stretch.from(); j < stretch.to(); j++) {
             final Section here = road.section(j);
             final Section there = road.section(j + 1);
-            final double under = Math.min(lowest(here), lowest(there)) - Roadway.DECK;
+            final double under = Math.min(lowest(here), lowest(there)) - road.deck(j);
             final double west = -here.pavedEdge(-1);
             final double east = here.pavedEdge(1);
             final Vec2 right = road.right(j);
@@ -538,7 +573,7 @@ public final class RoadworkModel {
         final double r0 = section.pavedEdge(1);
         final double left = (l + r0) / 2 - (r0 - l) / 2 * 0.9;
         final double right = (l + r0) / 2 + (r0 - l) / 2 * 0.9;
-        final double under = road.level(i) + lowest(road.section(i)) - Roadway.DECK;
+        final double under = road.level(i) + lowest(road.section(i)) - road.deck(i);
         final Vec2 r = road.right(i);
         final Vec2 h = new Vec2(-r.z(), r.x());
         final Vec2 p = road.point(i);
@@ -565,7 +600,7 @@ public final class RoadworkModel {
             final Vec2 r = road.right(end);
             final Vec2 h = new Vec2(-r.z(), r.x());
             final double back = end == stretch.from() ? -1 : 1;
-            final double under = road.level(end) - Roadway.DECK;
+            final double under = road.level(end) - road.deck(end == stretch.from() ? end : end - 1);
             built.box(box(road.point(end), r, h, -section.pavedEdge(-1) - Roadway.PARAPET_THICK,
                     section.pavedEdge(1) + Roadway.PARAPET_THICK, Math.min(0, back * SEAT_BACK), Math.max(0, back * SEAT_BACK),
                     under - SEAT, under));

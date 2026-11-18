@@ -1,26 +1,29 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.roads.Carrier;
+import com.example.fxsuite.avatar.roads.Roadway;
+import com.example.fxsuite.avatar.roads.Section;
 import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Channel;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
-import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Demos;
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Polyline;
 import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.River;
-import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.RoadMap;
-import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.worlds.Meadow;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,9 +31,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The meadow village: its river across the world; its houses dry, apart, facing its well, its roads clear of
- * them; a highway along the river, a road off it into the village over a bridge, a lane up to the church; the
- * bridge walked across; its river waded; the same every time.
+ * The meadow village: its river across the world; its houses dry, apart, facing its well, its roads clear of them; a
+ * highway along the river, a road off it into the village over a bridge, a lane up to the church, all laid as roads are
+ * laid now ({@link Meadow}); the bridge walked across; its river waded; the same every time.
  */
 class VillageTest {
 
@@ -44,6 +47,25 @@ class VillageTest {
         return body;
     }
 
+    /** Road {@code name}, as the meadow lays it. */
+    private static Roadway road(final String name) {
+        return Meadow.roads().roads().stream().filter(r -> r.name().equals(name)).findFirst().orElseThrow();
+    }
+
+    /** Its line's points. */
+    private static List<Vec2> line(final Roadway road) {
+        final List<Vec2> line = new ArrayList<>();
+        for (int i = 0; i < road.size(); i++) {
+            line.add(road.point(i));
+        }
+        return line;
+    }
+
+    /** What stands in the meadow, on its land as its roads leave it. */
+    private static List<Course.Piece> pieces() {
+        return Village.pieces(Meadow.land());
+    }
+
     @Test
     void itsRiverRunsAcrossTheWorld() {
         final River river = Village.rivers().getFirst();
@@ -51,13 +73,14 @@ class VillageTest {
         assertEquals(Village.EAST, river.line().getLast().x(), 1e-6);
         assertTrue(river.wet(0, Village.riverAt(0)));
         assertFalse(river.wet(Village.WELL.x(), Village.WELL.z()), "the village dry");
-        Village.tell();
-        final Course course = new Course(Demos.VILLAGE);
+        final Course course = new Course(Meadow.DEMO);
         assertEquals(1, course.rivers().size());
         assertFalse(course.land().level(), "the meadow's land, laid out");
         assertTrue(new Course(Demos.TOWN).land().level(), "the town's ground level");
         assertFalse(course.grid(), "open country, no grid ruled on it");
         assertEquals(Village.start(), course.start());
+        assertTrue(Meadow.DEMO.recordable() && Meadow.DEMO.offered());
+        assertEquals("VILLAGE", Meadow.DEMO.name());
     }
 
     @Test
@@ -68,14 +91,14 @@ class VillageTest {
         assertEquals(1_001, meadow.along(), "10 km south to north");
         assertTrue(Village.start().x() - Village.WEST >= 1_400_000, "more than 10 km of it west of the start");
         // walked west past the edge: held at it
-        final com.example.fxsuite.avatar.sim.Land land = Village.land();
+        final Land land = Meadow.land();
         assertEquals(Village.WEST, land.insideX(Village.WEST - 50_000));
         assertEquals(Village.NORTH, land.insideZ(Village.NORTH + 1));
         assertEquals(-300_000, land.insideX(-300_000), "well inside it, as it was");
     }
 
     @Test
-    void itsHousesAreDryApartFacingItsWellTheWayToTheBridgeClear() {
+    void itsHousesAreDryApartFacingItsWellItsRoadsClearOfAllThatStands() {
         final List<Village.House> houses = Village.VILLAGE;
         assertEquals(Village.HOUSES, houses.size());
         final River river = Village.rivers().getFirst();
@@ -95,7 +118,7 @@ class VillageTest {
         }
         // the same every time
         assertEquals(houses, Village.VILLAGE);
-        final List<Course.Piece> pieces = Village.pieces();
+        final List<Course.Piece> pieces = pieces();
         final List<Course.Piece> built = pieces.stream().filter(p -> p.kind() == Course.Kind.BUILDING
                 && p.tint() < Village.KEYS + Village.CHURCH).toList();
         assertEquals(houses.size(), built.size());
@@ -103,23 +126,22 @@ class VillageTest {
             assertTrue(house.tint() >= Village.KEYS, "drawn by its own key");
             assertFalse(Sites.drawn(house.tint()).isEmpty());
         }
-        // the road into the village clear of all of them, and of everything else standing
-        for (final Road road : Village.laid()) {
+        // every road's pavement clear of all that stands
+        for (final Roadway road : Meadow.roads().roads()) {
+            final Section s = road.section();
             for (final Course.Piece piece : pieces) {
-                if (piece.kind() == Course.Kind.ROAD || piece.kind() == Course.Kind.WALL) {
-                    continue;
-                }
                 final Block box = piece.block();
                 final double round = Math.hypot(box.halfWidth(), box.halfDepth());
-                assertEquals(Double.POSITIVE_INFINITY, new Polyline(road.line(), road.wide(0) / 2 + round)
-                        .distance(box.x(), box.z()), 1e-9, piece.kind() + " clear of the " + road.name());
+                final Roadway.Near near = road.nearest(box.x(), box.z());
+                assertTrue(near == null || near.across() < -s.pavedEdge(-1) - round || near.across() > s.pavedEdge(1) + round,
+                        piece.kind() + " clear of the " + road.name());
             }
         }
     }
 
     @Test
     void aCarAndAMotorcycleParkedByTheStartFacingTheRiver() {
-        final List<Course.Piece> parked = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.CAR).toList();
+        final List<Course.Piece> parked = pieces().stream().filter(p -> p.kind() == Course.Kind.CAR).toList();
         assertEquals(2, parked.size());
         assertTrue(parked.get(0).block().halfWidth() > 2 * parked.get(1).block().halfWidth(), "a car, and a motorcycle beside it");
         final Vec3 start = Village.start();
@@ -131,30 +153,30 @@ class VillageTest {
             assertEquals(0, box.yaw(), 1e-9, "facing it");
         }
         // and nothing else where they are
-        final List<Course.Piece> rest = Village.pieces().stream().filter(p -> p.kind() != Course.Kind.CAR).toList();
+        final List<Course.Piece> rest = pieces().stream().filter(p -> p.kind() != Course.Kind.CAR).toList();
         for (final Course.Piece vehicle : parked) {
             assertTrue(rest.stream().noneMatch(p -> p.block().overlaps(vehicle.block())), "clear");
         }
     }
 
     @Test
-    void aChurchOnItsHillAndACountryRoadWindingUpToIt() {
-        final Land land = Village.land();
+    void aChurchOnItsHillAndACountryLaneWindingUpToIt() {
+        final Land land = Meadow.land();
         final Place church = Village.churchPlace();
         assertEquals(Terrains.CHURCHYARD_LEVEL, church.height());
         assertEquals(church.height(), land.height(church.x(), church.z()), 1e-6, "on its hill's level top");
-        final Road lane = Village.laid("church lane");
-        final List<Vec2> road = lane.line();
+        final Roadway lane = road("church lane");
+        final List<Vec2> road = line(lane);
         final Vec2 end = road.getLast();
-        // its front to where the road comes up
+        // its front to where the lane comes up
         final Vec3 front = Num.heading(church.yaw());
         final Vec3 toRoad = new Vec3(end.x() - church.x(), 0, end.z() - church.z()).normalize();
-        assertTrue(front.x() * toRoad.x() + front.z() * toRoad.z() > 0.99, "facing the road");
+        assertTrue(front.x() * toRoad.x() + front.z() * toRoad.z() > 0.99, "facing the lane");
         assertTrue(Math.hypot(end.x() - church.x(), end.z() - church.z()) < Terrains.CHURCHYARD, "up to the churchyard");
         // from the village's edge, clear of its houses all the way, winding, and gently
         final Vec2 start = road.getFirst();
         assertTrue(Math.hypot(start.x() - Village.WELL.x(), start.z() - Village.WELL.z()) < 12_000, "from the village's edge");
-        final Polyline line = new Polyline(road, lane.wide(0) / 2 + 300);
+        final Polyline line = new Polyline(road, lane.section().width() / 2 + 300);
         for (final Village.House house : Village.VILLAGE) {
             assertTrue(line.distance(house.place().x(), house.place().z()) > EarthHouse.of(house.size()).eave(),
                     "clear of the houses");
@@ -164,8 +186,9 @@ class VillageTest {
         assertTrue(lane.steepest() <= 0.14 + 1e-9, "a lane's climb: " + lane.steepest());
         assertEquals(List.of(), lane.problems());
         assertEquals(1, land.cover(Land.Cover.GRAVEL, start.x(), start.z()), 1e-9, "gravel");
+        assertTrue(lane.section().markings().isEmpty(), "unmarked");
         // and the church among the village's buildings, drawn by its own key
-        final List<Course.Piece> built = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.BUILDING).toList();
+        final List<Course.Piece> built = pieces().stream().filter(p -> p.kind() == Course.Kind.BUILDING).toList();
         assertEquals(Village.HOUSES + 1, built.size());
         assertTrue(built.stream().anyMatch(p -> p.tint() == Village.KEYS + Village.CHURCH && p.block().bottom() == church.height()));
         assertFalse(Sites.drawn(Village.KEYS + Village.CHURCH).isEmpty());
@@ -173,7 +196,7 @@ class VillageTest {
 
     @Test
     void waterInTheRiversChannelAndInThePond() {
-        final Land land = Village.land();
+        final Land land = Meadow.land();
         final River river = Village.rivers().getFirst();
         assertEquals(Village.WATER, river.top());
         // its water's edge where its top meets the banks: as far down them as its water is under the meadow
@@ -187,15 +210,14 @@ class VillageTest {
         for (final Vec2 rim : pond.outline()) {
             assertTrue(land.height(rim.x(), rim.z()) > pond.level(), "its rim over its top all the way round");
         }
-        Village.tell();
-        assertEquals(1, new Course(Demos.VILLAGE).ponds().size());
+        assertEquals(1, new Course(Meadow.DEMO).ponds().size());
     }
 
     @Test
     void itsTreesStandOnItsLandNoneClearOfIt() {
-        final Land land = Village.land();
+        final Land land = Meadow.land();
         boolean up = false;
-        for (final Course.Piece tree : Village.pieces().stream().filter(p -> p.kind() == Course.Kind.TREE).toList()) {
+        for (final Course.Piece tree : pieces().stream().filter(p -> p.kind() == Course.Kind.TREE).toList()) {
             final Block trunk = tree.block();
             for (final double dx : new double[] {-trunk.halfWidth(), trunk.halfWidth()}) {
                 for (final double dz : new double[] {-trunk.halfDepth(), trunk.halfDepth()}) {
@@ -211,44 +233,47 @@ class VillageTest {
     @Test
     void aDualCarriagewayAlongTheRiverLessWindingThanIt() {
         assertEquals(List.of(), Village.roads().problems());
-        final Road east = Village.laid("eastbound");
-        final Road west = Village.laid("westbound");
+        final Roadway east = road("eastbound");
+        final Roadway west = road("westbound");
         assertEquals(List.of(), east.problems());
         assertEquals(List.of(), west.problems());
         // each across the world, past its ends, the way its traffic goes: east south of the median, west north of it
-        assertTrue(east.line().getFirst().x() < Village.WEST && east.line().getLast().x() > Village.EAST, "eastward");
-        assertTrue(west.line().getFirst().x() > Village.EAST && west.line().getLast().x() < Village.WEST, "westward");
-        final Polyline westLine = new Polyline(west.line(), Village.CARRIAGEWAYS_APART * 2);
-        for (int i = 0; i < east.line().size(); i += 50) {
-            final Vec2 p = east.line().get(i);
+        final List<Vec2> eastLine = line(east);
+        final List<Vec2> westLine = line(west);
+        assertTrue(eastLine.getFirst().x() < Village.WEST && eastLine.getLast().x() > Village.EAST, "eastward");
+        assertTrue(westLine.getFirst().x() > Village.EAST && westLine.getLast().x() < Village.WEST, "westward");
+        // each its line at its inner edge: the two the median apart
+        final Polyline westPolyline = new Polyline(westLine, Village.CARRIAGEWAYS_APART * 2);
+        for (int i = 0; i < eastLine.size(); i += 50) {
+            final Vec2 p = eastLine.get(i);
             if (Math.abs(p.x()) < Body.EDGE) {
-                assertEquals(Village.CARRIAGEWAYS_APART, westLine.distance(p.x(), p.z()), 50, "side by side, the median between");
+                assertEquals(Village.MEDIAN, westPolyline.distance(p.x(), p.z()), 50, "side by side, the median between");
             }
         }
         // along the river, south of it, clear of its channel all the way
         final Channel channel = Village.channel();
         double nearest = Double.POSITIVE_INFINITY;
-        for (final Vec2 p : west.line()) {
+        for (final Vec2 p : westLine) {
             assertTrue(p.z() < Village.riverAt(p.x()), "south of the river");
             nearest = Math.min(nearest, Math.abs(p.z() - Village.riverAt(p.x())));
         }
-        assertTrue(nearest > channel.reach() + west.wide(0) / 2 + 2_000, "clear of the channel: " + nearest);
+        assertTrue(nearest > channel.reach() + west.section().pavedEdge(1) + 2_000, "clear of the channel: " + nearest);
         // two to three times less winding: as much turning, all told, along the same way
         final double river = turning(Village.rivers().getFirst().line());
-        final double road = turning(east.line());
+        final double road = turning(eastLine);
         assertTrue(river > 2 * road && river < 3.5 * road, "less winding: " + river / road);
         assertTrue(east.steepest() <= 0.05 + 1e-9 && west.steepest() <= 0.05 + 1e-9, "a highway's grade");
-        final Vec2 on = east.line().get(1_000);
-        assertEquals(1, Village.land().cover(Land.Cover.ASPHALT, on.x(), on.z()), 1e-9, "asphalt");
-        // and its median planted: two lines of trees down it, each between the carriageways, on the land
-        final List<Course.Piece> avenue = Village.pieces().stream().filter(p -> p.kind() == Course.Kind.TREE
-                && westLine.distance(p.block().x(), p.block().z()) < Village.CARRIAGEWAYS_APART).toList();
+        // its pavement to its right, asphalt
+        final Vec2 on = east.at(1_000, 400);
+        assertFalse(Double.isNaN(east.surface(on.x(), on.z())), "paved to its right: driving on the right");
+        assertEquals(1, Meadow.land().cover(Land.Cover.ASPHALT, on.x(), on.z()), 1e-9, "asphalt");
+        // and its median planted: two lines of trees down it, between the carriageways, off both their pavements
+        final List<Course.Piece> avenue = pieces().stream().filter(p -> p.kind() == Course.Kind.TREE
+                && westPolyline.distance(p.block().x(), p.block().z()) < Village.MEDIAN).toList();
         assertTrue(avenue.size() > 400, "two lines of them: " + avenue.size());
-        final Polyline eastLine = new Polyline(east.line(), Village.CARRIAGEWAYS_APART * 2);
         for (final Course.Piece tree : avenue) {
-            final double toWest = westLine.distance(tree.block().x(), tree.block().z());
-            final double toEast = eastLine.distance(tree.block().x(), tree.block().z());
-            assertTrue(toWest > west.wide(0) / 2 && toEast > east.wide(0) / 2, "in the median, off the carriageways");
+            assertTrue(Double.isNaN(west.surface(tree.block().x(), tree.block().z()))
+                    && Double.isNaN(east.surface(tree.block().x(), tree.block().z())), "in the median, off the carriageways");
         }
     }
 
@@ -270,9 +295,9 @@ class VillageTest {
     }
 
     @Test
-    void anExitOffItAndAnEntryBackOnto() {
+    void anExitOffItAndAnEntryBackOntoItEachJoiningItAtItsSurface() {
         final RoadMap map = Village.roads();
-        final Road westbound = Village.laid("westbound");
+        final Roadway westbound = road("westbound");
         final RoadMap.Way exit = way(map, "exit");
         final RoadMap.Way entry = way(map, "entry");
         assertEquals("exit", exit.vertices().getFirst().node(), "leaving the westbound carriageway where they share a vertex");
@@ -280,22 +305,24 @@ class VillageTest {
         assertEquals("junction", entry.vertices().getFirst().node());
         assertEquals("entry", entry.vertices().getLast().node(), "back onto the westbound carriageway");
         for (final String name : List.of("exit", "entry")) {
-            final Road slip = Village.laid(name);
+            final Roadway slip = road(name);
             assertEquals(List.of(), slip.problems());
-            // easing off and on: alongside the carriageway where it leaves or joins it, heading its way
-            final List<Vec2> line = slip.line();
-            final Vec2 on = name.equals("exit") ? line.get(0) : line.getLast();
-            final Vec2 next = name.equals("exit") ? line.get(1) : line.get(line.size() - 2);
-            assertEquals(westbound.level(on.x(), on.z()), slip.level(name.equals("exit") ? 0 : line.size() - 1), 1e-6,
-                    "as high as the carriageway there");
-            final Polyline carriageway = new Polyline(westbound.line(), 2_000);
-            assertTrue(carriageway.distance(next.x(), next.z()) < 50, "alongside it at first");
+            // easing off and on: alongside the carriageway where it leaves or joins it, as high as its surface there
+            final int at = name.equals("exit") ? 0 : slip.size() - 1;
+            final int next = name.equals("exit") ? 1 : slip.size() - 2;
+            final Vec2 on = slip.point(at);
+            assertEquals(westbound.surface(on.x(), on.z()), slip.level(at), 1e-6, "as high as the carriageway's surface there");
+            final Polyline carriageway = new Polyline(line(westbound), 2_000);
+            assertTrue(carriageway.distance(slip.point(next).x(), slip.point(next).z()) < 600, "alongside it at first");
         }
-        // and the road into the village, from the junction, as high as the slip roads are there
+        // and the road into the village, from the junction, as high as the exit's surface is there
         final RoadMap.Way village = way(map, "village road");
         assertEquals("junction", village.vertices().getFirst().node());
-        final Vec2 junction = village.vertices().getFirst().at();
-        assertEquals(Village.laid("exit").level(junction.x(), junction.z()), Village.laid("village road").level(0), 1e-6);
+        final Vec2 junction = road("village road").point(0);
+        assertEquals(road("exit").surface(junction.x(), junction.z()), road("village road").level(0), 1e-6);
+        // drawn once where they lie over each other: the carriageway's
+        assertTrue(Meadow.roads().pavedBefore(Meadow.roads().roads().indexOf(road("exit")), road("exit").point(0).x(),
+                road("exit").point(0).z()));
     }
 
     private static RoadMap.Way way(final RoadMap map, final String name) {
@@ -304,46 +331,45 @@ class VillageTest {
 
     @Test
     void aRoadIntoTheVillageOverABridge() {
-        final Road road = Village.laid("village road");
+        final Roadway road = road("village road");
         assertEquals(List.of(), road.problems());
         // ending at the village's square, short of the well
-        final Vec2 end = road.line().getLast();
+        final Vec2 end = road.point(road.size() - 1);
         assertTrue(Math.hypot(end.x() - Village.WELL.x(), end.z() - Village.WELL.z()) < 2_000, "at the village's square");
-        // its bridge: a deck as high as the road over the channel, parapets either side, the channel left as it was
-        final List<Course.Piece> pieces = Village.pieces();
-        final List<Course.Piece> decks = pieces.stream().filter(p -> p.kind() == Course.Kind.ROAD).toList();
-        assertEquals(1, decks.size());
-        final Block deck = decks.getFirst().block();
-        assertEquals(2, pieces.stream().filter(p -> p.kind() == Course.Kind.WALL && deck.covers(p.block().x(), p.block().z(), 0)).count(),
-                "its parapets");
-        assertEquals(Village.DECK, deck.top(), 1e-6);
-        assertTrue(deck.halfWidth() > road.wide(0) / 2, "as wide as the road, and more");
+        // its bridge: a structure over the river, its surface as high as pinned, the channel under it as it was
         final Vec2 middle = new Vec2(Village.WELL.x(), Village.riverAt(Village.WELL.x()));
-        assertTrue(deck.covers(middle.x(), middle.z(), 0), "over the river");
-        assertEquals(Village.lie().height(middle.x(), middle.z()) - Village.DEPTH, Village.land().height(middle.x(), middle.z()),
+        final Roadway.Near over = road.nearest(middle.x(), middle.z());
+        assertEquals(Carrier.STRUCTURE, road.carrier(over.segment()));
+        assertEquals(Village.DECK, road.level(over.segment(), over.t()), 1, "as high as its ends are pinned");
+        assertTrue(road.deck(over.segment()) < Roadway.DECK, "a shallow deck, low as it is: " + road.deck(over.segment()));
+        assertEquals(Village.lie().height(middle.x(), middle.z()) - Village.DEPTH, Meadow.land().height(middle.x(), middle.z()),
                 1e-6, "the channel under it as it was");
+        // one structure, in the way, drawn by a key of its own
+        final List<Course.Piece> decks = new Course(Meadow.DEMO).pieces().stream()
+                .filter(p -> p.kind() == Course.Kind.BUILDING && p.tint() >= Village.KEYS + Village.CHURCH + 1).toList();
+        assertEquals(1, decks.size());
+        assertTrue(decks.getFirst().block().covers(middle.x(), middle.z(), 0), "over the river");
     }
 
     @Test
     void theBridgeWalkedAcrossAndTheRiverWaded() {
-        Village.tell();
-        final Obstacles world = new Course(Demos.VILLAGE).obstacles();
+        final Obstacles world = new Course(Meadow.DEMO).obstacles();
         // from just short of the bridge, along the road over it, never down into the channel
-        final Road road = Village.laid("village road");
+        final Roadway road = road("village road");
         int first = -1;
         int last = -1;
-        for (int i = 0; i < road.line().size(); i++) {
-            if (road.bridged(i)) {
-                first = first < 0 ? i : first;
-                last = i;
+        for (int j = 0; j + 1 < road.size(); j++) {
+            if (road.carrier(j) == Carrier.STRUCTURE) {
+                first = first < 0 ? j : first;
+                last = j + 1;
             }
         }
-        final Vec2 a = road.line().get(first);
-        final Vec2 b = road.line().get(last);
+        final Vec2 a = road.point(first);
+        final Vec2 b = road.point(last);
         final double long_ = Math.hypot(b.x() - a.x(), b.z() - a.z());
         final double yaw = Math.toDegrees(Math.atan2(b.x() - a.x(), b.z() - a.z()));
         final Vec2 from = new Vec2(a.x() - (b.x() - a.x()) / long_ * 800, a.z() - (b.z() - a.z()) / long_ * 800);
-        Body body = Body.standing(new Vec3(from.x(), -Village.land().height(from.x(), from.z()), from.z()), yaw);
+        Body body = Body.standing(new Vec3(from.x(), -road.surface(from.x(), from.z()), from.z()), yaw);
         double lowest = Double.POSITIVE_INFINITY;
         for (int i = 0; i < 12 / FRAME; i++) {
             body = body.step(new Controls(1, 0, 0, 0, false), FRAME, world);

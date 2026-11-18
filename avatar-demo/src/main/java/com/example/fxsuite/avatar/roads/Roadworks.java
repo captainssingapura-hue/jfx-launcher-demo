@@ -24,15 +24,21 @@ public final class Roadworks {
 
     /**
      * A road to lay: its name, its line, its kind across, what carries it where that is given, what it must clear; how
-     * much it tilts into its bends (rise over run across; none, nothing).
+     * much it tilts into its bends (rise over run across; none, nothing); where it is pinned so high.
      */
     public record Plan(String name, List<Vec2> line, Section section, List<Roadway.Given> given,
-                       List<Roadway.Clearance> clearances, double tilt) {
+                       List<Roadway.Clearance> clearances, double tilt, List<Roadway.Pin> pins) {
 
         /** One not tilted into its bends. */
         public Plan(final String name, final List<Vec2> line, final Section section, final List<Roadway.Given> given,
                     final List<Roadway.Clearance> clearances) {
             this(name, line, section, given, clearances, 0);
+        }
+
+        /** One pinned nowhere but at its ends. */
+        public Plan(final String name, final List<Vec2> line, final Section section, final List<Roadway.Given> given,
+                    final List<Roadway.Clearance> clearances, final double tilt) {
+            this(name, line, section, given, clearances, tilt, List.of());
         }
     }
 
@@ -71,16 +77,24 @@ public final class Roadworks {
 
     /**
      * {@code plans} laid on {@code raw} in order, each designed against the ground as those before it left it where
-     * they occupy it, and as it was elsewhere: it follows an earlier road it meets, never the slopes and ditches an
-     * earlier road would have dug where it is itself to be.
+     * they occupy it (their pavements' tops where they are paved), and as it was elsewhere: it follows an earlier road
+     * it meets, joining it at its surface, never the slopes and ditches an earlier road would have dug where it is
+     * itself to be.
      */
     public static Roadworks design(final Profile raw, final List<Plan> plans) {
         final List<Roadway> laid = new ArrayList<>();
         for (final Plan p : plans) {
             final Roadworks before = new Roadworks(raw, laid, false);
-            final Profile profile = (x, z, below) -> before.occupied(x, z)
-                    ? before.ground().at(x, z).height() : raw.height(x, z, below);
-            laid.add(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(), p.tilt()));
+            final Profile profile = (x, z, below) -> {
+                if (!before.occupied(x, z)) {
+                    return raw.height(x, z, below);
+                }
+                // on an earlier road: its pavement's top where it is paved, so a road joining it joins it at its surface
+                final double top = before.pavement(x, z);
+                return Double.isNaN(top) ? before.ground().at(x, z).height() : top;
+            };
+            laid.add(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(), p.tilt(),
+                    p.pins()));
         }
         return new Roadworks(raw, laid);
     }
@@ -123,7 +137,7 @@ public final class Roadworks {
     }
 
     /** {@code line} moved {@code by} to its right (to its left, less than nothing), square to it at each point. */
-    static List<Vec2> offset(final List<Vec2> line, final double by) {
+    public static List<Vec2> offset(final List<Vec2> line, final double by) {
         final List<Vec2> moved = new ArrayList<>();
         for (int i = 0; i < line.size(); i++) {
             final Vec2 a = line.get(Math.max(i - 1, 0));
@@ -184,6 +198,16 @@ public final class Roadworks {
             }
         }
         return new double[] {x0, x1, z0, z1};
+    }
+
+    /** Where a road laid before the {@code k}th has its pavement, at (x, z): what the {@code k}th is not drawn over. */
+    public boolean pavedBefore(final int k, final double x, final double z) {
+        for (int m = 0; m < k && m < roads.size(); m++) {
+            if (!Double.isNaN(roads.get(m).surface(x, z))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The pavement's top at (x, z) where a road's pavement lies on the ground (or on a structure already there); else not a number. */

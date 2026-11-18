@@ -254,6 +254,35 @@ class RoadwayTest {
     }
 
     @Test
+    void pinnedAsHighAsItIsWhereItIsWithinItsGradeBetween() {
+        final Roadway road = Roadway.design("pinned", straight(), ROAD, Profile.level(0), List.of(), List.of(), 0,
+                List.of(new Roadway.Pin(25_000, 300)));
+        assertEquals(300, road.level(road.nearestPoint(25_000)), 1e-9);
+        assertTrue(road.steepest() <= ROAD.grade() + 1e-9);
+        assertEquals(0, road.level(0), 1e-9, "its ends on the ground still");
+    }
+
+    @Test
+    void aLowStructuresDeckNoDeeperThanTheRoomUnderItDownToASlab() {
+        // a short bridge, its ends pinned 80 cm over level ground
+        final Roadway low = Roadway.design("low", straight(), ROAD, Profile.level(0),
+                List.of(new Roadway.Given(24_000, 26_000, Carrier.STRUCTURE)), List.of(), 0,
+                List.of(new Roadway.Pin(24_000, 80), new Roadway.Pin(26_000, 80)));
+        final int middle = low.nearestPoint(25_000);
+        assertEquals(Carrier.STRUCTURE, low.carrier(middle));
+        assertEquals(80 - Roadway.ROOM, low.deck(middle), 1, "as deep as leaves room under it");
+        assertEquals(Roadway.DECK, low.deck(0), 1e-9, "elsewhere as deep as a deck is");
+        // a viaduct high over its valley: as deep as a deck is
+        final Roadway high = on(VALLEY);
+        assertEquals(Roadway.DECK, high.deck(high.nearestPoint(25_000)), 1e-9);
+        // lower still: a slab
+        final Roadway lower = Roadway.design("lower", straight(), ROAD, Profile.level(0),
+                List.of(new Roadway.Given(24_000, 26_000, Carrier.STRUCTURE)), List.of(), 0,
+                List.of(new Roadway.Pin(24_000, 30), new Roadway.Pin(26_000, 30)));
+        assertEquals(Roadway.SHALLOWEST, lower.deck(lower.nearestPoint(25_000)), 1e-9);
+    }
+
+    @Test
     void theSameRoadEveryTime() {
         final Roadway a = on(VALLEY);
         final Roadway b = on(VALLEY);
