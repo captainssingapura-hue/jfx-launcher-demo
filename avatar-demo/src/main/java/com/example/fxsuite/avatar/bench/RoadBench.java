@@ -74,6 +74,9 @@ public final class RoadBench extends Application {
     private Sections.Catalogue catalogue = Sections.read(Sections.STANDARD);
     private Map<String, Section> sections = catalogue.sections();
     private final KindPanel kind = new KindPanel(this::changed);
+    /** The knobs of the scene shown, and each scene's knobs as set, by scene and knob. */
+    private final ScenePanel setting = new ScenePanel(this::set);
+    private final Map<String, Map<String, Double>> knobs = new java.util.HashMap<>();
 
     private final ComboBox<String> sceneBox = new ComboBox<>();
     private final ComboBox<String> sectionBox = new ComboBox<>();
@@ -208,7 +211,7 @@ public final class RoadBench extends Application {
         final VBox written = new VBox(6, text, new HBox(6, apply, reset));
         written.setPadding(new Insets(6, 0, 0, 0));
         VBox.setVgrow(text, Priority.ALWAYS);
-        final javafx.scene.control.ScrollPane controls = new javafx.scene.control.ScrollPane(kind);
+        final javafx.scene.control.ScrollPane controls = new javafx.scene.control.ScrollPane(new VBox(setting, kind));
         controls.setFitToWidth(true);
         final TabPane tabs = new TabPane(new Tab("Kind", controls), new Tab("Text", written));
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -290,6 +293,17 @@ public final class RoadBench extends Application {
         return holder;
     }
 
+    /** A knob of the scene shown set: kept, the roads designed again with it. */
+    private void set(final String knob, final double value) {
+        knobs.computeIfAbsent(scene.name(), s -> new java.util.HashMap<>()).put(knob, value);
+        fromPanel = true;
+        try {
+            design(false);
+        } finally {
+            fromPanel = false;
+        }
+    }
+
     /** A kind changed on its panel: kept, its text written again from it, the roads designed again with it. */
     private void changed(final Section section) {
         final Map<String, Section> now = new java.util.LinkedHashMap<>(sections);
@@ -328,10 +342,11 @@ public final class RoadBench extends Application {
         final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
         if (!fromPanel) {
             kind.show(section);
+            setting.show(scene, knobs.getOrDefault(scene.name(), Map.of()));
         }
         final long started = System.nanoTime();
         try {
-            plans = scene.roads().apply(section);
+            plans = scene.roads(section, knobs.getOrDefault(scene.name(), Map.of()));
             works = Roadworks.design(scene.profile(), plans);
         } catch (final IllegalArgumentException e) {
             problems.setText(e.getMessage());

@@ -34,12 +34,12 @@ class TestSectionTest {
     private static TestSection section(final String name, final boolean ownPavement) {
         final RoadScenes.Scene scene = RoadScenes.all().get(name);
         final Section kind = Sections.standard().get(scene.section());
-        return new TestSection(scene, kind, Roadworks.design(scene.profile(), scene.roads().apply(kind)), ownPavement);
+        return new TestSection(scene, kind, Roadworks.design(scene.profile(), scene.roads(kind, java.util.Map.of())), ownPavement);
     }
 
     private static Roadworks works(final String name) {
         final RoadScenes.Scene scene = RoadScenes.all().get(name);
-        return Roadworks.design(scene.profile(), scene.roads().apply(Sections.standard().get(scene.section())));
+        return Roadworks.design(scene.profile(), scene.roads(Sections.standard().get(scene.section()), java.util.Map.of()));
     }
 
     @Test

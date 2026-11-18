@@ -184,14 +184,20 @@ public final class RoadworkModel {
         final Map<Course.Stuff, MeshBuilder> meshes = new EnumMap<>(Course.Stuff.class);
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
-            for (final Section.Laid l : road.section(j).paved()) {
+            // as it is across at either end of the segment: tilted, it may be, the one more than the other
+            final List<Section.Laid> here = road.section(j).paved();
+            final List<Section.Laid> there = road.section(j + 1).paved();
+            for (int k = 0; k < here.size(); k++) {
+                final Section.Laid l0 = here.get(k);
+                final Section.Laid l1 = there.get(k);
                 double down = 0;
-                for (final Course c : l.strip().courses()) {
+                for (final Course c : l0.strip().courses()) {
                     final double from = down;
                     final double to = down + c.thick();
-                    meshes.computeIfAbsent(c.stuff(), s -> new MeshBuilder()).box(corners(road, j, t1,
-                            l.innerAcross(), l.outerAcross(),
-                            l.innerTop() - to, l.innerTop() - from, l.outerTop() - to, l.outerTop() - from));
+                    meshes.computeIfAbsent(c.stuff(), s -> new MeshBuilder()).box(along(road, j, 0, t1,
+                            l0.innerAcross(), l0.outerAcross(), (outer, top, t) -> lerp(
+                                    outer ? l0.outerTop() : l0.innerTop(), outer ? l1.outerTop() : l1.innerTop(), t)
+                                    - (top ? from : to)));
                     down = to;
                 }
             }
@@ -208,15 +214,15 @@ public final class RoadworkModel {
             final double t1 = end(road, j, upTo);
             final double s0 = road.along(j);
             final double length = road.along(j + 1) - s0;
-            final Section section = road.section(j);
-            for (final Section.Marking m : section.markings()) {
+            final Section here = road.section(j);
+            final Section there = road.section(j + 1);
+            for (final Section.Marking m : here.markings()) {
                 final double a = m.across() - m.width() / 2;
                 final double b = m.across() + m.width() / 2;
-                final double ta = section.top(a);
-                final double tb = section.top(b);
+                final Rise rise = (outer, top, t) -> lerp(here.top(outer ? b : a), there.top(outer ? b : a), t)
+                        + PAINT_LIFT + (top ? PAINT_THICK : 0);
                 if (m.solid()) {
-                    paint.box(cornersBetween(road, j, 0, t1, a, b, ta + PAINT_LIFT, ta + PAINT_LIFT + PAINT_THICK,
-                            tb + PAINT_LIFT, tb + PAINT_LIFT + PAINT_THICK));
+                    paint.box(along(road, j, 0, t1, a, b, rise));
                     continue;
                 }
                 final double period = m.dash() + m.gap();
@@ -225,8 +231,7 @@ public final class RoadworkModel {
                     final double from = Math.max(s0, k * period);
                     final double to = Math.min(s1, k * period + m.dash());
                     if (to > from) {
-                        paint.box(cornersBetween(road, j, (from - s0) / length, (to - s0) / length, a, b,
-                                ta + PAINT_LIFT, ta + PAINT_LIFT + PAINT_THICK, tb + PAINT_LIFT, tb + PAINT_LIFT + PAINT_THICK));
+                        paint.box(along(road, j, (from - s0) / length, (to - s0) / length, a, b, rise));
                     }
                 }
             }
@@ -261,24 +266,39 @@ public final class RoadworkModel {
     }
 
     /**
-     * A deck under the formation of its paved strips, down to {@link Roadway#DECK} under the line; a parapet at
-     * each edge of them. Its ground strips not on it: there is no ground there.
+     * A deck under the formation of its paved strips, down to {@link Roadway#DECK} under the formation's lowest edge,
+     * tilted or not; a parapet at each edge of them. Its ground strips not on it: there is no ground there.
      */
     private static void deck(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built) {
         for (int j = stretch.from(); j < stretch.to(); j++) {
-            final Section section = road.section(j);
-            for (final Section.Laid l : section.paved()) {
-                final double depth = l.strip().depth();
-                built.box(corners(road, j, 1, l.innerAcross(), l.outerAcross(),
-                        -Roadway.DECK, l.innerTop() - depth, -Roadway.DECK, l.outerTop() - depth));
+            final Section here = road.section(j);
+            final Section there = road.section(j + 1);
+            final double under = Math.min(lowest(here), lowest(there)) - Roadway.DECK;
+            final List<Section.Laid> laid0 = here.paved();
+            final List<Section.Laid> laid1 = there.paved();
+            for (int k = 0; k < laid0.size(); k++) {
+                final Section.Laid l0 = laid0.get(k);
+                final Section.Laid l1 = laid1.get(k);
+                final double depth = l0.strip().depth();
+                built.box(along(road, j, 0, 1, l0.innerAcross(), l0.outerAcross(), (outer, top, t) -> top
+                        ? lerp(outer ? l0.outerTop() : l0.innerTop(), outer ? l1.outerTop() : l1.innerTop(), t) - depth
+                        : under));
             }
             for (final int side : new int[] {-1, 1}) {
-                final double edge = side * section.pavedEdge(side);
-                final double top = section.top(edge) + Roadway.PARAPET;
-                built.box(corners(road, j, 1, edge, edge + side * Roadway.PARAPET_THICK,
-                        -Roadway.DECK, top, -Roadway.DECK, top));
+                final double edge = side * here.pavedEdge(side);
+                built.box(along(road, j, 0, 1, edge, edge + side * Roadway.PARAPET_THICK, (outer, top, t) -> top
+                        ? lerp(here.top(edge), there.top(edge), t) + Roadway.PARAPET : under));
             }
         }
+    }
+
+    /** How low its surface is at the lowest edge of its paved strips, against its line: its deck hangs from there. */
+    private static double lowest(final Section section) {
+        double lowest = 0;
+        for (final Section.Laid l : section.paved()) {
+            lowest = Math.min(lowest, Math.min(l.innerTop(), l.outerTop()));
+        }
+        return lowest;
     }
 
     /** A pier at its {@code i}th point: a crosshead under the deck, one column or two down into the ground. */
@@ -288,7 +308,7 @@ public final class RoadworkModel {
         final double r0 = section.pavedEdge(1);
         final double left = (l + r0) / 2 - (r0 - l) / 2 * 0.9;
         final double right = (l + r0) / 2 + (r0 - l) / 2 * 0.9;
-        final double under = road.level(i) - Roadway.DECK;
+        final double under = road.level(i) + lowest(road.section(i)) - Roadway.DECK;
         final Vec2 r = road.right(i);
         final Vec2 h = new Vec2(-r.z(), r.x());
         final Vec2 p = road.point(i);
@@ -382,6 +402,21 @@ public final class RoadworkModel {
     private static Point3D[] cornersBetween(final Roadway road, final int j, final double t0, final double t1,
                                             final double a, final double b, final double aLow, final double aHigh,
                                             final double bLow, final double bHigh) {
+        return along(road, j, t0, t1, a, b, (outer, top, t) -> outer ? top ? bHigh : bLow : top ? aHigh : aLow);
+    }
+
+    /** How high a box's corner is over the road's line, at its inner edge or its {@code outer}, its bottom or its {@code top}, {@code t} of the way along. */
+    @FunctionalInterface
+    private interface Rise {
+        double at(boolean outer, boolean top, double t);
+    }
+
+    /**
+     * A box along the road's {@code j}th segment, from {@code t0} to {@code t1} of the way, across from {@code a} to
+     * {@code b}; each corner as high over the line there as {@code rise} says.
+     */
+    private static Point3D[] along(final Roadway road, final int j, final double t0, final double t1, final double a,
+                                   final double b, final Rise rise) {
         final Point3D[] corners = new Point3D[8];
         for (int k = 0; k < 8; k++) {
             final boolean outer = (k & 1) != 0;
@@ -392,10 +427,14 @@ public final class RoadworkModel {
             final Vec2 p1 = road.at(j + 1, across);
             final double x = p0.x() + (p1.x() - p0.x()) * t;
             final double z = p0.z() + (p1.z() - p0.z()) * t;
-            final double up = road.level(j, t) + (outer ? top ? bHigh : bLow : top ? aHigh : aLow);
+            final double up = road.level(j, t) + rise.at(outer, top, t);
             corners[k] = new Point3D(x, -up, z);
         }
         return corners;
+    }
+
+    private static double lerp(final double a, final double b, final double t) {
+        return a + (b - a) * t;
     }
 
     /** A box about {@code p}: across ({@code r}) from {@code a0} to {@code a1}, along ({@code h}) from {@code s0} to {@code s1}, from {@code low} up to {@code high}. */

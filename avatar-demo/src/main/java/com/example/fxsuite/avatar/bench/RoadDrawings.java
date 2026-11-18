@@ -310,15 +310,18 @@ final class RoadDrawings {
             g.setFill(CONCRETE);
             g.setStroke(Color.web("#00000040"));
             g.setLineWidth(0.5);
+            // its deck under its lowest edge, tilted or not
+            final double under = section.paved().stream().mapToDouble(l -> Math.min(l.innerTop(), l.outerTop()))
+                    .min().orElse(0) - Roadway.DECK;
             for (final Section.Laid l : section.paved()) {
                 final double d = l.strip().depth();
-                quad(g, across, level, l.innerAcross(), l.outerAcross(), -Roadway.DECK, l.innerTop() - d,
-                        -Roadway.DECK, l.outerTop() - d);
+                quad(g, across, level, l.innerAcross(), l.outerAcross(), under, l.innerTop() - d,
+                        under, l.outerTop() - d);
             }
             for (final int side : new int[] {-1, 1}) {
                 final double edge = side * section.pavedEdge(side);
                 final double t = section.top(edge) + Roadway.PARAPET;
-                quad(g, across, level, edge, edge + side * Roadway.PARAPET_THICK, -Roadway.DECK, t, -Roadway.DECK, t);
+                quad(g, across, level, edge, edge + side * Roadway.PARAPET_THICK, under, t, under, t);
             }
         } else if (carrier == Carrier.TUNNEL) {
             g.setFill(CONCRETE);

@@ -204,6 +204,55 @@ class RoadwayTest {
         assertTrue(hill[1] > 100, "filled where it is banked: " + hill[1]);
     }
 
+    /** A circle {@code radius} round, a point every metre, its last its first. */
+    private static List<Vec2> circle(final double radius) {
+        final List<Vec2> line = new ArrayList<>();
+        final int n = (int) Math.round(2 * Math.PI * radius / 100);
+        for (int k = 0; k < n; k++) {
+            final double t = 2 * Math.PI * k / n;
+            line.add(new Vec2(radius * Math.cos(t), radius * Math.sin(t)));
+        }
+        line.add(line.getFirst());
+        return line;
+    }
+
+    @Test
+    void aLoopGoesOnRoundItsHeightsWithNoEndsWithinItsGradeAcrossItsJoin() {
+        final Profile rolling = (x, z, below) -> 600 * Math.sin(x / 7_000) + 400 * Math.cos(z / 5_000);
+        final Roadway road = Roadway.design("ring", circle(15_000), ROAD, rolling, List.of(), List.of());
+        assertTrue(road.loop());
+        assertEquals(2 * Math.PI * 15_000, road.length(), 200, "round it");
+        final int n = road.size();
+        assertEquals(road.point(0), road.point(n - 1), "its last point its first");
+        assertEquals(road.level(0), road.level(n - 1), 1e-6, "as high there both ways");
+        assertTrue(road.steepest() <= ROAD.grade() + 1e-9);
+        // its join no step: from its last segment into its first as from any into the next
+        final double before = road.level(n - 1) - road.level(n - 2);
+        final double after = road.level(1) - road.level(0);
+        assertEquals(before, after, 30, "no kink at its join");
+        // square to it at its join, as either side of it
+        final Vec2 r0 = road.right(0);
+        final Vec2 rn = road.right(n - 1);
+        assertEquals(r0.x(), rn.x(), 1e-9);
+        assertEquals(r0.z(), rn.z(), 1e-9);
+        // a point by its join is on it, either side
+        final Vec2 p = road.at(0, 100);
+        assertTrue(road.nearest(p.x(), p.z()) != null, "nothing beyond an end: it has none");
+    }
+
+    @Test
+    void aLoopOnAStructureAllRoundHeldLevelAsHighAsItsClearanceAsks() {
+        final Roadway road = Roadway.design("viaduct ring", circle(12_000), ROAD, Profile.level(0),
+                List.of(new Roadway.Given(0, Double.MAX_VALUE, Carrier.STRUCTURE)),
+                List.of(new Roadway.Clearance(0, Double.MAX_VALUE, 600)));
+        for (int i = 0; i < road.size(); i++) {
+            assertEquals(600, road.level(i), 1, "level all round");
+        }
+        assertEquals(List.of(new Roadway.Stretch(0, road.size() - 1, Carrier.STRUCTURE)), road.stretches());
+        assertTrue(road.structures().getFirst().piers().size() > 15, "piers all round");
+        assertEquals(List.of(), road.problems());
+    }
+
     @Test
     void theSameRoadEveryTime() {
         final Roadway a = on(VALLEY);

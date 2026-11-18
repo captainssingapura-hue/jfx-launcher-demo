@@ -22,9 +22,18 @@ import java.util.List;
  */
 public final class Roadworks {
 
-    /** A road to lay: its name, its line, its kind across, what carries it where that is given, what it must clear. */
+    /**
+     * A road to lay: its name, its line, its kind across, what carries it where that is given, what it must clear; how
+     * much it tilts into its bends (rise over run across; none, nothing).
+     */
     public record Plan(String name, List<Vec2> line, Section section, List<Roadway.Given> given,
-                       List<Roadway.Clearance> clearances) {
+                       List<Roadway.Clearance> clearances, double tilt) {
+
+        /** One not tilted into its bends. */
+        public Plan(final String name, final List<Vec2> line, final Section section, final List<Roadway.Given> given,
+                    final List<Roadway.Clearance> clearances) {
+            this(name, line, section, given, clearances, 0);
+        }
     }
 
     /**
@@ -71,7 +80,7 @@ public final class Roadworks {
             final Roadworks before = new Roadworks(raw, laid, false);
             final Profile profile = (x, z, below) -> before.occupied(x, z)
                     ? before.ground().at(x, z).height() : raw.height(x, z, below);
-            laid.add(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances()));
+            laid.add(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(), p.tilt()));
         }
         return new Roadworks(raw, laid);
     }

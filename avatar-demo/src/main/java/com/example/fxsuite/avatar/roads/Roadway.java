@@ -79,11 +79,17 @@ public final class Roadway {
     private final List<Stretch> stretches;
     private final List<String> problems;
     private final Polyline line;
+    /** Whether it is closed: its last point its first again, going on round. */
+    private final boolean loop;
+    /** Its kind across at each of its points: as it is, or tilted into a bend, or on its way to or from one. */
+    private final Section[] across;
 
     private Roadway(final String name, final Section section, final Profile profile, final List<Vec2> points,
                     final double[] along, final double[] levels, final double[] ground, final Carrier[] carriers,
-                    final List<String> problems) {
+                    final List<String> problems, final boolean loop, final Section[] across) {
         this.name = name;
+        this.loop = loop;
+        this.across = across;
         this.section = section;
         this.profile = profile;
         this.points = List.copyOf(points);
@@ -106,11 +112,22 @@ public final class Roadway {
 
     /**
      * {@code name}, along {@code line}, of kind {@code section}, designed against {@code profile}: carried as
-     * {@code given} says where it says; held over its {@code clearances}.
+     * {@code given} says where it says; held over its {@code clearances}. A line whose last point is its first is a
+     * loop: closed, going on round, its heights with no ends.
      */
     public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
                                  final List<Given> given, final List<Clearance> clearances) {
-        final List<Vec2> points = resampled(line, STEP);
+        return design(name, line, section, profile, given, clearances, 0);
+    }
+
+    /**
+     * The same, tilted into its bends {@code tilt} (rise over run across, towards the inside of the bend) where it
+     * curves, its crown run out and the tilt run in before each bend and back again after it ({@link #tilted}).
+     */
+    public static Roadway design(final String name, final List<Vec2> line, final Section section, final Profile profile,
+                                 final List<Given> given, final List<Clearance> clearances, final double tilt) {
+        final boolean loop = line.size() > 3 && distance(line.getFirst(), line.getLast()) < 1;
+        final List<Vec2> points = loop ? resampledLoop(line, STEP) : resampled(line, STEP);
         final int n = points.size();
         final double[] along = new double[n];
         for (int i = 1; i < n; i++) {
@@ -135,7 +152,7 @@ public final class Roadway {
         List<String> found = List.of();
         for (int round = 0; round < 4; round++) {
             final List<String> these = new ArrayList<>();
-            levels = levels(name, section, along, ground, at, clearances, these);
+            levels = levels(name, section, along, ground, at, clearances, these, loop);
             final Carrier[] next = chosen(section.earthworks(), along, levels, ground, told, at);
             found = these;
             if (Arrays.equals(next, at)) {
@@ -163,12 +180,14 @@ public final class Roadway {
                 }
             }
         }
-        return new Roadway(name, section, profile, points, along, levels, ground, carriers, problems);
+        return new Roadway(name, section, profile, points, along, levels, ground, carriers, problems, loop,
+                tilted(points, along, section, tilt, loop));
     }
 
     /** Its heights, as near the ground as they may be where it counts, held over its clearances, within its grade. */
     private static double[] levels(final String name, final Section section, final double[] along, final double[] ground,
-                                   final Carrier[] at, final List<Clearance> clearances, final List<String> problems) {
+                                   final Carrier[] at, final List<Clearance> clearances, final List<String> problems,
+                                   final boolean loop) {
         final int n = along.length;
         final double[] weight = new double[n];
         final double[] pinned = new double[n];
@@ -176,12 +195,19 @@ public final class Roadway {
         for (int i = 0; i < n; i++) {
             weight[i] = at[i] == Carrier.STRUCTURE || at[i] == Carrier.TUNNEL ? 0 : 1;
         }
-        pinned[0] = ground[0];
-        pinned[n - 1] = ground[n - 1];
+        if (!loop) {
+            pinned[0] = ground[0];
+            pinned[n - 1] = ground[n - 1];
+        }
         double[] levels = null;
         for (int round = 0; round < 12; round++) {
-            levels = fitted(along, ground, weight, pinned, section.vertical());
-            within(along, levels, pinned, section.grade());
+            if (loop) {
+                levels = fittedLoop(along, ground, weight, pinned, section.vertical());
+                withinLoop(along, levels, pinned, section.grade());
+            } else {
+                levels = fitted(along, ground, weight, pinned, section.vertical());
+                within(along, levels, pinned, section.grade());
+            }
             boolean more = false;
             for (final Clearance c : clearances) {
                 for (int i = 0; i < n; i++) {
@@ -306,14 +332,22 @@ public final class Roadway {
         return name;
     }
 
+    /** Whether it is closed, its last point its first again. */
+    public boolean loop() {
+        return loop;
+    }
+
     /** Its kind across, as it is on the ground. */
     public Section section() {
         return section;
     }
 
-    /** Its kind across on its {@code j}th segment. Its ground strips there only where the ground carries it ({@link #grounded}). */
-    public Section section(final int j) {
-        return section;
+    /**
+     * Its kind across at its {@code i}th point (and so from there along its {@code i}th segment): tilted, if it is on a
+     * bend or on its way to one. Its ground strips there only where the ground carries it ({@link #grounded}).
+     */
+    public Section section(final int i) {
+        return across[i];
     }
 
     /** Whether the ground carries its {@code j}th segment, and so its ground strips are there: graded, covered. */
@@ -377,8 +411,10 @@ public final class Roadway {
 
     /** The way to its right at its {@code i}th point, square to the way it goes there (the mitre at a bend). */
     public Vec2 right(final int i) {
-        final Vec2 a = points.get(Math.max(i - 1, 0));
-        final Vec2 b = points.get(Math.min(i + 1, points.size() - 1));
+        final int n = points.size();
+        // round a loop's join: its first and last points are one
+        final Vec2 a = points.get(loop && i == 0 ? n - 2 : Math.max(i - 1, 0));
+        final Vec2 b = points.get(loop && i == n - 1 ? 1 : Math.min(i + 1, n - 1));
         final double dx = b.x() - a.x();
         final double dz = b.z() - a.z();
         final double len = Math.hypot(dx, dz);
@@ -399,12 +435,12 @@ public final class Roadway {
 
     /** How high its surface is {@code t} of the way along its {@code j}th segment, {@code across}. */
     public double top(final int j, final double t, final double across) {
-        return level(j, t) + section(j).top(across);
+        return level(j, t) + (1 - t) * this.across[j].top(across) + t * this.across[j + 1].top(across);
     }
 
     /** How high its formation is {@code t} of the way along its {@code j}th segment, {@code across}. */
     public double formation(final int j, final double t, final double across) {
-        return level(j, t) + section(j).formation(across);
+        return level(j, t) + (1 - t) * this.across[j].formation(across) + t * this.across[j + 1].formation(across);
     }
 
     /** How steep it is at most, rise over run. */
@@ -451,7 +487,7 @@ public final class Roadway {
         final double dz = b.z() - a.z();
         final double len = Math.hypot(dx, dz);
         final double raw = ((x - a.x()) * dx + (z - a.z()) * dz) / (len * len);
-        if (j == 0 && raw < -1e-9 || j == points.size() - 2 && raw > 1 + 1e-9) {
+        if (!loop && (j == 0 && raw < -1e-9 || j == points.size() - 2 && raw > 1 + 1e-9)) {
             return null;
         }
         final double side = (x - a.x()) * dz - (z - a.z()) * dx;
@@ -566,7 +602,7 @@ public final class Roadway {
         }
         final int j = near.segment();
         return switch (carriers[j]) {
-            case GROUND -> earthwork(level(j, near.t()), section, near.across(), under);
+            case GROUND -> earthwork(level(j, near.t()), across[near.t() < 0.5 ? j : j + 1], near.across(), under);
             case STRUCTURE -> endSlopes(j, near, under);
             case TUNNEL, ON -> new Prepared(under, null);
         };
@@ -593,7 +629,7 @@ public final class Roadway {
                 final boolean grounded = end == s.from() ? end > 0 && carriers[end - 1] == Carrier.GROUND
                         : end < carriers.length && carriers[end] == Carrier.GROUND;
                 if (grounded) {
-                    final double bank = earthwork(levels[end], section, near.across(), under).height();
+                    final double bank = earthwork(levels[end], across[end], near.across(), under).height();
                     if (bank > under) {
                         h = Math.max(h, bank - Math.abs(near.along() - along[end]) / section.earthworks().fill());
                     }
@@ -715,6 +751,258 @@ public final class Roadway {
             out.set(out.size() - 1, last);
         }
         return out;
+    }
+
+    /** The steepest its outer edge may climb against its line as a tilt is run in: 1 in 200. */
+    static final double EDGE_CLIMB = 1.0 / 200;
+    /** How sharply it must turn to be on a bend: at least as sharply as a circle a kilometre round. */
+    static final double BENDING = 1.0 / 100_000;
+    /** How much of the run from its crown to its tilt lies before the bend, the rest on it. */
+    static final double BEFORE = 2.0 / 3;
+    /** The shortest a run from its crown to its tilt is. */
+    static final double SHORTEST_RUN = 2_000;
+
+    /**
+     * {@code section} at each of {@code points}, tilted {@code tilt} towards the inside where the line bends, and run in
+     * to that and out of it again on either side: so long a run that its outer edge climbs no faster against its line
+     * than {@link #EDGE_CLIMB}, {@link #BEFORE} of it before the bend. Its crown run out first, its outer half turning
+     * from falling outward to rising; its inner half falling as it does until the outer rises as much, then both turning
+     * on together to the tilt. Its line as high as it is: the carriageway turns about it.
+     */
+    static Section[] tilted(final List<Vec2> points, final double[] along, final Section section, final double tilt,
+                            final boolean loop) {
+        final int n = points.size();
+        final Section[] out = new Section[n];
+        Arrays.fill(out, section);
+        if (!(tilt > 0)) {
+            return out;
+        }
+        // how sharply it turns at each point, to the right more than nothing; its last point its first, round a loop
+        final int m = loop ? n - 1 : n;
+        final double[] turn = new double[m];
+        for (int i = 0; i < m; i++) {
+            if (!loop && (i == 0 || i == n - 1)) {
+                continue;
+            }
+            final Vec2 a = points.get(i == 0 ? n - 2 : i - 1);
+            final Vec2 b = points.get(i);
+            final Vec2 c = points.get(i + 1);
+            final double ax = b.x() - a.x();
+            final double az = b.z() - a.z();
+            final double bx = c.x() - b.x();
+            final double bz = c.z() - b.z();
+            final double angle = Math.atan2(bx * az - bz * ax, ax * bx + az * bz);
+            turn[i] = angle / ((Math.hypot(ax, az) + Math.hypot(bx, bz)) / 2);
+        }
+        final boolean[] bend = new boolean[m];
+        final boolean[] off = new boolean[m];
+        boolean any = false;
+        for (int i = 0; i < m; i++) {
+            bend[i] = Math.abs(turn[i]) > BENDING;
+            off[i] = !bend[i];
+            any |= bend[i];
+        }
+        if (!any) {
+            return out;
+        }
+        final double length = along[n - 1];
+        final int[] nearestBend = new int[m];
+        final double[] toBend = nearest(bend, along, length, loop, nearestBend);
+        final double[] offBend = nearest(off, along, length, loop, new int[m]);
+        final double crown = Double.isNaN(section.fall(Strip.Use.LANE)) ? 0 : section.fall(Strip.Use.LANE);
+        final double wide = Math.max(section.pavedEdge(-1), section.pavedEdge(1));
+        final double run = Math.max(SHORTEST_RUN, (crown + tilt) * wide / EDGE_CLIMB);
+        // how far into a bend each point is, from halfway between the last point off it and the first on it
+        final double half = length / (n - 1) / 2;
+        for (int i = 0; i < m; i++) {
+            final double into = bend[i] ? offBend[i] - half : half - toBend[i];
+            final double u = Num.clamp((into + BEFORE * run) / run, 0, 1);
+            if (u <= 0 || nearestBend[i] < 0) {
+                continue;
+            }
+            final double outer = crown - (crown + tilt) * u;
+            final double inner = Math.max(crown, -outer);
+            // turning right, its inside is its right: its left the outer side
+            final boolean right = turn[nearestBend[i]] > 0;
+            out[i] = right ? section.withFalls(outer, inner) : section.withFalls(inner, outer);
+        }
+        if (loop) {
+            out[n - 1] = out[0];
+        }
+        return out;
+    }
+
+    /**
+     * How far along each point is from the nearest point {@code flagged}, either way, round a loop too; and which point
+     * that is, in {@code which} (-1 if none).
+     */
+    private static double[] nearest(final boolean[] flagged, final double[] along, final double length,
+                                    final boolean loop, final int[] which) {
+        final int m = flagged.length;
+        final double[] distance = new double[m];
+        Arrays.fill(distance, Double.POSITIVE_INFINITY);
+        Arrays.fill(which, -1);
+        final int laps = loop ? 2 : 1;
+        int last = -1;
+        double lastAt = 0;
+        for (int k = 0; k < laps * m; k++) {
+            final int i = k % m;
+            final double s = along[i] + (k / m) * length;
+            if (flagged[i]) {
+                last = i;
+                lastAt = s;
+            }
+            if (last >= 0 && s - lastAt < distance[i]) {
+                distance[i] = s - lastAt;
+                which[i] = last;
+            }
+        }
+        last = -1;
+        for (int k = laps * m - 1; k >= 0; k--) {
+            final int i = k % m;
+            final double s = along[i] + (k / m) * length;
+            if (flagged[i]) {
+                last = i;
+                lastAt = s;
+            }
+            if (last >= 0 && lastAt - s < distance[i]) {
+                distance[i] = lastAt - s;
+                which[i] = last;
+            }
+        }
+        return distance;
+    }
+
+    /**
+     * A closed {@code line}, its last point its first, with points evenly round it about every {@code step}, its first
+     * again at its end: so many that they go round it exactly.
+     */
+    static List<Vec2> resampledLoop(final List<Vec2> line, final double step) {
+        double total = 0;
+        for (int k = 0; k + 1 < line.size(); k++) {
+            total += distance(line.get(k), line.get(k + 1));
+        }
+        final int count = Math.max(3, (int) Math.round(total / step));
+        final double every = total / count;
+        final List<Vec2> out = new ArrayList<>();
+        int k = 0;
+        double before = 0;
+        for (int m = 0; m < count; m++) {
+            final double s = m * every;
+            while (k + 2 < line.size() && before + distance(line.get(k), line.get(k + 1)) < s) {
+                before += distance(line.get(k), line.get(k + 1));
+                k++;
+            }
+            final Vec2 a = line.get(k);
+            final Vec2 b = line.get(k + 1);
+            final double len = distance(a, b);
+            final double t = len == 0 ? 0 : Math.min(1, (s - before) / len);
+            out.add(new Vec2(a.x() + (b.x() - a.x()) * t, a.z() + (b.z() - a.z()) * t));
+        }
+        out.add(out.getFirst());
+        return out;
+    }
+
+    /**
+     * As {@link #fitted}, round a loop: its last point its first, so the heights go on round with no ends; solved at
+     * once, round it ({@link #cyclic}). Where nothing pulls a height to the ground (a structure all round), a hair of a
+     * pull, so the heights are still settled.
+     */
+    private static double[] fittedLoop(final double[] along, final double[] ground, final double[] weight,
+                                       final double[] pinned, final double vertical) {
+        final int m = along.length - 1;
+        final double[] a = new double[m];
+        final double[] b = new double[m];
+        final double[] c = new double[m];
+        final double[] d = new double[m];
+        for (int i = 0; i < m; i++) {
+            if (!Double.isNaN(pinned[i])) {
+                b[i] = 1;
+                d[i] = pinned[i];
+                continue;
+            }
+            final double back = i > 0 ? along[i] - along[i - 1] : along[m] - along[m - 1];
+            final double left = stiff(vertical, back);
+            final double right = stiff(vertical, along[i + 1] - along[i]);
+            final double w = Math.max(weight[i], 1e-6);
+            a[i] = -left;
+            c[i] = -right;
+            b[i] = w + left + right;
+            d[i] = w * ground[i];
+        }
+        final double[] h = cyclic(a, b, c, d);
+        final double[] levels = new double[m + 1];
+        System.arraycopy(h, 0, levels, 0, m);
+        levels[m] = h[0];
+        return levels;
+    }
+
+    /**
+     * {@code x} where {@code a[i] x[i-1] + b[i] x[i] + c[i] x[i+1] = d[i]} for each {@code i}, round a loop: the first
+     * row's {@code a} is the last's neighbour, the last row's {@code c} the first's (Sherman and Morrison's way, two
+     * plain solutions along it).
+     */
+    private static double[] cyclic(final double[] a, final double[] b, final double[] c, final double[] d) {
+        final int m = b.length;
+        final double beta = a[0];
+        final double alpha = c[m - 1];
+        final double gamma = -b[0];
+        final double[] bb = b.clone();
+        bb[0] = b[0] - gamma;
+        bb[m - 1] = b[m - 1] - alpha * beta / gamma;
+        final double[] x = tridiagonal(a, bb, c, d);
+        final double[] u = new double[m];
+        u[0] = gamma;
+        u[m - 1] = alpha;
+        final double[] z = tridiagonal(a, bb, c, u);
+        final double fact = (x[0] + beta * x[m - 1] / gamma) / (1 + z[0] + beta * z[m - 1] / gamma);
+        for (int i = 0; i < m; i++) {
+            x[i] -= fact * z[i];
+        }
+        return x;
+    }
+
+    /** {@code x} where {@code a[i] x[i-1] + b[i] x[i] + c[i] x[i+1] = d[i]}, along it: the first's a and the last's c not counted. */
+    private static double[] tridiagonal(final double[] a, final double[] b, final double[] c, final double[] d) {
+        final int m = b.length;
+        final double[] bb = b.clone();
+        final double[] dd = d.clone();
+        for (int i = 1; i < m; i++) {
+            final double k = a[i] / bb[i - 1];
+            bb[i] -= k * c[i - 1];
+            dd[i] -= k * dd[i - 1];
+        }
+        final double[] x = new double[m];
+        x[m - 1] = dd[m - 1] / bb[m - 1];
+        for (int i = m - 2; i >= 0; i--) {
+            x[i] = (dd[i] - c[i] * x[i + 1]) / bb[i];
+        }
+        return x;
+    }
+
+    /** As {@link #within}, round a loop: kept within the steepest grade round and round, across its join too. */
+    private static void withinLoop(final double[] along, final double[] levels, final double[] pinned,
+                                   final double grade) {
+        final int m = levels.length - 1;
+        for (int pass = 0; pass < 3; pass++) {
+            for (int k = 1; k <= 2 * m; k++) {
+                final int i = k % m;
+                final int p = (i - 1 + m) % m;
+                if (Double.isNaN(pinned[i])) {
+                    final double most = grade * (i > 0 ? along[i] - along[p] : along[m] - along[p]);
+                    levels[i] = Num.clamp(levels[i], levels[p] - most, levels[p] + most);
+                }
+            }
+            for (int k = 2 * m - 1; k >= 0; k--) {
+                final int i = k % m;
+                final int q = (i + 1) % m;
+                if (Double.isNaN(pinned[i])) {
+                    final double most = grade * (along[i + 1] - along[i]);
+                    levels[i] = Num.clamp(levels[i], levels[q] - most, levels[q] + most);
+                }
+            }
+        }
+        levels[m] = levels[0];
     }
 
     private static double distance(final Vec2 a, final Vec2 b) {

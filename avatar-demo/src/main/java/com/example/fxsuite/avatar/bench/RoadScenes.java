@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleUnaryOperator;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -23,13 +24,30 @@ import java.util.function.Function;
 final class RoadScenes {
 
     /** A place and the roads through it. */
-    record Scene(String name, String section, double at, Profile profile, Function<Section, List<Roadworks.Plan>> roads,
-                 double water) {
+    record Scene(String name, String section, double at, Profile profile,
+                 BiFunction<Section, Map<String, Double>, List<Roadworks.Plan>> roads, double water, List<Knob> knobs) {
+
+        /** A scene with nothing to set: its roads made of the kind alone. */
+        Scene(final String name, final String section, final double at, final Profile profile,
+              final Function<Section, List<Roadworks.Plan>> roads, final double water) {
+            this(name, section, at, profile, (kind, set) -> roads.apply(kind), water, List.of());
+        }
+
+        /** Its roads, of {@code kind}, its knobs set as {@code set} says, or as they are at first. */
+        List<Roadworks.Plan> roads(final Section kind, final Map<String, Double> set) {
+            final Map<String, Double> all = new java.util.HashMap<>();
+            knobs.forEach(k -> all.put(k.name(), set.getOrDefault(k.name(), k.value())));
+            return roads.apply(kind, all);
+        }
 
         /** Whether it has still water, at {@link #water} high. */
         boolean watered() {
             return !Double.isNaN(water);
         }
+    }
+
+    /** Something of a scene to set on the bench: its name, as it is shown; the least, the most, the step, and as it is at first. */
+    record Knob(String name, double least, double most, double step, double value) {
     }
 
     /** How long each road is. */
@@ -67,6 +85,11 @@ final class RoadScenes {
         scenes.put("rolling", one("rolling", "country lane", 25_000,
                 (x, z, below) -> 300 * Math.sin(x / 7_000) + 450 * Math.sin(z / 9_000) + 180 * Math.cos((x + z) / 4_000),
                 line(z -> 6_000 * Math.sin(z / LENGTH * Math.PI * 1.5)), List.of(), List.of(), Double.NaN));
+        // a loop as a running track is, but as long as it is set, its bends as round, up on a viaduct all round over
+        // level ground, as high as it is set: to run round and round on
+        scenes.put("loop", new Scene("loop", "two-lane road", 2_000, Profile.level(0), RoadScenes::loop, Double.NaN,
+                List.of(new Knob(LOOP_LENGTH, 300, 5_000, 50, 1_000), new Knob(LOOP_RADIUS, 20, 500, 5, 80),
+                        new Knob(LOOP_HEIGHT, 2, 40, 0.5, 6), new Knob(LOOP_TILT, 0, 30, 0.5, 6))));
         // a divided road on gentle ground: two carriageways side by side, the median between them grass
         scenes.put("dual", new Scene("dual", "carriageway", 25_000,
                 (x, z, below) -> 250 * Math.sin(z / 8_000) + 120 * Math.sin(x / 5_000 + z / 13_000),
@@ -79,6 +102,50 @@ final class RoadScenes {
                 section -> divided("mountain", section, straight(), z -> 1_500 * bump(z - 25_000, 10_000)),
                 Double.NaN));
         return scenes;
+    }
+
+    /** The loop's knobs: how long round, how round its bends, how high its viaduct, in metres; how much its bends tilt. */
+    static final String LOOP_LENGTH = "Loop length (m)";
+    static final String LOOP_RADIUS = "Bend radius (m)";
+    static final String LOOP_HEIGHT = "Viaduct height (m)";
+    static final String LOOP_TILT = "Bend tilt (°)";
+
+    /**
+     * The loop: two straights side by side, a half-circle bend at each end joining them, so long round as set, its bends
+     * as round as set (no rounder than a circle as long round), going north up the east straight from its middle; a
+     * structure all round, its surface as high as set over the level ground; tilted into its bends as much as set, run in
+     * and out on either side as the road works out.
+     */
+    static List<Roadworks.Plan> loop(final Section section, final Map<String, Double> set) {
+        final double length = set.get(LOOP_LENGTH) * 100;
+        final double radius = Math.min(set.get(LOOP_RADIUS) * 100, length / (2 * Math.PI));
+        final double half = (length - 2 * Math.PI * radius) / 4;
+        final List<Vec2> line = new ArrayList<>();
+        final double step = 100;
+        for (double z = 0; z < half; z += step) {
+            line.add(new Vec2(radius, z));
+        }
+        final int arc = Math.max(8, (int) Math.ceil(Math.PI * radius / step));
+        for (int k = 0; k < arc; k++) {
+            final double t = Math.PI * k / arc;
+            line.add(new Vec2(radius * Math.cos(t), half + radius * Math.sin(t)));
+        }
+        for (double z = half; z > -half; z -= step) {
+            line.add(new Vec2(-radius, z));
+        }
+        for (int k = 0; k < arc; k++) {
+            final double t = Math.PI + Math.PI * k / arc;
+            line.add(new Vec2(radius * Math.cos(t), -half + radius * Math.sin(t)));
+        }
+        for (double z = -half; z < 0; z += step) {
+            line.add(new Vec2(radius, z));
+        }
+        line.add(line.getFirst());
+        final double up = set.get(LOOP_HEIGHT) * 100;
+        return List.of(new Roadworks.Plan("loop road", line, section,
+                List.of(new Roadway.Given(0, Double.MAX_VALUE, Carrier.STRUCTURE)),
+                List.of(new Roadway.Clearance(0, Double.MAX_VALUE, up)),
+                Math.tan(Math.toRadians(set.getOrDefault(LOOP_TILT, 0.0)))));
     }
 
     /** One road, {@code name}, of whatever kind, along {@code line}. */

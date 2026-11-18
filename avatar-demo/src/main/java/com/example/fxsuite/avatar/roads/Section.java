@@ -152,6 +152,20 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
                 earthworks, grade, vertical);
     }
 
+    /**
+     * Like it, its carriageway (its lanes and shoulders) falling {@code left} going away from the line on its left and
+     * {@code right} on its right: tilted, or its crown on its way out. Its kerbs, footways and ground as they were, each
+     * from where the carriageway leaves off.
+     */
+    public Section withFalls(final double left, final double right) {
+        return new Section(name, fallen(this.left, left), fallen(this.right, right), earthworks, grade, vertical);
+    }
+
+    private static List<Strip> fallen(final List<Strip> side, final double fall) {
+        return side.stream().map(s -> s.use() == Strip.Use.LANE || s.use() == Strip.Use.SHOULDER ? s.withFall(fall) : s)
+                .toList();
+    }
+
     /** Like it, asking {@code earthworks} of the ground. */
     public Section withEarthworks(final Earthworks earthworks) {
         return new Section(name, left, right, earthworks, grade, vertical);

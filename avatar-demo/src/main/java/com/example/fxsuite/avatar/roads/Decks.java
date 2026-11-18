@@ -86,20 +86,25 @@ public final class Decks {
             final double reach = len / 2 + COLUMN / 2;
             final double mx = (a.x() + b.x()) / 2;
             final double mz = (a.z() + b.z()) / 2;
-            final double deckTop = ownPavement ? top - paved : top;
-            final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, top - Roadway.DECK, deckTop);
+            // tilted into a bend, or on its way: its deck under its lowest edge, each parapet over its own edge
+            final Section here = road.section(j);
+            final Section there = road.section(j + 1);
+            final double low = Math.min(lowest(here), lowest(there));
+            final double bottom = top + low - Roadway.DECK;
+            final double deckTop = ownPavement ? top + low - paved : top;
+            final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, bottom, deckTop);
             parts.add(deck);
-            decks.put(deck, top - paved);
-            parts.add(new Lean(mx, mz, yaw, -reach, reach, west - t, west, west - t, west, top - Roadway.DECK,
-                    top + Roadway.PARAPET));
-            parts.add(new Lean(mx, mz, yaw, -reach, reach, east, east + t, east, east + t, top - Roadway.DECK,
-                    top + Roadway.PARAPET));
+            decks.put(deck, top + low - paved);
+            final double westTop = top + Math.max(here.top(west), there.top(west)) + Roadway.PARAPET;
+            final double eastTop = top + Math.max(here.top(east), there.top(east)) + Roadway.PARAPET;
+            parts.add(new Lean(mx, mz, yaw, -reach, reach, west - t, west, west - t, west, bottom, westTop));
+            parts.add(new Lean(mx, mz, yaw, -reach, reach, east, east + t, east, east + t, bottom, eastTop));
         }
         for (final int i : s.piers()) {
             final Vec2 p = road.point(i);
             final Vec2 r = road.right(i);
             final double yaw = Math.toDegrees(Math.atan2(-r.z(), r.x()));
-            final double under = road.level(i) - Roadway.DECK;
+            final double under = road.level(i) + lowest(road.section(i)) - Roadway.DECK;
             final double middle = (west + east) / 2;
             final double half = (east - west) / 2 * 0.9;
             parts.add(new Lean(p.x(), p.z(), yaw, -CROSSHEAD_ALONG / 2, CROSSHEAD_ALONG / 2, middle - half, middle + half,
@@ -146,6 +151,15 @@ public final class Decks {
             corners.add(new Point(x - cx, z - cz, (top ? high : part.low()) - low));
         }
         return new Solid("deck", Role.STRUCTURE, Material.CONCRETE, corners);
+    }
+
+    /** How low its surface is at the lowest edge of its paved strips, against its line: its deck under it there. */
+    private static double lowest(final Section section) {
+        double lowest = 0;
+        for (final Section.Laid l : section.paved()) {
+            lowest = Math.min(lowest, Math.min(l.innerTop(), l.outerTop()));
+        }
+        return lowest;
     }
 
     /** The box round {@code parts}. */
