@@ -119,8 +119,32 @@ public final class RoadBench extends Application {
     private boolean redesigning;
     /** Whether the roads are being designed again for a change made on the kind's panel, which is left as it is. */
     private boolean fromPanel;
-    /** How long the roads took to design, ms. */
-    private double designed;
+    /** Where the heavy work is done, away from the screen: designing the roads, making their meshes, their figures. */
+    private final java.util.concurrent.ExecutorService worker = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        final Thread thread = new Thread(r, "roads bench");
+        thread.setDaemon(true);
+        return thread;
+    });
+    /** The latest asked of the worker: anything asked before it, done late, is not shown. */
+    private final java.util.concurrent.atomic.AtomicLong asked = new java.util.concurrent.atomic.AtomicLong();
+    /** On the worker alone: the roads as last designed there, their plans, how long that took, how many times. */
+    private Roadworks designedThere;
+    private List<Roadworks.Plan> plansThere;
+    private double designedMs;
+    private long designs;
+    /** On the worker alone: whether the roads are owed a redesign, one asked for having been passed over. */
+    private boolean owedDesign;
+    /** Whether the ground is owed drawing again, one asked for having been passed over, or not shown. */
+    private final java.util.concurrent.atomic.AtomicBoolean owedGround = new java.util.concurrent.atomic.AtomicBoolean();
+    /** Which design of the roads is shown. */
+    private long shownDesign = -1;
+    /** Whether the point looked at is being moved to where a new scene is first looked at: nothing cut away again for it. */
+    private boolean framing;
+    /** Where along it to look at first, metres, as asked at the start; and whether to drive it as soon as it is shown. */
+    private Double startAt;
+    private boolean driveWhenShown;
+    /** Shown while the worker is at work. */
+    private final Label working = new Label();
 
     @Override
     public void start(final Stage stage) {
@@ -177,14 +201,14 @@ public final class RoadBench extends Application {
             if (!redesigning && roadBox.getSelectionModel().getSelectedIndex() >= 0) {
                 looked = roadBox.getSelectionModel().getSelectedIndex();
                 atSlider.setMax(road().length() / 100);
-                figures();
-                lookedAt();
+                lookedAt(false);
+                request(false, false, false);
             }
         });
-        showEarthworks.setOnAction(e -> drawGround());
-        asBuilt.setOnAction(e -> drawGround());
+        showEarthworks.setOnAction(e -> request(false, false, true));
+        asBuilt.setOnAction(e -> request(false, false, true));
         for (final CheckBox box : List.of(showPavement, showMarkings, showStructures, cutAway)) {
-            box.setOnAction(e -> drawRoads());
+            box.setOnAction(e -> request(false, false, false));
         }
         showWater.setOnAction(e -> waterGroup.setVisible(showWater.isSelected()));
         showGround.setOnAction(e -> groundGroup.setVisible(showGround.isSelected()));
@@ -222,7 +246,8 @@ public final class RoadBench extends Application {
 
         final HBox bar = new HBox(8, new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"),
                 roadBox, showGround, showEarthworks, asBuilt, showPavement, showMarkings, showStructures, showWater,
-                cutAway, new Label("Heights ×"), taller, drive, ownPavement);
+                cutAway, new Label("Heights ×"), taller, drive, ownPavement, working);
+        working.setStyle("-fx-text-fill: #8a5a00; -fx-font-style: italic;");
         bar.setPadding(new Insets(6, 8, 6, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
         final HBox atBar = new HBox(8, new Label("Along (m)"), atSlider);
@@ -246,10 +271,9 @@ public final class RoadBench extends Application {
         final Scene windowScene = new Scene(root, 1560, 940);
 
         looked = Integer.getInteger("roads.road", 0);
+        startAt = at == null ? null : Double.parseDouble(at);
+        driveWhenShown = Boolean.getBoolean("roads.drive");
         design(true);
-        if (at != null) {
-            atSlider.setValue(Double.parseDouble(at));
-        }
         yaw.setAngle(Double.parseDouble(System.getProperty("roads.yaw", "-35")));
         pitch.setAngle(-Double.parseDouble(System.getProperty("roads.pitch", "22")));
         back.setZ(-100 * Double.parseDouble(System.getProperty("roads.distance", "90")));
@@ -257,9 +281,6 @@ public final class RoadBench extends Application {
         stage.setScene(windowScene);
         stage.show();
         SoundBench.snapshotIfAsked(windowScene);
-        if (Boolean.getBoolean("roads.drive")) {
-            Platform.runLater(this::drive);
-        }
     }
 
     /**
@@ -344,66 +365,150 @@ public final class RoadBench extends Application {
             kind.show(section);
             setting.show(scene, knobs.getOrDefault(scene.name(), Map.of()));
         }
-        final long started = System.nanoTime();
-        try {
-            plans = scene.roads(section, knobs.getOrDefault(scene.name(), Map.of()));
-            works = Roadworks.design(scene.profile(), plans);
-        } catch (final IllegalArgumentException e) {
-            problems.setText(e.getMessage());
+        request(true, frame, true);
+    }
+
+    /** What is asked of the worker: what to do again, and the bench as it is when asked. */
+    private record Asked(long ticket, boolean redesign, boolean frame, boolean ground, RoadScenes.Scene scene,
+                         Section section, Map<String, Double> set, int looked, boolean earthworks, boolean built,
+                         boolean pavement, boolean markings, boolean structures, double upTo) {
+    }
+
+    /** What the worker made of it, to be shown: the roads (as designed, the {@code design}th time), and their drawing. */
+    private record Made(Asked asked, long design, Roadworks works, List<Roadworks.Plan> plans, int looked,
+                        double[] bounds, Group ground, Group roads, javafx.scene.Node water, String figures,
+                        String problems) {
+    }
+
+    /**
+     * Asks the worker for the roads again: designed afresh ({@code redesign}), their ground drawn again ({@code ground});
+     * their pavements, markings and structures always, and the figures. Done away from the screen, one after another; one
+     * asked for before another, and not yet begun, is passed over, owing what it would have done to the next.
+     */
+    private void request(final boolean redesign, final boolean frame, final boolean ground) {
+        final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
+        final double upTo = cutAway.isSelected() ? atSlider.getValue() * 100 : Double.POSITIVE_INFINITY;
+        final Asked a = new Asked(asked.incrementAndGet(), redesign, frame, ground, scene, section,
+                Map.copyOf(knobs.getOrDefault(scene.name(), Map.of())), looked, showEarthworks.isSelected(),
+                asBuilt.isSelected(), showPavement.isSelected(), showMarkings.isSelected(), showStructures.isSelected(),
+                upTo);
+        working.setText("Working…");
+        worker.submit(() -> work(a));
+    }
+
+    /** On the worker: what {@code a} asks, unless something has been asked since; then shown, on the screen's thread. */
+    private void work(final Asked a) {
+        if (a.ticket() != asked.get()) {
+            owedDesign |= a.redesign();
+            if (a.ground() || a.redesign()) {
+                owedGround.set(true);
+            }
             return;
         }
-        designed = (System.nanoTime() - started) / 1e6;
-        redesigning = true;
-        roadBox.getItems().setAll(works.roads().stream().map(Roadway::name).toList());
-        looked = frame && looked >= works.roads().size() ? 0 : Math.min(looked, works.roads().size() - 1);
-        roadBox.getSelectionModel().select(looked);
-        redesigning = false;
-        bounds = RoadworkModel.bounds(works.roads());
-        atSlider.setMax(road().length() / 100);
-        if (frame) {
-            atSlider.setValue(scene.at() / 100);
+        try {
+            if (a.redesign() || owedDesign || designedThere == null) {
+                final long started = System.nanoTime();
+                plansThere = a.scene().roads(a.section(), a.set());
+                designedThere = Roadworks.design(a.scene().profile(), plansThere);
+                designedMs = (System.nanoTime() - started) / 1e6;
+                designs++;
+                owedDesign = false;
+                owedGround.set(true);
+            }
+            final Roadworks w = designedThere;
+            final int look = a.frame() && a.looked() >= w.roads().size() ? 0
+                    : Math.max(0, Math.min(a.looked(), w.roads().size() - 1));
+            final double[] b = RoadworkModel.bounds(w.roads());
+            Group groundNode = null;
+            if (owedGround.getAndSet(false) || a.ground()) {
+                groundNode = RoadworkModel.ground(a.earthworks() ? w.ground() : Ground.untouched(w.raw()), a.built(), b);
+            }
+            final javafx.scene.Node water = a.scene().watered() ? RoadworkModel.water(a.scene().water(), b) : null;
+            final Made made = new Made(a, designs, w, plansThere, look, b, groundNode, roads(w, look, a), water,
+                    figures(w, look, designedMs), String.join("\n", w.problems()));
+            Platform.runLater(() -> show(made));
+        } catch (final RuntimeException e) {
+            owedDesign = true;
+            Platform.runLater(() -> {
+                if (a.ticket() == asked.get()) {
+                    problems.setText(String.valueOf(e.getMessage()));
+                    working.setText("");
+                }
+            });
         }
-        drawGround();
-        drawRoads();
-        waterGroup.getChildren().clear();
-        if (scene.watered()) {
-            waterGroup.getChildren().add(RoadworkModel.water(scene.water(), bounds));
-        }
-        waterGroup.setVisible(showWater.isSelected());
-        figures();
-        lookedAt();
     }
 
-    private void drawGround() {
-        final Ground ground = showEarthworks.isSelected() ? works.ground() : Ground.untouched(works.raw());
-        groundGroup.getChildren().setAll(RoadworkModel.ground(ground, asBuilt.isSelected(), bounds));
+    /** On the screen's thread: what the worker made, shown, unless something has been asked since. */
+    private void show(final Made m) {
+        if (m.asked().ticket() != asked.get()) {
+            if (m.ground() != null) {
+                owedGround.set(true);
+            }
+            return;
+        }
+        working.setText("");
+        if (m.design() != shownDesign) {
+            shownDesign = m.design();
+            works = m.works();
+            plans = m.plans();
+            bounds = m.bounds();
+            redesigning = true;
+            roadBox.getItems().setAll(works.roads().stream().map(Roadway::name).toList());
+            looked = m.looked();
+            roadBox.getSelectionModel().select(looked);
+            redesigning = false;
+            atSlider.setMax(road().length() / 100);
+            waterGroup.getChildren().clear();
+            if (m.water() != null) {
+                waterGroup.getChildren().add(m.water());
+            }
+            waterGroup.setVisible(showWater.isSelected());
+        }
+        if (m.ground() != null) {
+            groundGroup.getChildren().setAll(m.ground());
+        }
+        roadGroup.getChildren().setAll(m.roads());
+        figures.setText(m.figures());
+        problems.setText(m.problems());
+        if (m.asked().frame()) {
+            framing = true;
+            atSlider.setValue(startAt != null ? startAt : scene.at() / 100);
+            startAt = null;
+            framing = false;
+        }
+        lookedAt(false);
+        if (driveWhenShown) {
+            driveWhenShown = false;
+            drive();
+        }
     }
 
-    private void drawRoads() {
-        final double upTo = cutAway.isSelected() ? atSlider.getValue() * 100 : Double.POSITIVE_INFINITY;
-        roadGroup.getChildren().clear();
-        for (int k = 0; k < works.roads().size(); k++) {
-            final Roadway r = works.roads().get(k);
+    /** Its roads' pavements, markings and structures as asked, the road looked at cut away where asked; the walls wanted. */
+    private static Group roads(final Roadworks w, final int look, final Asked a) {
+        final Group drawn = new Group();
+        for (int k = 0; k < w.roads().size(); k++) {
+            final Roadway r = w.roads().get(k);
             // cut away the road looked at only
-            final double to = k == looked ? upTo : Double.POSITIVE_INFINITY;
-            if (showPavement.isSelected()) {
-                roadGroup.getChildren().add(RoadworkModel.pavement(r, to));
+            final double to = k == look ? a.upTo() : Double.POSITIVE_INFINITY;
+            if (a.pavement()) {
+                drawn.getChildren().add(RoadworkModel.pavement(r, to));
             }
-            if (showMarkings.isSelected()) {
-                roadGroup.getChildren().add(RoadworkModel.markings(r, to));
+            if (a.markings()) {
+                drawn.getChildren().add(RoadworkModel.markings(r, to));
             }
-            if (showStructures.isSelected()) {
-                roadGroup.getChildren().add(RoadworkModel.structures(r, works.ground().profile()));
+            if (a.structures()) {
+                drawn.getChildren().add(RoadworkModel.structures(r, w.ground().profile()));
             }
         }
-        if (showStructures.isSelected()) {
-            roadGroup.getChildren().add(RoadworkModel.walls(works));
+        if (a.structures()) {
+            drawn.getChildren().add(RoadworkModel.walls(w));
         }
+        return drawn;
     }
 
     /** What the road looked at comes to: how long, how steep, how high and deep, how much earth, what carries it where. */
-    private void figures() {
-        final Roadway road = road();
+    private static String figures(final Roadworks w, final int look, final double designed) {
+        final Roadway road = w.roads().get(look);
         final double[] moved = road.earthMoved();
         final List<String> carried = new ArrayList<>();
         for (final Roadway.Stretch s : road.stretches()) {
@@ -413,7 +518,7 @@ public final class RoadBench extends Application {
         final long piers = road.structures().stream().mapToLong(s -> s.piers().size()).sum();
         final Section s = road.section();
         final double deepest = s.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
-        figures.setText(String.format(Locale.ROOT,
+        return String.format(Locale.ROOT,
                 "%s: %s m long; %s m wide, %s m paved, %s m deep; steepest %.1f%% (of %.0f%%)%n"
                         + "highest bank %s m, deepest cutting %s m (takes %s, %s)%n"
                         + "earth cut %,.0f m³, filled %,.0f m³; %d piers%n%s%n"
@@ -423,12 +528,16 @@ public final class RoadBench extends Application {
                 road.steepest() * 100, s.grade() * 100,
                 RoadDrawings.metres(road.highestBank(), 1), RoadDrawings.metres(road.deepestCutting(), 1),
                 RoadDrawings.metres(s.earthworks().bank(), 1), RoadDrawings.metres(s.earthworks().cutting(), 1),
-                moved[0], moved[1], piers, String.join("; ", carried), works.roads().size(), designed));
-        problems.setText(String.join("\n", works.problems()));
+                moved[0], moved[1], piers, String.join("; ", carried), w.roads().size(), designed);
     }
 
     /** The point looked at moved: the camera's target there, the drawings drawn again, the cut away moved. */
     private void lookedAt() {
+        lookedAt(cutAway.isSelected() && !framing);
+    }
+
+    /** The same; {@code cut}: the road looked at cut away there again, away from the screen. */
+    private void lookedAt(final boolean cut) {
         if (works == null) {
             return;
         }
@@ -439,8 +548,8 @@ public final class RoadBench extends Application {
         target.setX(p.x());
         target.setY(-road.level(i));
         target.setZ(p.z());
-        if (cutAway.isSelected()) {
-            drawRoads();
+        if (cut) {
+            request(false, false, false);
         }
         drawSections();
     }
