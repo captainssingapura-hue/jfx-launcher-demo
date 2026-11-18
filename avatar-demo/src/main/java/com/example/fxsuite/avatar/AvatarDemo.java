@@ -44,6 +44,8 @@ public final class AvatarDemo extends Application {
     public void start(final Stage stage) {
         this.stage = stage;
         stage.setTitle("FxSuite · Avatar");
+        // the worlds designed outside the simulation, told of before any is looked up by name or offered
+        Game.tellWorlds();
         final Demo asked = asked();
         final String set = System.getProperty("avatar.siege");
         if (set != null) {

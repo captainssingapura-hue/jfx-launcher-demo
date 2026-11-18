@@ -127,9 +127,24 @@ import java.util.Set;
  */
 public final class Game {
 
-    // the town's buildings are designed outside the simulation: it is told what stands there, how big, and where
-    // the guns on top of them stand
+    /** Whether the worlds designed outside the simulation have been told of it. */
+    private static boolean told;
+
+    // the worlds designed outside the simulation told of it as the game is loaded, if not before
     static {
+        tellWorlds();
+    }
+
+    /**
+     * The worlds designed outside the simulation told of it, once: the town's buildings, how big, where the guns on top
+     * of them stand; the village; the wall towers; Marina Bay, a demo of its own, by its name. Before any demo is looked
+     * up by name or offered: so the launcher asks for it first.
+     */
+    public static synchronized void tellWorlds() {
+        if (told) {
+            return;
+        }
+        told = true;
         com.example.fxsuite.avatar.build.Town.scale(Math.clamp(Double.parseDouble(System.getProperty("town.scale", "1")),
                 com.example.fxsuite.avatar.build.Town.SMALLEST, com.example.fxsuite.avatar.build.Town.LARGEST));
         com.example.fxsuite.avatar.build.Town.tell();
