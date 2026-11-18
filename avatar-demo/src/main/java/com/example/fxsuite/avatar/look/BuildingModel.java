@@ -41,6 +41,8 @@ public final class BuildingModel {
         LOOKS.put(Material.THATCH, BoxRig.matte("#b59a5f"));
         LOOKS.put(Material.REED, BoxRig.matte("#9a8d68"));
         LOOKS.put(Material.EARTH, BoxRig.matte("#8a7557"));
+        // as the roads' own surface is drawn on the land ({@link TerrainModel#ASPHALT})
+        LOOKS.put(Material.ASPHALT, BoxRig.matte("#5f6566"));
         LOOKS.put(Material.PRECAST, BoxRig.matte("#cfcac0"));
         LOOKS.put(Material.METAL, BoxRig.matte("#33373c"));
         LOOKS.put(Material.GRAVEL, BoxRig.matte("#7f7c75"));

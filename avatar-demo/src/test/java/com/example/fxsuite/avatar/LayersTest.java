@@ -36,6 +36,9 @@ class LayersTest {
                 BASE + "audio", BASE + "bench", BASE + "hear");
         forbid(wrong, "look", "javax.sound", "org.lwjgl", BASE + "sound", BASE + "audio", BASE + "hear",
                 BASE + "bench");
+        // what is built on roads: worked out, not drawn, not heard
+        forbid(wrong, "roads", "javafx.", "javax.sound", "org.lwjgl", BASE + "look", BASE + "view", BASE + "sound",
+                BASE + "audio", BASE + "bench", BASE + "hear");
         assertEquals(List.of(), wrong);
     }
 

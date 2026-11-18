@@ -52,7 +52,9 @@ public enum Material {
     THATCH("thatch", Double.POSITIVE_INFINITY),
     REED("reed", Double.POSITIVE_INFINITY),
     /** A floor of earth, beaten hard. */
-    EARTH("packed earth", Double.POSITIVE_INFINITY);
+    EARTH("packed earth", Double.POSITIVE_INFINITY),
+    /** A road's surface, where it is built on: a bridge's deck. */
+    ASPHALT("asphalt", Double.POSITIVE_INFINITY);
 
     private final String title;
     private final double span;

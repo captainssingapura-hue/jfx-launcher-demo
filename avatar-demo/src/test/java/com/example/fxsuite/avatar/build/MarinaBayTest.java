@@ -78,8 +78,8 @@ class MarinaBayTest {
         final Course course = new Course(Demo.MARINA_BAY);
         assertFalse(course.land().level(), "its land as it lies");
         assertFalse(course.grid());
-        assertEquals(TowerMap.buildings().size() + Course.BIKES.size(), course.pieces().size(),
-                "the towers and what is on them, the motorcycles, no trees");
+        assertEquals(TowerMap.buildings().size() + Course.BIKES.size() + MarinaBay.bridges().size(), course.pieces().size(),
+                "the towers and what is on them, the motorcycles, the bridges, no trees");
         assertEquals(MarinaBay.START, course.start());
         assertEquals(TowerMap.people().size(), course.ground().size());
         assertTrue(course.ponds().size() > 5);

@@ -231,7 +231,20 @@ public final class MarinaBay {
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>(TowerMap.buildings());
         pieces.addAll(parked());
+        pieces.addAll(com.example.fxsuite.avatar.roads.Bridges.pieces(bridges(), BRIDGE_KEYS));
         return pieces;
+    }
+
+    /** Its bridges' keys among the buildings drawn: after the towers'. */
+    static final int BRIDGE_KEYS = 700;
+    private static List<com.example.fxsuite.avatar.roads.Bridges.Bridge> bridges;
+
+    /** Its bridges, each built on a stretch of its roads that is one, worked out once. */
+    public static synchronized List<com.example.fxsuite.avatar.roads.Bridges.Bridge> bridges() {
+        if (bridges == null) {
+            bridges = com.example.fxsuite.avatar.roads.Bridges.of(roads(), land());
+        }
+        return bridges;
     }
 
     /**
