@@ -169,7 +169,9 @@ public final class TerrainModel {
         }
         this.land = land;
         this.lie = land.base();
-        this.band = new RoadBand(land.layers().stream().filter(Road.class::isInstance).map(Road.class::cast).toList());
+        this.band = new RoadBand(land.layers().stream().filter(Road.class::isInstance).map(Road.class::cast).toList(),
+                land.layers().stream().filter(Land.Paved.class::isInstance)
+                        .flatMap(l -> ((Land.Paved) l).bands().stream()).toList());
         this.low = land.lowest();
         this.span = Math.max(1, land.highest() - low);
         material = new PhongMaterial(BASE);

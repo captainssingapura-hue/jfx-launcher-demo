@@ -320,6 +320,17 @@ class VillageTest {
         assertEquals("junction", village.vertices().getFirst().node());
         final Vec2 junction = road("village road").point(0);
         assertEquals(road("exit").surface(junction.x(), junction.z()), road("village road").level(0), 1e-6);
+        // its slips leaving and joining it paved between up to their noses: a junction, no wall wanted
+        assertEquals(List.of(), Meadow.roads().wanted());
+        for (final String name : List.of("exit", "entry")) {
+            final Roadway slip = road(name);
+            boolean gored = false;
+            for (int k = 0; k < Math.min(150, slip.size()); k++) {
+                final int i = name.equals("exit") ? k : slip.size() - 1 - k;
+                gored |= slip.section(i).pavedEdge(-1) > slip.section().pavedEdge(-1);
+            }
+            assertTrue(gored, "a gore by where it leaves or joins: " + name);
+        }
         // drawn once where they lie over each other: the carriageway's
         assertTrue(Meadow.roads().pavedBefore(Meadow.roads().roads().indexOf(road("exit")), road("exit").point(0).x(),
                 road("exit").point(0).z()));

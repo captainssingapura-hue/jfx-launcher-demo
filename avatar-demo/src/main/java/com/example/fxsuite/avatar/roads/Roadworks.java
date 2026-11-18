@@ -52,6 +52,8 @@ public final class Roadworks {
 
     /** The least step in the ground worth a wall. */
     static final double STEP = 30;
+    /** The shortest run of such a step worth a wall: a spot of it, where two roads' slopes meet, is not. */
+    static final double SHORTEST = 400;
 
     private final Profile raw;
     private final List<Roadway> roads;
@@ -93,10 +95,80 @@ public final class Roadworks {
                 final double top = before.pavement(x, z);
                 return Double.isNaN(top) ? before.ground().at(x, z).height() : top;
             };
-            laid.add(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(), p.tilt(),
-                    p.pins()));
+            laid.add(gored(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(),
+                    p.tilt(), p.pins()), before));
         }
         return new Roadworks(raw, laid);
+    }
+
+    /** How wide a gore is paved, at most: past that, its nose, and the grass between. */
+    static final double NOSE = 200;
+    /** How finely the gap to another road's pavement is felt for; how far a gore runs onto it. */
+    static final double PROBE = 10;
+    static final double OVERLAP = 10;
+
+    /**
+     * {@code road}, given its gores where it leaves or joins a road laid before it ({@code before}): from each of its ends
+     * that lies on an earlier road's pavement, point by point away from it, while the gap from its pavement's edge to the
+     * earlier's is no wider than {@link #NOSE}, that gap paved, either side; past that, the nose, and nothing more.
+     */
+    static Roadway gored(final Roadway road, final Roadworks before) {
+        if (before.roads.isEmpty()) {
+            return road;
+        }
+        final int n = road.size();
+        final double[] left = new double[n];
+        final double[] right = new double[n];
+        boolean any = false;
+        for (final boolean fromStart : new boolean[] {true, false}) {
+            final int first = fromStart ? 0 : n - 1;
+            if (!joins(road, first, before)) {
+                continue;
+            }
+            for (int i = first; i >= 0 && i < n; i += fromStart ? 1 : -1) {
+                boolean near = false;
+                for (final int side : new int[] {-1, 1}) {
+                    final double gap = gap(road, i, side, before);
+                    if (Double.isNaN(gap)) {
+                        continue;
+                    }
+                    near = true;
+                    if (gap > 0) {
+                        final double[] widths = side < 0 ? left : right;
+                        widths[i] = Math.max(widths[i], gap + OVERLAP);
+                        any = true;
+                    }
+                }
+                if (!near) {
+                    break;
+                }
+            }
+        }
+        return any ? road.withGores(left, right) : road;
+    }
+
+    /** Whether {@code road}'s pavement at its {@code i}th point lies, anywhere across it, on an earlier road's. */
+    private static boolean joins(final Roadway road, final int i, final Roadworks before) {
+        final Section s = road.section(i);
+        for (double a = -s.pavedEdge(-1); a <= s.pavedEdge(1); a += 50) {
+            final Vec2 p = road.at(i, a);
+            if (before.pavedBefore(before.roads.size(), p.x(), p.z())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** How far from {@code road}'s pavement's edge at its {@code i}th point, to {@code side}, an earlier road's pavement is; not a number past {@link #NOSE}. */
+    private static double gap(final Roadway road, final int i, final int side, final Roadworks before) {
+        final double edge = road.section(i).pavedEdge(side);
+        for (double d = 0; d <= NOSE; d += PROBE) {
+            final Vec2 p = road.at(i, side * (edge + d));
+            if (before.pavedBefore(before.roads.size(), p.x(), p.z())) {
+                return d;
+            }
+        }
+        return Double.NaN;
     }
 
     /** Whether any of its roads occupies (x, z). */
@@ -248,7 +320,13 @@ public final class Roadworks {
         }
         final double deepest = -lowest;
         final double tallest = highest;
-        return new Land.Layer() {
+        final List<Land.Band> bands = bands();
+        return new PavedLayer() {
+            @Override
+            public List<Land.Band> bands() {
+                return bands;
+            }
+
             @Override
             public double shape(final double x, final double z, final double under) {
                 final double top = Double.isNaN(sink) ? Double.NaN : pavement(x, z);
@@ -291,6 +369,42 @@ public final class Roadworks {
                 return 0;
             }
         };
+    }
+
+    /** A feature of the land that also says where its pavements run. */
+    private interface PavedLayer extends Land.Layer, Land.Paved {
+    }
+
+    /** How many of a road's points apart its pavement is told the land: 10 m, at 2 m apart. */
+    static final int BAND_EVERY = 5;
+
+    /**
+     * Where its roads' pavements run, coarsely, where the ground or a structure already there carries them: each stretch
+     * of so many points its pavement's middle, so wide either side, its gores and all. So the land drawn coarsely can be
+     * drawn out of their way.
+     */
+    public List<Land.Band> bands() {
+        final List<Land.Band> bands = new ArrayList<>();
+        for (final Roadway road : roads) {
+            final int end = road.size() - 1;
+            for (int from = 0; from < end; from += BAND_EVERY) {
+                final int to = Math.min(end, from + BAND_EVERY);
+                boolean grounded = true;
+                for (int j = from; j < to; j++) {
+                    grounded &= road.carrier(j) == Carrier.GROUND || road.carrier(j) == Carrier.ON;
+                }
+                if (!grounded) {
+                    continue;
+                }
+                final Section a = road.section(from);
+                final Section b = road.section(to);
+                final Vec2 pa = road.at(from, (a.pavedEdge(1) - a.pavedEdge(-1)) / 2);
+                final Vec2 pb = road.at(to, (b.pavedEdge(1) - b.pavedEdge(-1)) / 2);
+                bands.add(new Land.Band(pa.x(), pa.z(), pb.x(), pb.z(), (a.pavedEdge(-1) + a.pavedEdge(1)) / 2,
+                        (b.pavedEdge(-1) + b.pavedEdge(1)) / 2));
+            }
+        }
+        return bands;
     }
 
     /** The ground at (x, z) as the first {@code count} roads leave it. */
@@ -349,8 +463,10 @@ public final class Roadworks {
                         if (i < road.size() && road.grounded(Math.min(i, road.size() - 2))) {
                             final Vec2 p = road.at(i, inside);
                             final double kept = all.at(p.x(), p.z()).height();
+                            // where the later's own strips or its pavement lie, it overlaps this one: a junction, not a slope
+                            final boolean own = later.occupies(p.x(), p.z()) || !Double.isNaN(later.surface(p.x(), p.z()));
                             final Prepared wanted = later.prepared(p.x(), p.z(), kept);
-                            step = wanted.touched() ? Math.abs(wanted.height() - kept) : 0;
+                            step = wanted.touched() && !own ? Math.abs(wanted.height() - kept) : 0;
                         }
                         if (step > STEP) {
                             if (from < 0) {
@@ -359,7 +475,9 @@ public final class Roadworks {
                             }
                             highest = Math.max(highest, step);
                         } else if (from >= 0) {
-                            found.add(new Wall(m, side, k, road.along(from), road.along(i - 1), highest));
+                            if (road.along(i - 1) - road.along(from) >= SHORTEST) {
+                                found.add(new Wall(m, side, k, road.along(from), road.along(i - 1), highest));
+                            }
                             from = -1;
                         }
                     }

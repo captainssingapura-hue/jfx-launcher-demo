@@ -40,8 +40,9 @@ public final class Meadow implements DrawnDemo {
 
     /**
      * The meadow's kinds across, by the names its description gives them: each carriageway one way, driving on the right,
-     * its line at its inner edge, its half of the median its own; a slip road, one lane; the road into the village, a
-     * lane each way; the lane to the church, unmarked gravel.
+     * its line at its inner edge, a strip of the median its own; a slip road, one lane; the road into the village, a
+     * lane each way; the lane to the church, unmarked gravel. A carriageway's median a strip of grass beside it, the
+     * rest of the median between the two graded as their slopes meet, however high each is.
      */
     public static final String KINDS = """
             # the meadow's roads: driving on the right
@@ -50,7 +51,7 @@ public final class Meadow implements DrawnDemo {
             courses gravel: gravel 100mm, subbase 150mm
 
             section "carriageway" grade=5% vertical=100m fill=2 cut=2 ditch=1.2m,0.6m bank=8m cutting=10m
-              median    5m     grass        fall=4%
+              median    1m     grass        fall=4%
               |
               shoulder  1m     carriageway  fall=2%
               lane      3.65m  carriageway  fall=2%

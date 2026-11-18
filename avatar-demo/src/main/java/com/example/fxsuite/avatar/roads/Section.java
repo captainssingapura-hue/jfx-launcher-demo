@@ -166,6 +166,33 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
                 .toList();
     }
 
+    /**
+     * Like it, a paved strip {@code width} wide more on one side ({@code side}), just past its paved strips there: the gore
+     * between it and a road it leaves or joins, paved up to its nose. Built and falling as the paved strip next to it is.
+     */
+    public Section withGore(final int side, final double width) {
+        final List<Strip> strips = new ArrayList<>(side(side));
+        int at = 0;
+        Strip like = null;
+        for (int k = 0; k < strips.size(); k++) {
+            if (strips.get(k).paved()) {
+                at = k + 1;
+                like = strips.get(k);
+            }
+        }
+        if (like == null) {
+            // none paved this side: as the first paved strip on the other, falling the other way
+            final Strip other = side(-side).stream().filter(Strip::paved).findFirst().orElse(null);
+            if (other == null) {
+                return this;
+            }
+            like = other.withFall(-other.fall());
+        }
+        strips.add(at, Strip.paved(Strip.Use.SHOULDER, width, like.courses(), like.fall(), 0));
+        return side < 0 ? new Section(name, strips, right, earthworks, grade, vertical)
+                : new Section(name, left, strips, earthworks, grade, vertical);
+    }
+
     /** Like it, asking {@code earthworks} of the ground. */
     public Section withEarthworks(final Earthworks earthworks) {
         return new Section(name, left, right, earthworks, grade, vertical);

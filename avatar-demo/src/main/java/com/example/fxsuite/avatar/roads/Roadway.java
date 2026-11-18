@@ -352,6 +352,23 @@ public final class Roadway {
         return name;
     }
 
+    /**
+     * The same road, its kind across at each point with a gore paved {@code left[i]} wide on its left and {@code right[i]}
+     * on its right ({@link Section#withGore}), none where nothing: the triangle between it and a road it leaves or joins.
+     */
+    public Roadway withGores(final double[] left, final double[] right) {
+        final Section[] gored = across.clone();
+        for (int i = 0; i < gored.length; i++) {
+            if (left[i] > 0) {
+                gored[i] = gored[i].withGore(-1, left[i]);
+            }
+            if (right[i] > 0) {
+                gored[i] = gored[i].withGore(1, right[i]);
+            }
+        }
+        return new Roadway(name, section, profile, points, along, levels, ground, carriers, problems, loop, gored);
+    }
+
     /** Whether it is closed, its last point its first again. */
     public boolean loop() {
         return loop;
@@ -538,7 +555,12 @@ public final class Roadway {
         double maxZ = Double.NEGATIVE_INFINITY;
         double low = Double.POSITIVE_INFINITY;
         double high = Double.NEGATIVE_INFINITY;
-        final double wide = Math.max(section.pavedEdge(-1), section.pavedEdge(1));
+        // its widest, a gore and all
+        double widest = 0;
+        for (final Section s : across) {
+            widest = Math.max(widest, Math.max(s.pavedEdge(-1), s.pavedEdge(1)));
+        }
+        final double wide = widest;
         final double deepest = section.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
         for (int i = 0; i < points.size(); i++) {
             final Vec2 p = points.get(i);

@@ -9,6 +9,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Several roads on the same ground, laid in order: a divided road as two carriageways, two roads, each its line at its
@@ -102,6 +103,59 @@ class RoadworksTest {
         assertTrue(works.pavedBefore(1, -100, 25_000));
         assertFalse(works.pavedBefore(0, -100, 25_000));
         assertFalse(works.pavedBefore(1, -20_000, 25_000));
+    }
+
+    @Test
+    void aRoadLeavingAnotherPavedUpToItsNoseThenTheGrassNoWallWanted() {
+        final Section road = Sections.standard().get("two-lane road");
+        final Section slip = Sections.standard().get("carriageway");
+        final Roadworks.Plan main = new Roadworks.Plan("main", straight(), road, List.of(), List.of());
+        // leaving it from its right lane, slowly, to its right: a metre out every twenty along
+        final List<Vec2> off = new ArrayList<>();
+        for (double s = 0; s <= 30_000; s += 500) {
+            off.add(new Vec2(200 + s / 20 + 1_100, 10_000 + s));
+        }
+        final Roadworks works = Roadworks.design(GENTLE, List.of(main, new Roadworks.Plan("off", off, slip, List.of(),
+                List.of())));
+        final Roadway leaving = works.roads().get(1);
+        final Roadway first = works.roads().getFirst();
+        // between them, up to its nose, paved: one or the other's pavement all across the gap
+        int gored = 0;
+        for (int i = 0; i < leaving.size(); i++) {
+            final Section s = leaving.section(i);
+            if (s.pavedEdge(1) > slip.pavedEdge(1) + 1) {
+                fail("a gore on its far side, away from the road it leaves, at " + i);
+            }
+            if (s.pavedEdge(-1) > slip.pavedEdge(-1) + 1) {
+                gored++;
+                // from its pavement's left edge across to the first's: paved all the way
+                for (double d = 0; d < s.pavedEdge(-1) - slip.pavedEdge(-1); d += 20) {
+                    final Vec2 p = leaving.at(i, -slip.pavedEdge(-1) - d);
+                    assertTrue(!Double.isNaN(leaving.surface(p.x(), p.z())) || !Double.isNaN(first.surface(p.x(), p.z())),
+                            "paved across the gore at " + i);
+                }
+                assertTrue(s.pavedEdge(-1) - slip.pavedEdge(-1) <= Roadworks.NOSE + Roadworks.OVERLAP + 1e-6, "to its nose");
+            }
+        }
+        assertTrue(gored > 10, "a gore: " + gored);
+        assertEquals(List.of(), works.wanted(), "a junction, not a slope that cannot fit: no wall");
+    }
+
+    @Test
+    void itsLandSaysWhereItsPavementsRunSoTheLandIsDrawnOutOfTheirWay() {
+        final Roadworks works = Roadworks.design(GENTLE,
+                Roadworks.carriageways("dual", straight(), CARRIAGEWAY, List.of(), List.of()));
+        final com.example.fxsuite.avatar.sim.Land.Layer land = works.land(Double.NaN);
+        assertTrue(land instanceof com.example.fxsuite.avatar.sim.Land.Paved);
+        final List<com.example.fxsuite.avatar.sim.Land.Band> bands = ((com.example.fxsuite.avatar.sim.Land.Paved) land).bands();
+        assertFalse(bands.isEmpty());
+        // each pavement's middle, as wide as its pavement either side
+        final Roadway one = works.roads().getFirst();
+        final com.example.fxsuite.avatar.sim.Land.Band b = bands.getFirst();
+        final Vec2 middle = one.at(0, -CARRIAGEWAY.pavedEdge(-1) / 2);
+        assertEquals(middle.x(), b.ax(), 1e-6);
+        assertEquals(middle.z(), b.az(), 1e-6);
+        assertEquals(CARRIAGEWAY.pavedEdge(-1) / 2, b.ha(), 1e-6);
     }
 
     @Test

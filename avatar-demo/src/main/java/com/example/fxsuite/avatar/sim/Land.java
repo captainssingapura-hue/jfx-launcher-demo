@@ -49,6 +49,18 @@ public final class Land {
      */
     public enum Cover { EARTH, GRAVEL, ASPHALT }
 
+    /** A stretch of a pavement laid on it: its middle from (ax, az) to (bx, bz), so wide either side of it at each end. */
+    public record Band(double ax, double az, double bx, double bz, double ha, double hb) {
+    }
+
+    /**
+     * A feature that lays pavements on the land: where they run, coarsely, so the land can be drawn out of their way
+     * (as the roads' own lines tell it, for a road laid as a feature, {@link Road}).
+     */
+    public interface Paved {
+        List<Band> bands();
+    }
+
     /** How much of {@code cover} there is on the ground at ({@code x}, {@code z}), by whichever of its features lays most. */
     public double cover(final Cover cover, final double x, final double z) {
         double most = 0;

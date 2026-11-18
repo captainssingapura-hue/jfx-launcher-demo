@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.look;
 
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.Vec2;
 
@@ -40,6 +41,14 @@ final class RoadBand {
     private final List<Segment> segments = new ArrayList<>();
 
     RoadBand(final List<Road> roads) {
+        this(roads, List.of());
+    }
+
+    /** The same, and the pavements of features that say where theirs run ({@link Land.Paved}). */
+    RoadBand(final List<Road> roads, final List<Land.Band> bands) {
+        for (final Land.Band b : bands) {
+            segments.add(new Segment(b.ax(), b.az(), b.bx(), b.bz(), b.ha(), b.hb()));
+        }
         for (final Road road : roads) {
             final List<Vec2> line = road.line();
             final int end = line.size() - 1;
