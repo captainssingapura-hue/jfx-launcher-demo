@@ -90,10 +90,12 @@ public final class Decks {
             final double east = here.pavedEdge(1);
             final double low = Math.min(lowest(here), lowest(there));
             final double bottom = top + low - road.deck(j);
-            final double deckTop = ownPavement ? top + low - paved : top;
+            // a deck shallower than the pavement on it, over little room: as deep as the pavement, the pavement its top
+            final double under = Math.max(bottom, top + low - paved);
+            final double deckTop = ownPavement ? under : top;
             final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, bottom, deckTop);
             parts.add(deck);
-            decks.put(deck, top + low - paved);
+            decks.put(deck, under);
             final double westTop = top + Math.max(here.top(west), there.top(west)) + Roadway.PARAPET;
             final double eastTop = top + Math.max(here.top(east), there.top(east)) + Roadway.PARAPET;
             parts.add(new Lean(mx, mz, yaw, -reach, reach, west - t, west, west - t, west, bottom, westTop));

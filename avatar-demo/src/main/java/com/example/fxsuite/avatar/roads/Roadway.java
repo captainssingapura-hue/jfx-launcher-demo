@@ -93,6 +93,8 @@ public final class Roadway {
     private final List<Stretch> stretches;
     private final List<String> problems;
     private final Polyline line;
+    /** Its line, as far as its strips reach, no further: what is asked of its surface asked of no more than it need be. */
+    private final Polyline strips;
     /** Whether it is closed: its last point its first again, going on round. */
     private final boolean loop;
     /** Its kind across at each of its points: as it is, or tilted into a bend, or on its way to or from one. */
@@ -129,6 +131,7 @@ public final class Roadway {
         final double reach = widest + e.ditchWide()
                 + (off + 1_500) * Math.max(e.fill(), e.cut()) + 500;
         this.line = new Polyline(points, reach);
+        this.strips = new Polyline(points, widest + 10);
     }
 
     /**
@@ -534,7 +537,12 @@ public final class Roadway {
 
     /** Where on it (x, z) is nearest; null if beyond its reach, or beyond either end. */
     public Near nearest(final double x, final double z) {
-        final Polyline.Near near = line.nearest(x, z);
+        return nearest(line, x, z);
+    }
+
+    /** Where on {@code within} (x, z) is nearest: on its line, as far as {@code within} reaches. */
+    private Near nearest(final Polyline within, final double x, final double z) {
+        final Polyline.Near near = within.nearest(x, z);
         if (near == null) {
             return null;
         }
@@ -554,7 +562,7 @@ public final class Roadway {
 
     /** How high its pavement's surface is at (x, z); not a number off it, on its ground strips or beyond its edges. */
     public double surface(final double x, final double z) {
-        final Near near = nearest(x, z);
+        final Near near = nearest(strips, x, z);
         if (near == null) {
             return Double.NaN;
         }
@@ -570,6 +578,26 @@ public final class Roadway {
      * floor: solid from its formation up to its surface across its paved strips.
      */
     public Pavement pavement() {
+        return pavement(0, points.size() - 1);
+    }
+
+    /** How many of its points each piece of its pavement ({@link #pavements}) is over, about. */
+    static final int PIECE = 50;
+
+    /**
+     * Its pavement in pieces, each over {@link #PIECE} of its points or so, the box round each only as large as it is: so
+     * what asks where pavements are is told of only the pieces near it, not every road whose box it is in.
+     */
+    public List<Pavement> pavements() {
+        final List<Pavement> pieces = new ArrayList<>();
+        for (int from = 0; from + 1 < points.size(); from += PIECE) {
+            pieces.add(pavement(from, Math.min(points.size() - 1, from + PIECE)));
+        }
+        return pieces;
+    }
+
+    /** Its pavement from its {@code first}th point to its {@code last}th: answering for itself wherever asked in its box. */
+    private Pavement pavement(final int first, final int last) {
         double minX = Double.POSITIVE_INFINITY;
         double maxX = Double.NEGATIVE_INFINITY;
         double minZ = Double.POSITIVE_INFINITY;
@@ -587,7 +615,7 @@ public final class Roadway {
             deep = Math.max(deep, s.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0));
         }
         final double deepest = deep;
-        for (int i = 0; i < points.size(); i++) {
+        for (int i = first; i <= last; i++) {
             final Vec2 p = points.get(i);
             minX = Math.min(minX, p.x() - wide);
             maxX = Math.max(maxX, p.x() + wide);
@@ -629,7 +657,7 @@ public final class Roadway {
 
     /** How high its formation is at (x, z), under its pavement; not a number off it. */
     public double formation(final double x, final double z) {
-        final Near near = nearest(x, z);
+        final Near near = nearest(strips, x, z);
         if (near == null || Double.isNaN(surface(x, z))) {
             return Double.NaN;
         }
@@ -641,7 +669,7 @@ public final class Roadway {
      * carries it. No other road's prepared ground may change it.
      */
     public boolean occupies(final double x, final double z) {
-        final Near near = nearest(x, z);
+        final Near near = nearest(strips, x, z);
         if (near == null) {
             return false;
         }

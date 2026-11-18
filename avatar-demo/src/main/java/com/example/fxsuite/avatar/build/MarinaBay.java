@@ -1,27 +1,35 @@
 package com.example.fxsuite.avatar.build;
 
-import com.example.fxsuite.avatar.sim.Alignment;
+import com.example.fxsuite.avatar.roads.Decks;
+import com.example.fxsuite.avatar.roads.Mapped;
+import com.example.fxsuite.avatar.roads.Profile;
+import com.example.fxsuite.avatar.roads.Roadway;
+import com.example.fxsuite.avatar.roads.Roadworks;
+import com.example.fxsuite.avatar.roads.Section;
+import com.example.fxsuite.avatar.roads.Sections;
 import com.example.fxsuite.avatar.sim.Basin;
 import com.example.fxsuite.avatar.sim.Course;
-import com.example.fxsuite.avatar.sim.Demo;
-import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Pond;
-import com.example.fxsuite.avatar.sim.Road;
 import com.example.fxsuite.avatar.sim.RoadMap;
 import com.example.fxsuite.avatar.sim.Terrain;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
- * Marina Bay as it lies ({@link #DEMO}), the first stage of laying out the bay round the wall towers: its
+ * Marina Bay as it lies (its demo, {@link com.example.fxsuite.avatar.worlds.Bay}), the first stage of laying out the bay round the wall towers: its
  * land, level; its sea, and the bay, its channel and the river's mouth behind the barrage, one water, walled by a steep
  * bank; the larger lakes of its gardens, shallow. In metres from the middle tower, turned so the real towers' long
  * side runs along z, as the wall towers' does. The towers, their hull and its park stand on it as on their own
- * ground ({@link TowerMap}); its roads laid over it ({@link MarinaBayRoads}), their bridges sections of them, left open;
+ * ground ({@link TowerMap}); its roads laid over it ({@link MarinaBayRoads}) as roads are laid now ({@link Roadworks}), their bridges built;
  * its buildings are yet to come.
  *
  * <p>Its lines ({@link #LINES}) are worked out from OpenStreetMap by {@code tools/OsmTerrain.java}, simplified to
@@ -122,8 +130,10 @@ public final class MarinaBay {
     /** Where the avatar starts: across the bay from the towers, by the river's mouth, facing them. */
     public static final Vec3 START = new Vec3(-80_000, 0, 5_000);
 
+    private static Land ground;
     private static Land land;
-    private static List<Road> roads;
+    private static RoadMap map;
+    private static Roadworks roads;
     private static List<List<Vec2>> lakes;
     private static double[] world;
 
@@ -160,11 +170,12 @@ public final class MarinaBay {
     }
 
     /**
-     * Its land: level at 0, the towers' ground; the sea round it and the bay within it one basin, the land's shores
-     * and the bay's, the sea where a point is outside the land or within the bay; the lakes another, shallower.
+     * Its ground before its roads: level at 0, the towers' ground; the sea round it and the bay within it one basin,
+     * the land's shores and the bay's, the sea where a point is outside the land or within the bay; the lakes another,
+     * shallower.
      */
-    public static synchronized Land land() {
-        if (land == null) {
+    public static synchronized Land ground() {
+        if (ground == null) {
             final double[] w = world();
             final List<List<Vec2>> shores = new ArrayList<>(lines("land"));
             shores.addAll(lines("basin"));
@@ -186,19 +197,117 @@ public final class MarinaBay {
                     maxX + LAKE_BANK, minZ - LAKE_BANK, maxZ + LAKE_BANK);
             final Terrain flat = new Terrain("marina bay", w[0], w[2], w[1], w[3], 1_000, 0, 11, Terrain.Noise.NONE,
                     List.of(), List.of());
-            final Land ground = new Land(flat.survey(), List.of(sea, lake));
-            // its roads laid over it, in turn, each meeting those before at their junctions; their bridges carried
-            // over, left open
-            roads = RoadMap.parse(MarinaBayRoads.text()).laid(ground, Alignment.STEP);
-            land = ground.with(roads);
+            ground = new Land(flat.survey(), List.of(sea, lake));
+        }
+        return ground;
+    }
+
+    /** Its land: its ground ({@link #ground}) as its roads leave it, their pavements not in it. */
+    public static synchronized Land land() {
+        if (land == null) {
+            land = ground().with(roads().land(Double.NaN));
         }
         return land;
     }
 
-    /** Its roads, as laid on its land ({@link MarinaBayRoads}). */
-    public static synchronized List<Road> roads() {
-        land();
+    /** Its road map, as its text has it ({@link MarinaBayRoads}). */
+    public static synchronized RoadMap map() {
+        if (map == null) {
+            map = RoadMap.parse(MarinaBayRoads.text());
+        }
+        return map;
+    }
+
+    /**
+     * Its roads ({@link MarinaBayRoads}), laid over its ground ({@link Roadworks}): each of a kind made from its kind
+     * in the map and whether it is one way ({@link #section}); in order of their class, the greater first, so each
+     * lesser one joins those greater at their surface; the links between them last. Worked out once, when first wanted.
+     */
+    public static synchronized Roadworks roads() {
+        if (roads == null) {
+            final RoadMap map = map();
+            final Land under = ground();
+            final Profile raw = (x, z, below) -> under.height(x, z);
+            final Map<String, Section> made = new HashMap<>();
+            roads = Roadworks.design(raw, Mapped.plans(map, (way, kind) -> made.computeIfAbsent(
+                    kind + (oneWay(way) ? " one way" : ""), name -> section(map.kind(kind), oneWay(way))), raw,
+                    Comparator.comparingInt(way -> rank(way.segments().getFirst().kind()))));
+        }
         return roads;
+    }
+
+    /** Whether {@code way} is one way: as its name, from the map, says. */
+    static boolean oneWay(final RoadMap.Way way) {
+        return way.name().endsWith(" one way");
+    }
+
+    /** The classes of road, greatest first, as their kinds are named. */
+    private static final List<String> CLASSES = List.of("motorway", "trunk", "primary", "secondary", "tertiary");
+
+    /**
+     * Where a road of kind {@code kind} is laid, among the rest: by its class, greatest first; any other class after
+     * those; any link, between one road and another, after them all, by its class.
+     */
+    static int rank(final String kind) {
+        final boolean link = kind.contains("-link");
+        final String cls = kind.substring(0, kind.indexOf('-'));
+        final int at = CLASSES.indexOf(cls);
+        return (link ? CLASSES.size() + 1 : 0) + (at < 0 ? CLASSES.size() : at);
+    }
+
+    /**
+     * A road of kind {@code kind} across, one way or both. One way, kept left: its line at its right edge, a strip as
+     * wide as the kind's inner one there, its lanes, the rest of its width a shoulder on its left. Both ways: its lanes
+     * either side of its line, the more on its left, the rest of its width shoulders; a road of one lane, a narrow
+     * lane each way. A metre of grass beyond each edge. Its major roads built as carriageways are, the rest as roads;
+     * as steep and as quickly changing in grade as its kind may be; the land level, so no ditch.
+     */
+    static Section section(final RoadMap.Kind kind, final boolean oneWay) {
+        final String cls = kind.name().substring(0, kind.name().indexOf('-'));
+        final String courses = CLASSES.indexOf(cls) >= 0 && CLASSES.indexOf(cls) <= 2 ? "carriageway" : "road";
+        final double lane = kind.lane() > 0 ? kind.lane() : 350;
+        final int lanes = Math.max(1, kind.lanes());
+        final String fall = String.format(Locale.ROOT, "fall=%.2f%%", kind.camber() * 100);
+        final StringBuilder text = new StringBuilder();
+        text.append("courses carriageway: asphalt 40mm, binder 60mm, base 200mm, subbase 250mm\n");
+        text.append("courses road: asphalt 40mm, base 150mm, subbase 200mm\n");
+        text.append(String.format(Locale.ROOT, "section \"%s\" grade=%.2f%% vertical=%.2fm fill=2 cut=2 ditch=0,0"
+                + " bank=6m cutting=6m%n", kind.name() + (oneWay ? " one way" : ""), kind.grade() * 100,
+                kind.vertical() / 100));
+        text.append("  verge 1m grass fall=4%\n");
+        if (oneWay) {
+            final double inner = Math.max(50, kind.inner());
+            final double shoulder = kind.width() - lanes * lane - inner;
+            strip(text, "shoulder", shoulder, courses, fall);
+            for (int k = 0; k < lanes; k++) {
+                strip(text, "lane", lane, courses, fall);
+            }
+            strip(text, "shoulder", inner, courses, fall);
+            text.append("  |\n");
+        } else {
+            final int left = lanes < 2 ? 1 : (lanes + 1) / 2;
+            final int right = lanes < 2 ? 1 : lanes - left;
+            final double each = lanes < 2 ? Math.max(275, (kind.width() - 100) / 2) : lane;
+            final double shoulder = Math.max(50, (kind.width() - (left + right) * each) / 2);
+            strip(text, "shoulder", shoulder, courses, fall);
+            for (int k = 0; k < left; k++) {
+                strip(text, "lane", each, courses, fall);
+            }
+            text.append("  |\n");
+            for (int k = 0; k < right; k++) {
+                strip(text, "lane", each, courses, fall);
+            }
+            strip(text, "shoulder", shoulder, courses, fall);
+            text.append("  verge 1m grass fall=4%\n");
+        }
+        return Sections.parse(text.toString()).values().iterator().next();
+    }
+
+    private static void strip(final StringBuilder text, final String use, final double width, final String courses,
+                              final String fall) {
+        if (width >= 1) {
+            text.append(String.format(Locale.ROOT, "  %s %.2fm %s %s%n", use, width / 100, courses, fall));
+        }
     }
 
     /** Its lakes' shores, closed. */
@@ -229,42 +338,37 @@ public final class MarinaBay {
     static final double BIKES_APART = 250;
     static final double BIKES_IN = 120;
 
-    /** What stands on it: the towers and what is on them; the motorcycles parked by the start. */
+    /** Its structures' keys among the buildings drawn: after the towers'. */
+    public static final int BRIDGE_KEYS = 700;
+
+    /**
+     * What stands on it: the towers and what is on them; the motorcycles parked by the start; its roads' structures,
+     * built ({@link Decks}), their pavements their roads' own.
+     */
     public static List<Course.Piece> pieces() {
         final List<Course.Piece> pieces = new ArrayList<>(TowerMap.buildings());
         pieces.addAll(parked());
-        pieces.addAll(com.example.fxsuite.avatar.roads.Bridges.pieces(bridges(), BRIDGE_KEYS));
+        pieces.addAll(Decks.pieces(roads(), BRIDGE_KEYS, true));
         return pieces;
     }
 
-    /** Its bridges' keys among the buildings drawn: after the towers'. */
-    static final int BRIDGE_KEYS = 700;
-    private static List<com.example.fxsuite.avatar.roads.Bridges.Bridge> bridges;
-
-    /** Its bridges, each built on a stretch of its roads that is one, worked out once. */
-    public static synchronized List<com.example.fxsuite.avatar.roads.Bridges.Bridge> bridges() {
-        if (bridges == null) {
-            bridges = com.example.fxsuite.avatar.roads.Bridges.of(roads(), land());
-        }
-        return bridges;
-    }
-
     /**
-     * The motorcycles, every one there is ({@link Course#BIKES}), parked by the road nearest where the avatar starts,
-     * off its bridges: in a row along it from its nearest point, nose to tail, at its left edge, as traffic keeps
-     * left here; facing the way the road runs there, standing on it, ready to ride.
+     * The motorcycles, every one there is ({@link Course#BIKES}), parked on the road nearest where the avatar starts,
+     * off its structures: in a row along it from its nearest point, nose to tail, by its left edge, as traffic keeps
+     * left here; facing the way the road runs there, standing on its pavement, ready to ride.
      */
     public static List<Course.Piece> parked() {
-        Road road = null;
+        Roadway road = null;
         int at = -1;
         double nearest = Double.POSITIVE_INFINITY;
-        for (final Road r : roads()) {
-            final List<Vec2> line = r.line();
-            for (int i = 0; i + 1 < line.size(); i++) {
-                if (r.bridged(i) || r.bridged(i + 1)) {
+        final double room = BIKES_APART * Course.BIKES.size();
+        for (final Roadway r : roads().roads()) {
+            for (int i = 0; i + 1 < r.size(); i++) {
+                if (!r.grounded(i) || r.along(i) + room > r.length()) {
                     continue;
                 }
-                final double d = Math.hypot(line.get(i).x() - START.x(), line.get(i).z() - START.z());
+                final Vec2 p = r.point(i);
+                final double d = Math.hypot(p.x() - START.x(), p.z() - START.z());
                 if (d < nearest) {
                     nearest = d;
                     road = r;
@@ -272,65 +376,33 @@ public final class MarinaBay {
                 }
             }
         }
-        final Vec2 a = road.line().get(at);
-        final Vec2 b = road.line().get(at + 1);
-        final double length = Math.hypot(b.x() - a.x(), b.z() - a.z());
-        final double ax = (b.x() - a.x()) / length;
-        final double az = (b.z() - a.z()) / length;
-        // its left: against its right, (az, -ax), as a heading's right is
-        final double aside = -(road.wide(at) / 2 - BIKES_IN);
-        final double yaw = Math.toDegrees(Math.atan2(ax, az));
         final List<Course.Piece> parked = new ArrayList<>();
         for (int k = 0; k < Course.BIKES.size(); k++) {
             final Course.Chassis bike = Course.BIKES.get(k);
-            final double x = a.x() + ax * k * BIKES_APART + az * aside;
-            final double z = a.z() + az * k * BIKES_APART - ax * aside;
-            parked.add(Course.Piece.vehicle(bike, null, new com.example.fxsuite.avatar.sim.Place(x, z,
-                    land().height(x, z) + bike.ride(), yaw), k % 4));
+            // so far along it, between two of its points; by its left edge, less than nothing across
+            final double s = road.along(at) + k * BIKES_APART;
+            int i = at;
+            while (i + 2 < road.size() && road.along(i + 1) <= s) {
+                i++;
+            }
+            final double t = (s - road.along(i)) / (road.along(i + 1) - road.along(i));
+            final double across = -road.section(i).pavedEdge(-1) + BIKES_IN;
+            final Vec2 p0 = road.at(i, across);
+            final Vec2 p1 = road.at(i + 1, across);
+            final Vec2 p = new Vec2(p0.x() + t * (p1.x() - p0.x()), p0.z() + t * (p1.z() - p0.z()));
+            final Vec2 a = road.point(i);
+            final Vec2 b = road.point(i + 1);
+            final double yaw = Math.toDegrees(Math.atan2(b.x() - a.x(), b.z() - a.z()));
+            final double top = road.surface(p.x(), p.z());
+            parked.add(Course.Piece.vehicle(bike, null, new com.example.fxsuite.avatar.sim.Place(p.x(), p.z(),
+                    (Double.isNaN(top) ? land().height(p.x(), p.z()) : top) + bike.ride(), yaw), k % 4));
         }
         return parked;
     }
 
-    /**
-     * Marina Bay as a demo of its own: its land and its water, what stands on it, who is about, where the avatar
-     * starts, its ground not ruled. Known by its name, {@code MARINA_BAY}, its runs kept and replayed.
-     */
-    public static final Demo DEMO = new Demo() {
-        @Override
-        public String name() {
-            return "MARINA_BAY";
-        }
-
-        @Override
-        public String title() {
-            return "Marina Bay";
-        }
-
-        @Override
-        public String description() {
-            return "The bay as it lies, round the three towers and the park on their roofs: its land, its sea, the bay"
-                    + " and the river's mouth behind the barrage, the gardens' lakes, its roads and their bridges."
-                    + " Buildings to come.";
-        }
-
-        @Override
-        public double startYaw() {
-            return 90;
-        }
-
-        @Override
-        public boolean recordable() {
-            return true;
-        }
-
-        @Override
-        public void lay(final Course.Layout world) {
-            world.start(START).pieces(pieces()).ponds(ponds()).people(TowerMap.people()).land(land()).ruled(false);
-        }
-    };
-
-    /** Tells the demos of it, by its name: offered to play, and found by its name. */
-    public static void tell() {
-        Demos.register(DEMO);
+    /** Its ground as made: its land, its water, what stands on it, who is about, its pavements stood on. */
+    public static void lay(final Course.Layout world) {
+        world.start(START).pieces(pieces()).ponds(ponds()).people(TowerMap.people()).land(land()).ruled(false)
+                .ways(roads().roads().stream().flatMap(r -> r.pavements().stream()).map(p -> (Volume) p).toList());
     }
 }

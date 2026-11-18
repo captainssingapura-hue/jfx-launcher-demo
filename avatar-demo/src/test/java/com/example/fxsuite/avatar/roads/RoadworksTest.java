@@ -171,4 +171,57 @@ class RoadworksTest {
         final Vec2 p = other.point(other.size() / 2);
         assertEquals(GENTLE.height(p.x(), p.z()), other.profile().height(p.x(), p.z()), 1e-9);
     }
+    @Test
+    void aRoadLaidAfterAFlyoverPassesUnderItOnTheGroundEachDrawnWhereItIs() {
+        final Section road = Sections.standard().get("two-lane road");
+        // a flyover north, held 7 m up over the middle; a road east under it, laid after it
+        final Roadworks.Plan over = new Roadworks.Plan("over", straight(), road,
+                List.of(new Roadway.Given(15_000, 35_000, Carrier.STRUCTURE)),
+                List.of(new Roadway.Clearance(23_000, 27_000, 700)));
+        final List<Vec2> east = new ArrayList<>();
+        for (double x = -20_000; x <= 20_000; x += 1_000) {
+            east.add(new Vec2(x, 25_000));
+        }
+        final Roadworks works = Roadworks.design(Profile.level(0),
+                List.of(over, new Roadworks.Plan("under", east, road, List.of(), List.of())));
+        final Roadway flyover = works.roads().get(0);
+        final Roadway under = works.roads().get(1);
+        assertTrue(flyover.surface(0, 25_000) >= 700 - 1, "the flyover up over it: " + flyover.surface(0, 25_000));
+        assertEquals(0, under.surface(0, 25_000), 30, "under it, on the ground, not up on its deck");
+        // its pavement there drawn, under the flyover's: at another level, not one lying over it
+        assertTrue(works.pavedBefore(1, 0, 25_000), "a pavement over it");
+        assertFalse(works.pavedBefore(1, 0, 25_000, under.surface(0, 25_000)), "but not at its level");
+    }
+
+    @Test
+    void itsPavementInPiecesEachOnlyAsLargeAsItIsTogetherAllOfIt() {
+        final Roadway road = Roadworks.design(GENTLE, List.of(new Roadworks.Plan("one", straight(),
+                Sections.standard().get("two-lane road"), List.of(), List.of()))).roads().getFirst();
+        final List<com.example.fxsuite.avatar.sim.Pavement> pieces = road.pavements();
+        assertTrue(pieces.size() > 1);
+        final com.example.fxsuite.avatar.sim.Volume.Bounds whole = road.pavement().bounds();
+        for (final com.example.fxsuite.avatar.sim.Pavement piece : pieces) {
+            assertTrue(piece.bounds().maxZ() - piece.bounds().minZ() < (whole.maxZ() - whole.minZ()) / 2, "smaller");
+        }
+        for (double z = 500; z < LENGTH; z += 1_700) {
+            final double zz = z;
+            final double top = road.surface(0, z);
+            assertTrue(pieces.stream().anyMatch(p -> p.bounds().minZ() <= zz && p.bounds().maxZ() >= zz
+                    && Math.abs(p.topAt(0, zz, 0, Double.POSITIVE_INFINITY) - top) < 1e-6), "a piece at " + z);
+        }
+    }
+
+    @Test
+    void onAOneWayRoadsLineTheStripAtItsLine() {
+        final Section oneWay = Sections.parse("""
+                courses c: asphalt 40mm, base 200mm
+                section "one way" grade=6% vertical=60m fill=2 cut=2 ditch=0,0 bank=6m cutting=6m
+                  shoulder 1m c fall=2%
+                  lane 3.5m c fall=2%
+                  shoulder 0.5m c fall=2%
+                  |
+                """).get("one way");
+        assertEquals(Strip.Use.SHOULDER, oneWay.at(0).strip().use(), "the strip by its line, though none is on its right");
+        assertEquals(0.5 * 100, oneWay.at(0).outer() - oneWay.at(0).inner(), 1e-6);
+    }
 }

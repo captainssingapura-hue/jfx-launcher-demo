@@ -4,17 +4,15 @@ import com.example.fxsuite.avatar.build.Village;
 import com.example.fxsuite.avatar.look.DrawnDemo;
 import com.example.fxsuite.avatar.look.RoadScenery;
 import com.example.fxsuite.avatar.look.Scenery;
-import com.example.fxsuite.avatar.roads.Carrier;
+import com.example.fxsuite.avatar.roads.Mapped;
+import com.example.fxsuite.avatar.roads.Profile;
 import com.example.fxsuite.avatar.roads.Decks;
 import com.example.fxsuite.avatar.roads.Roadway;
 import com.example.fxsuite.avatar.roads.Roadworks;
 import com.example.fxsuite.avatar.roads.Section;
 import com.example.fxsuite.avatar.roads.Sections;
-import com.example.fxsuite.avatar.sim.Alignment;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Land;
-import com.example.fxsuite.avatar.sim.RoadMap;
-import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Volume;
 
 import java.util.ArrayList;
@@ -125,43 +123,15 @@ public final class Meadow implements DrawnDemo {
     }
 
     /**
-     * Its roads as described, laid in order over its ground: each along its line worked out ({@link Alignment}), of its
+     * Its roads as described, laid in order over its ground: each along its line worked out ({@link Mapped}), of its
      * kind; a one-way road's line moved to its pavement's edge; its bridges given where its description has them, its
      * pinned heights held.
      */
     static Roadworks lay() {
-        final RoadMap map = Village.roads();
         final Map<String, Section> kinds = Sections.parse(KINDS);
-        final List<Roadworks.Plan> plans = new ArrayList<>();
-        for (final RoadMap.Way way : map.ways()) {
-            final Alignment line = Alignment.of(map, way, Alignment.STEP);
-            final Section section = kinds.get(way.segments().getFirst().kind());
-            if (section == null) {
-                throw new IllegalStateException("no meadow kind \"" + way.segments().getFirst().kind() + "\"");
-            }
-            List<Vec2> points = line.points();
-            final int side = section.pavedSide();
-            if (side != 0) {
-                // its pavement where its middle was described: its line at the pavement's edge, half its width aside
-                points = Roadworks.offset(points, -side * section.pavedEdge(side) / 2);
-            }
-            final List<Roadway.Given> given = new ArrayList<>();
-            for (int k = 0; k < way.segments().size(); k++) {
-                if (way.segments().get(k).bridge()) {
-                    given.add(new Roadway.Given(line.vertexAlong(k), line.vertexAlong(k + 1), Carrier.STRUCTURE));
-                }
-            }
-            final List<Roadway.Pin> pins = new ArrayList<>();
-            for (int v = 0; v < way.vertices().size(); v++) {
-                final RoadMap.Vertex vertex = way.vertices().get(v);
-                if (vertex.pinned()) {
-                    pins.add(new Roadway.Pin(line.vertexAlong(v), vertex.height()));
-                }
-            }
-            plans.add(new Roadworks.Plan(way.name(), points, section, given, List.of(), 0, pins));
-        }
         final Land ground = Village.ground();
-        return Roadworks.design((x, z, below) -> ground.height(x, z), plans);
+        final Profile raw = (x, z, below) -> ground.height(x, z);
+        return Roadworks.design(raw, Mapped.plans(Village.roads(), (way, kind) -> kinds.get(kind), raw, null));
     }
 
     @Override
@@ -170,7 +140,8 @@ public final class Meadow implements DrawnDemo {
         final List<Course.Piece> pieces = new ArrayList<>(Village.pieces(land()));
         pieces.addAll(Decks.pieces(works, DECK_KEYS, true));
         world.start(Village.start()).land(land()).pieces(pieces).rivers(Village.rivers()).ponds(Village.ponds())
-                .ways(works.roads().stream().map(r -> (Volume) r.pavement()).toList()).ruled(false);
+                .ways(works.roads().stream().flatMap(r -> r.pavements().stream()).map(p -> (Volume) p).toList())
+                .ruled(false);
     }
 
     /** Its roads' pavements and markings, each drawn once where one lies over another, in stretches, as they are seen. */

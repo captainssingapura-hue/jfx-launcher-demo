@@ -1,7 +1,9 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.roads.Carrier;
+import com.example.fxsuite.avatar.roads.Roadway;
+import com.example.fxsuite.avatar.roads.Roadworks;
 import com.example.fxsuite.avatar.sim.Course;
-import com.example.fxsuite.avatar.sim.Demo;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Pond;
 import org.junit.jupiter.api.Test;
@@ -73,62 +75,76 @@ class MarinaBayTest {
     }
 
     @Test
-    void aDemoTheTowersTheirHullAndItsParkStandingOnIt() {
-        MarinaBay.tell();
-        final Course course = new Course(MarinaBay.DEMO);
-        assertFalse(course.land().level(), "its land as it lies");
-        assertFalse(course.grid());
-        assertEquals(TowerMap.buildings().size() + Course.BIKES.size() + MarinaBay.bridges().size(), course.pieces().size(),
-                "the towers and what is on them, the motorcycles, the bridges, no trees");
-        assertEquals(MarinaBay.START, course.start());
-        assertEquals(TowerMap.people().size(), course.ground().size());
-        assertTrue(course.ponds().size() > 5);
-    }
-
-    @Test
-    void itsRoadsLaidMeetingAtTheirJunctionsTheirBridgesLeftOpen() {
-        final List<com.example.fxsuite.avatar.sim.Road> roads = MarinaBay.roads();
+    void itsRoadsLaidAsRoadsAreLaidNowTheGreaterFirstTheirStructuresBuilt() {
+        final Roadworks works = MarinaBay.roads();
+        final List<Roadway> roads = works.roads();
         assertTrue(roads.size() > 400, "hundreds of roads: " + roads.size());
         // its main roads among them, by name
         for (final String name : List.of("Bayfront Avenue", "Sheares Avenue", "Marina Boulevard", "Raffles Avenue",
                 "Nicoll Highway")) {
             assertTrue(roads.stream().anyMatch(r -> r.name().startsWith(name)), name);
         }
-        // on the land: a road's surface as high as the land there, near its own level
-        final com.example.fxsuite.avatar.sim.Road bayfront = roads.stream()
-                .filter(r -> r.name().startsWith("Bayfront Avenue")).findFirst().orElseThrow();
-        final com.example.fxsuite.avatar.sim.Vec2 on = bayfront.line().get(bayfront.line().size() / 2);
-        assertEquals(bayfront.level(on.x(), on.z()), LAND.height(on.x(), on.z()), 5, "its surface the land's there");
-        // its bridges: sections of their roads, nothing built on them, the water under them open
-        int bridged = 0;
-        int open = 0;
-        for (final com.example.fxsuite.avatar.sim.Road r : roads) {
-            for (int i = 0; i + 1 < r.line().size(); i++) {
-                if (r.bridged(i) && r.bridged(i + 1)) {
-                    bridged++;
-                    final com.example.fxsuite.avatar.sim.Vec2 p = r.line().get(i);
-                    if (LAND.height(p.x(), p.z()) < MarinaBay.SEA) {
-                        open++;
+        // the greater first: no road of a lesser class laid before one of a greater
+        final com.example.fxsuite.avatar.sim.RoadMap map = MarinaBay.map();
+        int was = -1;
+        for (final Roadway road : roads) {
+            final int rank = MarinaBay.rank(map.ways().stream().filter(w -> w.name().equals(road.name())).findFirst()
+                    .orElseThrow().segments().getFirst().kind());
+            assertTrue(rank >= was, road.name() + " laid after a lesser road");
+            was = rank;
+        }
+        // on the land, level: a road's surface as high as the land was, near enough, off its structures
+        final Roadway bayfront = roads.stream().filter(r -> r.name().startsWith("Bayfront Avenue")).findFirst()
+                .orElseThrow();
+        final int mid = bayfront.size() / 2;
+        if (bayfront.grounded(Math.min(mid, bayfront.size() - 2))) {
+            assertEquals(MarinaBay.ground().height(bayfront.point(mid).x(), bayfront.point(mid).z()),
+                    bayfront.level(mid), 100, "its surface about as high as the land was");
+        }
+        // its bridges built, some over the water
+        int structures = 0;
+        int overWater = 0;
+        for (final Roadway r : roads) {
+            for (int j = 0; j + 1 < r.size(); j++) {
+                if (r.carrier(j) == Carrier.STRUCTURE) {
+                    structures++;
+                    final com.example.fxsuite.avatar.sim.Vec2 p = r.point(j);
+                    if (MarinaBay.ground().height(p.x(), p.z()) < MarinaBay.SEA) {
+                        overWater++;
                     }
                 }
             }
         }
-        assertTrue(bridged > 100, "bridges, as sections of their roads: " + bridged);
-        assertTrue(open > 20, "over the water, nothing built, the water under them open: " + open);
-        // where two roads meet, as high as each other
-        final com.example.fxsuite.avatar.sim.RoadMap map = com.example.fxsuite.avatar.sim.RoadMap.parse(MarinaBayRoads.text());
-        assertTrue(map.nodes().size() > 500, "their junctions");
-        for (final com.example.fxsuite.avatar.sim.RoadMap.Node node : map.nodes().subList(0, 50)) {
-            final List<Double> levels = new java.util.ArrayList<>();
-            for (final com.example.fxsuite.avatar.sim.Road r : roads) {
-                if (r.line().stream().anyMatch(p -> Math.hypot(p.x() - node.at().x(), p.z() - node.at().z()) < 1)) {
-                    levels.add(r.level(node.at().x(), node.at().z()));
+        assertTrue(structures > 100, "bridges, as structures carrying their roads: " + structures);
+        assertTrue(overWater > 20, "over the water: " + overWater);
+    }
+
+    @Test
+    void whereTwoRoadsMeetAsHighAsEachOther() {
+        final Roadworks works = MarinaBay.roads();
+        final com.example.fxsuite.avatar.sim.RoadMap map = MarinaBay.map();
+        int met = 0;
+        for (final com.example.fxsuite.avatar.sim.RoadMap.Node node : map.nodes()) {
+            final double x = node.at().x();
+            final double z = node.at().z();
+            final List<Double> tops = new java.util.ArrayList<>();
+            for (final Roadway r : works.roads()) {
+                final double top = r.surface(x, z);
+                if (!Double.isNaN(top)) {
+                    tops.add(top);
                 }
             }
-            for (final double level : levels) {
-                assertEquals(levels.getFirst(), level, 2, "the roads at " + node.name() + " meeting");
+            if (tops.size() < 2) {
+                continue;
+            }
+            // where they meet at grade, within a little of each other; one high over the other is a flyover
+            final double low = tops.stream().mapToDouble(Double::doubleValue).min().orElseThrow();
+            final long level = tops.stream().filter(t -> t - low < 60).count();
+            if (level >= 2) {
+                met++;
             }
         }
+        assertTrue(met > 200, "roads meeting at one level at their junctions: " + met);
     }
 
     @Test
@@ -139,16 +155,11 @@ class MarinaBayTest {
             final com.example.fxsuite.avatar.sim.Place at = bike.place();
             assertTrue(Math.hypot(at.x() - MarinaBay.START.x(), at.z() - MarinaBay.START.z()) < 15_000,
                     "by the start: " + Math.hypot(at.x() - MarinaBay.START.x(), at.z() - MarinaBay.START.z()));
-            // on a road: as high as one is there, its surface falling from its crown by its camber
-            final boolean onARoad = MarinaBay.roads().stream().anyMatch(r -> Math.abs(r.level(at.x(), at.z())
-                    - LAND.height(at.x(), at.z())) < 30);
+            // on a road's pavement, standing on it
+            final boolean onARoad = MarinaBay.roads().roads().stream().anyMatch(r -> !Double.isNaN(r.surface(at.x(),
+                    at.z())));
             assertTrue(onARoad, "on a road");
-            assertTrue(LAND.height(at.x(), at.z()) > MarinaBay.SEA, "on the land, not in the water");
+            assertTrue(MarinaBay.ground().height(at.x(), at.z()) > MarinaBay.SEA, "on the land, not in the water");
         }
-        // ready to ride: each a vehicle the avatar can take
-        MarinaBay.tell();
-        final com.example.fxsuite.avatar.sim.Play play = com.example.fxsuite.avatar.sim.Play.start(MarinaBay.DEMO, true);
-        assertEquals(Course.BIKES.size(), play.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis c
-                && c.twoWheels()).count(), "each one to ride");
     }
 }

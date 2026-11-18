@@ -151,7 +151,7 @@ public final class Game {
         com.example.fxsuite.avatar.build.Town.tell();
         com.example.fxsuite.avatar.sim.Demos.register(com.example.fxsuite.avatar.worlds.Meadow.DEMO);
         com.example.fxsuite.avatar.build.TowerMap.tell();
-        com.example.fxsuite.avatar.build.MarinaBay.tell();
+        com.example.fxsuite.avatar.sim.Demos.register(com.example.fxsuite.avatar.worlds.Bay.DEMO);
     }
 
     private static final double FIELD_OF_VIEW = 48;

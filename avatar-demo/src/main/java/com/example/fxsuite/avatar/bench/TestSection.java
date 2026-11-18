@@ -111,7 +111,8 @@ final class TestSection implements DrawnDemo {
         pieces.addAll(Decks.pieces(works, KEYS, ownPavement));
         world.land(land).pieces(pieces).ruled(false).start(start());
         if (ownPavement) {
-            world.ways(works.roads().stream().map(r -> (com.example.fxsuite.avatar.sim.Volume) r.pavement()).toList());
+            world.ways(works.roads().stream().flatMap(r -> r.pavements().stream())
+                    .map(p -> (com.example.fxsuite.avatar.sim.Volume) p).toList());
         }
         if (scene.watered()) {
             world.ponds(List.of(new Pond(List.of(new Vec2(box[0], box[2]), new Vec2(box[1], box[2]),

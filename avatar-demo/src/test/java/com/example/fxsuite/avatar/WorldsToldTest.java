@@ -1,6 +1,6 @@
 package com.example.fxsuite.avatar;
 
-import com.example.fxsuite.avatar.build.MarinaBay;
+import com.example.fxsuite.avatar.worlds.Bay;
 import com.example.fxsuite.avatar.sim.Demos;
 import org.junit.jupiter.api.Test;
 
@@ -17,8 +17,8 @@ class WorldsToldTest {
     void marinaBayFoundByItsNameAndOfferedOnceTheWorldsAreTold() {
         Game.tellWorlds();
         Game.tellWorlds();
-        assertSame(MarinaBay.DEMO, Demos.named("MARINA_BAY"));
-        assertTrue(Demos.playable().contains(MarinaBay.DEMO));
-        assertTrue(Demos.playable().stream().filter(d -> d == MarinaBay.DEMO).count() == 1, "once");
+        assertSame(Bay.DEMO, Demos.named("MARINA_BAY"));
+        assertTrue(Demos.playable().contains(Bay.DEMO));
+        assertTrue(Demos.playable().stream().filter(d -> d == Bay.DEMO).count() == 1, "once");
     }
 }

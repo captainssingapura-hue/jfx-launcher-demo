@@ -103,9 +103,11 @@ public final class Roadworks {
                 if (!before.occupied(x, z)) {
                     return raw.height(x, z, below);
                 }
-                // on an earlier road: its pavement's top where it is paved, so a road joining it joins it at its surface
+                // on an earlier road: its pavement's top where it is paved, so a road joining it joins it at its surface;
+                // but under it, on the ground, where it is high over the ground on a structure
                 final double top = before.pavement(x, z);
-                return Double.isNaN(top) ? before.ground().at(x, z).height() : top;
+                final double under = before.ground().at(x, z).height();
+                return Double.isNaN(top) || top - under > PASS ? under : top;
             };
             laid.add(gored(Roadway.design(p.name(), p.line(), p.section(), profile, p.given(), p.clearances(),
                     p.tilt(), p.pins(), p.parts()), before));
@@ -113,6 +115,11 @@ public final class Roadworks {
         }
         return new Roadworks(raw, laid, index);
     }
+
+    /** How high over the ground an earlier road may be, on a structure, for a later road to join it there, not pass under it. */
+    static final double PASS = 250;
+    /** How near two pavements' tops are for them to be at one level: the one drawn once, the other's left out. */
+    static final double LEVEL = 100;
 
     /** How wide a gore is paved, at most: past that, its nose, and the grass between. */
     static final double NOSE = 200;
@@ -224,6 +231,13 @@ public final class Roadworks {
 
     /** {@code line} moved {@code by} to its right (to its left, less than nothing), square to it at each point. */
     public static List<Vec2> offset(final List<Vec2> line, final double by) {
+        final double[] each = new double[line.size()];
+        java.util.Arrays.fill(each, by);
+        return offset(line, each);
+    }
+
+    /** {@code line} moved {@code by[i]} to its right at its {@code i}th point, left if less than nothing. */
+    public static List<Vec2> offset(final List<Vec2> line, final double[] by) {
         final List<Vec2> moved = new ArrayList<>();
         for (int i = 0; i < line.size(); i++) {
             final Vec2 a = line.get(Math.max(i - 1, 0));
@@ -231,7 +245,7 @@ public final class Roadworks {
             final double dx = b.x() - a.x();
             final double dz = b.z() - a.z();
             final double len = Math.hypot(dx, dz);
-            moved.add(new Vec2(line.get(i).x() + dz / len * by, line.get(i).z() - dx / len * by));
+            moved.add(new Vec2(line.get(i).x() + dz / len * by[i], line.get(i).z() - dx / len * by[i]));
         }
         return moved;
     }
@@ -293,6 +307,26 @@ public final class Roadworks {
                 break;
             }
             if (!Double.isNaN(roads.get(m).surface(x, z))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a road laid before the {@code k}th has its pavement at (x, z) at about {@code level} ({@link #LEVEL}): a
+     * pavement there at another level, over it or under it, not; any, if {@code level} is not a number.
+     */
+    public boolean pavedBefore(final int k, final double x, final double z, final double level) {
+        if (Double.isNaN(level)) {
+            return pavedBefore(k, x, z);
+        }
+        for (final int m : index.near(x, z)) {
+            if (m >= k || m >= roads.size()) {
+                break;
+            }
+            final double top = roads.get(m).surface(x, z);
+            if (!Double.isNaN(top) && Math.abs(top - level) <= LEVEL) {
                 return true;
             }
         }
@@ -516,11 +550,14 @@ public final class Roadworks {
                         if (i < road.size() && road.grounded(Math.min(i, road.size() - 2))) {
                             final double inside = side * (road.section(i).edge(side) - 1);
                             final Vec2 p = road.at(i, inside);
-                            final double kept = all.at(p.x(), p.z()).height();
-                            // where the later's own strips or its pavement lie, it overlaps this one: a junction, not a slope
-                            final boolean own = later.occupies(p.x(), p.z()) || !Double.isNaN(later.surface(p.x(), p.z()));
-                            final Prepared wanted = later.prepared(p.x(), p.z(), kept);
-                            step = wanted.touched() && !own ? Math.abs(wanted.height() - kept) : 0;
+                            // only where the later reaches; and where its own strips or its pavement lie, it overlaps this one: a
+                            // junction, not a slope
+                            if (later.nearest(p.x(), p.z()) != null && !later.occupies(p.x(), p.z())
+                                    && Double.isNaN(later.surface(p.x(), p.z()))) {
+                                final double kept = all.at(p.x(), p.z()).height();
+                                final Prepared wanted = later.prepared(p.x(), p.z(), kept);
+                                step = wanted.touched() ? Math.abs(wanted.height() - kept) : 0;
+                            }
                         }
                         if (step > STEP) {
                             if (from < 0) {

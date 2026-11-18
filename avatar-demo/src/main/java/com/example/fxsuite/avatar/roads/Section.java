@@ -306,7 +306,9 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
     public Laid at(final double across) {
         final List<Laid> side = laid(across < 0 ? -1 : 1);
         if (side.isEmpty()) {
-            return null;
+            // on its line, with nothing on this side of it: the strip at its line on the other
+            final List<Laid> other = laid(across < 0 ? 1 : -1);
+            return other.isEmpty() ? null : other.getFirst();
         }
         final double off = Math.abs(across);
         for (final Laid l : side) {

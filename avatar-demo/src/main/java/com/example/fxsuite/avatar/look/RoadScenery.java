@@ -53,10 +53,10 @@ public final class RoadScenery implements Scenery {
     public static RoadScenery of(final Roadworks works) {
         final RoadScenery scenery = new RoadScenery();
         for (int k = 0; k < works.roads().size(); k++) {
-            // where a road before it has its pavement, that drawn, not this
+            // where a road before it has its pavement at its level, that drawn, not this; over it or under it, both
             final int before = k;
-            final RoadworkModel.Covered covered = (x, z) -> works.pavedBefore(before, x, z);
             final Roadway road = works.roads().get(k);
+            final RoadworkModel.Covered covered = (x, z) -> works.pavedBefore(before, x, z, road.surface(x, z));
             for (final int[] stretch : stretches(road)) {
                 scenery.add(new Group(RoadworkModel.pavement(road, stretch[0], stretch[1], covered),
                         RoadworkModel.markings(road, stretch[0], stretch[1], covered)));
