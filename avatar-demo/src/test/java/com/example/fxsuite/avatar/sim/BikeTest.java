@@ -51,7 +51,7 @@ class BikeTest {
     @Test
     void gotOnFromBesideItRiddenOffAndGotOffAgain() {
         for (final Course.Chassis chassis : Course.BIKES) {
-            final Play start = Play.start(Demo.FLYOVER, false);
+            final Play start = Play.start(Demos.FLYOVER, false);
             final Lift parked = bike(start, chassis);
             final Vec3 beside = parked.at(chassis.door());
             Play play = new Play(new Avatar(Body.standing(beside, 0), false), start.damage(), start.sky(),
@@ -72,7 +72,7 @@ class BikeTest {
     @Test
     void itLeansIntoItsTurnsTheHarderTheFasterItGoesRoundUprightGoingStraight() {
         final Course.Chassis chassis = Course.SPORT_BIKE;
-        final Lift parked = bike(Play.start(Demo.FLYOVER, false), chassis);
+        final Lift parked = bike(Play.start(Demos.FLYOVER, false), chassis);
         assertEquals(0, parked.lean(), 1e-12, "upright, stopped");
         final double slow = going(parked, 500, 10).lean();
         final double fast = going(parked, 1500, 10).lean();
@@ -81,7 +81,7 @@ class BikeTest {
         assertEquals(0, going(parked, 1500, 0).lean(), 1e-12, "upright, going straight");
         assertTrue(going(parked, 2800, 20).lean() <= Lift.MOST_LEAN, "never past its most");
         // and a car never leans
-        final Lift car = Play.start(Demo.FLYOVER, false).lifts().stream()
+        final Lift car = Play.start(Demos.FLYOVER, false).lifts().stream()
                 .filter(l -> l.craft() == Course.CAR_CHASSIS).findFirst().orElseThrow();
         assertEquals(0, going(car, 1500, 10).lean(), 1e-12);
     }
@@ -93,7 +93,7 @@ class BikeTest {
 
     @Test
     void theRoadsAndThePlaygroundHaveAllThree() {
-        for (final Demo demo : new Demo[] {Demo.FLYOVER, Demo.PLAYGROUND}) {
+        for (final Demo demo : new Demo[] {Demos.FLYOVER, Demos.PLAYGROUND}) {
             final List<Course.Chassis> found = new ArrayList<>();
             for (final Lift lift : Play.start(demo, false).lifts()) {
                 if (lift.craft() instanceof Course.Chassis chassis && chassis.leans()) {

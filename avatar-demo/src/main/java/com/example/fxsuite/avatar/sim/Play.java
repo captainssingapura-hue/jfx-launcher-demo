@@ -77,7 +77,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
 
     /** The world at the start: the avatar standing at the start, with the pack on or not, and the course unharmed. */
     public static Play start(final boolean pack) {
-        return start(Demo.PLAYGROUND, pack);
+        return start(Demos.PLAYGROUND, pack);
     }
 
     /** The world of {@code demo} at the start: the avatar standing at the start, facing its way, with the pack on or not. */
@@ -89,7 +89,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
     public static Play start(final Demo demo, final boolean pack, final Siege siege) {
         final Course course = new Course(demo, siege);
         final Avatar avatar = new Avatar(Body.standing(course.start(), demo.startYaw()), pack);
-        if (demo == Demo.SIEGE) {
+        if (demo == Demos.SIEGE) {
             final Damage damage = siege.damage(course);
             return new Play(avatar, damage, siege.sky(damage));
         }

@@ -3,6 +3,7 @@ package com.example.fxsuite.avatar.build;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Furniture;
 import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Play;
@@ -72,8 +73,8 @@ class TownDecksTest {
     @Test
     void inTheGameItAllStaysOnTheDeck() {
         Town.tell();
-        Play play = Play.start(Demo.TOWN, false);
-        final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
+        Play play = Play.start(Demos.TOWN, false);
+        final List<Course.Piece> pieces = new Course(Demos.TOWN).pieces();
         final List<Prop> before = play.props().stream().filter(p -> p.place().height() > 1000).toList();
         final List<Person> people = play.people().stream().filter(p -> p.body().height() > 1000).toList();
         assertEquals(Town.things().size(), before.size(), "every thing on a deck");

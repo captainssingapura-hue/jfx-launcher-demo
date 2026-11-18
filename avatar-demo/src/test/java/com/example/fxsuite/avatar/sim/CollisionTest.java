@@ -51,7 +51,7 @@ class CollisionTest {
     }
 
     private static Setup atACrate(final Course.Chassis chassis, final double back, final double ahead) {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Prop crate = start.props().stream().filter(p -> p.thing() instanceof Crate)
                 .min(Comparator.comparingDouble(p -> Math.abs(p.place().x()))).orElseThrow();
         final double side = Math.signum(crate.place().x());
@@ -90,7 +90,7 @@ class CollisionTest {
         final double light = Course.CAR_CHASSIS.drive().mass();
         final double heavy = Course.TRUCK_CHASSIS.drive().mass();
         for (final boolean carHits : new boolean[] {true, false}) {
-            final Play start = Play.start(Demo.FLYOVER, false);
+            final Play start = Play.start(Demos.FLYOVER, false);
             final Course.Chassis mover = carHits ? Course.CAR_CHASSIS : Course.TRUCK_CHASSIS;
             final Course.Chassis parked = carHits ? Course.TRUCK_CHASSIS : Course.CAR_CHASSIS;
             // the parked one out in the open, behind the start, side-on; the mover heading straight at its side
@@ -121,7 +121,7 @@ class CollisionTest {
 
     @Test
     void hitSideOnACarSlidesAndItsTyresScrubThatOff() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Place standing = new Place(0, -2000, Course.CAR_CHASSIS.ride(), 90);
         final double gap = Course.PICKUP_CHASSIS.length() / 2 + Course.CAR_CHASSIS.half() + 20;
         Play play = moved(moved(start, Course.CAR_CHASSIS, standing, 0), Course.PICKUP_CHASSIS,
@@ -139,7 +139,7 @@ class CollisionTest {
 
     @Test
     void theAvatarCannotShoveACrateByHand() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Prop crate = start.props().stream().filter(p -> p.thing() instanceof Crate).findFirst().orElseThrow();
         final Crate box = (Crate) crate.thing();
         // up against its side, walking into it

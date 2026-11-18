@@ -92,7 +92,7 @@ class RampTest {
 
     @Test
     void theFlyoverIsRunUnderStraightAheadOfTheStart() {
-        Play play = Play.start(Demo.FLYOVER, false);
+        Play play = Play.start(Demos.FLYOVER, false);
         for (int i = 0; i < 600 && play.avatar().body().position().z() < 2200; i++) {
             play = play.step(RUN, Clock.STEP).play();
             assertEquals(0, play.avatar().body().height(), 1e-9, "on the ground all the way");
@@ -102,7 +102,7 @@ class RampTest {
 
     @Test
     void theFlyoverIsRunUpAcrossAndDownTheOtherSide() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final double foot = Course.DECK_LENGTH / 2 + Course.RAMP_LENGTH;
         Play play = new Play(new Avatar(Body.standing(new Vec3(-foot - 200, 0, Course.FLYOVER_Z), 90), false),
                 start.damage(), start.sky(), start.lifts(), start.people(), start.props());
@@ -161,7 +161,7 @@ class RampTest {
 
     @Test
     void offTheHeadOfTheLoneRampItLeaps() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         Play play = new Play(new Avatar(Body.standing(new Vec3(0, 0, 2700), 0), false), start.damage(), start.sky(),
                 start.lifts(), start.people(), start.props());
         boolean leapt = false;

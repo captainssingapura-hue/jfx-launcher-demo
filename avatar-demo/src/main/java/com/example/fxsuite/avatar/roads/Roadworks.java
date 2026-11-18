@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.roads;
 
+import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Vec2;
 
 import java.util.ArrayList;
@@ -156,6 +157,105 @@ public final class Roadworks {
     /** The ground as they all leave it. */
     public Ground ground() {
         return (x, z) -> at(x, z, roads.size());
+    }
+
+    /** The box round its roads and as far as they reach, and some: min x, max x, min z, max z. */
+    public double[] bounds(final double margin) {
+        double x0 = Double.POSITIVE_INFINITY;
+        double x1 = Double.NEGATIVE_INFINITY;
+        double z0 = Double.POSITIVE_INFINITY;
+        double z1 = Double.NEGATIVE_INFINITY;
+        for (final Roadway road : roads) {
+            for (int i = 0; i < road.size(); i++) {
+                final Vec2 p = road.point(i);
+                x0 = Math.min(x0, p.x() - road.reach() - margin);
+                x1 = Math.max(x1, p.x() + road.reach() + margin);
+                z0 = Math.min(z0, p.z() - road.reach() - margin);
+                z1 = Math.max(z1, p.z() + road.reach() + margin);
+            }
+        }
+        return new double[] {x0, x1, z0, z1};
+    }
+
+    /** The pavement's top at (x, z) where a road's pavement lies on the ground (or on a structure already there); else not a number. */
+    public double pavement(final double x, final double z) {
+        for (final Roadway road : roads) {
+            if (road.occupies(x, z)) {
+                return road.surface(x, z);
+            }
+        }
+        return Double.NaN;
+    }
+
+    /**
+     * They as a feature of the land ({@link Land.Layer}), laid over level ground at 0: the ground as they leave it; and,
+     * under a road's pavement where the ground carries it, the pavement's top, {@code sink} lower: what is stood and
+     * driven on, until the pavement is a surface of its own. The ground's covers as theirs: bare earth, gravel; the
+     * pavement as asphalt, or gravel where its top is. Under a structure, the ground: the structure stands on it.
+     */
+    public Land.Layer land(final double sink) {
+        final Ground ground = ground();
+        final double[] box = bounds(0);
+        double lowest = 0;
+        double highest = 0;
+        for (int i = 0; i <= 40; i++) {
+            for (int j = 0; j <= 40; j++) {
+                final double h = raw.height(box[0] + (box[1] - box[0]) * i / 40, box[2] + (box[3] - box[2]) * j / 40);
+                lowest = Math.min(lowest, h);
+                highest = Math.max(highest, h);
+            }
+        }
+        for (final Roadway road : roads) {
+            for (int i = 0; i < road.size(); i++) {
+                lowest = Math.min(lowest, road.level(i) - 2_000);
+                highest = Math.max(highest, road.level(i) + 500);
+            }
+        }
+        final double deepest = -lowest;
+        final double tallest = highest;
+        return new Land.Layer() {
+            @Override
+            public double shape(final double x, final double z, final double under) {
+                final double top = pavement(x, z);
+                return Double.isNaN(top) ? ground.at(x, z).height() : top - sink;
+            }
+
+            @Override
+            public boolean touches(final double minX, final double minZ, final double maxX, final double maxZ) {
+                return true;
+            }
+
+            @Override
+            public double deepest() {
+                return deepest;
+            }
+
+            @Override
+            public double tallest() {
+                return tallest;
+            }
+
+            @Override
+            public double cover(final Land.Cover cover, final double x, final double z) {
+                for (final Roadway road : roads) {
+                    if (road.occupies(x, z) && !Double.isNaN(road.surface(x, z))) {
+                        final Roadway.Near near = road.nearest(x, z);
+                        final Course.Stuff top =
+                                road.section().at(near.across()).strip().courses().getFirst().stuff();
+                        final Land.Cover is = top == Course.Stuff.GRAVEL ? Land.Cover.GRAVEL : Land.Cover.ASPHALT;
+                        return is == cover ? 1 : 0;
+                    }
+                }
+                final Cover prepared = ground.at(x, z).cover();
+                if (prepared == Cover.EARTH) {
+                    return cover == Land.Cover.EARTH ? 1 : 0;
+                }
+                if (prepared == Cover.GRAVEL) {
+                    return cover == Land.Cover.GRAVEL ? 1 : 0;
+                }
+                return 0;
+            }
+        };
     }
 
     /** The ground at (x, z) as the first {@code count} roads leave it. */

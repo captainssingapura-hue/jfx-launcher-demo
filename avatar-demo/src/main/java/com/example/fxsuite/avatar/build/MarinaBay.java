@@ -3,6 +3,8 @@ package com.example.fxsuite.avatar.build;
 import com.example.fxsuite.avatar.sim.Alignment;
 import com.example.fxsuite.avatar.sim.Basin;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Pond;
 import com.example.fxsuite.avatar.sim.Road;
@@ -15,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Marina Bay as it lies ({@code Demo.MARINA_BAY}), the first stage of laying out the bay round the wall towers: its
+ * Marina Bay as it lies ({@link #DEMO}), the first stage of laying out the bay round the wall towers: its
  * land, level; its sea, and the bay, its channel and the river's mouth behind the barrage, one water, walled by a steep
  * bank; the larger lakes of its gardens, shallow. In metres from the middle tower, turned so the real towers' long
  * side runs along z, as the wall towers' does. The towers, their hull and its park stand on it as on their own
@@ -289,8 +291,46 @@ public final class MarinaBay {
         return parked;
     }
 
-    /** Tells the simulation all of it: what stands on it, its water, where the avatar starts, its land, who is about. */
+    /**
+     * Marina Bay as a demo of its own: its land and its water, what stands on it, who is about, where the avatar
+     * starts, its ground not ruled. Known by its name, {@code MARINA_BAY}, its runs kept and replayed.
+     */
+    public static final Demo DEMO = new Demo() {
+        @Override
+        public String name() {
+            return "MARINA_BAY";
+        }
+
+        @Override
+        public String title() {
+            return "Marina Bay";
+        }
+
+        @Override
+        public String description() {
+            return "The bay as it lies, round the three towers and the park on their roofs: its land, its sea, the bay"
+                    + " and the river's mouth behind the barrage, the gardens' lakes, its roads and their bridges."
+                    + " Buildings to come.";
+        }
+
+        @Override
+        public double startYaw() {
+            return 90;
+        }
+
+        @Override
+        public boolean recordable() {
+            return true;
+        }
+
+        @Override
+        public void lay(final Course.Layout world) {
+            world.start(START).pieces(pieces()).ponds(ponds()).people(TowerMap.people()).land(land()).ruled(false);
+        }
+    };
+
+    /** Tells the demos of it, by its name: offered to play, and found by its name. */
     public static void tell() {
-        Course.bay(MarinaBay::pieces, MarinaBay::ponds, () -> START, MarinaBay::land, TowerMap::people);
+        Demos.register(DEMO);
     }
 }

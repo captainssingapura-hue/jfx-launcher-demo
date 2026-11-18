@@ -37,7 +37,7 @@ class PickupTest {
 
     /** The roads demo, the avatar at the pickup's wheel, and taking it. */
     private static Play atTheWheel(final List<Event> events) {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Lift pickup = pickup(start);
         final Play at = new Play(new Avatar(Body.standing(pickup.pilot(), 0), false), start.damage(), start.sky(),
                 start.lifts(), start.people(), start.props(), start.turrets());
@@ -48,7 +48,7 @@ class PickupTest {
 
     @Test
     void thePickupHasAGunThatTurnsAtItsBack() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Turret gun = gun(start);
         assertEquals(pickup(start).piece(), gun.host());
         assertFalse(gun.mount().fixed());

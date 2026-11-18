@@ -6,6 +6,7 @@ import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Place;
@@ -99,7 +100,7 @@ class SkyParkTest {
     @Test
     void onTheTowersStoodOnItsWaterGoneInto() {
         TowerMap.tell();
-        final Obstacles world = new Course(Demo.WALL_TOWER).obstacles();
+        final Obstacles world = new Course(Demos.WALL_TOWER).obstacles();
         final Interior hull = (Interior) world.volumes().get(TowerMap.TOWERS);
         final Placed placed = hull.placed();
         final Place at = TowerMap.hullAt();
@@ -123,7 +124,7 @@ class SkyParkTest {
     @Test
     void jumpedIntoFromTheDeckWalkedOutUpItsSteps() {
         TowerMap.tell();
-        final Obstacles world = new Course(Demo.WALL_TOWER).obstacles();
+        final Obstacles world = new Course(Demos.WALL_TOWER).obstacles();
         final Placed placed = ((Interior) world.volumes().get(TowerMap.TOWERS)).placed();
         final double deck = TowerMap.hullAt().height() + PARK.deck();
         final Box pool = PARK.pool();
@@ -160,14 +161,14 @@ class SkyParkTest {
     @Test
     void itsWaterStillWaterAsAPondsIsALittleUnderItsRimWithinItsWalls() {
         TowerMap.tell();
-        final List<com.example.fxsuite.avatar.sim.Pond> ponds = new Course(Demo.WALL_TOWER).ponds();
+        final List<com.example.fxsuite.avatar.sim.Pond> ponds = new Course(Demos.WALL_TOWER).ponds();
         assertEquals(1, ponds.size(), "the pool's water, and no other");
         final com.example.fxsuite.avatar.sim.Pond pond = ponds.getFirst();
         final Place at = TowerMap.hullAt();
         assertEquals(at.height() + PARK.deck() - SkyPark.SURFACE, pond.level(), 1e-9, "a little under its rim");
         assertTrue(SOLIDS.stream().noneMatch(s -> s.material() == Material.WATER), "not one of its solids");
         // each point of its outline within the pool, in under its walls: as far in from its rim as half a wall
-        final Interior hull = (Interior) new Course(Demo.WALL_TOWER).obstacles().volumes().get(TowerMap.TOWERS);
+        final Interior hull = (Interior) new Course(Demos.WALL_TOWER).obstacles().volumes().get(TowerMap.TOWERS);
         final Placed placed = hull.placed();
         final Box pool = PARK.pool();
         for (final com.example.fxsuite.avatar.sim.Vec2 p : pond.outline()) {
@@ -204,10 +205,10 @@ class SkyParkTest {
         assertEquals(PARK.pavilionFloor(), stall.low(), 1e-9);
         // in the game: the pavilion one piece, drawn as the town's; the stall's fruit under it staying put
         TowerMap.tell();
-        final Course course = new Course(Demo.WALL_TOWER);
+        final Course course = new Course(Demos.WALL_TOWER);
         assertTrue(course.pieces().stream().anyMatch(p -> p.kind() == Course.Kind.BUILDING
                 && p.tint() == Pavilions.KEYS + SkyPark.PAVILION), "the pavilion");
-        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demo.WALL_TOWER, true);
+        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demos.WALL_TOWER, true);
         final double floor = TowerMap.hullAt().height() + PARK.pavilionFloor();
         final List<com.example.fxsuite.avatar.sim.Prop> fruit = start.props().stream()
                 .filter(p -> p.thing() instanceof com.example.fxsuite.avatar.sim.Fruit).toList();
@@ -236,10 +237,10 @@ class SkyParkTest {
         assertEquals(2, guests.stream().filter(g -> g.along() > HULL.size().length() / 2 - 1_000).count(),
                 "two at the lookout");
         TowerMap.tell();
-        final Course course = new Course(Demo.WALL_TOWER);
+        final Course course = new Course(Demos.WALL_TOWER);
         assertEquals(2 + guests.size(), course.ground().size(), "the stall's two, and the guests");
         // a second on, everyone where they were put: none fallen through anything, none pushed out of anything
-        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demo.WALL_TOWER, true);
+        final com.example.fxsuite.avatar.sim.Play start = com.example.fxsuite.avatar.sim.Play.start(Demos.WALL_TOWER, true);
         com.example.fxsuite.avatar.sim.Play play = start;
         for (int n = 0; n < 120; n++) {
             play = play.step(Controls.NONE, Clock.STEP).play();

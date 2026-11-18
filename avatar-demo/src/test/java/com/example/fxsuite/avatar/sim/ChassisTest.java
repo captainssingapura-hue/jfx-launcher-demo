@@ -39,7 +39,7 @@ class ChassisTest {
 
     /** The roads demo, the car put at {@code place}, and the avatar at its wheel, driving. */
     private static Play driving(final Place place) {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final List<Lift> lifts = new ArrayList<>(start.lifts());
         final int k = lifts.indexOf(car(start));
         final Lift put = new Lift(lifts.get(k).piece(), Course.CAR_CHASSIS, place);
@@ -57,7 +57,7 @@ class ChassisTest {
 
     @Test
     void theRoadsDemoHasACarAndATruck() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         assertTrue(start.lifts().stream().anyMatch(l -> l.craft() == Course.CAR_CHASSIS));
         assertTrue(start.lifts().stream().anyMatch(l -> l.craft() == Course.TRUCK_CHASSIS));
         assertEquals(4, Course.CAR_CHASSIS.wheels().size());
@@ -209,9 +209,9 @@ class ChassisTest {
 
     @Test
     void theCarHasAGunFixedBesideTheSeatAndTheTruckNone() {
-        assertTrue(Play.start(Demo.FLYOVER, false).turrets().stream().noneMatch(t -> t.host() == Play.start(Demo.FLYOVER,
+        assertTrue(Play.start(Demos.FLYOVER, false).turrets().stream().noneMatch(t -> t.host() == Play.start(Demos.FLYOVER,
                 false).lifts().stream().filter(l -> l.craft() == Course.TRUCK_CHASSIS).findFirst().orElseThrow().piece()));
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Turret gun = carGun(start);
         assertEquals(car(start).piece(), gun.host());
         assertTrue(gun.mount().fixed());
@@ -279,7 +279,7 @@ class ChassisTest {
     @Test
     void noOneAtTheWheelNoOneFiresIt() {
         final List<Event> events = new ArrayList<>();
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         run(start, new Controls(0, 0, 0, 0, true, true, 0), 2, events);
         assertTrue(events.stream().noneMatch(e -> e instanceof Event.Fired));
     }

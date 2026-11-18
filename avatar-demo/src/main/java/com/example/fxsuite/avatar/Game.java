@@ -22,6 +22,7 @@ import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Journal;
 import com.example.fxsuite.avatar.sim.Keys;
 import com.example.fxsuite.avatar.sim.Gun;
@@ -459,8 +460,8 @@ public final class Game {
         this.switchTo = switchTo;
         this.siege = replay != null ? replay.siege() : siege;
         course = new Course(demo, this.siege);
-        damage = demo == Demo.SIEGE ? this.siege.damage(course) : Damage.of(course);
-        if (demo == Demo.SIEGE) {
+        damage = demo == Demos.SIEGE ? this.siege.damage(course) : Damage.of(course);
+        if (demo == Demos.SIEGE) {
             sky = this.siege.sky(damage);
         }
         lifts = Lift.of(damage);
@@ -582,6 +583,10 @@ public final class Game {
         final Group scene3d = new Group(world.node(), rig.node(), rig.effects(), impacts.node(), wreckage.node(),
                 bombs.node(), stall.node(), guns.node(),
                 reticle.node(), eye);
+        // what a demo draws besides its pieces: first, so the world's see-through water is drawn after it
+        if (demo instanceof DrawnDemo drawn) {
+            scene3d.getChildren().addFirst(drawn.scenery());
+        }
         final SubScene view = new SubScene(scene3d, 0, 0, true,
                 SceneAntialiasing.BALANCED);
         screen = view;
@@ -663,7 +668,9 @@ public final class Game {
         look = new MouseLook(stage, scene, !unattended);
         hearing = Hearing.open(unattended);
         final String inputs = System.getProperty("avatar.inputs");
-        if (inputs != null) {
+        if (inputs != null && !demo.recordable()) {
+            System.err.println("Not keeping inputs: " + demo.title() + " is made on the fly, and its runs cannot be replayed");
+        } else if (inputs != null) {
             try {
                 recorder = new Recording.Recorder(Files.newBufferedWriter(Path.of(inputs)), avatar.wearingPack(), demo,
                         siege);
@@ -1305,7 +1312,7 @@ public final class Game {
     private void menus() {
         final Menu demos = new Menu("Demo");
         final ToggleGroup which = new ToggleGroup();
-        final java.util.List<Demo> all = Demo.playable();
+        final java.util.List<Demo> all = Demos.playable();
         for (int i = 0; i < all.size(); i++) {
             final Demo other = all.get(i);
             final RadioMenuItem item = new RadioMenuItem((i + 1) + "   " + other.title());

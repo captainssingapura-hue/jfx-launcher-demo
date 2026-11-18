@@ -42,7 +42,7 @@ class VehicleTest {
 
     /** The airship demo, the avatar standing on the ground under the airship's hatch. */
     private static Play underTheHatch() {
-        final Play start = Play.start(Demo.AIRSHIP, false);
+        final Play start = Play.start(Demos.AIRSHIP, false);
         final Vec3 hatch = start.lifts().getFirst().pilot();
         return new Play(new Avatar(Body.standing(new Vec3(hatch.x(), 0, hatch.z()), 0), false), start.damage(),
                 start.sky(), start.lifts(), start.people(), start.props());
@@ -50,19 +50,19 @@ class VehicleTest {
 
     @Test
     void eachDemoBuildsAndEachVehicleDemoHasItsVehicle() {
-        for (final Demo demo : Demo.values()) {
+        for (final Demo demo : Demos.values()) {
             final Play play = Play.start(demo, false);
             assertFalse(play.damage().size() == 0, demo.name());
             assertEquals(demo.startYaw(), play.avatar().body().yaw(), 1e-9);
         }
-        final List<Lift> platform = Play.start(Demo.PLATFORM, false).lifts();
+        final List<Lift> platform = Play.start(Demos.PLATFORM, false).lifts();
         assertEquals(List.of(Course.CARPET, Course.MEETING), platform.stream().map(Lift::deck).toList(), "and the stand-up's");
         assertFalse(platform.getFirst().craft().closed(), "a platform is open");
-        final List<Lift> airship = Play.start(Demo.AIRSHIP, false).lifts();
+        final List<Lift> airship = Play.start(Demos.AIRSHIP, false).lifts();
         assertEquals(1, airship.size());
         assertTrue(airship.getFirst().craft().closed(), "an airship is closed");
         assertEquals(Course.SHIP, airship.getFirst().craft());
-        assertTrue(Play.start(Demo.AIRSHIP, false).airships().isEmpty(), "it is not one that goes round");
+        assertTrue(Play.start(Demos.AIRSHIP, false).airships().isEmpty(), "it is not one that goes round");
     }
 
     @Test
@@ -72,7 +72,7 @@ class VehicleTest {
         assertTrue(ship.block().bottom() > Body.TALL, "the gondola clears the avatar's head");
         assertTrue(play.withinReach().isPresent());
         assertTrue(play.gunWithinReach().isEmpty(), "its gun taken with it, not on its own");
-        assertFalse(Play.start(Demo.AIRSHIP, false).withinReach().isPresent(), "not from the start");
+        assertFalse(Play.start(Demos.AIRSHIP, false).withinReach().isPresent(), "not from the start");
     }
 
     @Test
@@ -208,7 +208,7 @@ class VehicleTest {
 
     @Test
     void aStickOfBombsOverTheYardBreaksTheCrateUnder() {
-        final Play start = Play.start(Demo.AIRSHIP, false);
+        final Play start = Play.start(Demos.AIRSHIP, false);
         final int crate = java.util.stream.IntStream.range(0, start.damage().size())
                 .filter(i -> start.damage().piece(i).kind() == Course.Kind.CRATE).findFirst().orElseThrow();
         final Block box = start.damage().piece(crate).block();
@@ -234,7 +234,7 @@ class VehicleTest {
 
     @Test
     void aPlatformHasNoBombBay() {
-        final Lift platform = Play.start(Demo.PLATFORM, false).lifts().getFirst();
+        final Lift platform = Play.start(Demos.PLATFORM, false).lifts().getFirst();
         assertEquals(0, platform.bombs());
         assertEquals(platform, platform.loaded(1, true));
     }
@@ -242,10 +242,10 @@ class VehicleTest {
     @Test
     void aRecordingKeepsItsDemo() throws IOException {
         final StringWriter out = new StringWriter();
-        final Recording.Recorder recorder = new Recording.Recorder(out, false, Demo.AIRSHIP);
+        final Recording.Recorder recorder = new Recording.Recorder(out, false, Demos.AIRSHIP);
         recorder.close();
         final Recording read = Recording.read(new StringReader(out.toString()));
-        assertEquals(Demo.AIRSHIP, read.demo());
-        assertEquals(Play.start(Demo.AIRSHIP, false).checksum(), read.start().checksum());
+        assertEquals(Demos.AIRSHIP, read.demo());
+        assertEquals(Play.start(Demos.AIRSHIP, false).checksum(), read.start().checksum());
     }
 }

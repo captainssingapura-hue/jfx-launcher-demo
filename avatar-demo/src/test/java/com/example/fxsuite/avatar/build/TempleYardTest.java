@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Person;
 import com.example.fxsuite.avatar.sim.Play;
@@ -61,7 +62,7 @@ class TempleYardTest {
     void threeMonksAtTheirStandUpInTheCourtyardInTheMiddleOfTown() {
         Town.tell();
         final Set<Person.Role> monks = Set.of(Person.Role.SMALL_MONK, Person.Role.TALL_MONK, Person.Role.STOUT_MONK);
-        final List<Person> there = Play.start(Demo.TOWN, false).people().stream()
+        final List<Person> there = Play.start(Demos.TOWN, false).people().stream()
                 .filter(p -> monks.contains(p.role())).toList();
         assertEquals(3, there.size());
         assertEquals(monks, there.stream().map(Person::role).collect(Collectors.toSet()));
@@ -74,6 +75,6 @@ class TempleYardTest {
             assertTrue(facing.x() * toward.x() + facing.z() * toward.z() > 0.99, monk.role() + " faces the middle");
         }
         // and nobody on the ground in the playground
-        assertTrue(new Course(Demo.PLAYGROUND).ground().isEmpty());
+        assertTrue(new Course(Demos.PLAYGROUND).ground().isEmpty());
     }
 }

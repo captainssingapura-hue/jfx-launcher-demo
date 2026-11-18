@@ -64,7 +64,7 @@ class IceCreamCartTest {
 
     @Test
     void itStandsInTheRoadsDemoThePlaygroundAndPitRoad() {
-        for (final Demo demo : new Demo[] {Demo.FLYOVER, Demo.PLAYGROUND}) {
+        for (final Demo demo : new Demo[] {Demos.FLYOVER, Demos.PLAYGROUND}) {
             assertTrue(Play.start(demo, false).lifts().stream().anyMatch(l -> l.craft() == CART), demo.name());
         }
         assertNotEquals(-1, Course.CHASSES.indexOf(CART));
@@ -79,7 +79,7 @@ class IceCreamCartTest {
 
     @Test
     void heldTowardItsCartAtSpeedItStillGoesOver() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         int k = -1;
         for (int i = 0; i < start.lifts().size(); i++) {
             if (start.lifts().get(i).craft() == CART) {

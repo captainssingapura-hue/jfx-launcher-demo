@@ -5,6 +5,7 @@ import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Play;
@@ -147,7 +148,7 @@ class TownTest {
         Town.tell();
         assertEquals(0, Town.middle().x(), 1e-9);
         assertEquals(0, Town.middle().z(), 1e-9);
-        final Course course = new Course(Demo.TOWN);
+        final Course course = new Course(Demos.TOWN);
         assertEquals(Town.start(), course.start(), "the avatar starts where the town says");
         assertTrue(course.start().z() < -Town.PARK, "before the town, south of its park");
         // all of it far in from the edge of the world, every way
@@ -189,7 +190,7 @@ class TownTest {
     @Test
     void everyVehicleParkedInTheTemplesCourtyardClearOfEverything() {
         Town.tell();
-        final Play play = Play.start(Demo.TOWN, false);
+        final Play play = Play.start(Demos.TOWN, false);
         final Place yard = Town.temple();
         final List<Lift> vehicles = play.lifts().stream()
                 .filter(l -> l.craft() instanceof Course.Chassis || l.craft() == Course.GUNSHIP).toList();
@@ -217,7 +218,7 @@ class TownTest {
     @Test
     void aGatlingGunOnTopOfEveryTowersEveryCore() {
         Town.tell();
-        final Play play = Play.start(Demo.TOWN, false);
+        final Play play = Play.start(Demos.TOWN, false);
         final List<Turret> guns = play.turrets().stream().filter(t -> t.mount() == Course.MOUNTED_GUN).toList();
         int cores = 0;
         for (int k = Town.FIRST_TOWER; k < Town.SITES.size(); k++) {
@@ -242,8 +243,8 @@ class TownTest {
     @Test
     void theTownDemoAlsoHasTheStallAndTheStandUpBeforeIt() {
         Town.tell();
-        final Play play = Play.start(Demo.TOWN, false);
-        final List<Course.Piece> pieces = new Course(Demo.TOWN).pieces();
+        final Play play = Play.start(Demos.TOWN, false);
+        final List<Course.Piece> pieces = new Course(Demos.TOWN).pieces();
         assertEquals(Town.pieces(), pieces.subList(0, Town.pieces().size()), "what stands in the town first");
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.BARGE)), "the barge");
         assertTrue(play.lifts().stream().anyMatch(l -> l.craft().equals(Course.MEETING)), "the meeting platform");

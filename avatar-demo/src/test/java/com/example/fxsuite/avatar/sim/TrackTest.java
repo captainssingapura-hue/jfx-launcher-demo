@@ -57,7 +57,7 @@ class TrackTest {
 
     @Test
     void itIsAnOvalFlatAllRoundAndWalledAllRound() {
-        final Course course = new Course(Demo.TRACK);
+        final Course course = new Course(Demos.TRACK);
         double most = 0;
         int walls = 0;
         for (final Course.Piece piece : course.pieces()) {
@@ -74,7 +74,7 @@ class TrackTest {
         assertTrue(Math.abs(MIDDLE - R - Course.TRACK_WIDTH) < Body.EDGE && HALF + R + Course.TRACK_WIDTH < Body.EDGE,
                 "and all of it within the world");
         // every land vehicle on pit road, heading north, the way they race
-        final List<Lift> lifts = Play.start(Demo.TRACK, false).lifts();
+        final List<Lift> lifts = Play.start(Demos.TRACK, false).lifts();
         assertEquals(Course.CHASSES.size() + 1, lifts.size(), "each kind, the car twice (roadster, van)");
         for (final Lift lift : lifts) {
             assertTrue(lift.craft() instanceof Course.Chassis);
@@ -85,7 +85,7 @@ class TrackTest {
 
     @Test
     void aCarDrivenFlatOutRoundALapStaysOnItLevelAllTheWay() {
-        final Play start = Play.start(Demo.TRACK, false);
+        final Play start = Play.start(Demos.TRACK, false);
         final Lift parked = start.lifts().stream().filter(l -> l.craft() == Course.CAR_CHASSIS).findFirst().orElseThrow();
         Play play = new Play(new Avatar(Body.standing(parked.pilot(), 0), false), start.damage(), start.sky(),
                 start.lifts(), start.people(), start.props(), start.turrets());

@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The wall towers' ground ({@code Demo.WALL_TOWER}): three towers ({@link WallTower}) on open level ground, end to end
+ * The wall towers' ground ({@code Demos.WALL_TOWER}): three towers ({@link WallTower}) on open level ground, end to end
  * along a slight curve, as the bay's hotel towers stand under the park on their roofs: each along the curve, its
  * splayed leg on the outside of it, to the east, its balconied west face on the inside, toward the start; the middle
  * one at the world's middle; the hull ({@link SkyHull}) lying across their roofs, bent round their curve, its bow

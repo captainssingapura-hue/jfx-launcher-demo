@@ -75,7 +75,7 @@ class MarinaBayTest {
     @Test
     void aDemoTheTowersTheirHullAndItsParkStandingOnIt() {
         MarinaBay.tell();
-        final Course course = new Course(Demo.MARINA_BAY);
+        final Course course = new Course(MarinaBay.DEMO);
         assertFalse(course.land().level(), "its land as it lies");
         assertFalse(course.grid());
         assertEquals(TowerMap.buildings().size() + Course.BIKES.size() + MarinaBay.bridges().size(), course.pieces().size(),
@@ -147,7 +147,7 @@ class MarinaBayTest {
         }
         // ready to ride: each a vehicle the avatar can take
         MarinaBay.tell();
-        final com.example.fxsuite.avatar.sim.Play play = com.example.fxsuite.avatar.sim.Play.start(Demo.MARINA_BAY, true);
+        final com.example.fxsuite.avatar.sim.Play play = com.example.fxsuite.avatar.sim.Play.start(MarinaBay.DEMO, true);
         assertEquals(Course.BIKES.size(), play.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis c
                 && c.twoWheels()).count(), "each one to ride");
     }

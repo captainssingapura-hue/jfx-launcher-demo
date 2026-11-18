@@ -6,6 +6,7 @@ import com.example.fxsuite.avatar.sim.Channel;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
 import com.example.fxsuite.avatar.sim.Place;
@@ -51,10 +52,10 @@ class VillageTest {
         assertTrue(river.wet(0, Village.riverAt(0)));
         assertFalse(river.wet(Village.WELL.x(), Village.WELL.z()), "the village dry");
         Village.tell();
-        final Course course = new Course(Demo.VILLAGE);
+        final Course course = new Course(Demos.VILLAGE);
         assertEquals(1, course.rivers().size());
         assertFalse(course.land().level(), "the meadow's land, laid out");
-        assertTrue(new Course(Demo.TOWN).land().level(), "the town's ground level");
+        assertTrue(new Course(Demos.TOWN).land().level(), "the town's ground level");
         assertFalse(course.grid(), "open country, no grid ruled on it");
         assertEquals(Village.start(), course.start());
     }
@@ -187,7 +188,7 @@ class VillageTest {
             assertTrue(land.height(rim.x(), rim.z()) > pond.level(), "its rim over its top all the way round");
         }
         Village.tell();
-        assertEquals(1, new Course(Demo.VILLAGE).ponds().size());
+        assertEquals(1, new Course(Demos.VILLAGE).ponds().size());
     }
 
     @Test
@@ -326,7 +327,7 @@ class VillageTest {
     @Test
     void theBridgeWalkedAcrossAndTheRiverWaded() {
         Village.tell();
-        final Obstacles world = new Course(Demo.VILLAGE).obstacles();
+        final Obstacles world = new Course(Demos.VILLAGE).obstacles();
         // from just short of the bridge, along the road over it, never down into the channel
         final Road road = Village.laid("village road");
         int first = -1;

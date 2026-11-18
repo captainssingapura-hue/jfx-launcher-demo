@@ -1,6 +1,7 @@
 package com.example.fxsuite.avatar;
 
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Recording;
 import com.example.fxsuite.avatar.sim.Siege;
 
@@ -67,7 +68,11 @@ public final class AvatarDemo extends Application {
     private static Demo asked() {
         final String demo = System.getProperty("avatar.demo");
         if (demo != null) {
-            return Demo.valueOf(demo.trim().toUpperCase(Locale.ROOT));
+            final Demo named = Demos.named(demo.trim().toUpperCase(Locale.ROOT));
+            if (named == null) {
+                throw new IllegalArgumentException("no demo called " + demo.trim());
+            }
+            return named;
         }
         final String replay = System.getProperty("avatar.replay");
         if (replay != null) {
@@ -78,7 +83,7 @@ public final class AvatarDemo extends Application {
             }
         }
         if (System.getProperty("avatar.script") != null || System.getProperty("avatar.snapshot") != null) {
-            return Demo.TOWN;
+            return Demos.TOWN;
         }
         return null;
     }
@@ -95,11 +100,11 @@ public final class AvatarDemo extends Application {
 
     /** Demo {@code demo} chosen: played, or, a siege, set first. */
     private void chosen(final Demo demo) {
-        if (demo == Demo.SIEGE) {
+        if (demo == Demos.SIEGE) {
             stage.setTitle("FxSuite · Avatar · Temple siege");
             stage.setScene(SiegeSettings.scene(siege, set -> {
                 siege = set;
-                play(Demo.SIEGE);
+                play(Demos.SIEGE);
             }, this::choose));
         } else {
             play(demo);
@@ -123,7 +128,7 @@ public final class AvatarDemo extends Application {
         final VBox list = new VBox(14, title, hint);
         list.setAlignment(Pos.CENTER);
         list.setPadding(new Insets(40));
-        final Demo[] demos = Demo.playable().toArray(Demo[]::new);
+        final Demo[] demos = Demos.playable().toArray(Demo[]::new);
         for (int i = 0; i < demos.length; i++) {
             final Demo demo = demos[i];
             final Button card = new Button((i + 1) + "   " + demo.title() + "\n" + demo.description());

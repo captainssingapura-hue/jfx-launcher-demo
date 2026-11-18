@@ -38,7 +38,7 @@ class BridgesTest {
     static void built() {
         MarinaBay.tell();
         bridges = MarinaBay.bridges();
-        world = new Course(Demo.MARINA_BAY).obstacles();
+        world = new Course(MarinaBay.DEMO).obstacles();
         land = MarinaBay.land();
     }
 
@@ -133,7 +133,7 @@ class BridgesTest {
 
     @Test
     void eachOnePieceDrawnByAKeyOfItsOwn() {
-        final Course course = new Course(Demo.MARINA_BAY);
+        final Course course = new Course(MarinaBay.DEMO);
         final List<Course.Piece> pieces = course.pieces().stream()
                 .filter(p -> p.kind() == Course.Kind.BUILDING && p.tint() >= 700 && p.tint() < 700 + bridges.size())
                 .toList();

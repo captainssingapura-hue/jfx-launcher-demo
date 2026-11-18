@@ -35,7 +35,7 @@ class MountedGunTest {
 
     /** The guns' demo, the avatar on top of the first pillar, behind its gun. */
     private static Play onThePillar() {
-        final Play start = Play.start(Demo.GUNS, false);
+        final Play start = Play.start(Demos.GUNS, false);
         final Turret gun = gun(start);
         return new Play(new Avatar(Body.standing(gun.at(gun.mount().station()), gun.base().yaw()), false),
                 start.damage(), start.sky(), start.lifts(), start.people(), start.props(), start.turrets());
@@ -49,7 +49,7 @@ class MountedGunTest {
 
     @Test
     void eachPillarHasAGunOnItsTopFacingOut() {
-        final Play start = Play.start(Demo.GUNS, false);
+        final Play start = Play.start(Demos.GUNS, false);
         int pillars = 0;
         for (int piece = 0; piece < start.damage().size(); piece++) {
             final Course.Piece what = start.damage().piece(piece);

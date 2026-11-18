@@ -70,7 +70,7 @@ class ShootingVehiclesTest {
 
     @Test
     void theRobotBreaksAllThreeEachTakingAsMuchAsItsBodyMakesIt() {
-        Play play = Play.start(Demo.FLYOVER, false);
+        Play play = Play.start(Demos.FLYOVER, false);
         final List<Integer> taken = new ArrayList<>();
         for (final Course.Bodywork body : List.of(Course.ROADSTER, Course.TRUCK_CAB, Course.PICKUP_BODY, Course.VAN)) {
             final int piece = vehicle(play, body);
@@ -90,7 +90,7 @@ class ShootingVehiclesTest {
 
     @Test
     void aBrokenVehicleIsLetGoAndCannotBeTaken() {
-        Play play = Play.start(Demo.FLYOVER, false);
+        Play play = Play.start(Demos.FLYOVER, false);
         final int pickup = vehicle(play, Course.PICKUP_BODY);
         play = shoot(play, pickup).play();
         final Lift lift = play.lifts().stream().filter(l -> l.piece() == pickup).findFirst().orElseThrow();

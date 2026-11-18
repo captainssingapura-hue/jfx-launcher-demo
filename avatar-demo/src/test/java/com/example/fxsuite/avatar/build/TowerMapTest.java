@@ -5,6 +5,7 @@ import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Num;
 import com.example.fxsuite.avatar.sim.Obstacles;
@@ -38,7 +39,7 @@ class TowerMapTest {
     @BeforeAll
     static void told() {
         TowerMap.tell();
-        course = new Course(Demo.WALL_TOWER);
+        course = new Course(Demos.WALL_TOWER);
         world = course.obstacles();
     }
 
@@ -73,7 +74,7 @@ class TowerMapTest {
                 != ((Interior) world.volumes().get(1)).open(d)), "doors of their own");
         // the start west of them, facing their balconied west faces
         assertEquals(TowerMap.START, course.start());
-        assertEquals(90, Demo.WALL_TOWER.startYaw());
+        assertEquals(90, Demos.WALL_TOWER.startYaw());
         assertTrue(TowerMap.START.x() < TOWER.westOuter(SIZE.high()) - 20_000);
     }
 

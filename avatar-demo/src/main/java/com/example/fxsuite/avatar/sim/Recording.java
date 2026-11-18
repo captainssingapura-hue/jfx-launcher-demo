@@ -70,7 +70,7 @@ public final class Recording {
         Integer format = null;
         int rules = -1;
         Boolean pack = null;
-        Demo demo = Demo.PLAYGROUND;
+        Demo demo = Demos.PLAYGROUND;
         Siege siege = Siege.STANDARD;
         final NavigableMap<Long, Controls> lines = new TreeMap<>();
         final Map<Long, Long> checks = new TreeMap<>();
@@ -100,7 +100,11 @@ public final class Recording {
                     case "start" -> {
                         pack = Boolean.parseBoolean(words[1].substring("pack=".length()));
                         if (words.length > 2) {
-                            demo = Demo.valueOf(words[2].substring("demo=".length()));
+                            final String name = words[2].substring("demo=".length());
+                            demo = Demos.named(name);
+                            if (demo == null) {
+                                throw new IOException("a recording of no demo known: " + name);
+                            }
                         }
                         if (words.length > 3) {
                             siege = Siege.read(words[3].substring("siege=".length()));
@@ -219,7 +223,7 @@ public final class Recording {
 
         /** Starts a recording, in {@code out}, of a run from {@link Play#start} in the playground with the pack on or not. */
         public Recorder(final Writer out, final boolean pack) {
-            this(out, pack, Demo.PLAYGROUND);
+            this(out, pack, Demos.PLAYGROUND);
         }
 
         /** Starts a recording, in {@code out}, of a run from {@link Play#start} in {@code demo} with the pack on or not. */
@@ -227,12 +231,18 @@ public final class Recording {
             this(out, pack, demo, Siege.STANDARD);
         }
 
-        /** The same, a siege set as {@code siege}, if {@code demo} is one. */
+        /**
+         * The same, a siege set as {@code siege}, if {@code demo} is one. A demo whose runs cannot be replayed
+         * ({@link Demo#recordable}) is not recorded.
+         */
         public Recorder(final Writer out, final boolean pack, final Demo demo, final Siege siege) {
+            if (!demo.recordable()) {
+                throw new IllegalArgumentException(demo.title() + ": a demo whose runs cannot be replayed, so not recorded");
+            }
             this.out = out;
             write(MAGIC + " " + FORMAT);
             write("rules " + Play.RULES);
-            write("start pack=" + pack + " demo=" + demo.name() + (demo == Demo.SIEGE ? " siege=" + siege.written() : ""));
+            write("start pack=" + pack + " demo=" + demo.name() + (demo == Demos.SIEGE ? " siege=" + siege.written() : ""));
         }
 
         /** Keeps step {@code step}'s inputs, and the world after it, {@code after}, when it is time for a check. */

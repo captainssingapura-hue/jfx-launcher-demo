@@ -10,6 +10,7 @@ import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Clock;
 import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Lean;
 import com.example.fxsuite.avatar.sim.Play;
@@ -43,7 +44,7 @@ class TowerDoorTest {
     @BeforeAll
     static void told() {
         TowerMap.tell();
-        start = Play.start(Demo.WALL_TOWER, true);
+        start = Play.start(Demos.WALL_TOWER, true);
     }
 
     private static Interior tower(final Play play) {

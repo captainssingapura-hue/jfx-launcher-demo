@@ -4,6 +4,7 @@ import com.example.fxsuite.avatar.sim.Block;
 import com.example.fxsuite.avatar.sim.Body;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Form;
 import com.example.fxsuite.avatar.sim.Vec3;
 
@@ -73,7 +74,7 @@ class ScaleTest {
                 Town.scale(k);
                 Course.town(Town::pieces);
                 Course.townStart(Town::start);
-                final Course course = new Course(Demo.TOWN);
+                final Course course = new Course(Demos.TOWN);
                 final List<Course.Piece> pieces = course.pieces();
                 for (int a = 0; a < Town.SITES.size(); a++) {
                     final Block box = pieces.get(a).block();

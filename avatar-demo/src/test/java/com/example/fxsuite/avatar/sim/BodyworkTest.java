@@ -33,7 +33,7 @@ class BodyworkTest {
 
     @Test
     void theRoadsVehiclesEachWearABody() {
-        final Damage damage = Damage.of(new Course(Demo.FLYOVER));
+        final Damage damage = Damage.of(new Course(Demos.FLYOVER));
         vehicle(damage, Course.ROADSTER);
         vehicle(damage, Course.TRUCK_CAB);
         vehicle(damage, Course.PICKUP_BODY);
@@ -42,7 +42,7 @@ class BodyworkTest {
 
     @Test
     void itsArmourMakesItTougher() {
-        final Damage damage = Damage.of(new Course(Demo.FLYOVER));
+        final Damage damage = Damage.of(new Course(Demos.FLYOVER));
         final int pickup = vehicle(damage, Course.PICKUP_BODY);
         assertEquals(Damage.CAR * Course.PICKUP_BODY.armour(), Damage.toughness(damage.piece(pickup)), 1e-9);
         // the same chassis, bare, takes no more than a chassis does
@@ -52,7 +52,7 @@ class BodyworkTest {
 
     @Test
     void itsPlatingTakesSomethingOffEveryBlow() {
-        final Damage damage = Damage.of(new Course(Demo.FLYOVER));
+        final Damage damage = Damage.of(new Course(Demos.FLYOVER));
         final int pickup = vehicle(damage, Course.PICKUP_BODY);
         final double toughness = Damage.toughness(damage.piece(pickup));
         final Damage struck = damage.took(blows(pickup, Weapon.GATLING, 10)).damage();
@@ -63,7 +63,7 @@ class BodyworkTest {
 
     @Test
     void theVanIsOnTheCarsChassisItsFixedGunAndAll() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final int van = vehicle(start.damage(), Course.VAN);
         assertEquals(Course.CAR_CHASSIS, Course.Chassis.of(start.damage().piece(van).shape()));
         assertTrue(start.turrets().stream().anyMatch(t -> t.host() == van && t.mount() == Course.CAR_GUN));
@@ -71,7 +71,7 @@ class BodyworkTest {
 
     @Test
     void itsShapeIsItsChassisAndItsBodysBoxes() {
-        final Damage damage = Damage.of(new Course(Demo.FLYOVER));
+        final Damage damage = Damage.of(new Course(Demos.FLYOVER));
         final Course.Piece pickup = damage.piece(vehicle(damage, Course.PICKUP_BODY));
         final List<Course.Section> parts = pickup.shape().parts();
         final List<Course.Section> chassis = Course.PICKUP_CHASSIS.shape().parts();
@@ -85,7 +85,7 @@ class BodyworkTest {
 
     @Test
     void roundsStrikeItsBodyWhereItsChassisAloneIsNot() {
-        final Damage damage = Damage.of(new Course(Demo.FLYOVER));
+        final Damage damage = Damage.of(new Course(Demos.FLYOVER));
         final int van = vehicle(damage, Course.VAN);
         final Course.Piece piece = damage.piece(van);
         // level with the van's windows, well over its bare chassis: a round meets its side
@@ -105,7 +105,7 @@ class BodyworkTest {
 
     @Test
     void theVanIsGotIntoFromBesideItsDoorAndLetOutThere() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final int piece = vehicle(start.damage(), Course.VAN);
         final Lift van = start.lifts().stream().filter(l -> l.piece() == piece).findFirst().orElseThrow();
         final Vec3 door = van.at(van.craft().door());
@@ -134,7 +134,7 @@ class BodyworkTest {
 
     @Test
     void theRobotBumpsIntoTheVansSide() {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final Course.Piece van = start.damage().piece(vehicle(start.damage(), Course.VAN));
         // beside it, walking square at its side, level with its middle
         Body body = Body.standing(new Vec3(van.place().x() + 500, 0, van.place().z()), -90);

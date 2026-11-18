@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Controls;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Demo;
+import com.example.fxsuite.avatar.sim.Demos;
 import com.example.fxsuite.avatar.sim.Event;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Play;
@@ -78,7 +79,7 @@ class SiegeTest {
     @Test
     @Disabled(SCENARIO)
     void itsAirshipsWaitThenComeFromTheEdgeHighOverEverythingIntoFreeSlots() {
-        final Play start = Play.start(Demo.SIEGE, false, QUICK);
+        final Play start = Play.start(Demos.SIEGE, false, QUICK);
         final Siege.State siege = start.sky().siege();
         assertEquals(QUICK.ships(), siege.raiders().size());
         for (final Siege.Raider raider : siege.raiders()) {
@@ -113,9 +114,9 @@ class SiegeTest {
     @Disabled(SCENARIO)
     void theSameSeedTheSameSiegeAnotherAnother() {
         final List<Event> events = new ArrayList<>();
-        final long once = run(Play.start(Demo.SIEGE, false, QUICK), 20, events).checksum();
-        final long again = run(Play.start(Demo.SIEGE, false, QUICK), 20, events).checksum();
-        final long other = run(Play.start(Demo.SIEGE, false, QUICK.seeded(43)), 20, events).checksum();
+        final long once = run(Play.start(Demos.SIEGE, false, QUICK), 20, events).checksum();
+        final long again = run(Play.start(Demos.SIEGE, false, QUICK), 20, events).checksum();
+        final long other = run(Play.start(Demos.SIEGE, false, QUICK.seeded(43)), 20, events).checksum();
         assertEquals(once, again);
         assertNotEquals(once, other);
     }
@@ -124,7 +125,7 @@ class SiegeTest {
     @Disabled(SCENARIO)
     void undefendedTheyCircleOverTheHallAndBombItUntilItFallsAndTheSiegeIsLost() {
         final List<Event> events = new ArrayList<>();
-        Play play = Play.start(Demo.SIEGE, false, QUICK);
+        Play play = Play.start(Demos.SIEGE, false, QUICK);
         final int hall = play.sky().siege().hall();
         final Course.Piece target = play.damage().piece(hall);
         double fell = Double.NaN;
@@ -156,7 +157,7 @@ class SiegeTest {
     @Disabled(SCENARIO)
     void shotDownItsSlotIsFreeForTheNextOnceItsWreckHasFallen() {
         final List<Event> events = new ArrayList<>();
-        Play play = run(Play.start(Demo.SIEGE, false, QUICK), Siege.FIRST + 4 * QUICK.every(), events);
+        Play play = run(Play.start(Demos.SIEGE, false, QUICK), Siege.FIRST + 4 * QUICK.every(), events);
         final Siege.Raider first = play.sky().siege().raiders().getFirst();
         assertTrue(first.flying());
         // shot down
@@ -183,7 +184,7 @@ class SiegeTest {
     void rebuiltTheHallStandsAgainAndTheyBombItAgain() {
         final Siege rebuilt = new Siege(4, 3, 0, 30, 1, 0.25, 0, 0.1, 1, Siege.Fallen.REBUILT, 5, 42);
         final List<Event> events = new ArrayList<>();
-        Play play = Play.start(Demo.SIEGE, false, rebuilt);
+        Play play = Play.start(Demos.SIEGE, false, rebuilt);
         final int hall = play.sky().siege().hall();
         for (int k = 0; k < 240 && !play.damage().broken(hall); k++) {
             play = run(play, 1, events);
@@ -199,7 +200,7 @@ class SiegeTest {
     void nextTheyGoForTheBuildingNearestTheHall() {
         final Siege next = new Siege(4, 3, 0, 30, 1, 0.25, 0, 0.1, 1, Siege.Fallen.NEXT, 5, 42);
         final List<Event> events = new ArrayList<>();
-        Play play = Play.start(Demo.SIEGE, false, next);
+        Play play = Play.start(Demos.SIEGE, false, next);
         final int hall = play.sky().siege().hall();
         for (int k = 0; k < 240 && !play.damage().broken(hall); k++) {
             play = run(play, 1, events);
@@ -224,7 +225,7 @@ class SiegeTest {
     @Test
     void aBombHarmsABuildingShapedMoreCloselyThanABox() {
         // the hall is in the way as it is shaped: a bomb going off on its roof harms it
-        Play play = Play.start(Demo.SIEGE, false, QUICK);
+        Play play = Play.start(Demos.SIEGE, false, QUICK);
         final int hall = play.sky().siege().hall();
         final Course.Piece target = play.damage().piece(hall);
         play = new Play(play.avatar(), play.damage(), play.sky().dropped(new Vec3(target.block().x(),
@@ -237,13 +238,13 @@ class SiegeTest {
     @Test
     void aRecordingKeepsHowItsSiegeWasSet() throws IOException {
         final StringWriter out = new StringWriter();
-        try (Recording.Recorder recorder = new Recording.Recorder(out, false, Demo.SIEGE, QUICK)) {
-            recorder.step(1, Controls.NONE, Play.start(Demo.SIEGE, false, QUICK));
+        try (Recording.Recorder recorder = new Recording.Recorder(out, false, Demos.SIEGE, QUICK)) {
+            recorder.step(1, Controls.NONE, Play.start(Demos.SIEGE, false, QUICK));
         }
         final Recording read = Recording.read(new StringReader(out.toString()));
-        assertEquals(Demo.SIEGE, read.demo());
+        assertEquals(Demos.SIEGE, read.demo());
         assertEquals(QUICK, read.siege());
-        assertEquals(Play.start(Demo.SIEGE, false, QUICK).checksum(), read.start().checksum());
+        assertEquals(Play.start(Demos.SIEGE, false, QUICK).checksum(), read.start().checksum());
         assertTrue(Body.EDGE > Siege.ENTRY, "they come from within the world");
     }
 }

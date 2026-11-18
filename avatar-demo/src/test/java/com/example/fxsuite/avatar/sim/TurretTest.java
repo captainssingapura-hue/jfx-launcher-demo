@@ -39,7 +39,7 @@ class TurretTest {
 
     /** The bunker demo, the avatar standing at the bunker's door. */
     private static Play atTheDoor() {
-        final Play start = Play.start(Demo.GUNS, false);
+        final Play start = Play.start(Demos.GUNS, false);
         final Turret gun = bunker(start);
         return new Play(new Avatar(Body.standing(gun.at(gun.mount().station()), 0), false), start.damage(),
                 start.sky(), start.lifts(), start.people(), start.props(), start.turrets());
@@ -129,7 +129,7 @@ class TurretTest {
         final List<Event> events = new ArrayList<>();
         Play play = atTheDoor();
         assertTrue(play.gunWithinReach().isPresent());
-        assertFalse(Play.start(Demo.GUNS, false).gunWithinReach().isPresent(), "not from the start");
+        assertFalse(Play.start(Demos.GUNS, false).gunWithinReach().isPresent(), "not from the start");
         play = run(play, TAKE, Clock.STEP, events);
         final Turret gun = bunker(play);
         assertTrue(gun.held());
@@ -174,7 +174,7 @@ class TurretTest {
 
     @Test
     void theGunsAreSummedWithTheWorld() {
-        final Play play = Play.start(Demo.PLATFORM, false);
+        final Play play = Play.start(Demos.PLATFORM, false);
         assertFalse(play.turrets().isEmpty(), "a gun on each pillar about");
         final Play none = new Play(play.avatar(), play.damage(), play.sky(), play.lifts(), play.people(), play.props(),
                 List.of());

@@ -73,14 +73,14 @@ class ScrumTest {
         }
         assertEquals(team.stream().map(p -> p.body().position()).toList(),
                 standUp(play).stream().map(p -> p.body().position()).toList());
-        final Play platform = Play.start(Demo.PLATFORM, false);
+        final Play platform = Play.start(Demos.PLATFORM, false);
         assertEquals(6, standUp(platform).size());
         assertEquals(1, platform.props().stream().filter(p -> p.thing() == Furniture.BOARD).count());
     }
 
     @Test
     void flownItTakesTheStandUpAndItsBoardAlong() {
-        final Play start = Play.start(Demo.PLATFORM, false);
+        final Play start = Play.start(Demos.PLATFORM, false);
         final Lift deck = meeting(start);
         final int k = start.lifts().indexOf(deck);
         Play play = new Play(new Avatar(Body.standing(deck.pilot(), deck.place().yaw()), false), start.damage(),

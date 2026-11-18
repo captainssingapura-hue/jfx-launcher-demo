@@ -1,5 +1,6 @@
 package com.example.fxsuite.avatar.bench;
 
+import com.example.fxsuite.avatar.Game;
 import com.example.fxsuite.avatar.look.RoadworkModel;
 import com.example.fxsuite.avatar.roads.Ground;
 import com.example.fxsuite.avatar.roads.Roadway;
@@ -9,6 +10,7 @@ import com.example.fxsuite.avatar.roads.Sections;
 import com.example.fxsuite.avatar.sim.Vec2;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -62,6 +64,7 @@ import java.util.Map;
  * {@code -Droads.road=1} which of its roads is looked at; {@code -Droads.at=250} the point looked at, in metres along;
  * {@code -Droads.cut=true} cuts it away there; {@code -Droads.built=true} shows the ground as built;
  * {@code -Droads.yaw}, {@code -Droads.pitch}, {@code -Droads.distance} (m) where it is seen from.
+ * {@code -Droads.drive=true} opens the scene to drive in at once.
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
 public final class RoadBench extends Application {
@@ -87,6 +90,7 @@ public final class RoadBench extends Application {
     private final TextArea text = new TextArea(Sections.STANDARD);
     private final Label figures = new Label();
     private final Label problems = new Label();
+    private final Button drive = new Button("Drive");
 
     private final Canvas along = new Canvas(800, 220);
     private final Canvas across = new Canvas(520, 220);
@@ -182,6 +186,8 @@ public final class RoadBench extends Application {
         taller.setOnAction(e -> drawSections());
         atSlider.valueProperty().addListener((o, was, now) -> lookedAt());
 
+        drive.setOnAction(e -> drive());
+        drive.setStyle("-fx-font-weight: bold;");
         final Button apply = new Button("Apply");
         apply.setOnAction(e -> applyText());
         final Button reset = new Button("Standard");
@@ -208,7 +214,7 @@ public final class RoadBench extends Application {
 
         final HBox bar = new HBox(8, new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"),
                 roadBox, showGround, showEarthworks, asBuilt, showPavement, showMarkings, showStructures, showWater,
-                cutAway, new Label("Heights ×"), taller);
+                cutAway, new Label("Heights ×"), taller, drive);
         bar.setPadding(new Insets(6, 8, 6, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
         final HBox atBar = new HBox(8, new Label("Along (m)"), atSlider);
@@ -243,6 +249,24 @@ public final class RoadBench extends Application {
         stage.setScene(windowScene);
         stage.show();
         SoundBench.snapshotIfAsked(windowScene);
+        if (Boolean.getBoolean("roads.drive")) {
+            Platform.runLater(this::drive);
+        }
+    }
+
+    /**
+     * The scene as it is now, its roads of the kind chosen, played in a game window of its own ({@link TestSection}): one
+     * of each vehicle parked at the start. Closing the window ends that game; Tab in it closes it.
+     */
+    private void drive() {
+        if (works == null) {
+            return;
+        }
+        final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
+        final TestSection demo = new TestSection(scene, section, works);
+        final Stage window = new Stage();
+        final Game game = new Game(window, demo, () -> Platform.runLater(window::close), other -> { });
+        window.setOnHidden(e -> game.stop());
     }
 
     /** The road looked at. */

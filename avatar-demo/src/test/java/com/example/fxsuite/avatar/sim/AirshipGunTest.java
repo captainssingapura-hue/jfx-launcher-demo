@@ -42,7 +42,7 @@ class AirshipGunTest {
 
     /** The airship demo, the avatar on the ground under the airship's hatch. */
     private static Play underTheHatch() {
-        final Play start = Play.start(Demo.AIRSHIP, false);
+        final Play start = Play.start(Demos.AIRSHIP, false);
         final Vec3 hatch = start.lifts().getFirst().pilot();
         return new Play(new Avatar(Body.standing(new Vec3(hatch.x(), 0, hatch.z()), 0), false), start.damage(),
                 start.sky(), start.lifts(), start.people(), start.props(), start.turrets());
@@ -55,7 +55,7 @@ class AirshipGunTest {
 
     @Test
     void theAirshipToBeFlownCarriesTheGiantGunUnderItsGondola() {
-        final Play start = Play.start(Demo.AIRSHIP, false);
+        final Play start = Play.start(Demos.AIRSHIP, false);
         final Turret gun = gun(start);
         assertEquals(ship(start).piece(), gun.host());
         assertEquals(Gun.RAPID_GATLING, gun.mount().gun());
@@ -67,7 +67,7 @@ class AirshipGunTest {
         assertTrue(Weapon.RAPID_GATLING.blow() > Weapon.HEAVY_GATLING.blow(), "and its rounds heavier");
         assertTrue(Gun.RAPID_GATLING.interval() < Gun.GIANT_GATLING.interval() / 3, "and more than three times as fast as the giant");
         // those going round on their routes carry none
-        final Play playground = Play.start(Demo.PLAYGROUND, false);
+        final Play playground = Play.start(Demos.PLAYGROUND, false);
         assertEquals(1, playground.turrets().stream().filter(t -> t.mount() == Course.AIRSHIP_GUN).count());
     }
 

@@ -42,7 +42,7 @@ class SidecarRideTest {
 
     /** The roads demo, the avatar on the outfit, riding it ahead at {@code speed}. */
     private static Play riding(final double speed, final List<Event> events) {
-        final Play start = Play.start(Demo.FLYOVER, false);
+        final Play start = Play.start(Demos.FLYOVER, false);
         final int k = outfit(start);
         final Vec3 door = start.lifts().get(k).at(OUTFIT.door());
         Play play = new Play(new Avatar(Body.standing(new Vec3(door.x(), 0, door.z()), 0), false), start.damage(),

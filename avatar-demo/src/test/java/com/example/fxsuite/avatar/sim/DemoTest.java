@@ -16,13 +16,56 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DemoTest {
 
     @Test
-    void theTownFirstThenItsSiegeTheVillageTheWallTowerThePlaygroundAndTheTrackAlone() {
-        assertEquals(List.of(Demo.TOWN, Demo.SIEGE, Demo.VILLAGE, Demo.WALL_TOWER, Demo.MARINA_BAY, Demo.PLAYGROUND,
-                Demo.TRACK),
-                Demo.playable());
-        for (final Demo demo : Demo.values()) {
-            assertEquals(Demo.playable().contains(demo), demo.offered(), demo.title());
+    void theTownFirstThenItsSiegeTheVillageTheWallTowerThePlaygroundAndTheTrackAloneThenThoseToldOf() {
+        assertEquals(List.of(Demos.TOWN, Demos.SIEGE, Demos.VILLAGE, Demos.WALL_TOWER, Demos.PLAYGROUND, Demos.TRACK),
+                Demos.playable().subList(0, 6));
+        for (final Demo demo : Demos.values()) {
+            assertEquals(Demos.playable().contains(demo), demo.offered(), demo.title());
+            assertTrue(demo.recordable(), "a built-in found again by its name");
+            assertEquals(demo, Demos.named(demo.name()));
         }
+        // one told of: offered after the built-ins, found by its name
+        final Demo told = new Laid("TOLD_OF", true, List.of());
+        Demos.register(told);
+        assertEquals(told, Demos.named("TOLD_OF"));
+        assertTrue(Demos.playable().indexOf(told) >= 6);
+        assertEquals(null, Demos.named("NONE_SUCH"));
+    }
+
+    /** A demo made on the fly: a few pieces, the avatar at the origin. */
+    private record Laid(String name, boolean offered, List<Course.Piece> pieces) implements Demo {
+
+        @Override
+        public String title() {
+            return "laid";
+        }
+
+        @Override
+        public String description() {
+            return "made on the fly";
+        }
+
+        @Override
+        public double startYaw() {
+            return 0;
+        }
+
+        @Override
+        public void lay(final Course.Layout world) {
+            world.start(new Vec3(0, 0, -1_000)).pieces(pieces).ruled(false);
+        }
+    }
+
+    @Test
+    void aDemoMadeOnTheFlyLaidIntoACourseAndNotRecorded() {
+        final Course.Piece pillar = new Course.Piece(Block.standing(0, 1_000, 200, 100, 300, 0), Course.Kind.PILLAR, 0);
+        final Demo made = new Laid("MADE", false, List.of(pillar));
+        final Course course = new Course(made);
+        assertEquals(List.of(pillar), course.pieces());
+        assertEquals(new Vec3(0, 0, -1_000), course.start());
+        assertFalse(made.recordable());
+        assertThrows(IllegalArgumentException.class,
+                () -> new Recording.Recorder(new java.io.StringWriter(), false, made));
     }
 
     @Test

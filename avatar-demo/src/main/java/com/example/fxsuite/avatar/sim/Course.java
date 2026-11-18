@@ -1231,7 +1231,7 @@ public final class Course {
 
     /** The playground: everything at once. */
     public Course() {
-        this(Demo.PLAYGROUND);
+        this(Demos.PLAYGROUND);
     }
 
     /** A world of only {@code these} pieces: a showroom, as the vehicle bench has one vehicle on show. */
@@ -1250,18 +1250,71 @@ public final class Course {
 
     /** The same, a siege set as {@code siege} ({@link Siege}), if {@code demo} is one. */
     public Course(final Demo demo, final Siege siege) {
-        switch (demo) {
-            case TOWN -> townDemo();
-            case SIEGE -> siegeDemo(siege);
-            case VILLAGE -> villageDemo();
-            case WALL_TOWER -> towerDemo();
-            case MARINA_BAY -> bayDemo();
-            case PLAYGROUND -> playground();
-            case TRACK -> trackDemo();
-            case PLATFORM -> platformDemo();
-            case AIRSHIP -> airshipDemo();
-            case FLYOVER -> flyoverDemo();
-            case GUNS -> gunsDemo();
+        demo.lay(new Layout(siege));
+    }
+
+    /**
+     * What a demo lays its world into ({@link Demo#lay}): where the avatar starts, what stands there, its water, who
+     * is about, its land, whether its ground is ruled. Nothing else of the course's is open to it.
+     */
+    public final class Layout {
+
+        private final Siege siege;
+
+        private Layout(final Siege siege) {
+            this.siege = siege;
+        }
+
+        /** The avatar starts {@code at}. */
+        public Layout start(final Vec3 at) {
+            start = at;
+            return this;
+        }
+
+        /** {@code these} stand there, besides what does already. */
+        public Layout pieces(final List<Piece> these) {
+            pieces.addAll(these);
+            return this;
+        }
+
+        /** Water lies still in {@code these}. */
+        public Layout ponds(final List<Pond> these) {
+            ponds.addAll(these);
+            return this;
+        }
+
+        /** {@code these} are about. */
+        public Layout people(final List<Cast> these) {
+            ground.addAll(these);
+            return this;
+        }
+
+        /** Its land is {@code land}. */
+        public Layout land(final Land land) {
+            Course.this.land = land;
+            return this;
+        }
+
+        /** Whether its ground is ruled with a grid. */
+        public Layout ruled(final boolean ruled) {
+            grid = ruled;
+            return this;
+        }
+
+        /** A built-in demo's world, laid as the course has always laid it. */
+        void builtIn(final Demos demo) {
+            switch (demo) {
+                case TOWN -> townDemo();
+                case SIEGE -> siegeDemo(siege);
+                case VILLAGE -> villageDemo();
+                case WALL_TOWER -> towerDemo();
+                case PLAYGROUND -> playground();
+                case TRACK -> trackDemo();
+                case PLATFORM -> platformDemo();
+                case AIRSHIP -> airshipDemo();
+                case FLYOVER -> flyoverDemo();
+                case GUNS -> gunsDemo();
+            }
         }
     }
 
@@ -1374,36 +1427,6 @@ public final class Course {
         towerStart = start;
         towerPonds = ponds;
         towerPeople = people;
-    }
-
-    /** Marina Bay's demo: its land and its water, what stands on it, who is about, where the avatar starts. */
-    private void bayDemo() {
-        start = bayStart.get();
-        pieces.addAll(bay.get());
-        ponds.addAll(bayPonds.get());
-        ground.addAll(bayPeople.get());
-        land = bayLand.get();
-        grid = false;
-    }
-
-    /** What stands on Marina Bay, its water, where the avatar starts, its land, who is about: until told, nothing, level. */
-    private static java.util.function.Supplier<List<Piece>> bay = List::of;
-    private static java.util.function.Supplier<List<Pond>> bayPonds = List::of;
-    private static java.util.function.Supplier<Vec3> bayStart = () -> Vec3.ZERO;
-    private static java.util.function.Supplier<Land> bayLand = () -> Land.LEVEL;
-    private static java.util.function.Supplier<List<Cast>> bayPeople = List::of;
-
-    /** Says what stands on Marina Bay, where its water lies, where the avatar starts there, its land, and who is about. */
-    public static void bay(final java.util.function.Supplier<List<Piece>> what,
-                           final java.util.function.Supplier<List<Pond>> ponds,
-                           final java.util.function.Supplier<Vec3> start,
-                           final java.util.function.Supplier<Land> land,
-                           final java.util.function.Supplier<List<Cast>> people) {
-        bay = what;
-        bayPonds = ponds;
-        bayStart = start;
-        bayLand = land;
-        bayPeople = people;
     }
 
     /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */
