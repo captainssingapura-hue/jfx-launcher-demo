@@ -1,0 +1,190 @@
+package com.example.fxsuite.avatar.roads;
+
+import com.example.fxsuite.avatar.sim.Vec2;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * A road designed on its own against a profile, never the land: its heights within its grade and held over its
+ * clearances; what carries it, as told or as chosen; its formation under its surface by its courses; the ground
+ * shaped to that formation where the ground carries it, and left as it was where something else does.
+ */
+class RoadwayTest {
+
+    private static final Section ROAD = Sections.standard().get("two-lane road");
+    private static final double LENGTH = 50_000;
+
+    private static List<Vec2> straight() {
+        final List<Vec2> line = new ArrayList<>();
+        for (double z = 0; z <= LENGTH; z += 1_000) {
+            line.add(new Vec2(0, z));
+        }
+        return line;
+    }
+
+    private static final Profile HILL = (x, z, below) -> 1_300 * Math.exp(-Math.pow((z - 25_000) / 9_000, 2)) + 0.01 * x;
+    private static final Profile VALLEY = (x, z, below) -> -2_600 * Math.exp(-Math.pow((z - 25_000) / 8_000, 2));
+    private static final Profile RIDGE = (x, z, below) -> 3_600 * Math.exp(-Math.pow((z - 25_000) / 11_000, 2));
+
+    private static Roadway on(final Profile profile) {
+        return Roadway.design("test", straight(), ROAD, profile, List.of(), List.of());
+    }
+
+    @Test
+    void itsPointsEvenlyApartFromEndToEnd() {
+        final Roadway road = on(Profile.level(0));
+        assertEquals(LENGTH, road.length(), 1e-6);
+        assertEquals(LENGTH / Roadway.STEP + 1, road.size());
+        for (int i = 1; i < road.size(); i++) {
+            assertEquals(Roadway.STEP, road.along(i) - road.along(i - 1), 1e-6);
+        }
+    }
+
+    @Test
+    void onLevelGroundItLiesOnItAndNothingCarriesItButTheGround() {
+        final Roadway road = on(Profile.level(0));
+        for (int i = 0; i < road.size(); i++) {
+            assertEquals(0, road.level(i), 1e-6);
+        }
+        assertEquals(List.of(new Roadway.Stretch(0, road.size() - 1, Carrier.GROUND)), road.stretches());
+        assertEquals(List.of(), road.problems());
+    }
+
+    @Test
+    void neverSteeperThanItsGrade() {
+        for (final Profile p : List.of(HILL, VALLEY, RIDGE)) {
+            assertTrue(on(p).steepest() <= ROAD.grade() + 1e-9);
+        }
+    }
+
+    @Test
+    void itsFormationUnderItsSurfaceByItsCoursesEverywhere() {
+        final Roadway road = on(HILL);
+        for (int j = 0; j + 1 < road.size(); j += 17) {
+            for (double a = -650; a <= 650; a += 50) {
+                assertEquals(ROAD.depth(a), road.top(j, 0.3, a) - road.formation(j, 0.3, a), 1e-9);
+            }
+        }
+    }
+
+    @Test
+    void whereTheGroundCarriesItTheGroundUnderItIsItsFormation() {
+        final Roadway road = on(HILL);
+        for (int i = 3; i + 3 < road.size(); i += 11) {
+            for (double a = -680; a <= 680; a += 40) {
+                final Vec2 p = road.at(i, a);
+                assertEquals(road.level(i) + ROAD.formation(a), road.shape(p.x(), p.z(), HILL.height(p.x(), p.z())), 1e-6,
+                        "at " + road.along(i) + " along, " + a + " across");
+            }
+        }
+    }
+
+    @Test
+    void itsSideSlopesAtItsKindsRatiosOutToTheGroundAndNoFurther() {
+        final Roadway road = on(HILL);
+        final Earthworks e = ROAD.earthworks();
+        final double edge = ROAD.edge(1);
+        boolean cut = false;
+        boolean banked = false;
+        for (int i = 10; i + 10 < road.size(); i += 5) {
+            final double edgeTop = road.level(i) + ROAD.top(edge);
+            for (double d = 10; d < 3_000; d += 70) {
+                final Vec2 p = road.at(i, edge + d);
+                final double was = HILL.height(p.x(), p.z());
+                final double now = road.shape(p.x(), p.z(), was);
+                if (was > edgeTop && d > e.ditchWide()) {
+                    // in a cutting, past the ditch: up at the cut slope, until the ground
+                    assertEquals(Math.min(was, edgeTop + (d - e.ditchWide()) / e.cut()), now, 1e-6);
+                    cut |= now < was;
+                } else if (was < edgeTop) {
+                    assertEquals(Math.max(was, edgeTop - d / e.fill()), now, 1e-6);
+                    banked |= now > was;
+                }
+            }
+        }
+        assertTrue(cut && banked, "the hill both cut and banked");
+        // far off, untouched
+        final Vec2 far = road.at(road.size() / 2, road.reach() + 500);
+        assertEquals(HILL.height(far.x(), far.z()), road.shaped().height(far.x(), far.z()), 1e-9);
+    }
+
+    @Test
+    void aValleyTooDeepToBankAcrossIsCarriedOverOnAStructureChosen() {
+        final Roadway road = on(VALLEY);
+        final Roadway.Stretch middle = road.stretches().stream().filter(s -> s.carrier() == Carrier.STRUCTURE)
+                .findFirst().orElseThrow();
+        assertTrue(road.along(middle.from()) < 25_000 && road.along(middle.to()) > 25_000, "over the valley's floor");
+        assertTrue(road.highestBank() <= ROAD.earthworks().bank() + 1, "no bank higher than it takes");
+        // the valley's floor untouched under it
+        final int i = road.nearestPoint(25_000);
+        final Vec2 p = road.at(i, 100);
+        assertEquals(VALLEY.height(p.x(), p.z()), road.shape(p.x(), p.z(), VALLEY.height(p.x(), p.z())), 1e-9);
+        assertFalse(road.structures().getFirst().piers().isEmpty(), "piers down to it");
+        assertEquals(ROAD.bare(), road.section(i), "bare on it");
+    }
+
+    @Test
+    void aRidgeTooHighToCutThroughIsCarriedThroughInATunnelChosen() {
+        final Roadway road = on(RIDGE);
+        assertTrue(road.stretches().stream().anyMatch(s -> s.carrier() == Carrier.TUNNEL));
+        assertTrue(road.deepestCutting() <= ROAD.earthworks().cutting() + 1, "no cutting deeper than it takes");
+        final int i = road.nearestPoint(25_000);
+        assertEquals(Carrier.TUNNEL, road.carrier(i));
+        final Vec2 p = road.point(i);
+        assertEquals(RIDGE.height(p.x(), p.z()), road.shape(p.x(), p.z(), RIDGE.height(p.x(), p.z())), 1e-9,
+                "the ridge left as it is over it");
+    }
+
+    @Test
+    void aBridgeGivenIsHeldOverItsClearance() {
+        final Profile river = (x, z, below) -> Math.abs(z - 25_000) < 1_500 ? -500 : 0;
+        final Roadway road = Roadway.design("river", straight(), ROAD, river,
+                List.of(new Roadway.Given(23_000, 27_000, Carrier.STRUCTURE)),
+                List.of(new Roadway.Clearance(23_500, 26_500, 450)));
+        for (int i = 0; i < road.size(); i++) {
+            if (road.along(i) >= 23_500 && road.along(i) <= 26_500) {
+                assertTrue(road.level(i) >= 450 - 1, "held over the water: " + road.level(i));
+            }
+            if (road.along(i) > 23_000 && road.along(i) < 27_000) {
+                assertEquals(Carrier.STRUCTURE, road.carrier(i));
+            }
+        }
+        assertTrue(road.steepest() <= ROAD.grade() + 1e-9);
+    }
+
+    @Test
+    void onAStructureAlreadyThereTheGroundIsNotTouched() {
+        final Profile deck = Profile.level(1_000);
+        final Roadway road = Roadway.design("deck", straight(), ROAD, deck,
+                List.of(new Roadway.Given(0, LENGTH, Carrier.ON)), List.of());
+        final Vec2 p = road.at(50, 200);
+        assertEquals(1_000, road.shape(p.x(), p.z(), 1_000), 1e-9);
+        assertEquals(1_000 + ROAD.top(200), road.surface(p.x(), p.z()), 1e-6, "its surface on it");
+    }
+
+    @Test
+    void theEarthItMovesCutFromAHillFilledIntoItsSides() {
+        final double[] flat = on(Profile.level(0)).earthMoved();
+        final double[] hill = on(HILL).earthMoved();
+        // on level ground, its formation dug out under it, its ditches either side; nothing banked
+        assertTrue(flat[0] > 0 && flat[1] < 1, "flat: " + flat[0] + " cut, " + flat[1] + " filled");
+        assertTrue(hill[0] > flat[0] + 2_000, "cut from the hill: " + hill[0] + " against " + flat[0]);
+        assertTrue(hill[1] > 100, "filled where it is banked: " + hill[1]);
+    }
+
+    @Test
+    void theSameRoadEveryTime() {
+        final Roadway a = on(VALLEY);
+        final Roadway b = on(VALLEY);
+        for (int i = 0; i < a.size(); i++) {
+            assertEquals(a.level(i), b.level(i), 0);
+        }
+        assertEquals(a.stretches(), b.stretches());
+    }
+}
