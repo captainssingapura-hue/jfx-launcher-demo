@@ -335,7 +335,7 @@ mvn -pl avatar-demo -am package
 java -jar avatar-demo/target/avatar-demo.jar
 ```
 
-It opens on a choice of six demos (`Demo.playable`), the **town** first: its buildings round the
+It opens on a choice of seven demos (`Demo.playable`), the **town** first: its buildings round the
 temple in its middle, a mounted Gatling gun on top of each tower's every core; round the temple its
 park, a lawn 100 m across, a pond either side with a pavilion on an island in its middle, the rest of
 the pavilions round it; the pyramids at the town's east edge; every land vehicle and the gunship parked
@@ -345,7 +345,9 @@ on its platform. Then the **temple siege**, the town attacked by airships withou
 before it starts. Then the **meadow village**: open country, a river winding across it, a dual carriageway along it
 with an exit off it, over a bridge into a small village of earth houses round a well (below). Then the **wall
 towers**: three towers borne by walls, end to end along a slight curve, trees scattered round them for
-kilometres, every room of each entered by the jet-pack, a balcony at a time (`TowerMap`). Then the **playground**, the rest at once (the course, its targets and the bombers,
+kilometres, every room of each entered by the jet-pack, a balcony at a time (`TowerMap`). Then **Marina Bay**: the
+same towers on the bay as it lies, its land, sea, bay, river mouth and lakes worked out from OpenStreetMap (`MarinaBay`;
+map data © OpenStreetMap contributors, ODbL), its roads and buildings to come. Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):

@@ -85,6 +85,16 @@ public final class TowerMap {
 
     /** The towers, each one piece; the hull on their roofs, one; and the trees, each one. */
     public static List<Course.Piece> pieces() {
+        final List<Course.Piece> pieces = new ArrayList<>(buildings());
+        pieces.addAll(trees());
+        return pieces;
+    }
+
+    /**
+     * The towers, each one piece; the hull on their roofs, one; the pavilion on its deck and the melon stall under it:
+     * all that stands here but the trees round it, to stand on any ground ({@link MarinaBay}).
+     */
+    public static List<Course.Piece> buildings() {
         final List<Course.Piece> pieces = new ArrayList<>();
         for (int i = 0; i < TOWERS; i++) {
             pieces.add(tower(i, at(i)));
@@ -94,7 +104,6 @@ public final class TowerMap {
         // stool, loose on its floor
         pieces.add(Pavilions.piece(SkyPark.PAVILION, onDeck(LAID_OUT.pavilion(), 0)));
         pieces.addAll(STALL.things());
-        pieces.addAll(trees());
         return pieces;
     }
 

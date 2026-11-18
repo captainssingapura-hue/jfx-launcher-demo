@@ -17,7 +17,8 @@ class DemoTest {
 
     @Test
     void theTownFirstThenItsSiegeTheVillageTheWallTowerThePlaygroundAndTheTrackAlone() {
-        assertEquals(List.of(Demo.TOWN, Demo.SIEGE, Demo.VILLAGE, Demo.WALL_TOWER, Demo.PLAYGROUND, Demo.TRACK),
+        assertEquals(List.of(Demo.TOWN, Demo.SIEGE, Demo.VILLAGE, Demo.WALL_TOWER, Demo.MARINA_BAY, Demo.PLAYGROUND,
+                Demo.TRACK),
                 Demo.playable());
         for (final Demo demo : Demo.values()) {
             assertEquals(Demo.playable().contains(demo), demo.offered(), demo.title());

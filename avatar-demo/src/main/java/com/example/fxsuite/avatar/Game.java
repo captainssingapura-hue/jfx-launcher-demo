@@ -134,6 +134,7 @@ public final class Game {
         com.example.fxsuite.avatar.build.Town.tell();
         com.example.fxsuite.avatar.build.Village.tell();
         com.example.fxsuite.avatar.build.TowerMap.tell();
+        com.example.fxsuite.avatar.build.MarinaBay.tell();
     }
 
     private static final double FIELD_OF_VIEW = 48;

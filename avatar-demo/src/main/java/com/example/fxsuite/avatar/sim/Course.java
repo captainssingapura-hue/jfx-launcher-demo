@@ -1255,6 +1255,7 @@ public final class Course {
             case SIEGE -> siegeDemo(siege);
             case VILLAGE -> villageDemo();
             case WALL_TOWER -> towerDemo();
+            case MARINA_BAY -> bayDemo();
             case PLAYGROUND -> playground();
             case TRACK -> trackDemo();
             case PLATFORM -> platformDemo();
@@ -1373,6 +1374,36 @@ public final class Course {
         towerStart = start;
         towerPonds = ponds;
         towerPeople = people;
+    }
+
+    /** Marina Bay's demo: its land and its water, what stands on it, who is about, where the avatar starts. */
+    private void bayDemo() {
+        start = bayStart.get();
+        pieces.addAll(bay.get());
+        ponds.addAll(bayPonds.get());
+        ground.addAll(bayPeople.get());
+        land = bayLand.get();
+        grid = false;
+    }
+
+    /** What stands on Marina Bay, its water, where the avatar starts, its land, who is about: until told, nothing, level. */
+    private static java.util.function.Supplier<List<Piece>> bay = List::of;
+    private static java.util.function.Supplier<List<Pond>> bayPonds = List::of;
+    private static java.util.function.Supplier<Vec3> bayStart = () -> Vec3.ZERO;
+    private static java.util.function.Supplier<Land> bayLand = () -> Land.LEVEL;
+    private static java.util.function.Supplier<List<Cast>> bayPeople = List::of;
+
+    /** Says what stands on Marina Bay, where its water lies, where the avatar starts there, its land, and who is about. */
+    public static void bay(final java.util.function.Supplier<List<Piece>> what,
+                           final java.util.function.Supplier<List<Pond>> ponds,
+                           final java.util.function.Supplier<Vec3> start,
+                           final java.util.function.Supplier<Land> land,
+                           final java.util.function.Supplier<List<Cast>> people) {
+        bay = what;
+        bayPonds = ponds;
+        bayStart = start;
+        bayLand = land;
+        bayPeople = people;
     }
 
     /** Its land ({@link Land}): level, at 0, as it is everywhere but in open country. */
