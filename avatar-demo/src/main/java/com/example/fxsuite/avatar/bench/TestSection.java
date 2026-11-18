@@ -56,12 +56,20 @@ final class TestSection implements DrawnDemo {
     private final Roadworks works;
     /** What is stood on: the land's one feature. */
     private final Land.Layer footing;
+    /** Whether its pavements are things of their own, laid over the land and the decks, or in the land. */
+    private final boolean ownPavement;
 
     TestSection(final RoadScenes.Scene scene, final Section section, final Roadworks works) {
+        this(scene, section, works, true);
+    }
+
+    /** The same; {@code ownPavement}: its pavements things of their own ({@link Roadway#pavement}), or in the land. */
+    TestSection(final RoadScenes.Scene scene, final Section section, final Roadworks works, final boolean ownPavement) {
         this.scene = scene;
         this.section = section;
         this.works = works;
-        this.footing = works.land(SINK);
+        this.ownPavement = ownPavement;
+        this.footing = works.land(ownPavement ? Double.NaN : SINK);
     }
 
     @Override
@@ -71,7 +79,7 @@ final class TestSection implements DrawnDemo {
 
     @Override
     public String title() {
-        return "Test section · " + scene.name() + " · " + section.name();
+        return "Test section · " + scene.name() + " · " + section.name() + (ownPavement ? "" : " · pavement in the land");
     }
 
     @Override
@@ -102,8 +110,11 @@ final class TestSection implements DrawnDemo {
                 List.of(), List.of());
         final Land land = new Land(flat.survey(), List.of(footing));
         final List<Course.Piece> pieces = new ArrayList<>(parked());
-        pieces.addAll(Decks.pieces(works, KEYS));
+        pieces.addAll(Decks.pieces(works, KEYS, ownPavement));
         world.land(land).pieces(pieces).ruled(false).start(start());
+        if (ownPavement) {
+            world.ways(works.roads().stream().map(r -> (com.example.fxsuite.avatar.sim.Volume) r.pavement()).toList());
+        }
         if (scene.watered()) {
             world.ponds(List.of(new Pond(List.of(new Vec2(box[0], box[2]), new Vec2(box[1], box[2]),
                     new Vec2(box[1], box[3]), new Vec2(box[0], box[3])), scene.water())));
@@ -148,9 +159,18 @@ final class TestSection implements DrawnDemo {
         return new Vec3(at.x(), -stood(at), at.z());
     }
 
-    /** How high what is stood on at {@code at} is. */
+    /** How high what is stood on at {@code at} is: the land, or a pavement of its own over it. */
     private double stood(final Vec2 at) {
-        return footing.shape(at.x(), at.z(), 0);
+        double top = footing.shape(at.x(), at.z(), 0);
+        if (ownPavement) {
+            for (final Roadway road : works.roads()) {
+                final double paved = road.surface(at.x(), at.z());
+                if (!Double.isNaN(paved)) {
+                    top = Math.max(top, paved);
+                }
+            }
+        }
+        return top;
     }
 
     /** The middle of the leftmost lane across {@code section}; its line, if it has none. */

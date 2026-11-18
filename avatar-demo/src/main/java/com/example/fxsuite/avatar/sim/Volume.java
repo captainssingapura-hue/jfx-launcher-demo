@@ -14,7 +14,7 @@ package com.example.fxsuite.avatar.sim;
  * passage) and more than one underside over it (the passage's soffit, its own bottom): so each is
  * asked for, no higher (or no lower) than a height.
  */
-public sealed interface Volume permits Prism, Extrusion, Crossing, Lean, Interior {
+public sealed interface Volume permits Prism, Extrusion, Crossing, Lean, Interior, Pavement {
 
     /** What it takes up seen from above: a box square to the world, round all of it. */
     record Bounds(double minX, double maxX, double minZ, double maxZ) {
@@ -121,6 +121,7 @@ public sealed interface Volume permits Prism, Extrusion, Crossing, Lean, Interio
             case Crossing c -> new Crossing(c.parts().stream().map(p -> (Extrusion) placed(p, at, scale)).toList());
             case Lean l -> l.within(at, scale);
             case Interior i -> throw new IllegalArgumentException("a building's interior is placed as it is made");
+            case Pavement p -> throw new IllegalArgumentException("a pavement lies where its road is laid");
         };
     }
 

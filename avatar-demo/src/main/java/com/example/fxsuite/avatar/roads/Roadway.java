@@ -1,8 +1,10 @@
 package com.example.fxsuite.avatar.roads;
 
 import com.example.fxsuite.avatar.sim.Num;
+import com.example.fxsuite.avatar.sim.Pavement;
 import com.example.fxsuite.avatar.sim.Polyline;
 import com.example.fxsuite.avatar.sim.Vec2;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -467,6 +469,59 @@ public final class Roadway {
             return Double.NaN;
         }
         return top(near.segment(), near.t(), near.across());
+    }
+
+    /**
+     * Its pavement as a thing of its own ({@link Pavement}), over every carrier alike, the ground, a deck, a tunnel's
+     * floor: solid from its formation up to its surface across its paved strips.
+     */
+    public Pavement pavement() {
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        double low = Double.POSITIVE_INFINITY;
+        double high = Double.NEGATIVE_INFINITY;
+        final double wide = Math.max(section.pavedEdge(-1), section.pavedEdge(1));
+        final double deepest = section.paved().stream().mapToDouble(l -> l.strip().depth()).max().orElse(0);
+        for (int i = 0; i < points.size(); i++) {
+            final Vec2 p = points.get(i);
+            minX = Math.min(minX, p.x() - wide);
+            maxX = Math.max(maxX, p.x() + wide);
+            minZ = Math.min(minZ, p.z() - wide);
+            maxZ = Math.max(maxZ, p.z() + wide);
+            low = Math.min(low, levels[i] - wide - deepest);
+            high = Math.max(high, levels[i] + wide);
+        }
+        final Volume.Bounds bounds = new Volume.Bounds(minX, maxX, minZ, maxZ);
+        final double lowest = low;
+        final double highest = high;
+        return new Pavement(new Pavement.Laid() {
+            @Override
+            public double top(final double x, final double z) {
+                return surface(x, z);
+            }
+
+            @Override
+            public double underside(final double x, final double z) {
+                return formation(x, z);
+            }
+
+            @Override
+            public Volume.Bounds bounds() {
+                return bounds;
+            }
+
+            @Override
+            public double low() {
+                return lowest;
+            }
+
+            @Override
+            public double high() {
+                return highest;
+            }
+        });
     }
 
     /** How high its formation is at (x, z), under its pavement; not a number off it. */

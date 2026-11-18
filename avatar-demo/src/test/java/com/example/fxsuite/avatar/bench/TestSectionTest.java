@@ -28,9 +28,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TestSectionTest {
 
     private static TestSection section(final String name) {
+        return section(name, true);
+    }
+
+    private static TestSection section(final String name, final boolean ownPavement) {
         final RoadScenes.Scene scene = RoadScenes.all().get(name);
         final Section kind = Sections.standard().get(scene.section());
-        return new TestSection(scene, kind, Roadworks.design(scene.profile(), scene.roads().apply(kind)));
+        return new TestSection(scene, kind, Roadworks.design(scene.profile(), scene.roads().apply(kind)), ownPavement);
     }
 
     private static Roadworks works(final String name) {
@@ -56,20 +60,38 @@ class TestSectionTest {
             final Course.Piece car = cars.get(k);
             final double top = works.pavement(car.place().x(), car.place().z());
             assertFalse(Double.isNaN(top), "on the road's pavement");
-            assertEquals(top - TestSection.SINK + TestSection.VEHICLES.get(k).ride(), car.place().height(), 1e-6);
+            assertEquals(top + TestSection.VEHICLES.get(k).ride(), car.place().height(), 1e-6, "on its own pavement's top");
         }
     }
 
     @Test
-    void theRoadStoodOnWhereTheGroundCarriesIt() {
+    void theRoadStoodOnItsOwnPavementOverTheLandAtItsFormation() {
         final Roadworks works = works("hill");
         final Obstacles world = new Course(section("hill")).obstacles();
         final Roadway road = works.roads().getFirst();
         for (final int i : new int[] {30, 120, 200}) {
             final Vec2 p = road.at(i, -200);
             final double top = works.pavement(p.x(), p.z());
-            assertEquals(top - TestSection.SINK, world.footing(p.x(), p.z(), 30, top + 50).height(), 1e-6);
+            // the highest of it under a circle 30 cm round: a little over the middle's, on a grade and a crossfall
+            assertEquals(top, world.footing(p.x(), p.z(), 30, top + 50).height(), 5, "on the pavement");
+            assertEquals(road.formation(p.x(), p.z()), world.land().height(p.x(), p.z()), 1e-6, "the land at its formation");
+            // a body stood there a second: on it still
+            Body body = Body.standing(new Vec3(p.x(), -top, p.z()), 0);
+            for (int n = 0; n < 120; n++) {
+                body = body.step(Controls.NONE, Clock.STEP, world);
+            }
+            assertEquals(top, body.height(), 5, "standing on it still");
         }
+    }
+
+    @Test
+    void orThePavementInTheLandALittleUnderWhereItIsDrawn() {
+        final Roadworks works = works("hill");
+        final Obstacles world = new Course(section("hill", false)).obstacles();
+        final Roadway road = works.roads().getFirst();
+        final Vec2 p = road.at(120, -200);
+        final double top = works.pavement(p.x(), p.z());
+        assertEquals(top - TestSection.SINK, world.footing(p.x(), p.z(), 30, top + 50).height(), 1e-6);
     }
 
     @Test

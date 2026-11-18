@@ -42,6 +42,14 @@ public final class Decks {
 
     /** The structures {@code works}' roads are carried on, each one piece, its key from {@code keys} on, drawn so. */
     public static List<Course.Piece> pieces(final Roadworks works, final int keys) {
+        return pieces(works, keys, false);
+    }
+
+    /**
+     * The same; {@code paved}: the pavement a thing of its own laid over them ({@link Roadway#pavement}), so each deck's
+     * top is the formation, under it, not the pavement's top.
+     */
+    public static List<Course.Piece> pieces(final Roadworks works, final int keys, final boolean paved) {
         final List<List<Solid>> drawn = new ArrayList<>();
         Sites.register(keys, keys + KEYS, k -> k < drawn.size() ? drawn.get(k) : List.of());
         final Ground ground = works.ground();
@@ -50,7 +58,7 @@ public final class Decks {
             for (final Roadway.Structure s : road.structures()) {
                 if (s.stretch().carrier() == Carrier.STRUCTURE && pieces.size() < KEYS) {
                     final List<Solid> solids = new ArrayList<>();
-                    pieces.add(piece(road, s, ground, keys + pieces.size(), solids));
+                    pieces.add(piece(road, s, ground, keys + pieces.size(), solids, paved));
                     drawn.add(solids);
                 }
             }
@@ -59,7 +67,7 @@ public final class Decks {
     }
 
     private static Course.Piece piece(final Roadway road, final Roadway.Structure s, final Ground ground, final int key,
-                                      final List<Solid> solids) {
+                                      final List<Solid> solids, final boolean ownPavement) {
         final List<Lean> parts = new ArrayList<>();
         final Section section = road.section();
         // what is drawn of each part: as it is, but the deck, drawn down from the formation, under the pavement
@@ -78,7 +86,8 @@ public final class Decks {
             final double reach = len / 2 + COLUMN / 2;
             final double mx = (a.x() + b.x()) / 2;
             final double mz = (a.z() + b.z()) / 2;
-            final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, top - Roadway.DECK, top);
+            final double deckTop = ownPavement ? top - paved : top;
+            final Lean deck = new Lean(mx, mz, yaw, -reach, reach, west, east, west, east, top - Roadway.DECK, deckTop);
             parts.add(deck);
             decks.put(deck, top - paved);
             parts.add(new Lean(mx, mz, yaw, -reach, reach, west - t, west, west - t, west, top - Roadway.DECK,

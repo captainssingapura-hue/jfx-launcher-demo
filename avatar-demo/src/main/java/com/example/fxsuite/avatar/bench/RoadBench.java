@@ -64,7 +64,8 @@ import java.util.Map;
  * {@code -Droads.road=1} which of its roads is looked at; {@code -Droads.at=250} the point looked at, in metres along;
  * {@code -Droads.cut=true} cuts it away there; {@code -Droads.built=true} shows the ground as built;
  * {@code -Droads.yaw}, {@code -Droads.pitch}, {@code -Droads.distance} (m) where it is seen from.
- * {@code -Droads.drive=true} opens the scene to drive in at once.
+ * {@code -Droads.drive=true} opens the scene to drive in at once. {@code -Droads.inland=true} drives on the pavement in
+ * the land, not as a thing of its own.
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
 public final class RoadBench extends Application {
@@ -91,6 +92,7 @@ public final class RoadBench extends Application {
     private final Label figures = new Label();
     private final Label problems = new Label();
     private final Button drive = new Button("Drive");
+    private final CheckBox ownPavement = new CheckBox("Own pavement");
 
     private final Canvas along = new Canvas(800, 220);
     private final Canvas across = new Canvas(520, 220);
@@ -188,6 +190,9 @@ public final class RoadBench extends Application {
 
         drive.setOnAction(e -> drive());
         drive.setStyle("-fx-font-weight: bold;");
+        ownPavement.setSelected(!Boolean.getBoolean("roads.inland"));
+        ownPavement.setTooltip(new javafx.scene.control.Tooltip(
+                "Driving on: each pavement a thing of its own over the land and the decks; or, unticked, in the land"));
         final Button apply = new Button("Apply");
         apply.setOnAction(e -> applyText());
         final Button reset = new Button("Standard");
@@ -214,7 +219,7 @@ public final class RoadBench extends Application {
 
         final HBox bar = new HBox(8, new Label("Scene"), sceneBox, new Label("Kind"), sectionBox, new Label("Road"),
                 roadBox, showGround, showEarthworks, asBuilt, showPavement, showMarkings, showStructures, showWater,
-                cutAway, new Label("Heights ×"), taller, drive);
+                cutAway, new Label("Heights ×"), taller, drive, ownPavement);
         bar.setPadding(new Insets(6, 8, 6, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
         final HBox atBar = new HBox(8, new Label("Along (m)"), atSlider);
@@ -263,7 +268,7 @@ public final class RoadBench extends Application {
             return;
         }
         final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
-        final TestSection demo = new TestSection(scene, section, works);
+        final TestSection demo = new TestSection(scene, section, works, ownPavement.isSelected());
         final Stage window = new Stage();
         final Game game = new Game(window, demo, () -> Platform.runLater(window::close), other -> { });
         window.setOnHidden(e -> game.stop());

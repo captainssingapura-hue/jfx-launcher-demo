@@ -192,6 +192,8 @@ public final class Roadworks {
      * under a road's pavement where the ground carries it, the pavement's top, {@code sink} lower: what is stood and
      * driven on, until the pavement is a surface of its own. The ground's covers as theirs: bare earth, gravel; the
      * pavement as asphalt, or gravel where its top is. Under a structure, the ground: the structure stands on it.
+     * {@code sink} not a number: the pavement not in the land, a thing of its own ({@link Roadway#pavement}), the land
+     * under it its formation.
      */
     public Land.Layer land(final double sink) {
         final Ground ground = ground();
@@ -216,7 +218,7 @@ public final class Roadworks {
         return new Land.Layer() {
             @Override
             public double shape(final double x, final double z, final double under) {
-                final double top = pavement(x, z);
+                final double top = Double.isNaN(sink) ? Double.NaN : pavement(x, z);
                 return Double.isNaN(top) ? ground.at(x, z).height() : top - sink;
             }
 

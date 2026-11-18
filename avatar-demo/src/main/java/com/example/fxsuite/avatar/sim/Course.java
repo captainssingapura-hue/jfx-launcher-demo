@@ -1228,6 +1228,8 @@ public final class Course {
     private boolean grid = true;
     /** Its land: level, but where it is laid out otherwise. */
     private Land land = Land.LEVEL;
+    /** What is laid in it as the ground is, no piece of it, never broken: its roads' pavements ({@link Pavement}). */
+    private final List<Volume> ways = new ArrayList<>();
 
     /** The playground: everything at once. */
     public Course() {
@@ -1292,6 +1294,12 @@ public final class Course {
         /** Its land is {@code land}. */
         public Layout land(final Land land) {
             Course.this.land = land;
+            return this;
+        }
+
+        /** {@code these} laid in it as the ground is: a piece of none, never broken; what hits them hits the ground. */
+        public Layout ways(final List<Volume> these) {
+            ways.addAll(these);
             return this;
         }
 
@@ -2039,6 +2047,11 @@ public final class Course {
                 volumes.add(volume);
                 each.add(i);
             }
+        }
+        // and the ways laid in it, a piece of none, as the ground is
+        for (final Volume way : ways) {
+            volumes.add(way);
+            each.add(-1);
         }
         return new Obstacles(blocks, gates, numbers, volumes, each, land);
     }

@@ -219,7 +219,7 @@ public record Sky(double time, List<Bomb> bombs, long dropped, Map<Integer, Actu
         final Set<Integer> reached = new HashSet<>();
         for (int i = 0; i < world.blocks().size(); i++) {
             final int piece = world.pieces().get(i);
-            if (reached.contains(piece) || !damage.piece(piece).kind().breakable() || damage.broken(piece)) {
+            if (piece < 0 || reached.contains(piece) || !damage.piece(piece).kind().breakable() || damage.broken(piece)) {
                 continue;
             }
             final Block block = world.blocks().get(i);
