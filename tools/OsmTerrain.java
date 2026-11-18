@@ -45,10 +45,13 @@ public final class OsmTerrain {
 
     public static void main(final String[] args) throws Exception {
         final Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new File(args[0]));
-        final double x0 = args.length > 1 ? Double.parseDouble(args[1]) : -2_400;
-        final double x1 = args.length > 2 ? Double.parseDouble(args[2]) : 2_400;
-        final double z0 = args.length > 3 ? Double.parseDouble(args[3]) : -2_000;
-        final double z1 = args.length > 4 ? Double.parseDouble(args[4]) : 1_800;
+        // a second extract, the roads', if given
+        final String roads = args.length > 1 && args[1].endsWith(".osm") ? args[1] : null;
+        final int from = roads == null ? 1 : 2;
+        final double x0 = args.length > from ? Double.parseDouble(args[from]) : -2_400;
+        final double x1 = args.length > from + 1 ? Double.parseDouble(args[from + 1]) : 2_400;
+        final double z0 = args.length > from + 2 ? Double.parseDouble(args[from + 2]) : -2_000;
+        final double z1 = args.length > from + 3 ? Double.parseDouble(args[from + 3]) : 1_800;
         // the raw ways and relations, their points as latitude and longitude
         final List<Element> ways = elements(doc, "way");
         final List<Element> relations = elements(doc, "relation");
@@ -162,6 +165,266 @@ public final class OsmTerrain {
         }
         System.out.print(out);
         System.out.print(notes);
+        if (roads != null) {
+            System.out.println("=== roads");
+            System.out.print(roads(DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new File(roads)),
+                    x0, x1, z0, z1));
+        }
+    }
+
+    // --- the roads ------------------------------------------------------------------------------------------------
+
+    /** The classes of road kept: what is driven on. */
+    private static final List<String> CLASSES = List.of("motorway", "trunk", "primary", "secondary", "tertiary",
+            "unclassified", "residential", "motorway_link", "trunk_link", "primary_link", "secondary_link",
+            "tertiary_link");
+    /** How near a road's line its simplified line keeps. */
+    private static final double ROAD_SIMPLIFY = 1;
+
+    /** A point of a road: the map's node it is, where it is. */
+    record N(long ref, P at) {
+    }
+
+    /** A stretch of road: its points, and between each two, its kind and whether a bridge; what it joins with. */
+    record Piece(String key, String name, List<N> points, List<String> kinds, List<Boolean> bridges) {
+    }
+
+    /**
+     * The roads, as the avatar demo's road map's text ({@code RoadMap.parse}): their kinds, by class and lanes; their
+     * junctions, every point two roads share, named; each road its stretches joined end to end where it carries on
+     * under the same name the same way, its bridges sections of it, its tunnels left out; cut to the world.
+     */
+    private static String roads(final Document doc, final double x0, final double x1, final double z0, final double z1) {
+        final List<Piece> pieces = new ArrayList<>();
+        final Map<String, double[]> kinds = new LinkedHashMap<>();
+        for (final Element w : elements(doc, "way")) {
+            final Map<String, String> tags = tags(w);
+            final String cls = tags.get("highway");
+            if (cls == null || !CLASSES.contains(cls) || "yes".equals(tags.get("tunnel"))) {
+                continue;
+            }
+            final boolean oneway = "yes".equals(tags.get("oneway")) || "-1".equals(tags.get("oneway"))
+                    || cls.equals("motorway") || cls.endsWith("_link") && !"no".equals(tags.get("oneway"));
+            int lanes = 0;
+            try {
+                lanes = Integer.parseInt(tags.getOrDefault("lanes", "0").trim());
+            } catch (final NumberFormatException e) {
+                lanes = 0;
+            }
+            if (lanes <= 0) {
+                lanes = cls.startsWith("motorway") || cls.startsWith("trunk") ? 3 : cls.endsWith("_link") ? 1
+                        : cls.equals("residential") || cls.equals("unclassified") ? (oneway ? 1 : 2) : (oneway ? 2 : 4);
+            }
+            final String kind = cls.replace("_link", "-link") + "-" + lanes;
+            final double lane = cls.startsWith("motorway") || cls.startsWith("trunk") ? 3.65 : 3.5;
+            kinds.putIfAbsent(kind, new double[] {lanes, lane, cls.startsWith("motorway") || cls.startsWith("trunk") ? 1 : 0});
+            final List<N> points = new ArrayList<>();
+            final NodeList list = w.getChildNodes();
+            for (int k = 0; k < list.getLength(); k++) {
+                if (list.item(k) instanceof Element nd && nd.getTagName().equals("nd") && nd.hasAttribute("lat")) {
+                    final List<P> p = project(new double[][] {{Double.parseDouble(nd.getAttribute("lat")),
+                            Double.parseDouble(nd.getAttribute("lon"))}});
+                    points.add(new N(Long.parseLong(nd.getAttribute("ref")), p.getFirst()));
+                }
+            }
+            if ("-1".equals(tags.get("oneway"))) {
+                java.util.Collections.reverse(points);
+            }
+            final boolean bridge = "yes".equals(tags.get("bridge")) || "viaduct".equals(tags.get("bridge"));
+            final String name = tags.getOrDefault("name", "");
+            final String key = (name.isEmpty() ? cls : name) + (oneway ? " one way" : "");
+            // cut to the world: each run of it within it, a piece of its own
+            List<N> run = new ArrayList<>();
+            for (final N n : points) {
+                if (n.at().x() > x0 && n.at().x() < x1 && n.at().z() > z0 && n.at().z() < z1) {
+                    run.add(n);
+                } else {
+                    if (run.size() >= 2) {
+                        pieces.add(piece(key, name, run, kind, bridge));
+                    }
+                    run = new ArrayList<>();
+                }
+            }
+            if (run.size() >= 2) {
+                pieces.add(piece(key, name, run, kind, bridge));
+            }
+        }
+        // joined end to end where exactly two of a name and a way meet, and nothing else of theirs does
+        final List<Piece> roads = joined(pieces);
+        // the junctions: every point two roads share, or one twice
+        final Map<Long, Integer> uses = new HashMap<>();
+        for (final Piece r : roads) {
+            final java.util.Set<Long> once = new java.util.HashSet<>();
+            for (final N n : r.points()) {
+                if (!once.add(n.ref())) {
+                    uses.merge(n.ref(), 1, Integer::sum);
+                }
+            }
+            for (final long ref : once) {
+                uses.merge(ref, 1, Integer::sum);
+            }
+        }
+        final StringBuilder out = new StringBuilder();
+        for (final Map.Entry<String, double[]> k : kinds.entrySet()) {
+            final double[] v = k.getValue();
+            final int lanes = (int) v[0];
+            final double width = lanes * v[1] + 1 + v[2];
+            final boolean major = k.getKey().startsWith("motorway") || k.getKey().startsWith("trunk")
+                    || k.getKey().startsWith("primary");
+            out.append(String.format(Locale.ROOT,
+                    "kind %s width=%.2fm surface=asphalt grade=8%% curve=1/8m corners slope=1:2 camber=2%% transition=%dm"
+                            + " vertical=30m lanes=%dx%.2fm inner=0.5m%n",
+                    k.getKey(), width, major ? 12 : 6, lanes, v[1]));
+        }
+        final java.util.Set<Long> nodes = new java.util.TreeSet<>();
+        for (final Piece r : roads) {
+            for (final N n : r.points()) {
+                if (uses.getOrDefault(n.ref(), 0) >= 2) {
+                    nodes.add(n.ref());
+                }
+            }
+        }
+        final Map<Long, P> where = new HashMap<>();
+        for (final Piece r : roads) {
+            for (final N n : r.points()) {
+                where.put(n.ref(), n.at());
+            }
+        }
+        for (final long ref : nodes) {
+            out.append(String.format(Locale.ROOT, "node n%d at=%.1f,%.1f%n", ref, where.get(ref).x(), where.get(ref).z()));
+        }
+        final Map<String, Integer> named = new HashMap<>();
+        for (final Piece r : roads) {
+            final int k = named.merge(r.key(), 1, Integer::sum);
+            final String title = (r.name().isEmpty() ? r.key() : r.key()) + (k > 1 ? " " + k : "");
+            final List<Integer> kept = keptPoints(r, nodes);
+            out.append("road \"").append(title.replace("\"", "'")).append("\" kind=").append(r.kinds().getFirst())
+                    .append('\n');
+            String kind = r.kinds().getFirst();
+            boolean bridge = false;
+            for (int i = 0; i < kept.size(); i++) {
+                final N n = r.points().get(kept.get(i));
+                final String at = nodes.contains(n.ref()) ? "n" + n.ref()
+                        : String.format(Locale.ROOT, "%.1f,%.1f", n.at().x(), n.at().z());
+                if (i == 0) {
+                    out.append(nodes.contains(n.ref()) ? "  from " : "  at ").append(at).append('\n');
+                    continue;
+                }
+                // the segment this closes: what the stretch before this point was
+                final int seg = kept.get(i) - 1;
+                final StringBuilder line = new StringBuilder("  to ").append(at);
+                if (!r.kinds().get(seg).equals(kind)) {
+                    kind = r.kinds().get(seg);
+                    line.append(" kind=").append(kind);
+                }
+                if (r.bridges().get(seg) != bridge) {
+                    bridge = r.bridges().get(seg);
+                    line.append(bridge ? " bridge" : " ground");
+                }
+                out.append(line).append('\n');
+            }
+        }
+        return out.toString();
+    }
+
+    private static Piece piece(final String key, final String name, final List<N> points, final String kind,
+                               final boolean bridge) {
+        final List<String> kinds = new ArrayList<>();
+        final List<Boolean> bridges = new ArrayList<>();
+        for (int k = 0; k + 1 < points.size(); k++) {
+            kinds.add(kind);
+            bridges.add(bridge);
+        }
+        return new Piece(key, name, new ArrayList<>(points), kinds, bridges);
+    }
+
+    /** Pieces of one key joined where one ends at a node another of that key begins at, and no other of it meets there. */
+    private static List<Piece> joined(final List<Piece> pieces) {
+        final List<Piece> left = new ArrayList<>(pieces);
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            final Map<String, List<Integer>> starts = new HashMap<>();
+            final Map<String, List<Integer>> ends = new HashMap<>();
+            for (int k = 0; k < left.size(); k++) {
+                final Piece p = left.get(k);
+                starts.computeIfAbsent(p.key() + "@" + p.points().getFirst().ref(), x -> new ArrayList<>()).add(k);
+                ends.computeIfAbsent(p.key() + "@" + p.points().getLast().ref(), x -> new ArrayList<>()).add(k);
+            }
+            for (int k = 0; k < left.size() && !grew; k++) {
+                final Piece a = left.get(k);
+                final String at = a.key() + "@" + a.points().getLast().ref();
+                final List<Integer> next = starts.getOrDefault(at, List.of());
+                if (next.size() != 1 || ends.get(at).size() != 1 || next.getFirst() == k) {
+                    continue;
+                }
+                final Piece b = left.get(next.getFirst());
+                final List<N> points = new ArrayList<>(a.points());
+                points.addAll(b.points().subList(1, b.points().size()));
+                final List<String> kinds = new ArrayList<>(a.kinds());
+                kinds.addAll(b.kinds());
+                final List<Boolean> bridges = new ArrayList<>(a.bridges());
+                bridges.addAll(b.bridges());
+                final Piece both = new Piece(a.key(), a.name(), points, kinds, bridges);
+                final int bi = next.getFirst();
+                left.set(k, both);
+                left.remove(bi);
+                grew = true;
+            }
+        }
+        return left;
+    }
+
+    /**
+     * Which of a road's points are kept: its ends, its junctions, where its kind or whether a bridge changes; and
+     * between those, only as many as keep its line within {@link #ROAD_SIMPLIFY} of what it was.
+     */
+    private static List<Integer> keptPoints(final Piece r, final java.util.Set<Long> nodes) {
+        final int n = r.points().size();
+        final boolean[] keep = new boolean[n];
+        keep[0] = true;
+        keep[n - 1] = true;
+        for (int k = 1; k < n - 1; k++) {
+            keep[k] = nodes.contains(r.points().get(k).ref()) || !r.kinds().get(k - 1).equals(r.kinds().get(k))
+                    || !r.bridges().get(k - 1).equals(r.bridges().get(k));
+        }
+        final List<P> line = r.points().stream().map(N::at).toList();
+        int a = 0;
+        for (int b = 1; b < n; b++) {
+            if (keep[b]) {
+                roadSimplify(line, a, b, keep);
+                a = b;
+            }
+        }
+        final List<Integer> kept = new ArrayList<>();
+        for (int k = 0; k < n; k++) {
+            if (keep[k]) {
+                kept.add(k);
+            }
+        }
+        return kept;
+    }
+
+    private static void roadSimplify(final List<P> line, final int a, final int b, final boolean[] keep) {
+        double most = 0;
+        int at = -1;
+        final P p = line.get(a);
+        final P q = line.get(b);
+        final double len = Math.hypot(q.x() - p.x(), q.z() - p.z());
+        for (int k = a + 1; k < b; k++) {
+            final P r = line.get(k);
+            final double d = len < 1e-9 ? Math.hypot(r.x() - p.x(), r.z() - p.z())
+                    : Math.abs((q.x() - p.x()) * (p.z() - r.z()) - (p.x() - r.x()) * (q.z() - p.z())) / len;
+            if (d > most) {
+                most = d;
+                at = k;
+            }
+        }
+        if (at >= 0 && most > ROAD_SIMPLIFY) {
+            keep[at] = true;
+            roadSimplify(line, a, at, keep);
+            roadSimplify(line, at, b, keep);
+        }
     }
 
     // --- reading -----------------------------------------------------------------------------------------------

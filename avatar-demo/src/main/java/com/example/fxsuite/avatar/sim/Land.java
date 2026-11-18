@@ -52,6 +52,13 @@ public final class Land {
     /** How much of {@code cover} there is on the ground at ({@code x}, {@code z}), by whichever of its features lays most. */
     public double cover(final Cover cover, final double x, final double z) {
         double most = 0;
+        final int[] near = index == null ? null : index.at(x, z);
+        if (near != null) {
+            for (final int k : near) {
+                most = Math.max(most, layers.get(k).cover(cover, x, z));
+            }
+            return most;
+        }
         for (final Layer layer : layers) {
             most = Math.max(most, layer.cover(cover, x, z));
         }
@@ -60,25 +67,90 @@ public final class Land {
 
     /** The same land, {@code more} laid over it after its own features. */
     public Land with(final Layer more) {
-        final List<Layer> all = new java.util.ArrayList<>(layers);
-        all.add(more);
-        return new Land(base, all);
+        return with(List.of(more));
     }
 
     /** The same land, {@code more} laid over it in turn after its own features. */
     public Land with(final List<? extends Layer> more) {
         final List<Layer> all = new java.util.ArrayList<>(layers);
         all.addAll(more);
-        return new Land(base, all);
+        if (index == null) {
+            return new Land(base, all);
+        }
+        // its index as it was, each one more filed in the cells it touches
+        Index grown = index;
+        for (int k = layers.size(); k < all.size(); k++) {
+            grown = grown.plus(k, all.get(k));
+        }
+        return new Land(base, List.copyOf(all), grown);
     }
 
     private final Survey base;
     private final List<Layer> layers;
+    /** Which of its features touch each cell of its survey's ground, in order: null, unsurveyed. */
+    private final Index index;
 
     /** The land surveyed as {@code base} (null for level ground, at 0), {@code layers} laid over it in turn. */
     public Land(final Survey base, final List<Layer> layers) {
+        this(base, List.copyOf(layers), base == null ? null : Index.of(base, layers));
+    }
+
+    private Land(final Survey base, final List<Layer> layers, final Index index) {
         this.base = base;
-        this.layers = List.copyOf(layers);
+        this.layers = layers;
+        this.index = index;
+    }
+
+    /**
+     * Which of its features touch each square of its ground, {@link #CELL} across, by their places among them, in
+     * order: so what is asked of the land at a point is asked only of the features that may change it there, however
+     * many it has (a city's roads). Its cells' lists shared from one land to the next laid over it, each changed only
+     * where the one laid over touches.
+     */
+    private record Index(double x0, double z0, int across, int along, int[][] cells) {
+
+        static final double CELL = 10_000;
+        private static final int[] NONE = new int[0];
+
+        static Index of(final Survey base, final List<Layer> layers) {
+            final double x0 = base.x(0);
+            final double z0 = base.z(0);
+            final int across = Math.max(1, (int) Math.ceil((base.x(base.across() - 1) - x0) / CELL));
+            final int along = Math.max(1, (int) Math.ceil((base.z(base.along() - 1) - z0) / CELL));
+            final int[][] cells = new int[across * along][];
+            java.util.Arrays.fill(cells, NONE);
+            Index index = new Index(x0, z0, across, along, cells);
+            for (int k = 0; k < layers.size(); k++) {
+                index = index.plus(k, layers.get(k));
+            }
+            return index;
+        }
+
+        /** The same, feature {@code k}, {@code layer}, filed in each cell it touches, after those there. */
+        Index plus(final int k, final Layer layer) {
+            final int[][] grown = cells.clone();
+            for (int j = 0; j < along; j++) {
+                for (int i = 0; i < across; i++) {
+                    if (layer.touches(x0 + i * CELL, z0 + j * CELL, x0 + (i + 1) * CELL, z0 + (j + 1) * CELL)) {
+                        final int[] was = grown[j * across + i];
+                        final int[] now = java.util.Arrays.copyOf(was, was.length + 1);
+                        now[was.length] = k;
+                        grown[j * across + i] = now;
+                    }
+                }
+            }
+            return new Index(x0, z0, across, along, grown);
+        }
+
+        /** The features that may change the ground at ({@code x}, {@code z}), in order; null off its ground. */
+        int[] at(final double x, final double z) {
+            final double fi = (x - x0) / CELL;
+            final double fj = (z - z0) / CELL;
+            if (fi < 0 || fj < 0 || fi >= across || fj >= along) {
+                return null;
+            }
+            return cells[(int) fj * across + (int) fi];
+        }
     }
 
     /** Whether it is level ground, at 0, everywhere. */
@@ -111,6 +183,13 @@ public final class Land {
     /** The ground's height at ({@code x}, {@code z}). */
     public double height(final double x, final double z) {
         double height = base == null ? 0 : base.height(x, z);
+        final int[] near = index == null ? null : index.at(x, z);
+        if (near != null) {
+            for (final int k : near) {
+                height = layers.get(k).shape(x, z, height);
+            }
+            return height;
+        }
         for (final Layer layer : layers) {
             height = layer.shape(x, z, height);
         }

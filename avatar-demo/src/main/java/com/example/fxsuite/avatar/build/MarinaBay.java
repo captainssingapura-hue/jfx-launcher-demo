@@ -1,9 +1,12 @@
 package com.example.fxsuite.avatar.build;
 
+import com.example.fxsuite.avatar.sim.Alignment;
 import com.example.fxsuite.avatar.sim.Basin;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Pond;
+import com.example.fxsuite.avatar.sim.Road;
+import com.example.fxsuite.avatar.sim.RoadMap;
 import com.example.fxsuite.avatar.sim.Terrain;
 import com.example.fxsuite.avatar.sim.Vec2;
 import com.example.fxsuite.avatar.sim.Vec3;
@@ -16,7 +19,8 @@ import java.util.List;
  * land, level; its sea, and the bay, its channel and the river's mouth behind the barrage, one water, walled by a steep
  * bank; the larger lakes of its gardens, shallow. In metres from the middle tower, turned so the real towers' long
  * side runs along z, as the wall towers' does. The towers, their hull and its park stand on it as on their own
- * ground ({@link TowerMap}); its roads and its buildings are yet to come.
+ * ground ({@link TowerMap}); its roads laid over it ({@link MarinaBayRoads}), their bridges sections of them, left open;
+ * its buildings are yet to come.
  *
  * <p>Its lines ({@link #LINES}) are worked out from OpenStreetMap by {@code tools/OsmTerrain.java}, simplified to
  * within 2 m: map data (c) OpenStreetMap contributors, available under the Open Database License (ODbL). They are a
@@ -117,6 +121,7 @@ public final class MarinaBay {
     public static final Vec3 START = new Vec3(-80_000, 0, 5_000);
 
     private static Land land;
+    private static List<Road> roads;
     private static List<List<Vec2>> lakes;
     private static double[] world;
 
@@ -179,9 +184,19 @@ public final class MarinaBay {
                     maxX + LAKE_BANK, minZ - LAKE_BANK, maxZ + LAKE_BANK);
             final Terrain flat = new Terrain("marina bay", w[0], w[2], w[1], w[3], 1_000, 0, 11, Terrain.Noise.NONE,
                     List.of(), List.of());
-            land = new Land(flat.survey(), List.of(sea, lake));
+            final Land ground = new Land(flat.survey(), List.of(sea, lake));
+            // its roads laid over it, in turn, each meeting those before at their junctions; their bridges carried
+            // over, left open
+            roads = RoadMap.parse(MarinaBayRoads.text()).laid(ground, Alignment.STEP);
+            land = ground.with(roads);
         }
         return land;
+    }
+
+    /** Its roads, as laid on its land ({@link MarinaBayRoads}). */
+    public static synchronized List<Road> roads() {
+        land();
+        return roads;
     }
 
     /** Its lakes' shores, closed. */

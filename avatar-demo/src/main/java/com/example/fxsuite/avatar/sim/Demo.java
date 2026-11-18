@@ -47,10 +47,12 @@ public enum Demo {
             90, true),
     /**
      * Marina Bay, as it lies, round the wall towers: its land, its sea, the bay, its channel and the river's mouth
-     * behind the barrage, the gardens' lakes; worked out from OpenStreetMap. Its roads and buildings yet to come.
+     * behind the barrage, the gardens' lakes; its roads, their bridges left open; worked out from OpenStreetMap. Its
+     * buildings yet to come.
      */
     MARINA_BAY("Marina Bay", "The bay as it lies, round the three towers and the park on their roofs: its land, its sea,"
-            + " the bay and the river's mouth behind the barrage, the gardens' lakes. Roads and buildings to come.",
+            + " the bay and the river's mouth behind the barrage, the gardens' lakes, its roads, their bridges open. Buildings to"
+            + " come.",
             90, true),
     /** Everything else at once: the course, the range, the airships going round, the platforms and the stall. */
     PLAYGROUND("Playground", "The course, the targets, the bombers, the stall, the flyovers, the vehicles,"

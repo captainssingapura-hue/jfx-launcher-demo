@@ -83,4 +83,50 @@ class MarinaBayTest {
         assertEquals(TowerMap.people().size(), course.ground().size());
         assertTrue(course.ponds().size() > 5);
     }
+
+    @Test
+    void itsRoadsLaidMeetingAtTheirJunctionsTheirBridgesLeftOpen() {
+        final List<com.example.fxsuite.avatar.sim.Road> roads = MarinaBay.roads();
+        assertTrue(roads.size() > 400, "hundreds of roads: " + roads.size());
+        // its main roads among them, by name
+        for (final String name : List.of("Bayfront Avenue", "Sheares Avenue", "Marina Boulevard", "Raffles Avenue",
+                "Nicoll Highway")) {
+            assertTrue(roads.stream().anyMatch(r -> r.name().startsWith(name)), name);
+        }
+        // on the land: a road's surface as high as the land there, near its own level
+        final com.example.fxsuite.avatar.sim.Road bayfront = roads.stream()
+                .filter(r -> r.name().startsWith("Bayfront Avenue")).findFirst().orElseThrow();
+        final com.example.fxsuite.avatar.sim.Vec2 on = bayfront.line().get(bayfront.line().size() / 2);
+        assertEquals(bayfront.level(on.x(), on.z()), LAND.height(on.x(), on.z()), 5, "its surface the land's there");
+        // its bridges: sections of their roads, nothing built on them, the water under them open
+        int bridged = 0;
+        int open = 0;
+        for (final com.example.fxsuite.avatar.sim.Road r : roads) {
+            for (int i = 0; i + 1 < r.line().size(); i++) {
+                if (r.bridged(i) && r.bridged(i + 1)) {
+                    bridged++;
+                    final com.example.fxsuite.avatar.sim.Vec2 p = r.line().get(i);
+                    if (LAND.height(p.x(), p.z()) < MarinaBay.SEA) {
+                        open++;
+                    }
+                }
+            }
+        }
+        assertTrue(bridged > 100, "bridges, as sections of their roads: " + bridged);
+        assertTrue(open > 20, "over the water, nothing built, the water under them open: " + open);
+        // where two roads meet, as high as each other
+        final com.example.fxsuite.avatar.sim.RoadMap map = com.example.fxsuite.avatar.sim.RoadMap.parse(MarinaBayRoads.text());
+        assertTrue(map.nodes().size() > 500, "their junctions");
+        for (final com.example.fxsuite.avatar.sim.RoadMap.Node node : map.nodes().subList(0, 50)) {
+            final List<Double> levels = new java.util.ArrayList<>();
+            for (final com.example.fxsuite.avatar.sim.Road r : roads) {
+                if (r.line().stream().anyMatch(p -> Math.hypot(p.x() - node.at().x(), p.z() - node.at().z()) < 1)) {
+                    levels.add(r.level(node.at().x(), node.at().z()));
+                }
+            }
+            for (final double level : levels) {
+                assertEquals(levels.getFirst(), level, 2, "the roads at " + node.name() + " meeting");
+            }
+        }
+    }
 }

@@ -347,7 +347,7 @@ with an exit off it, over a bridge into a small village of earth houses round a 
 towers**: three towers borne by walls, end to end along a slight curve, trees scattered round them for
 kilometres, every room of each entered by the jet-pack, a balcony at a time (`TowerMap`). Then **Marina Bay**: the
 same towers on the bay as it lies, its land, sea, bay, river mouth and lakes worked out from OpenStreetMap (`MarinaBay`;
-map data © OpenStreetMap contributors, ODbL), its roads and buildings to come. Then the **playground**, the rest at once (the course, its targets and the bombers,
+map data © OpenStreetMap contributors, ODbL), and its roads, its bridges left open; its buildings to come. Then the **playground**, the rest at once (the course, its targets and the bombers,
 the flyovers, the vehicles, the bunker, a gun on each pillar, an airship to fly and a gunship to fly);
 and the **track**, a NASCAR-style oval to take every land vehicle round flat out, the one thing too big
 for either. Click one or press its number. In a demo, the menu bar along the top has them too (Demo):
