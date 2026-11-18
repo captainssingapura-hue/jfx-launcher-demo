@@ -83,6 +83,15 @@ public final class Sections {
 
     /** The kinds {@code text} describes, by name, in its order. Throws, saying which line and why, if it cannot be read. */
     public static Map<String, Section> parse(final String text) {
+        return read(text).sections();
+    }
+
+    /** Courses by name and kinds by name, each in the order written: what a text of kinds says. */
+    public record Catalogue(Map<String, List<Course>> courses, Map<String, Section> sections) {
+    }
+
+    /** What {@code text} says: its courses and its kinds. Throws, saying which line and why, if it cannot be read. */
+    public static Catalogue read(final String text) {
         final Map<String, List<Course>> courses = new LinkedHashMap<>();
         final Map<String, Section> sections = new LinkedHashMap<>();
         Building building = null;
@@ -132,7 +141,7 @@ public final class Sections {
         if (sections.isEmpty()) {
             throw new IllegalArgumentException("no sections");
         }
-        return sections;
+        return new Catalogue(courses, sections);
     }
 
     /** The standard kinds. */
@@ -154,6 +163,95 @@ public final class Sections {
         boolean lined;
         final List<Strip> left = new ArrayList<>();
         final List<Strip> right = new ArrayList<>();
+    }
+
+
+    /**
+     * {@code catalogue} written as text, as {@link #read} reads it: its courses, then each kind, its strips from its
+     * left edge to its right, its line among them. A strip's courses by the name of courses written the same; any
+     * not among them written under a name of their own.
+     */
+    public static String write(final Catalogue catalogue) {
+        final Map<String, List<Course>> courses = new LinkedHashMap<>(catalogue.courses());
+        for (final Section s : catalogue.sections().values()) {
+            for (final Section.Laid l : s.laid()) {
+                if (l.strip().paved() && name(courses, l.strip().courses()) == null) {
+                    courses.put(l.strip().use().written() + (courses.size() + 1), l.strip().courses());
+                }
+            }
+        }
+        final StringBuilder out = new StringBuilder(
+                "# what the paved strips are built of, top down; a ground strip names its cover: grass, earth, gravel\n");
+        courses.forEach((name, list) -> {
+            out.append("courses ").append(name).append(':');
+            for (int k = 0; k < list.size(); k++) {
+                out.append(k == 0 ? " " : ", ").append(list.get(k).stuff().written()).append(' ')
+                        .append(written(list.get(k).thick()));
+            }
+            out.append('\n');
+        });
+        for (final Section s : catalogue.sections().values()) {
+            final Earthworks e = s.earthworks();
+            out.append('\n').append("section \"").append(s.name()).append("\" grade=").append(percent(s.grade()))
+                    .append(" vertical=").append(written(s.vertical())).append(" fill=").append(number(e.fill()))
+                    .append(" cut=").append(number(e.cut())).append(" ditch=").append(written(e.ditchWide())).append(',')
+                    .append(written(e.ditchDeep())).append(" bank=").append(written(e.bank())).append(" cutting=")
+                    .append(written(e.cutting())).append('\n');
+            for (final Strip strip : s.left().reversed()) {
+                out.append(line(strip, courses));
+            }
+            out.append("  |\n");
+            for (final Strip strip : s.right()) {
+                out.append(line(strip, courses));
+            }
+        }
+        return out.toString();
+    }
+
+    private static String line(final Strip s, final Map<String, List<Course>> courses) {
+        final StringBuilder line = new StringBuilder(String.format(Locale.ROOT, "  %-9s %-6s %-12s", s.use().written(),
+                written(s.width()), s.paved() ? name(courses, s.courses()) : s.cover().written()));
+        if (s.fall() != 0) {
+            line.append(" fall=").append(percent(s.fall()));
+        }
+        if (s.rise() != 0) {
+            line.append(" rise=").append(written(s.rise()));
+        }
+        return line.toString().stripTrailing() + "\n";
+    }
+
+    private static String name(final Map<String, List<Course>> courses, final List<Course> list) {
+        for (final Map.Entry<String, List<Course>> e : courses.entrySet()) {
+            if (e.getValue().equals(list)) {
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** A length, in cm, as it is best written: in m from a metre up, in mm if not whole cm, else in cm. */
+    static String written(final double cm) {
+        if (cm == 0) {
+            return "0";
+        }
+        if (Math.abs(cm) >= 100) {
+            return number(cm / 100) + "m";
+        }
+        if (Math.abs(cm - Math.rint(cm)) > 1e-9) {
+            return number(cm * 10) + "mm";
+        }
+        return number(cm) + "cm";
+    }
+
+    private static String percent(final double fraction) {
+        return number(fraction * 100) + "%";
+    }
+
+    /** A number with as few figures as it needs, at most four after the point. */
+    private static String number(final double v) {
+        final String s = new java.math.BigDecimal(Math.rint(v * 10_000) / 10_000).setScale(4, java.math.RoundingMode.HALF_UP)
+                .stripTrailingZeros().toPlainString();
+        return s.equals("-0") ? "0" : s;
     }
 
     private static Building done(final Building b, final Map<String, Section> sections) {

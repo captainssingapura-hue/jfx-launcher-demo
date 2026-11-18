@@ -117,6 +117,47 @@ class SectionsTest {
     }
 
     @Test
+    void itsLanesEachWayMoreOrFewerTheOutermostRepeatedOrTakenOff() {
+        final Section one = STANDARD.get("carriageway");
+        assertEquals(2, one.lanes());
+        final Section three = one.withLanes(3);
+        assertEquals(3, three.lanes());
+        assertEquals(one.width() + 365, three.width(), 1e-9, "a lane more, as wide as the others");
+        assertEquals(Strip.Use.SHOULDER, three.left().get(4).use(), "the outer shoulder still outermost but the verge");
+        assertEquals(2, three.markings().stream().filter(m -> !m.solid()).count(), "a lane line between each two");
+        assertEquals(one, three.withLanes(2), "and back");
+        final Section road = STANDARD.get("two-lane road").withLanes(2);
+        assertEquals(2, road.left().stream().filter(s -> s.use() == Strip.Use.LANE).count(), "each way");
+        assertEquals(2, road.right().stream().filter(s -> s.use() == Strip.Use.LANE).count());
+        assertThrows(IllegalArgumentException.class, () -> one.withLanes(0));
+    }
+
+    @Test
+    void itsStripsWiderOrFallingOtherwiseItsLimitsAndItsGroundChanged() {
+        final Section road = STANDARD.get("two-lane road");
+        final Section wide = road.withWidth(Strip.Use.LANE, 375);
+        assertEquals(1_450, wide.width(), 1e-9);
+        assertEquals(375, wide.width(Strip.Use.LANE), 1e-9);
+        assertEquals(0.03, road.withFall(Strip.Use.LANE, 0.03).fall(Strip.Use.LANE), 1e-12);
+        assertEquals(0.08, road.withLimits(0.08, 4_000).grade(), 1e-12);
+        assertEquals(List.of(Strip.Use.VERGE, Strip.Use.SHOULDER, Strip.Use.LANE), road.uses());
+        assertTrue(Double.isNaN(road.width(Strip.Use.KERB)));
+    }
+
+    @Test
+    void writtenAsTextAndReadBackTheSame() {
+        final Sections.Catalogue read = Sections.read(Sections.STANDARD);
+        final Sections.Catalogue again = Sections.read(Sections.write(read));
+        assertEquals(read.sections(), again.sections());
+        assertEquals(read.courses(), again.courses());
+        // changed, then written: read back as changed
+        final Map<String, Section> changed = new java.util.LinkedHashMap<>(read.sections());
+        changed.put("carriageway", changed.get("carriageway").withLanes(4).withWidth(Strip.Use.MEDIAN, 425));
+        final Sections.Catalogue written = Sections.read(Sections.write(new Sections.Catalogue(read.courses(), changed)));
+        assertEquals(changed, written.sections());
+    }
+
+    @Test
     void itsMeasuresReadInTheirUnits() {
         assertEquals(250, Sections.length("2.5m"), 1e-9);
         assertEquals(15, Sections.length("15cm"), 1e-9);

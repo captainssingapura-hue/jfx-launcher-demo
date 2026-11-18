@@ -77,6 +77,102 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
         return edge(-1) + edge(1);
     }
 
+    // ---- as it is changed: each a kind like it, but for one thing
+
+    /** How many lanes it has each way: the most on either side. */
+    public int lanes() {
+        return (int) Math.max(left.stream().filter(s -> s.use() == Strip.Use.LANE).count(),
+                right.stream().filter(s -> s.use() == Strip.Use.LANE).count());
+    }
+
+    /**
+     * Like it, with {@code count} lanes each way: on each side that has lanes, the outermost repeated beside itself,
+     * or the outermost taken off, until it has so many. A side with none has none still.
+     */
+    public Section withLanes(final int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("a road has a lane at least, each way it goes");
+        }
+        return new Section(name, laned(left, count), laned(right, count), earthworks, grade, vertical);
+    }
+
+    private static List<Strip> laned(final List<Strip> side, final int count) {
+        final List<Strip> strips = new ArrayList<>(side);
+        int last = -1;
+        int lanes = 0;
+        for (int k = 0; k < strips.size(); k++) {
+            if (strips.get(k).use() == Strip.Use.LANE) {
+                last = k;
+                lanes++;
+            }
+        }
+        if (lanes == 0) {
+            return strips;
+        }
+        while (lanes < count) {
+            strips.add(last + 1, strips.get(last).withRise(0));
+            last++;
+            lanes++;
+        }
+        while (lanes > count) {
+            strips.remove(last);
+            lanes--;
+            last--;
+            while (strips.get(last).use() != Strip.Use.LANE) {
+                last--;
+            }
+        }
+        return strips;
+    }
+
+    /** How wide its first strip for {@code use} is; not a number if it has none. */
+    public double width(final Strip.Use use) {
+        return all().stream().filter(s -> s.use() == use).mapToDouble(Strip::width).findFirst().orElse(Double.NaN);
+    }
+
+    /** How much its first strip for {@code use} falls; not a number if it has none. */
+    public double fall(final Strip.Use use) {
+        return all().stream().filter(s -> s.use() == use).mapToDouble(Strip::fall).findFirst().orElse(Double.NaN);
+    }
+
+    /** What its strips are for, each once, in the order they come from its left edge. */
+    public List<Strip.Use> uses() {
+        return laid().stream().map(l -> l.strip().use()).distinct().toList();
+    }
+
+    /** Like it, every strip for {@code use} {@code width} wide. */
+    public Section withWidth(final Strip.Use use, final double width) {
+        return new Section(name, changed(left, use, s -> s.withWidth(width)), changed(right, use, s -> s.withWidth(width)),
+                earthworks, grade, vertical);
+    }
+
+    /** Like it, every strip for {@code use} falling {@code fall}. */
+    public Section withFall(final Strip.Use use, final double fall) {
+        return new Section(name, changed(left, use, s -> s.withFall(fall)), changed(right, use, s -> s.withFall(fall)),
+                earthworks, grade, vertical);
+    }
+
+    /** Like it, asking {@code earthworks} of the ground. */
+    public Section withEarthworks(final Earthworks earthworks) {
+        return new Section(name, left, right, earthworks, grade, vertical);
+    }
+
+    /** Like it, no steeper than {@code grade}, its grade changing over {@code vertical}. */
+    public Section withLimits(final double grade, final double vertical) {
+        return new Section(name, left, right, earthworks, grade, vertical);
+    }
+
+    private List<Strip> all() {
+        final List<Strip> all = new ArrayList<>(left.reversed());
+        all.addAll(right);
+        return all;
+    }
+
+    private static List<Strip> changed(final List<Strip> side, final Strip.Use use,
+                                       final java.util.function.UnaryOperator<Strip> change) {
+        return side.stream().map(s -> s.use() == use ? change.apply(s) : s).toList();
+    }
+
     /** Its strips as they lie, from its left edge to its right. */
     public List<Laid> laid() {
         final List<Laid> laid = new ArrayList<>(laid(-1).reversed());

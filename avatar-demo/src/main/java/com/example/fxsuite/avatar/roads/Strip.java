@@ -56,6 +56,21 @@ public record Strip(Use use, double width, List<Course> courses, Cover cover, do
         return new Strip(use, width, List.of(), cover, fall, rise);
     }
 
+    /** Like it, {@code width} wide. */
+    public Strip withWidth(final double width) {
+        return new Strip(use, width, courses, cover, fall, rise);
+    }
+
+    /** Like it, falling {@code fall}. */
+    public Strip withFall(final double fall) {
+        return new Strip(use, width, courses, cover, fall, rise);
+    }
+
+    /** Like it, stepping up {@code rise} at its inner edge. */
+    public Strip withRise(final double rise) {
+        return new Strip(use, width, courses, cover, fall, rise);
+    }
+
     /** Whether it is built of courses: the road's to build. */
     public boolean paved() {
         return !courses.isEmpty();

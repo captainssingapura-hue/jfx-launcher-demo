@@ -26,6 +26,8 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
@@ -65,7 +67,9 @@ import java.util.Map;
 public final class RoadBench extends Application {
 
     private final Map<String, RoadScenes.Scene> scenes = RoadScenes.all();
-    private Map<String, Section> sections = Sections.standard();
+    private Sections.Catalogue catalogue = Sections.read(Sections.STANDARD);
+    private Map<String, Section> sections = catalogue.sections();
+    private final KindPanel kind = new KindPanel(this::changed);
 
     private final ComboBox<String> sceneBox = new ComboBox<>();
     private final ComboBox<String> sectionBox = new ComboBox<>();
@@ -104,6 +108,8 @@ public final class RoadBench extends Application {
     private int looked;
     private double[] bounds;
     private boolean redesigning;
+    /** Whether the roads are being designed again for a change made on the kind's panel, which is left as it is. */
+    private boolean fromPanel;
     /** How long the roads took to design, ms. */
     private double designed;
 
@@ -185,11 +191,18 @@ public final class RoadBench extends Application {
         });
         text.setFont(Font.font("Monospaced", 11));
         text.setPrefColumnCount(52);
-        VBox.setVgrow(text, Priority.ALWAYS);
         figures.setWrapText(true);
         problems.setWrapText(true);
         problems.setTextFill(Color.web("#b03a2e"));
-        final VBox side = new VBox(6, new Label("Kinds across"), text, new HBox(6, apply, reset), figures, problems);
+        final VBox written = new VBox(6, text, new HBox(6, apply, reset));
+        written.setPadding(new Insets(6, 0, 0, 0));
+        VBox.setVgrow(text, Priority.ALWAYS);
+        final javafx.scene.control.ScrollPane controls = new javafx.scene.control.ScrollPane(kind);
+        controls.setFitToWidth(true);
+        final TabPane tabs = new TabPane(new Tab("Kind", controls), new Tab("Text", written));
+        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        VBox.setVgrow(tabs, Priority.ALWAYS);
+        final VBox side = new VBox(6, new Label("Kinds across"), tabs, figures, problems);
         side.setPadding(new Insets(8));
         side.setPrefWidth(420);
 
@@ -248,10 +261,26 @@ public final class RoadBench extends Application {
         return holder;
     }
 
+    /** A kind changed on its panel: kept, its text written again from it, the roads designed again with it. */
+    private void changed(final Section section) {
+        final Map<String, Section> now = new java.util.LinkedHashMap<>(sections);
+        now.put(section.name(), section);
+        catalogue = new Sections.Catalogue(catalogue.courses(), now);
+        sections = now;
+        text.setText(Sections.write(catalogue));
+        fromPanel = true;
+        try {
+            design(false);
+        } finally {
+            fromPanel = false;
+        }
+    }
+
     /** The kinds across as the text now says, if it can be read; what is wrong with it, if not. */
     private void applyText() {
         try {
-            sections = Sections.parse(text.getText());
+            catalogue = Sections.read(text.getText());
+            sections = catalogue.sections();
         } catch (final IllegalArgumentException e) {
             problems.setText(e.getMessage());
             return;
@@ -268,6 +297,9 @@ public final class RoadBench extends Application {
     private void design(final boolean frame) {
         scene = scenes.get(sceneBox.getValue());
         final Section section = sections.getOrDefault(sectionBox.getValue(), sections.values().iterator().next());
+        if (!fromPanel) {
+            kind.show(section);
+        }
         final long started = System.nanoTime();
         try {
             plans = scene.roads().apply(section);
