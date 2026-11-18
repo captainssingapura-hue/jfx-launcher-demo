@@ -129,4 +129,14 @@ class InteriorTest {
         assertNull(world.walls(eye, new Vec3(0, -1, 0), 150), "not so far");
         assertFalse(new Obstacles(List.of()).walls(eye, new Vec3(0, 1, 0), 2_000) != null, "the ground is no wall");
     }
+
+    @Test
+    void askedAboutHeightsEitherWayUpAnsweredNotThrown() {
+        // nothing between feet and a head under them: nothing in the way, as for any other volume
+        assertNull(HOUSE.push(PLACED.x(0, 300), PLACED.z(0, 300), 32, 200, 100));
+        // a block whose heights come either way up, as a wheel's under its axle may: asked all the same
+        final Block reversed = new Block(PLACED.x(-480, 300), PLACED.z(-480, 300), 20, 20, 0, 150, 50);
+        final Block upright = new Block(PLACED.x(-480, 300), PLACED.z(-480, 300), 20, 20, 0, 50, 150);
+        assertEquals(HOUSE.overlaps(upright), HOUSE.overlaps(reversed));
+    }
 }

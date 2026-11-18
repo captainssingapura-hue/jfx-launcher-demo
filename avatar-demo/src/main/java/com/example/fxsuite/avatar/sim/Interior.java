@@ -336,7 +336,8 @@ public final class Interior implements Volume {
     @Override
     public Vec2 push(final double ax, final double az, final double bx, final double bz, final double radius,
                      final double feet, final double head) {
-        if (head <= low() || feet >= high()) {
+        // nothing between: nothing in the way, as for any other volume
+        if (head <= feet || head <= low() || feet >= high()) {
             return null;
         }
         final boolean point = ax == bx && az == bz;
@@ -423,8 +424,11 @@ public final class Interior implements Volume {
     @Override
     public boolean overlaps(final Block block) {
         final Vec2 reach = new Vec2(block.halfWidth() + block.halfDepth(), block.halfWidth() + block.halfDepth());
+        // a block's heights as it gives them, either way up (a wheel's, under its axle)
+        final double low = Math.min(block.bottom(), block.highest());
+        final double high = Math.max(block.bottom(), block.highest());
         for (final int p : near(new Box(block.x() - reach.x(), block.x() + reach.x(), block.z() - reach.z(),
-                block.z() + reach.z(), block.bottom(), block.highest()))) {
+                block.z() + reach.z(), low, high))) {
             if (!gone[p] && parts.get(p).overlaps(block)) {
                 return true;
             }
