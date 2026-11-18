@@ -78,7 +78,8 @@ class MarinaBayTest {
         final Course course = new Course(Demo.MARINA_BAY);
         assertFalse(course.land().level(), "its land as it lies");
         assertFalse(course.grid());
-        assertEquals(TowerMap.buildings().size(), course.pieces().size(), "the towers and what is on them, no trees");
+        assertEquals(TowerMap.buildings().size() + Course.BIKES.size(), course.pieces().size(),
+                "the towers and what is on them, the motorcycles, no trees");
         assertEquals(MarinaBay.START, course.start());
         assertEquals(TowerMap.people().size(), course.ground().size());
         assertTrue(course.ponds().size() > 5);
@@ -128,5 +129,26 @@ class MarinaBayTest {
                 assertEquals(levels.getFirst(), level, 2, "the roads at " + node.name() + " meeting");
             }
         }
+    }
+
+    @Test
+    void everyMotorcycleParkedOnTheRoadByTheStartReadyToRide() {
+        final List<Course.Piece> bikes = MarinaBay.parked();
+        assertEquals(Course.BIKES.size(), bikes.size(), "every one there is");
+        for (final Course.Piece bike : bikes) {
+            final com.example.fxsuite.avatar.sim.Place at = bike.place();
+            assertTrue(Math.hypot(at.x() - MarinaBay.START.x(), at.z() - MarinaBay.START.z()) < 15_000,
+                    "by the start: " + Math.hypot(at.x() - MarinaBay.START.x(), at.z() - MarinaBay.START.z()));
+            // on a road: as high as one is there, its surface falling from its crown by its camber
+            final boolean onARoad = MarinaBay.roads().stream().anyMatch(r -> Math.abs(r.level(at.x(), at.z())
+                    - LAND.height(at.x(), at.z())) < 30);
+            assertTrue(onARoad, "on a road");
+            assertTrue(LAND.height(at.x(), at.z()) > MarinaBay.SEA, "on the land, not in the water");
+        }
+        // ready to ride: each a vehicle the avatar can take
+        MarinaBay.tell();
+        final com.example.fxsuite.avatar.sim.Play play = com.example.fxsuite.avatar.sim.Play.start(Demo.MARINA_BAY, true);
+        assertEquals(Course.BIKES.size(), play.lifts().stream().filter(l -> l.craft() instanceof Course.Chassis c
+                && c.twoWheels()).count(), "each one to ride");
     }
 }

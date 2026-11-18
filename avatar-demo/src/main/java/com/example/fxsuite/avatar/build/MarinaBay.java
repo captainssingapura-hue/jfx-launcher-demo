@@ -223,8 +223,61 @@ public final class MarinaBay {
         return ponds;
     }
 
-    /** Tells the simulation all of it: the towers and what is on them, its water, where the avatar starts, its land. */
+    /** How far apart the motorcycles stand along the road, nose to tail; how far in from its edge their middles are. */
+    static final double BIKES_APART = 250;
+    static final double BIKES_IN = 120;
+
+    /** What stands on it: the towers and what is on them; the motorcycles parked by the start. */
+    public static List<Course.Piece> pieces() {
+        final List<Course.Piece> pieces = new ArrayList<>(TowerMap.buildings());
+        pieces.addAll(parked());
+        return pieces;
+    }
+
+    /**
+     * The motorcycles, every one there is ({@link Course#BIKES}), parked by the road nearest where the avatar starts,
+     * off its bridges: in a row along it from its nearest point, nose to tail, at its left edge, as traffic keeps
+     * left here; facing the way the road runs there, standing on it, ready to ride.
+     */
+    public static List<Course.Piece> parked() {
+        Road road = null;
+        int at = -1;
+        double nearest = Double.POSITIVE_INFINITY;
+        for (final Road r : roads()) {
+            final List<Vec2> line = r.line();
+            for (int i = 0; i + 1 < line.size(); i++) {
+                if (r.bridged(i) || r.bridged(i + 1)) {
+                    continue;
+                }
+                final double d = Math.hypot(line.get(i).x() - START.x(), line.get(i).z() - START.z());
+                if (d < nearest) {
+                    nearest = d;
+                    road = r;
+                    at = i;
+                }
+            }
+        }
+        final Vec2 a = road.line().get(at);
+        final Vec2 b = road.line().get(at + 1);
+        final double length = Math.hypot(b.x() - a.x(), b.z() - a.z());
+        final double ax = (b.x() - a.x()) / length;
+        final double az = (b.z() - a.z()) / length;
+        // its left: against its right, (az, -ax), as a heading's right is
+        final double aside = -(road.wide(at) / 2 - BIKES_IN);
+        final double yaw = Math.toDegrees(Math.atan2(ax, az));
+        final List<Course.Piece> parked = new ArrayList<>();
+        for (int k = 0; k < Course.BIKES.size(); k++) {
+            final Course.Chassis bike = Course.BIKES.get(k);
+            final double x = a.x() + ax * k * BIKES_APART + az * aside;
+            final double z = a.z() + az * k * BIKES_APART - ax * aside;
+            parked.add(Course.Piece.vehicle(bike, null, new com.example.fxsuite.avatar.sim.Place(x, z,
+                    land().height(x, z) + bike.ride(), yaw), k % 4));
+        }
+        return parked;
+    }
+
+    /** Tells the simulation all of it: what stands on it, its water, where the avatar starts, its land, who is about. */
     public static void tell() {
-        Course.bay(TowerMap::buildings, MarinaBay::ponds, () -> START, MarinaBay::land, TowerMap::people);
+        Course.bay(MarinaBay::pieces, MarinaBay::ponds, () -> START, MarinaBay::land, TowerMap::people);
     }
 }
