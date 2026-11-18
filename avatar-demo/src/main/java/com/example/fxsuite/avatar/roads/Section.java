@@ -11,8 +11,21 @@ import java.util.List;
  * <p>Its line is where its heights are given: its crown, on a road falling both ways from its middle. Across is
  * measured from it, to the right going along it; up from its level there.
  */
-public record Section(String name, List<Strip> left, List<Strip> right, Earthworks earthworks, double grade,
-                      double vertical) {
+public final class Section {
+
+    private final String name;
+    private final List<Strip> left;
+    private final List<Strip> right;
+    private final Earthworks earthworks;
+    private final double grade;
+    private final double vertical;
+    // how its strips lie, each side, and both; how far each edge is: worked out once, as it is asked of at every
+    // point a road is asked about, many times a frame
+    private final List<Laid> laidLeft;
+    private final List<Laid> laidRight;
+    private final List<Laid> laid;
+    private final double edgeLeft;
+    private final double edgeRight;
 
     /** A strip as it lies across: on which side ({@code side}, -1 left, +1 right), from {@code inner} to {@code outer} off the line, its surface so high at each. */
     public record Laid(Strip strip, int side, double inner, double outer, double innerTop, double outerTop) {
@@ -49,13 +62,67 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
     static final double LANE_DASH = 300;
     static final double LANE_GAP = 900;
 
-    public Section {
+    public Section(final String name, final List<Strip> left, final List<Strip> right, final Earthworks earthworks,
+                   final double grade, final double vertical) {
         if (name == null || left == null || right == null || left.isEmpty() && right.isEmpty() || earthworks == null
                 || !(grade > 0) || !(vertical >= 0)) {
             throw new IllegalArgumentException("a road across has a name, strips, earthworks and its limits");
         }
-        left = List.copyOf(left);
-        right = List.copyOf(right);
+        this.name = name;
+        this.left = List.copyOf(left);
+        this.right = List.copyOf(right);
+        this.earthworks = earthworks;
+        this.grade = grade;
+        this.vertical = vertical;
+        this.laidLeft = List.copyOf(lay(this.left, -1));
+        this.laidRight = List.copyOf(lay(this.right, 1));
+        final List<Laid> both = new ArrayList<>(laidLeft.reversed());
+        both.addAll(laidRight);
+        this.laid = List.copyOf(both);
+        this.edgeLeft = laidLeft.isEmpty() ? 0 : laidLeft.getLast().outer();
+        this.edgeRight = laidRight.isEmpty() ? 0 : laidRight.getLast().outer();
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public List<Strip> left() {
+        return left;
+    }
+
+    public List<Strip> right() {
+        return right;
+    }
+
+    public Earthworks earthworks() {
+        return earthworks;
+    }
+
+    public double grade() {
+        return grade;
+    }
+
+    public double vertical() {
+        return vertical;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        return o == this || o instanceof Section s && name.equals(s.name) && left.equals(s.left)
+                && right.equals(s.right) && earthworks.equals(s.earthworks)
+                && Double.compare(grade, s.grade) == 0 && Double.compare(vertical, s.vertical) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(name, left, right, earthworks, grade, vertical);
+    }
+
+    @Override
+    public String toString() {
+        return "Section[name=" + name + ", left=" + left + ", right=" + right + ", earthworks=" + earthworks
+                + ", grade=" + grade + ", vertical=" + vertical + "]";
     }
 
     /** The strips one side ({@code side}, -1 left, +1 right), from the line outward. */
@@ -65,11 +132,7 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
 
     /** How far its outer edge is from the line on one side. */
     public double edge(final int side) {
-        double edge = 0;
-        for (final Strip s : side(side)) {
-            edge += s.width();
-        }
-        return edge;
+        return side < 0 ? edgeLeft : edgeRight;
     }
 
     /** How wide it is, edge to edge. */
@@ -282,17 +345,19 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
 
     /** Its strips as they lie, from its left edge to its right. */
     public List<Laid> laid() {
-        final List<Laid> laid = new ArrayList<>(laid(-1).reversed());
-        laid.addAll(laid(1));
         return laid;
     }
 
     /** One side's strips as they lie, from the line outward. */
     public List<Laid> laid(final int side) {
+        return side < 0 ? laidLeft : laidRight;
+    }
+
+    private static List<Laid> lay(final List<Strip> strips, final int side) {
         final List<Laid> laid = new ArrayList<>();
         double off = 0;
         double top = 0;
-        for (final Strip s : side(side)) {
+        for (final Strip s : strips) {
             top += s.rise();
             final double outerTop = top - s.fall() * s.width();
             laid.add(new Laid(s, side, off, off + s.width(), top, outerTop));
@@ -310,13 +375,16 @@ public record Section(String name, List<Strip> left, List<Strip> right, Earthwor
             final List<Laid> other = laid(across < 0 ? 1 : -1);
             return other.isEmpty() ? null : other.getFirst();
         }
+        // by index, not by an iterator: asked at every point a road is asked about
         final double off = Math.abs(across);
-        for (final Laid l : side) {
+        final int n = side.size();
+        for (int k = 0; k < n; k++) {
+            final Laid l = side.get(k);
             if (off <= l.outer()) {
                 return l;
             }
         }
-        return side.getLast();
+        return side.get(n - 1);
     }
 
     /** How high its surface is {@code across}, over the line's level: its falls and its steps. Beyond its edge, as at it. */

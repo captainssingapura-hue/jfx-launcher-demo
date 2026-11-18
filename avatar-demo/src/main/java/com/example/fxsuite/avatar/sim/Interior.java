@@ -35,6 +35,11 @@ public final class Interior implements Volume {
     private final double[] whole;
     private final int[] doorOf;
     private final boolean[] gone;
+    /**
+     * Each part's box seen from above, in the world: min x, max x, min z, max z, four to a part. So a part is asked
+     * what is at a point only when it is near it: asking a leaning part is dear.
+     */
+    private final double[] extent;
 
     /** Its parts, each given in its own frame, and filed in the cells of its inside; set in the world as it is placed. */
     public Interior(final Placed placed, final List<Lean> parts) {
@@ -89,6 +94,7 @@ public final class Interior implements Volume {
             world.add(at[p].within(placed.at(), 1));
         }
         this.parts = List.copyOf(world);
+        this.extent = extents(this.parts, null, null);
         byCell = new int[inside.count()][];
         for (int c = 0; c < byCell.length; c++) {
             byCell[c] = lists.get(c).stream().mapToInt(Integer::intValue).toArray();
@@ -109,10 +115,38 @@ public final class Interior implements Volume {
         this.placed = was.placed;
         this.local = was.local;
         this.parts = parts;
+        this.extent = parts == was.parts ? was.extent : extents(parts, was.parts, was.extent);
         this.byCell = was.byCell;
         this.bounds = was.bounds;
         this.doors = was.doors;
         this.open = open;
+    }
+
+    /**
+     * Each of {@code parts}' boxes from above ({@link #extent}); those the same as in {@code was}, if given, as they
+     * were there ({@code wasExtent}): only a door's parts move.
+     */
+    private static double[] extents(final List<Lean> parts, final List<Lean> was, final double[] wasExtent) {
+        final double[] extent = new double[parts.size() * 4];
+        for (int p = 0; p < parts.size(); p++) {
+            if (was != null && parts.get(p) == was.get(p)) {
+                System.arraycopy(wasExtent, 4 * p, extent, 4 * p, 4);
+                continue;
+            }
+            final Bounds b = parts.get(p).bounds();
+            extent[4 * p] = b.minX();
+            extent[4 * p + 1] = b.maxX();
+            extent[4 * p + 2] = b.minZ();
+            extent[4 * p + 3] = b.maxZ();
+        }
+        return extent;
+    }
+
+    /** Whether part {@code p}'s box from above comes within {@code radius} of ({@code x}, {@code z}). */
+    private boolean near(final int p, final double x, final double z, final double radius) {
+        final int at = 4 * p;
+        return x + radius >= extent[at] && x - radius <= extent[at + 1] && z + radius >= extent[at + 2]
+                && z - radius <= extent[at + 3];
     }
 
     public Placed placed() {
@@ -295,7 +329,7 @@ public final class Interior implements Volume {
         for (double to = Math.min(below, high()); to >= floor; to -= BAND) {
             final double from = to - BAND;
             for (final int p : near(column(x, z, radius, from, to))) {
-                if (gone[p]) {
+                if (gone[p] || !near(p, x, z, radius)) {
                     continue;
                 }
                 best = Math.max(best, parts.get(p).topAt(x, z, radius, below));
@@ -315,7 +349,7 @@ public final class Interior implements Volume {
         for (double from = Math.max(above, low()); from <= roof; from += BAND) {
             final double to = from + BAND;
             for (final int p : near(column(x, z, radius, from, to))) {
-                if (gone[p]) {
+                if (gone[p] || !near(p, x, z, radius)) {
                     continue;
                 }
                 best = Math.min(best, parts.get(p).undersideAt(x, z, radius, above));

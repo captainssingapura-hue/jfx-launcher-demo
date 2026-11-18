@@ -1,9 +1,6 @@
 package com.example.fxsuite.avatar.sim;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * A line across the ground, point to point, and what is so near it ({@code reach}): where on it is nearest
@@ -23,7 +20,7 @@ public final class Polyline {
 
     private final List<Vec2> points;
     private final double reach;
-    private final Map<Long, int[]> cells = new HashMap<>();
+    private final CellMap<int[]> cells = new CellMap<>();
 
     public Polyline(final List<Vec2> points, final double reach) {
         this.points = List.copyOf(points);
@@ -31,17 +28,17 @@ public final class Polyline {
             throw new IllegalArgumentException("a line goes somewhere, and reaches some way");
         }
         this.reach = reach;
-        final Map<Long, List<Integer>> kept = new HashMap<>();
+        final CellMap<CellMap.Ints> kept = new CellMap<>();
         for (int s = 0; s + 1 < points.size(); s++) {
             final Vec2 a = points.get(s);
             final Vec2 b = points.get(s + 1);
             for (long i = cell(Math.min(a.x(), b.x()) - reach); i <= cell(Math.max(a.x(), b.x()) + reach); i++) {
                 for (long j = cell(Math.min(a.z(), b.z()) - reach); j <= cell(Math.max(a.z(), b.z()) + reach); j++) {
-                    kept.computeIfAbsent(key(i, j), k -> new ArrayList<>()).add(s);
+                    kept.computeIfAbsent(key(i, j), CellMap.Ints::new).add(s);
                 }
             }
         }
-        kept.forEach((k, segments) -> cells.put(k, segments.stream().mapToInt(Integer::intValue).toArray()));
+        kept.forEach((k, segments) -> cells.put(k, segments.toArray()));
     }
 
     public List<Vec2> points() {
@@ -58,7 +55,10 @@ public final class Polyline {
         if (near == null) {
             return null;
         }
-        Near best = null;
+        // compared by their squares, the nearest's root taken once: it is asked many times a frame
+        int best = -1;
+        double bestT = 0;
+        double bestSquared = reach * reach;
         for (final int s : near) {
             final Vec2 a = points.get(s);
             final Vec2 b = points.get(s + 1);
@@ -66,12 +66,16 @@ public final class Polyline {
             final double dz = b.z() - a.z();
             final double length = dx * dx + dz * dz;
             final double t = length == 0 ? 0 : Num.clamp(((x - a.x()) * dx + (z - a.z()) * dz) / length, 0, 1);
-            final double d = Math.hypot(x - a.x() - t * dx, z - a.z() - t * dz);
-            if (d < reach && (best == null || d < best.distance())) {
-                best = new Near(s, t, d);
+            final double ox = x - a.x() - t * dx;
+            final double oz = z - a.z() - t * dz;
+            final double squared = ox * ox + oz * oz;
+            if (squared < bestSquared) {
+                best = s;
+                bestT = t;
+                bestSquared = squared;
             }
         }
-        return best;
+        return best < 0 ? null : new Near(best, bestT, Math.sqrt(bestSquared));
     }
 
     /** How far ({@code x}, {@code z}) is from it; infinity if beyond its reach. */
@@ -112,7 +116,7 @@ public final class Polyline {
     }
 
     private static long key(final long i, final long j) {
-        return i * 0x1_0000_0000L + (j & 0xffff_ffffL);
+        return CellMap.key(i, j);
     }
 
     /** Whether segment a–b comes into the box: either end in it, or it crosses one of the box's sides. */

@@ -114,6 +114,31 @@ class PiecesTest {
     }
 
     @Test
+    void whatOthersShowNewDoesNotSendTheRestBackToRough() {
+        // pieces heavy enough that four new ones are over the budget, built a few at a time
+        final List<Runnable> waiting = new ArrayList<>();
+        final Pieces<Integer> pieces = new Pieces<>(-EDGE, -EDGE, EDGE, EDGE, p -> 5_000, Integer::intValue,
+                waiting::add);
+        new ArrayList<>(waiting).forEach(Runnable::run);
+        waiting.clear();
+        final Vec3 eye = new Vec3(1_000, 0, 1_000);
+        List<Pieces.Piece<Integer>> was = pieces.seenFrom(eye, 0).shown();
+        for (int f = 0; f < 60; f++) {
+            for (int k = 0; k < 4 && !waiting.isEmpty(); k++) {
+                waiting.removeFirst().run();
+            }
+            final List<Pieces.Piece<Integer>> now = pieces.seenFrom(eye, 0).shown();
+            coversItAllOnce(now);
+            // the camera still: nowhere shown rougher than it was
+            for (final Pieces.Piece<Integer> p : was) {
+                final Pieces.Piece<Integer> here = at(now, (p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2);
+                assertTrue(here.level <= p.level, "frame " + f + ": " + p + " shown as " + here);
+            }
+            was = now;
+        }
+    }
+
+    @Test
     void finerAgainOnlyPastAMarginCoarserAsSoonAsAsked() {
         // a piece 250 m a side from 250 m to 500 m east: its near edge 274 m off, where fineness is 0.8,
         // past the finest's edge (0.75) but not by its margin (0.85)

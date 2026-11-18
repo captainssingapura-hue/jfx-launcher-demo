@@ -189,8 +189,10 @@ final class Pieces<B> {
                     break;
                 }
             }
-            // all four together, or none: within the budget, or if nothing else has been shown new this frame
-            if (all && (spentBefore == 0 || spent <= BUDGET)) {
+            // all four together, or none: within the budget, or if nothing else has been shown new this frame, or if
+            // they show nothing new themselves (else what others showed new would send all the land back to its
+            // roughest for a frame, and every piece of it sent to be drawn again as it came back)
+            if (all && (spentBefore == 0 || spent <= BUDGET || spent == spentBefore)) {
                 return true;
             }
             truncate(shown, mark);

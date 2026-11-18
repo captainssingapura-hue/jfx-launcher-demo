@@ -101,13 +101,15 @@ public record Block(double x, double z, double halfWidth, double halfDepth, doub
         final double lz = dx * s + dz * c;
         final double ex = lx - Num.clamp(lx, -halfWidth, halfWidth);
         final double ez = lz - Num.clamp(lz, -halfDepth, halfDepth);
-        final double gap = Math.hypot(ex, ez);
+        // the square first: most are not touched, and need no root taken
+        final double squared = ex * ex + ez * ez;
+        if (squared > 0 && squared >= radius * radius) {
+            return null;
+        }
+        final double gap = Math.sqrt(squared);
         final double plx;
         final double plz;
         if (gap > 0) {
-            if (gap >= radius) {
-                return null;
-            }
             plx = ex / gap * (radius - gap);
             plz = ez / gap * (radius - gap);
         } else {

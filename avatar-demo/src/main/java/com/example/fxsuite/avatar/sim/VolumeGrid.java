@@ -2,9 +2,7 @@ package com.example.fxsuite.avatar.sim;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Where a world's volumes are, seen from above: the ground cut into square cells, each listing the
@@ -20,11 +18,11 @@ final class VolumeGrid {
     /** A volume over more cells than this is listed as everywhere. */
     private static final int WIDE = 256;
 
-    private final Map<Long, int[]> cells = new HashMap<>();
+    private final CellMap<int[]> cells = new CellMap<>();
     private final int[] everywhere;
 
     VolumeGrid(final List<Volume> volumes) {
-        final Map<Long, List<Integer>> lists = new HashMap<>();
+        final CellMap<CellMap.Ints> lists = new CellMap<>();
         final List<Integer> wide = new ArrayList<>();
         for (int i = 0; i < volumes.size(); i++) {
             final Volume.Bounds b = volumes.get(i).bounds();
@@ -38,11 +36,11 @@ final class VolumeGrid {
             }
             for (long cx = x0; cx <= x1; cx++) {
                 for (long cz = z0; cz <= z1; cz++) {
-                    lists.computeIfAbsent(key(cx, cz), k -> new ArrayList<>()).add(i);
+                    lists.computeIfAbsent(key(cx, cz), CellMap.Ints::new).add(i);
                 }
             }
         }
-        lists.forEach((k, list) -> cells.put(k, list.stream().mapToInt(Integer::intValue).toArray()));
+        lists.forEach((k, list) -> cells.put(k, list.toArray()));
         everywhere = wide.stream().mapToInt(Integer::intValue).toArray();
     }
 
@@ -51,7 +49,7 @@ final class VolumeGrid {
     }
 
     private static long key(final long cx, final long cz) {
-        return (cx << 32) ^ (cz & 0xffffffffL);
+        return CellMap.key(cx, cz);
     }
 
     /** The volumes that may be under or over a circle at ({@code x}, {@code z}), {@code radius} round: each once, in order. */
