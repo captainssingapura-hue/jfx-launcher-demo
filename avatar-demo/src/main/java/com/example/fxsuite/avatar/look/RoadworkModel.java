@@ -69,7 +69,8 @@ public final class RoadworkModel {
     private static final int GROUND_POINTS = 160_000;
 
     static {
-        STUFF.put(Course.Stuff.ASPHALT, matte("#4b5053"));
+        // lit from above as it faces, a top seen in the sun: darker than it shows
+        STUFF.put(Course.Stuff.ASPHALT, matte("#2c3033"));
         STUFF.put(Course.Stuff.BINDER, matte("#34373a"));
         STUFF.put(Course.Stuff.BASE, matte("#988f80"));
         STUFF.put(Course.Stuff.SUBBASE, matte("#bcae93"));
@@ -179,26 +180,78 @@ public final class RoadworkModel {
         return mesh(points, new int[] {0, 0, 2, 0, 1, 0, 1, 0, 2, 0, 3, 0}, 12, WATER);
     }
 
-    /** Its pavement: every paved strip's every course, from its start to {@code upTo} along it. Its ground strips are the ground's. */
+    /**
+     * Its pavement, from its start to {@code upTo} along it, as it can be seen: each paved strip's top; its side where it
+     * meets no other paved strip, course by course; a step up from one strip to the next, a kerb's; and end on, course
+     * by course, where it ends or is cut away. Nothing of it under its top or between its strips, which no one sees; each
+     * face drawn from its outside only. Its ground strips are the ground's.
+     */
     public static Group pavement(final Roadway road, final double upTo) {
-        final Map<Course.Stuff, MeshBuilder> meshes = new EnumMap<>(Course.Stuff.class);
+        final Map<Course.Stuff, Faces> meshes = new EnumMap<>(Course.Stuff.class);
+        final int last = road.size() - 2;
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
             // as it is across at either end of the segment: tilted, it may be, the one more than the other
-            final List<Section.Laid> here = road.section(j).paved();
-            final List<Section.Laid> there = road.section(j + 1).paved();
+            final List<Section.Laid> here = road.section(j).laid();
+            final List<Section.Laid> there = road.section(j + 1).laid();
+            final Vec2 ahead = heading(road, j);
             for (int k = 0; k < here.size(); k++) {
                 final Section.Laid l0 = here.get(k);
+                if (!l0.strip().paved()) {
+                    continue;
+                }
                 final Section.Laid l1 = there.get(k);
-                double down = 0;
-                for (final Course c : l0.strip().courses()) {
-                    final double from = down;
-                    final double to = down + c.thick();
-                    meshes.computeIfAbsent(c.stuff(), s -> new MeshBuilder()).box(along(road, j, 0, t1,
-                            l0.innerAcross(), l0.outerAcross(), (outer, top, t) -> lerp(
-                                    outer ? l0.outerTop() : l0.innerTop(), outer ? l1.outerTop() : l1.innerTop(), t)
-                                    - (top ? from : to)));
-                    down = to;
+                final Course.Stuff surface = l0.strip().courses().getFirst().stuff();
+                // its top
+                faces(meshes, surface).quad(along(road, j, 0, t1, l0.innerAcross(), l0.outerAcross(),
+                        (outer, top, t) -> top(l0, l1, outer, t)), up());
+                // its sides: where it meets nothing paved, course by course; where it meets a lower paved strip, the step
+                for (final boolean outer : new boolean[] {false, true}) {
+                    final int next = k + ((outer ? l0.outerAcross() : l0.innerAcross()) > (outer ? l0.innerAcross()
+                            : l0.outerAcross()) ? 1 : -1);
+                    final double edge = outer ? l0.outerAcross() : l0.innerAcross();
+                    final double out = Math.signum(edge - (outer ? l0.innerAcross() : l0.outerAcross()));
+                    final Section.Laid n0 = next >= 0 && next < here.size() ? here.get(next) : null;
+                    final Section.Laid n1 = next >= 0 && next < there.size() ? there.get(next) : null;
+                    final Vec2 facing = new Vec2(road.right(j).x() * out, road.right(j).z() * out);
+                    if (n0 == null || !n0.strip().paved()) {
+                        double down = 0;
+                        for (final Course c : l0.strip().courses()) {
+                            final double from = down;
+                            final double to = down + c.thick();
+                            faces(meshes, c.stuff()).quad(edgeFace(road, j, t1, edge,
+                                    t -> top(l0, l1, outer, t) - to, t -> top(l0, l1, outer, t) - from), flat(facing));
+                            down = to;
+                        }
+                    } else {
+                        // a step down to the next strip: its face, from the next's top up to this one's
+                        final double step0 = top(l0, l1, outer, 0) - nextTop(n0, n1, edge, 0);
+                        if (step0 > 0.5) {
+                            faces(meshes, surface).quad(edgeFace(road, j, t1, edge,
+                                    t -> nextTop(n0, n1, edge, t), t -> top(l0, l1, outer, t)), flat(facing));
+                        }
+                    }
+                }
+                // end on, where it ends or is cut away: course by course
+                final boolean starts = j == 0 && !road.loop();
+                final boolean ends = t1 < 1 || j == last && !road.loop();
+                if (starts || ends) {
+                    for (final boolean atEnd : new boolean[] {false, true}) {
+                        if (atEnd ? !ends : !starts) {
+                            continue;
+                        }
+                        final double t = atEnd ? t1 : 0;
+                        final Vec2 facing = atEnd ? ahead : new Vec2(-ahead.x(), -ahead.z());
+                        double down = 0;
+                        for (final Course c : l0.strip().courses()) {
+                            final double from = down;
+                            final double to = down + c.thick();
+                            faces(meshes, c.stuff()).quad(endFace(road, j, t, l0.innerAcross(), l0.outerAcross(),
+                                    outer -> top(l0, l1, outer, t) - to, outer -> top(l0, l1, outer, t) - from),
+                                    flat(facing));
+                            down = to;
+                        }
+                    }
                 }
             }
         }
@@ -207,9 +260,20 @@ public final class RoadworkModel {
         return group;
     }
 
-    /** Its markings, painted on its surface, from its start to {@code upTo} along it. */
+    /** How high a strip's top is at its inner edge or its {@code outer}, {@code t} of the way along, over the line. */
+    private static double top(final Section.Laid l0, final Section.Laid l1, final boolean outer, final double t) {
+        return lerp(outer ? l0.outerTop() : l0.innerTop(), outer ? l1.outerTop() : l1.innerTop(), t);
+    }
+
+    /** How high the next strip's top is at its edge {@code edge} across, {@code t} of the way along, over the line. */
+    private static double nextTop(final Section.Laid n0, final Section.Laid n1, final double edge, final double t) {
+        final boolean outer = n0.outerAcross() == edge;
+        return top(n0, n1, outer, t);
+    }
+
+    /** Its markings, painted on its surface, from its start to {@code upTo} along it: each a face on its top. */
     public static Group markings(final Roadway road, final double upTo) {
-        final MeshBuilder paint = new MeshBuilder();
+        final Faces paint = new Faces();
         for (int j = 0; j + 1 < road.size() && road.along(j) < upTo; j++) {
             final double t1 = end(road, j, upTo);
             final double s0 = road.along(j);
@@ -220,9 +284,9 @@ public final class RoadworkModel {
                 final double a = m.across() - m.width() / 2;
                 final double b = m.across() + m.width() / 2;
                 final Rise rise = (outer, top, t) -> lerp(here.top(outer ? b : a), there.top(outer ? b : a), t)
-                        + PAINT_LIFT + (top ? PAINT_THICK : 0);
+                        + PAINT_LIFT;
                 if (m.solid()) {
-                    paint.box(along(road, j, 0, t1, a, b, rise));
+                    paint.quad(along(road, j, 0, t1, a, b, rise), up());
                     continue;
                 }
                 final double period = m.dash() + m.gap();
@@ -231,7 +295,7 @@ public final class RoadworkModel {
                     final double from = Math.max(s0, k * period);
                     final double to = Math.min(s1, k * period + m.dash());
                     if (to > from) {
-                        paint.box(along(road, j, (from - s0) / length, (to - s0) / length, a, b, rise));
+                        paint.quad(along(road, j, (from - s0) / length, (to - s0) / length, a, b, rise), up());
                     }
                 }
             }
@@ -243,13 +307,71 @@ public final class RoadworkModel {
         return group;
     }
 
+    /** The way the road goes along its {@code j}th segment, a unit long. */
+    private static Vec2 heading(final Roadway road, final int j) {
+        final Vec2 a = road.point(j);
+        final Vec2 b = road.point(j + 1);
+        final double len = Math.hypot(b.x() - a.x(), b.z() - a.z());
+        return new Vec2((b.x() - a.x()) / len, (b.z() - a.z()) / len);
+    }
+
+    /** The way up, in the world's frame as drawn (up is -y). */
+    private static Point3D up() {
+        return new Point3D(0, -1, 0);
+    }
+
+    /** A way across the ground, in the world's frame as drawn. */
+    private static Point3D flat(final Vec2 way) {
+        return new Point3D(way.x(), 0, way.z());
+    }
+
+    /**
+     * A face upright along the road's {@code j}th segment, from its start to {@code t1} of the way, {@code across} from
+     * its line, from {@code low} up to {@code high} over its line there: four corners, round it.
+     */
+    private static Point3D[] edgeFace(final Roadway road, final int j, final double t1, final double across,
+                                      final java.util.function.DoubleUnaryOperator low,
+                                      final java.util.function.DoubleUnaryOperator high) {
+        final Point3D[] corners = new Point3D[4];
+        final double[] ts = {0, t1, t1, 0};
+        for (int k = 0; k < 4; k++) {
+            final double t = ts[k];
+            final Vec2 p0 = road.at(j, across);
+            final Vec2 p1 = road.at(j + 1, across);
+            final double up = road.level(j, t) + (k < 2 ? low.applyAsDouble(t) : high.applyAsDouble(t));
+            corners[k] = new Point3D(p0.x() + (p1.x() - p0.x()) * t, -up, p0.z() + (p1.z() - p0.z()) * t);
+        }
+        return corners;
+    }
+
+    /**
+     * A face across the road's {@code j}th segment {@code t} of the way along, from {@code a} to {@code b} across, from
+     * {@code low} up to {@code high} over its line there, at either edge: four corners, round it.
+     */
+    private static Point3D[] endFace(final Roadway road, final int j, final double t, final double a, final double b,
+                                     final java.util.function.Function<Boolean, Double> low,
+                                     final java.util.function.Function<Boolean, Double> high) {
+        final Point3D[] corners = new Point3D[4];
+        final boolean[] outers = {false, true, true, false};
+        for (int k = 0; k < 4; k++) {
+            final boolean outer = outers[k];
+            final double across = outer ? b : a;
+            final Vec2 p0 = road.at(j, across);
+            final Vec2 p1 = road.at(j + 1, across);
+            final double up = road.level(j, t) + (k < 2 ? low.apply(outer) : high.apply(outer));
+            corners[k] = new Point3D(p0.x() + (p1.x() - p0.x()) * t, -up, p0.z() + (p1.z() - p0.z()) * t);
+        }
+        return corners;
+    }
+
     /** Its structures: decks, parapets, piers and seats; tunnels' linings. {@code ground} is what the piers stand in. */
     public static Group structures(final Roadway road, final Profile ground) {
         final MeshBuilder built = new MeshBuilder();
+        final Faces slab = new Faces();
         for (final Roadway.Structure s : road.structures()) {
             final Roadway.Stretch stretch = s.stretch();
             if (stretch.carrier() == Carrier.STRUCTURE) {
-                deck(road, stretch, built);
+                deck(road, stretch, built, slab);
                 for (final int i : s.piers()) {
                     pier(road, i, ground, built);
                 }
@@ -262,27 +384,135 @@ public final class RoadworkModel {
         if (!built.empty()) {
             group.getChildren().add(built.view(STRUCTURE));
         }
+        if (!slab.empty()) {
+            group.getChildren().add(slab.view(STRUCTURE));
+        }
         return group;
+    }
+
+    /**
+     * Faces put together a quad at a time, each its four corners its own, each wound so it is seen from its outside
+     * only: drawn with the back of every face left out ({@link CullFace#BACK}).
+     */
+    private static final class Faces {
+
+        /**
+         * Which way round a face is wound to be seen from its outside, as JavaFX has it: its corners going round it so,
+         * the turn from its first edge to its second points out of it, or (-1) into it.
+         */
+        private static final int WINDING = 1;
+
+        private float[] points = new float[3 * 1_024];
+        private float[] normals = new float[3 * 256];
+        private int[] faces = new int[9 * 512];
+        private int pointCount;
+        private int normalCount;
+        private int faceCount;
+
+        boolean empty() {
+            return faceCount == 0;
+        }
+
+        /**
+         * A face through {@code corners} round it, seen from {@code outward}: four corners; or, eight, a box's, its top
+         * four (as {@link #along} makes them, the top at bit 1).
+         */
+        void quad(final Point3D[] corners, final Point3D outward) {
+            Point3D[] c = corners.length == 8 ? new Point3D[] {corners[2], corners[3], corners[7], corners[6]} : corners;
+            final Point3D turn = c[1].subtract(c[0]).crossProduct(c[2].subtract(c[0]));
+            if (turn.dotProduct(outward) * WINDING < 0) {
+                c = new Point3D[] {c[0], c[3], c[2], c[1]};
+            }
+            if (3 * (pointCount + 4) > points.length) {
+                points = java.util.Arrays.copyOf(points, points.length * 2);
+            }
+            if (3 * (normalCount + 1) > normals.length) {
+                normals = java.util.Arrays.copyOf(normals, normals.length * 2);
+            }
+            if (9 * (faceCount + 2) > faces.length) {
+                faces = java.util.Arrays.copyOf(faces, faces.length * 2);
+            }
+            // lit as it faces: outward, its own way, not as worked out from the triangles' points
+            final Point3D n = outward.normalize();
+            normals[3 * normalCount] = (float) n.getX();
+            normals[3 * normalCount + 1] = (float) n.getY();
+            normals[3 * normalCount + 2] = (float) n.getZ();
+            final int normal = normalCount++;
+            final int base = pointCount;
+            for (final Point3D p : c) {
+                points[3 * pointCount] = (float) p.getX();
+                points[3 * pointCount + 1] = (float) p.getY();
+                points[3 * pointCount + 2] = (float) p.getZ();
+                pointCount++;
+            }
+            triangle(base, base + 1, base + 2, normal);
+            triangle(base, base + 2, base + 3, normal);
+        }
+
+        private void triangle(final int a, final int b, final int c, final int normal) {
+            final int at = 9 * faceCount;
+            faces[at] = a;
+            faces[at + 1] = normal;
+            faces[at + 2] = 0;
+            faces[at + 3] = b;
+            faces[at + 4] = normal;
+            faces[at + 5] = 0;
+            faces[at + 6] = c;
+            faces[at + 7] = normal;
+            faces[at + 8] = 0;
+            faceCount++;
+        }
+
+        MeshView view(final PhongMaterial material) {
+            final TriangleMesh mesh = new TriangleMesh(javafx.scene.shape.VertexFormat.POINT_NORMAL_TEXCOORD);
+            mesh.getPoints().setAll(points, 0, 3 * pointCount);
+            mesh.getNormals().setAll(normals, 0, 3 * normalCount);
+            mesh.getTexCoords().setAll(0, 0);
+            mesh.getFaces().setAll(faces, 0, 9 * faceCount);
+            final MeshView view = new MeshView(mesh);
+            view.setMaterial(material);
+            view.setCullFace(CullFace.BACK);
+            return view;
+        }
+    }
+
+    /** {@code materials}' faces for {@code stuff}, begun if there are none yet. */
+    private static Faces faces(final Map<Course.Stuff, Faces> materials, final Course.Stuff stuff) {
+        return materials.computeIfAbsent(stuff, s -> new Faces());
     }
 
     /**
      * A deck under the formation of its paved strips, down to {@link Roadway#DECK} under the formation's lowest edge,
      * tilted or not; a parapet at each edge of them. Its ground strips not on it: there is no ground there.
      */
-    private static void deck(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built) {
+    private static void deck(final Roadway road, final Roadway.Stretch stretch, final MeshBuilder built,
+                             final Faces slab) {
+        // a structure all round a loop has no ends to be seen
+        final boolean round = road.loop() && stretch.from() == 0 && stretch.to() == road.size() - 1;
         for (int j = stretch.from(); j < stretch.to(); j++) {
             final Section here = road.section(j);
             final Section there = road.section(j + 1);
             final double under = Math.min(lowest(here), lowest(there)) - Roadway.DECK;
-            final List<Section.Laid> laid0 = here.paved();
-            final List<Section.Laid> laid1 = there.paved();
-            for (int k = 0; k < laid0.size(); k++) {
-                final Section.Laid l0 = laid0.get(k);
-                final Section.Laid l1 = laid1.get(k);
-                final double depth = l0.strip().depth();
-                built.box(along(road, j, 0, 1, l0.innerAcross(), l0.outerAcross(), (outer, top, t) -> top
-                        ? lerp(outer ? l0.outerTop() : l0.innerTop(), outer ? l1.outerTop() : l1.innerTop(), t) - depth
-                        : under));
+            final double west = -here.pavedEdge(-1);
+            final double east = here.pavedEdge(1);
+            final Vec2 right = road.right(j);
+            // its slab as it is seen: its underside, its sides; its top is under the pavement
+            slab.quad(along(road, j, 0, 1, west, east, (outer, top, t) -> under), new Point3D(0, 1, 0));
+            for (final int side : new int[] {-1, 1}) {
+                final double edge = side > 0 ? east : west;
+                slab.quad(edgeFace(road, j, 1, edge, t -> under,
+                        t -> lerp(here.formation(edge), there.formation(edge), t)),
+                        flat(new Vec2(right.x() * side, right.z() * side)));
+            }
+            for (final boolean atEnd : new boolean[] {false, true}) {
+                if (round || (atEnd ? j != stretch.to() - 1 : j != stretch.from())) {
+                    continue;
+                }
+                final double t = atEnd ? 1 : 0;
+                final Vec2 ahead = heading(road, j);
+                slab.quad(endFace(road, j, t, west, east, outer -> under,
+                        outer -> lerp(here.formation(outer ? east : west), there.formation(outer ? east : west), t)),
+                        flat(atEnd ? ahead : new Vec2(-ahead.x(), -ahead.z())));
             }
             for (final int side : new int[] {-1, 1}) {
                 final double edge = side * here.pavedEdge(side);

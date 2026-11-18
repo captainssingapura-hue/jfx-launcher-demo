@@ -176,6 +176,9 @@ public final class RoadBench extends Application {
             box.setSelected(true);
         }
         asBuilt.setSelected(Boolean.getBoolean("roads.built"));
+        showStructures.setSelected(!"false".equals(System.getProperty("roads.structures")));
+        showMarkings.setSelected(!"false".equals(System.getProperty("roads.markings")));
+        showPavement.setSelected(!"false".equals(System.getProperty("roads.pavement")));
         cutAway.setSelected(Boolean.getBoolean("roads.cut"));
         taller.getItems().setAll(1, 2, 5, 10, 20);
         taller.setValue(Integer.getInteger("roads.taller", 2));
