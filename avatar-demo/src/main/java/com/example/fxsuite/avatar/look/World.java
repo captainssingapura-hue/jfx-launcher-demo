@@ -287,7 +287,7 @@ public final class World {
                 case CAR -> chassis(i, part);
                 case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
-                case BUILDING, WALL_UNIT -> building(i, part, block, piece.tint());
+                case BUILDING, WALL_UNIT, GLASS -> building(i, part, block, piece.tint());
                 case AIRCRAFT -> aircraft(i, part);
                 case GARDEN -> garden(part, piece, pieces);
                 case TREE -> ParkModels.tree(part, block, piece.tint());
@@ -501,11 +501,11 @@ public final class World {
 
     /**
      * Whether piece {@code piece}, broken, simply vanishes, leaving nothing behind: what stands about in a
-     * park, its trees and lamp posts, its benches, bins and planters.
+     * park, its trees and lamp posts, its benches, bins and planters; a pane of glass.
      */
     public boolean vanishes(final int piece) {
         final Course.Piece what = pieces.get(piece);
-        return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP
+        return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP || what.kind() == Course.Kind.GLASS
                 || what.kind() == Course.Kind.BUILDING && what.tint() >= com.example.fxsuite.avatar.build.Village.KEYS
                 || what.kind() == Course.Kind.FURNITURE && switch (what.furniture()) {
                     case BENCH, BIN, PLANTER -> true;
@@ -530,8 +530,8 @@ public final class World {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
         if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT || kind == Course.Kind.BUILDING
-                || kind == Course.Kind.WALL_UNIT) {
-            return;  // a drone's box is mostly air, fruit is round, a building or a wall is no box: nothing to crack
+                || kind == Course.Kind.WALL_UNIT || kind == Course.Kind.GLASS) {
+            return;  // a drone's box is mostly air, fruit is round, a building, a wall or a pane is no box: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -641,15 +641,33 @@ public final class World {
         }
         leveled.put(piece, drawn);
         levelsShown.put(piece, new boolean[] {true, true, true});
-        // what it is worn on: the first of its body, its material its own (the rest share theirs with every building)
+        // what it is worn on: the first of its body, its material its own (the rest share theirs with every building);
+        // a pane of glass, all see-through, its glass
         final Shape3D worn = drawn.levels().values().stream().flatMap(g -> g.getChildren().stream())
-                .filter(Shape3D.class::isInstance).map(Shape3D.class::cast).findFirst().orElseThrow();
+                .filter(Shape3D.class::isInstance).map(Shape3D.class::cast).findFirst()
+                .orElseGet(() -> firstShape(drawn.node()));
         final PhongMaterial was = (PhongMaterial) worn.getMaterial();
         final PhongMaterial own = new PhongMaterial(was.getDiffuseColor());
         own.setSpecularColor(was.getSpecularColor());
         own.setSpecularPower(was.getSpecularPower());
         worn.setMaterial(own);
         return worn;
+    }
+
+    /** The first shape drawn under {@code node}, however deep. */
+    private static Shape3D firstShape(final Node node) {
+        if (node instanceof Shape3D shape) {
+            return shape;
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (final Node child : parent.getChildrenUnmodifiable()) {
+                final Shape3D found = firstShape(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     /** A piece's inside with its doors ({@link Interior}), if it is a building that has one; else null. */

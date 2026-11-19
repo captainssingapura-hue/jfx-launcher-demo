@@ -66,7 +66,12 @@ public final class Course {
         /** A tree: its trunk in the way, its crown over it not; felled, it is gone. */
         TREE(true),
         /** A lamp post: its post in the way; broken, it is gone. */
-        LAMP(true);
+        LAMP(true),
+        /**
+         * A pane of a building's glass, standing on its own: struck, it is that pane that wears down and breaks, and
+         * is gone, the building standing; so a way in where there was none.
+         */
+        GLASS(true);
 
         private final boolean breakable;
 

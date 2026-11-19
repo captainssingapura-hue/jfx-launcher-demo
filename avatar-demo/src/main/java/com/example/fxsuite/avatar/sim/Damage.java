@@ -38,6 +38,8 @@ public final class Damage {
     public static final double BUNKER = 2500;
     /** A building's door, glass in a light frame: as tough as a drone; broken on its own, the building standing. */
     public static final double DOOR = 120;
+    /** A pane of a building's glass on its own, no frame to it: half a door; a blade's blow, six rifle rounds. */
+    public static final double GLASS = 60;
     /** A building, broken as a whole: ten bunkers' worth. */
     public static final double BUILDING = 25_000;
     /** A unit of a wall: so much for each cubic metre of its box, a brick wall's worth; no less than a crate's. */
@@ -156,6 +158,7 @@ public final class Damage {
             case PLATFORM -> PLATFORM;
             case TREE -> TREE;
             case LAMP -> LAMP;
+            case GLASS -> GLASS;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case FRUIT, FURNITURE -> piece.loose().toughness();

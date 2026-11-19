@@ -26,15 +26,26 @@ import java.util.List;
  * @param middle   where its middle is: across, up, along
  * @param size     how big it is, at most, any way
  * @param yaw      which way round it is best seen from, degrees: its front toward the camera
+ * @param panes    its glass that breaks, pane by pane, apart from its frame: each in the way and broken on its own,
+ *                 gone, the frame standing; drawn, played, by a key of its own after its moving parts'
  */
 public record Built(String title, String figures, List<Solid> drawn, List<Solid> standing, List<Mover> movers,
                     List<List<Solid>> keyed, Spot start, Place parking, Place people, double ground, double[] middle,
-                    double size, double yaw) {
+                    double size, double yaw, List<List<Solid>> panes) {
 
     public Built {
         drawn = List.copyOf(drawn);
         standing = List.copyOf(standing);
         movers = List.copyOf(movers);
         keyed = List.copyOf(keyed);
+        panes = List.copyOf(panes);
+    }
+
+    /** As it is, its frame all there is to it but what moves: no glass apart from it. */
+    public Built(final String title, final String figures, final List<Solid> drawn, final List<Solid> standing,
+                 final List<Mover> movers, final List<List<Solid>> keyed, final Spot start, final Place parking,
+                 final Place people, final double ground, final double[] middle, final double size, final double yaw) {
+        this(title, figures, drawn, standing, movers, keyed, start, parking, people, ground, middle, size, yaw,
+                List.of());
     }
 }

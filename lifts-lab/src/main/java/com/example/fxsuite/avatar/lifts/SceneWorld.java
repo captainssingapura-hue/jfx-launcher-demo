@@ -47,13 +47,19 @@ public final class SceneWorld implements PlayWorld {
 
     @Override
     public void lay(final Course.Layout world) {
-        Sites.register(KEY, KEY + built.keyed().size(), k -> built.keyed().get(k));
+        // its frame's key, then each kind of moving part's, then each pane's, drawn about its own foot
+        final int keyed = built.keyed().size();
+        Sites.register(KEY, KEY + keyed + built.panes().size(),
+                k -> k < keyed ? built.keyed().get(k) : StandIns.about(built.panes().get(k - keyed)));
         final double reach = Math.ceil(built.ground() / 1_000) * 1_000;
         final Terrain flat = new Terrain("lifts scene", -reach, -reach, reach, reach, 1_000, 0, 0, Terrain.Noise.NONE,
                 List.of(), List.of());
         final List<Course.Piece> pieces = new ArrayList<>();
         pieces.add(Town.building(built.drawn(), new Place(0, 0, 0, 0), KEY, StandIns.prisms(built.standing()), 1));
         built.movers().forEach(m -> pieces.add(m.piece()));
+        for (int p = 0; p < built.panes().size(); p++) {
+            pieces.add(StandIns.pane(built.panes().get(p), KEY + keyed + p));
+        }
         world.land(new Land(flat.survey(), List.of())).ruled(true).pieces(pieces);
     }
 

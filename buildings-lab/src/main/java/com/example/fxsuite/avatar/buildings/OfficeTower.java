@@ -47,6 +47,8 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
     static final double SPANDREL = 90;
     static final double SPANDREL_THICK = 10;
     static final double GLASS = 4;
+    /** Its glass in panes no wider than this, each broken on its own. */
+    static final double PANE = 450;
     /** Its columns: so wide, so far in from its edge, so far apart along it. */
     static final double COLUMN = 80;
     static final double INSET = 150;
@@ -174,7 +176,8 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
             if (f == 0 && e == front) {
                 solids.addAll(entrance(e, from, glassTop));
             } else {
-                solids.add(Plates.edge("glass", outline, e, GLASS, from, glassTop, Role.GLAZING, Material.GLASS));
+                solids.addAll(Plates.panes("glass", outline, e, 0, 1, PANE, GLASS, from, glassTop, Role.GLAZING,
+                        Material.GLASS));
             }
             solids.add(Plates.edge("spandrel", outline, e, SPANDREL_THICK, glassTop, to, Role.WALL, Material.METAL));
         }
@@ -195,13 +198,10 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         final double[] q = outline.get((e + 1) % outline.size());
         final double length = Math.hypot(q[0] - p[0], q[1] - p[1]);
         final double t = (length - ENTRANCE) / 2 / length;
-        final List<double[]> left = List.of(p, new double[] {p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t},
-                new double[] {0, 0});
-        final List<double[]> right = List.of(new double[] {q[0] - (q[0] - p[0]) * t, q[1] - (q[1] - p[1]) * t}, q,
-                new double[] {0, 0});
-        // each side the first edge of a triangle with the tower's middle: its inside, toward the middle, as the rest's
-        return List.of(Plates.edge("glass", left, 0, GLASS, from, top, Role.GLAZING, Material.GLASS),
-                Plates.edge("glass", right, 0, GLASS, from, top, Role.GLAZING, Material.GLASS));
+        final List<Solid> glass = new ArrayList<>(
+                Plates.panes("glass", outline, e, 0, t, PANE, GLASS, from, top, Role.GLAZING, Material.GLASS));
+        glass.addAll(Plates.panes("glass", outline, e, 1 - t, 1, PANE, GLASS, from, top, Role.GLAZING, Material.GLASS));
+        return glass;
     }
 
     /** Which edge of its outline is its front: the one furthest along, its way in in the lobby there. */
@@ -310,10 +310,15 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return out.toString();
     }
 
-    /** It as a scene: drawn up to the floor over storey {@code upTo}, glass if asked; played whole. */
+    /**
+     * It as a scene: drawn up to the floor over storey {@code upTo}, glass if asked; played whole, its glass pane by
+     * pane apart from its frame, to be broken into.
+     */
     Built built(final int upTo, final boolean glass) {
         final List<Solid> drawn = solids(upTo, glass);
-        final List<Solid> whole = solids(storeys(), true);
+        final List<Solid> whole = solids(storeys(), false);
+        final List<List<Solid>> panes = solids(storeys(), true).stream().filter(s -> s.material() == Material.GLASS)
+                .map(List::of).toList();
         final HighRiseBank any = banks.getFirst().bank();
         final List<Solid> car = any.car().stream().map(Box::solid).toList();
         final List<Solid> carLeaf = any.carLeaf().stream().map(Box::solid).toList();
@@ -330,6 +335,6 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return new Built(name, figures(), drawn, whole, movers(), List.of(whole, car, carLeaf, landingLeaf),
                 new Spot("before its way in", new Place(frontX, frontZ + 600, 0, 180)),
                 new Place(-reach, frontZ + 1_400, 0, 90), new Place(frontX + ENTRANCE, frontZ + 300, 0, 180),
-                size + 4_000, new double[] {0, roof() / 2, 0}, size, 145);
+                size + 4_000, new double[] {0, roof() / 2, 0}, size, 145, panes);
     }
 }

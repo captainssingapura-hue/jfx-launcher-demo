@@ -114,9 +114,38 @@ final class Plates {
      */
     static Solid edge(final String name, final List<double[]> outline, final int e, final double thick,
                       final double bottom, final double top, final Role role, final Material material) {
+        return panel(name, outline.get(e), outline.get((e + 1) % outline.size()), Math.signum(area(outline)), thick,
+                bottom, top, role, material);
+    }
+
+    /**
+     * Panels along {@code outline}'s edge from point {@code e} to the next, as {@link #edge} makes one, from {@code s0}
+     * to {@code s1} of the way along it, cut into as few of a width as are each no wider than {@code most}: panes of
+     * glass, each to be broken on its own. Named {@code name}, each with its number after.
+     */
+    static List<Solid> panes(final String name, final List<double[]> outline, final int e, final double s0,
+                             final double s1, final double most, final double thick, final double bottom,
+                             final double top, final Role role, final Material material) {
         final double[] p = outline.get(e);
         final double[] q = outline.get((e + 1) % outline.size());
         final double inward = Math.signum(area(outline));
+        final double length = Math.hypot(q[0] - p[0], q[1] - p[1]) * (s1 - s0);
+        final int n = Math.max(1, (int) Math.ceil(length / most - 1e-9));
+        final List<Solid> panes = new ArrayList<>(n);
+        for (int k = 0; k < n; k++) {
+            final double a = s0 + (s1 - s0) * k / n;
+            final double b = s0 + (s1 - s0) * (k + 1) / n;
+            panes.add(panel(name + " " + (k + 1), new double[] {p[0] + (q[0] - p[0]) * a, p[1] + (q[1] - p[1]) * a},
+                    new double[] {p[0] + (q[0] - p[0]) * b, p[1] + (q[1] - p[1]) * b}, inward, thick, bottom, top,
+                    role, material));
+        }
+        return panes;
+    }
+
+    /** A panel from {@code p} to {@code q}, {@code thick} thick to their left ({@code inward} 1) or right (-1). */
+    private static Solid panel(final String name, final double[] p, final double[] q, final double inward,
+                               final double thick, final double bottom, final double top, final Role role,
+                               final Material material) {
         final double dx = q[0] - p[0];
         final double dz = q[1] - p[1];
         final double length = Math.hypot(dx, dz);
