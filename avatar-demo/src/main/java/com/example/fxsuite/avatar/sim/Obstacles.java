@@ -111,8 +111,9 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
     }
 
     /**
-     * Volumes as {@code indexed} has them, some of them gone ({@link Gone}): each where it was among them, so the
-     * index of where they are ({@link VolumeGrid}) is {@code indexed}'s. Not to be changed.
+     * Volumes as {@code indexed} has them, some of them gone ({@link Gone}) or swapped for one the same box: each
+     * where it was among them, so the index of where they are ({@link VolumeGrid}) is {@code indexed}'s. Not to be
+     * changed.
      */
     private static final class Hollowed extends java.util.AbstractList<Volume> implements java.util.RandomAccess {
 
@@ -180,15 +181,24 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         }
     }
 
-    /** The same world with volume {@code was} of piece {@code piece} {@code now} instead: a building's door opened. */
+    /**
+     * The same world with volume {@code was} of piece {@code piece} {@code now} instead: a building's door opened, a
+     * building's stage changed. One the same box as it was takes its place among them, so where they are is known
+     * already ({@link #volumesNear}).
+     */
     public Obstacles reshaped(final int piece, final Volume was, final Volume now) {
-        final List<Volume> changed = new ArrayList<>(volumes);
-        for (int i = 0; i < changed.size(); i++) {
-            if (volumePieces.get(i) == piece && changed.get(i) == was) {
-                changed.set(i, now);
+        final Volume[] changed = volumes.toArray(new Volume[0]);
+        boolean same = was.bounds().equals(now.bounds()) && was.low() == now.low() && was.high() == now.high();
+        for (int i = 0; i < changed.length; i++) {
+            if (volumePieces.get(i) == piece && changed[i] == was) {
+                changed[i] = now;
             }
         }
-        return new Obstacles(blocks, gates, pieces, changed, volumePieces, land);
+        if (same) {
+            return new Obstacles(blocks, gates, pieces,
+                    new Hollowed(volumes instanceof Hollowed h ? h.indexed : volumes, changed), volumePieces, land);
+        }
+        return new Obstacles(blocks, gates, pieces, List.of(changed), volumePieces, land);
     }
 
     /**

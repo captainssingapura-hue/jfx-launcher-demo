@@ -4,21 +4,20 @@ import com.example.fxsuite.avatar.bench.kit.Spot;
 import com.example.fxsuite.avatar.build.Point;
 import com.example.fxsuite.avatar.build.Sites;
 import com.example.fxsuite.avatar.build.Solid;
+import com.example.fxsuite.avatar.build.StandIns;
 import com.example.fxsuite.avatar.build.Town;
 import com.example.fxsuite.avatar.lifts.Built;
-import com.example.fxsuite.avatar.lifts.Mover;
-import com.example.fxsuite.avatar.lifts.SceneWorld;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Place;
+import com.example.fxsuite.avatar.sim.Staged;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * An office tower standing in a world: its middle {@code at} a place, turned as that place faces (its plan's along
  * toward the place's yaw), its foot at its height; drawn by keys from {@code key} on, as many as it needs, which no other
- * thing may draw by. Its frame one building, in the way as its solids stand; each of its lifts' cars and doors a piece
- * going its own way, turned and moved with it; each pane of its glass a piece of its own, broken on its own.
+ * thing may draw by. One piece of the world, as finely as the focus wants it ({@link #pieces}).
  *
  * @param tower what it is
  * @param at    where its middle stands, which way it faces
@@ -45,18 +44,15 @@ record Standing(OfficeTower tower, Place at, int key) {
     }
 
     /**
-     * It as pieces of the world: its frame one thing, its panes parts of it each breaking on its own
-     * ({@link SceneWorld#shape}); its moving parts each a piece. {@link #register} tells how each is drawn.
+     * It as pieces of the world, staged ({@link Staged}): one piece, its coarse shape ({@link OfficeTower#coarse}) and
+     * its fine model (its frame's parts, its panes each breaking on its own) as one volume, as finely as the focus
+     * wants it. Its lifts' cars and doors no pieces of the world: they belong to its fine model, to come.
+     * {@link #register} tells how it is drawn.
      */
     List<Course.Piece> pieces(final Built built) {
-        final List<Course.Piece> pieces = new ArrayList<>();
-        pieces.add(Town.building(built.drawn(), at, key, SceneWorld.shape(built, key + built.keyed().size()), 1));
-        for (final Mover m : built.movers()) {
-            final Course.Route was = m.route();
-            final Course.Route moved = seconds -> placed(was.at(seconds));
-            pieces.add(new Mover(m.name(), m.boxes(), moved, key + m.key() - SceneWorld.KEY).piece());
-        }
-        return pieces;
+        final Staged staged = new Staged(tower.coarse(),
+                StandIns.assembly(built.standing(), built.panes(), Damage.GLASS, key + built.keyed().size()));
+        return List.of(Town.building(built.drawn(), at, key, List.of(staged), 1));
     }
 
     /** A spot in its own frame, where it stands. */

@@ -710,8 +710,9 @@ public final class World {
 
     /** A piece's assembly of parts ({@link Assembly}), if it is a building made so; else null. */
     private static Assembly assembly(final Course.Piece piece) {
-        return piece.volumes().stream().filter(Assembly.class::isInstance).map(Assembly.class::cast).findFirst()
-                .orElse(null);
+        // a staged building drawn as its fine model, however it is in the way
+        return piece.volumes().stream().map(v -> v instanceof com.example.fxsuite.avatar.sim.Staged s ? s.fine() : v)
+                .filter(Assembly.class::isInstance).map(Assembly.class::cast).findFirst().orElse(null);
     }
 
     /** Group {@code g} of a building's panes, as {@code assembly} has them: each drawn by its own key; the broken gone. */

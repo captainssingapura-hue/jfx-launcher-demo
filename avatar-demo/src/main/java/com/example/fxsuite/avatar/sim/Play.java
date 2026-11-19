@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 34;
+    public static final int RULES = 35;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -359,8 +359,106 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         for (final Map.Entry<Integer, Course.Piece> sent : fell.rerouted().entrySet()) {
             after = after.rerouted(sent.getKey(), sent.getValue());
         }
+        // each building as finely as the focus, where the avatar now is, wants it
+        after = staged(after, focus(shown, loaded, after));
         return new Stepped(new Play(shown, after, fell.sky(), loaded, pushed, shoved, turned),
                 happened);
+    }
+
+    /** How far round the avatar, and what carries it, the focus reaches ({@code staged-fineness}). */
+    public static final double FOCUS_MARGIN = 500;
+    /** How much further than that a building must be from the focus to be let go of, out of focus. */
+    public static final double FOCUS_LEAVING = 250;
+    /** How near the focus a building is near; how much further it must be to be far again. */
+    public static final double NEAR = 20_000;
+    public static final double NEAR_LEAVING = 4_000;
+
+    /**
+     * The focus: the space round the avatar and whatever carries it, grown by {@link #FOCUS_MARGIN}: its body; the
+     * vehicle it drives; and any vehicle it, or that vehicle, stands on (a platform's deck). Where the world is fine.
+     */
+    static Box focus(final Avatar avatar, final List<Lift> lifts, final Damage damage) {
+        final Vec3 at = avatar.body().position();
+        final double feet = avatar.body().height();
+        Box focus = new Box(at.x() - Body.RADIUS, at.x() + Body.RADIUS, at.z() - Body.RADIUS, at.z() + Body.RADIUS,
+                feet, feet + Body.TALL);
+        Box driven = null;
+        for (final Lift lift : lifts) {
+            if (lift.held() && !damage.broken(lift.piece())) {
+                driven = box(damage.piece(lift.piece()).placed(lift.place()).block());
+                focus = union(focus, driven);
+            }
+        }
+        // what the avatar, or what it drives, stands on: a platform under it
+        for (final Lift lift : lifts) {
+            if (lift.held() || damage.broken(lift.piece())) {
+                continue;
+            }
+            final Box under = box(damage.piece(lift.piece()).placed(lift.place()).block()).grown(50, 100);
+            if (under.meets(new Box(at.x(), at.x(), at.z(), at.z(), feet, feet))
+                    || driven != null && under.meets(driven)) {
+                focus = union(focus, under);
+            }
+        }
+        return focus.grown(FOCUS_MARGIN, FOCUS_MARGIN);
+    }
+
+    /** A block's box, square to the world, however it is turned. */
+    private static Box box(final Block b) {
+        final double c = Math.abs(Math.cos(Math.toRadians(b.yaw())));
+        final double s = Math.abs(Math.sin(Math.toRadians(b.yaw())));
+        final double ex = c * b.halfWidth() + s * b.halfDepth();
+        final double ez = s * b.halfWidth() + c * b.halfDepth();
+        return new Box(b.x() - ex, b.x() + ex, b.z() - ez, b.z() + ez, Math.min(b.bottom(), b.top()),
+                Math.max(b.bottom(), b.top()));
+    }
+
+    private static Box union(final Box a, final Box b) {
+        return new Box(Math.min(a.minX(), b.minX()), Math.max(a.maxX(), b.maxX()), Math.min(a.minZ(), b.minZ()),
+                Math.max(a.maxZ(), b.maxZ()), Math.min(a.low(), b.low()), Math.max(a.high(), b.high()));
+    }
+
+    /** Each staged building at the stage {@code focus} wants it at ({@link #stage}); its harm, and all else, as it was. */
+    static Damage staged(final Damage damage, final Box focus) {
+        Damage now = damage;
+        for (final int piece : damage.staged()) {
+            if (damage.broken(piece)) {
+                continue;
+            }
+            final Staged.Stage was = damage.stage(piece);
+            Staged staged = null;
+            for (final Volume v : damage.piece(piece).volumes()) {
+                if (v instanceof Staged s) {
+                    staged = s;
+                }
+            }
+            final Volume.Bounds b = staged.bounds();
+            final double dx = Math.max(0, Math.max(b.minX() - focus.maxX(), focus.minX() - b.maxX()));
+            final double dz = Math.max(0, Math.max(b.minZ() - focus.maxZ(), focus.minZ() - b.maxZ()));
+            final double dy = Math.max(0, Math.max(staged.low() - focus.high(), focus.low() - staged.high()));
+            now = now.restaged(piece, stage(was, Math.sqrt(dx * dx + dy * dy + dz * dz)));
+        }
+        return now;
+    }
+
+    /**
+     * The stage a building at {@code was} goes to, {@code away} from the focus: in focus where the focus meets it;
+     * near within {@link #NEAR}; far beyond. Each kept a little further than it is come to, so a building at the edge
+     * of one is not made and let go of step after step.
+     */
+    public static Staged.Stage stage(final Staged.Stage was, final double away) {
+        if (away <= 0 || was == Staged.Stage.FOCUS && away <= FOCUS_LEAVING) {
+            return Staged.Stage.FOCUS;
+        }
+        if (away <= NEAR || was != Staged.Stage.FAR && away <= NEAR + NEAR_LEAVING) {
+            return Staged.Stage.NEAR;
+        }
+        return Staged.Stage.FAR;
+    }
+
+    /** Building {@code piece}'s stage, as the focus last had it ({@link Staged}); {@code null} if it is not staged. */
+    public Staged.Stage stage(final int piece) {
+        return damage.stage(piece);
     }
 
     /** How much of their closing speed two things that collide part with: little, as crumpling things do. */

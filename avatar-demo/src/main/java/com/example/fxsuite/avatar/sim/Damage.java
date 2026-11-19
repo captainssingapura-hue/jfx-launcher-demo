@@ -321,6 +321,52 @@ public final class Damage {
         return health[piece] <= 0;
     }
 
+    /**
+     * The same, building {@code piece} at stage {@code now} ({@link Staged}), as the focus has it: its volume swapped
+     * where it stands, its harm as it was; where everything else is known as it was, its box the same.
+     */
+    public Damage restaged(final int piece, final Staged.Stage now) {
+        Staged was = null;
+        for (final Volume v : pieces.get(piece).volumes()) {
+            if (v instanceof Staged s) {
+                was = s;
+            }
+        }
+        if (was == null || was.stage() == now) {
+            return this;
+        }
+        final Staged staged = was.at(now);
+        final List<Course.Piece> changed = new ArrayList<>(pieces);
+        changed.set(piece, pieces.get(piece).reshaped(was, staged));
+        return new Damage(List.copyOf(changed), toughness, health, obstacles.reshaped(piece, was, staged),
+                whole.reshaped(piece, was, staged), ground);
+    }
+
+    /** The last pieces asked which of them are staged, and which they are: kept while the same pieces are asked. */
+    private static volatile Object[] stagedOf;
+
+    /** Which buildings are staged ({@link Staged}), by piece, broken or not: those whose fineness the focus picks. */
+    public int[] staged() {
+        final Object[] kept = stagedOf;
+        if (kept != null && kept[0] == pieces) {
+            return (int[]) kept[1];
+        }
+        final int[] staged = java.util.stream.IntStream.range(0, pieces.size())
+                .filter(i -> pieces.get(i).volumes().stream().anyMatch(Staged.class::isInstance)).toArray();
+        stagedOf = new Object[] {pieces, staged};
+        return staged;
+    }
+
+    /** Building {@code piece}'s stage, as the focus last had it; {@code null} if it is not staged. */
+    public Staged.Stage stage(final int piece) {
+        for (final Volume v : pieces.get(piece).volumes()) {
+            if (v instanceof Staged s) {
+                return s.stage();
+            }
+        }
+        return null;
+    }
+
     /** Piece {@code piece} of the course, as it was built: where it starts, if it moves ({@link Course.Piece#at}). */
     public Course.Piece piece(final int piece) {
         return pieces.get(piece);

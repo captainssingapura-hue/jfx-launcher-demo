@@ -338,6 +338,24 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return columns;
     }
 
+    /**
+     * Its coarse shape, as it is far off ({@link com.example.fxsuite.avatar.sim.Staged}): its outline stood up from
+     * the ground to its roof, a prism for each stretch of storeys whose outline is the same. Nothing inside it.
+     */
+    List<com.example.fxsuite.avatar.sim.Volume> coarse() {
+        final List<com.example.fxsuite.avatar.sim.Volume> shape = new ArrayList<>();
+        int from = 0;
+        for (int f = 1; f <= storeys(); f++) {
+            if (f == storeys() || outline(f) != outline(from)) {
+                shape.add(new com.example.fxsuite.avatar.sim.Prism(outline(from).stream()
+                        .map(p -> new com.example.fxsuite.avatar.sim.Vec2(p[0], p[1])).toList(), levels.get(from),
+                        levels.get(f)));
+                from = f;
+            }
+        }
+        return shape;
+    }
+
     /** Its crown: a parapet round its roof, so high. */
     List<Solid> crownSolids() {
         final List<Solid> solids = new ArrayList<>();
