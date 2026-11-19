@@ -311,9 +311,13 @@ public final class Damage {
         return moving;
     }
 
-    /** The pieces that fly of themselves and are still in the sky, by number: the airships left. */
+    /**
+     * The airships that fly of themselves and are still in the sky, by number: the airships left. Not whatever else
+     * goes its own way ({@link Course.Route}): a lift on its timetable flies no raids.
+     */
     public List<Integer> flying() {
-        return moving().stream().filter(i -> pieces.get(i).flies()).toList();
+        return moving().stream().filter(i -> pieces.get(i).flies() && pieces.get(i).kind() == Course.Kind.AIRSHIP)
+                .toList();
     }
 
     /** The pieces riding on piece {@code carrier} and still standing, by number: the stall on the barge. */

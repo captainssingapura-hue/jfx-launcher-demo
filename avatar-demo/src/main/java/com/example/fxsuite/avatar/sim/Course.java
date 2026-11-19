@@ -277,10 +277,12 @@ public final class Course {
     }
 
     /**
-     * The way an airship goes of itself, where it is at each moment: round the start
-     * ({@link Circling}); or in from the edge of the world to a target, and round over it ({@link Raid}).
+     * The way a thing goes of itself, where it is at each moment, a function of time alone: an airship round the
+     * start ({@link Circling}), or in from the edge of the world to a target and round over it ({@link Raid}); or
+     * whatever else moves on a way fixed in time, from outside the simulation (a lift on its timetable, a paternoster's
+     * cabins, an escalator's steps). Whoever stands on such a thing is carried with it, as on a platform's deck.
      */
-    public sealed interface Route permits Circling, Raid {
+    public interface Route {
 
         /** Where along it, {@code seconds} after the start. */
         Place at(double seconds);
