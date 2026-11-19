@@ -97,6 +97,8 @@ public final class TowerBench extends Application {
         TOWERS.put("MBFC Tower 1", Mbfc::tower1);
         TOWERS.put("MBFC Tower 2", Mbfc::tower2);
         TOWERS.put("MBFC Tower 3", Mbfc::tower3);
+        TOWERS.put("ORQ North Tower", Orq::north);
+        TOWERS.put("ORQ South Tower", Orq::south);
     }
 
     /** Which tower is chosen; the knobs ({@code set}), for the generic one's figures and how it is shown. */

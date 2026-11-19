@@ -30,10 +30,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The bay's buildings bench: the bay's office towers ({@link Mbfc#standing}) where they stand in it, each turned as it
- * is, their lifts at work as they go in time; their figures read out; played, the whole bay laid with them standing in
- * it ({@link BayWorld}), the avatar starting before the way in of the one chosen. Put together of the bench kit's
- * parts, as the tower bench is.
+ * The bay's buildings bench: the bay's office towers ({@link Mbfc#standing}, {@link Orq#standing}) where they stand in it,
+ * each turned as it is, their lifts at work as they go in time; their figures read out; played, the whole bay laid with
+ * them standing in it ({@link BayWorld}), the avatar starting before the way in of the one chosen. Put together of
+ * the bench kit's parts, as the tower bench is.
  *
  * <p>{@code -Dbay.start=2} which tower to start at (1 to 3); {@code -Dbay.time=12} (seconds) where in time it starts;
  * {@code -Dbay.yaw}, {@code -Dbay.pitch}, {@code -Dbay.distance} (m) where it is seen from; {@code -Dbench.play=true}
@@ -49,7 +49,8 @@ public final class BayBench extends Application {
     private final Label clock = new Label();
     private final ComboBox<Double> rate = new ComboBox<>();
     private final ComboBox<String> first = new ComboBox<>();
-    private final List<Standing> towers = Mbfc.standing();
+    private final List<Standing> towers = java.util.stream.Stream.concat(Mbfc.standing().stream(),
+            Orq.standing().stream()).toList();
     private List<Built> built;
     private final List<Node> parts = new ArrayList<>();
     private final List<Rotate> turns = new ArrayList<>();
