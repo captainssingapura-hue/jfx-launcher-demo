@@ -46,7 +46,10 @@ import java.util.Map;
  * lifts at work as they go in time; its figures read out; played, to walk into it and ride its lifts. Put together of
  * the bench kit's parts.
  *
- * <p>{@code -Dtower.set=floors=40,zones=3} its knobs; {@code -Dtower.time=12} (seconds) where in time it starts;
+ * <p>Or a real tower, described from its figures ({@link #TOWERS}): its own size and lifts, shown as the knobs say.
+ *
+ * <p>{@code -Dtower.model="MBFC Tower 1"} which tower; {@code -Dtower.set=floors=40,zones=3} its knobs;
+ * {@code -Dtower.time=12} (seconds) where in time it starts;
  * {@code -Dtower.yaw}, {@code -Dtower.pitch}, {@code -Dtower.distance} (m) where it is seen from; {@code -Dbench.play=true}
  * plays it at once; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
@@ -86,8 +89,20 @@ public final class TowerBench extends Application {
     private boolean framed;
     private boolean playWhenShown = Boolean.getBoolean("bench.play");
 
-    private record Asked(Map<String, Double> set) {
+    /** The towers to choose from: the one made from the knobs' figures, and those described from a real one's. */
+    static final Map<String, java.util.function.Supplier<OfficeTower>> TOWERS = new java.util.LinkedHashMap<>();
+
+    static {
+        TOWERS.put("generic", null);
+        TOWERS.put("MBFC Tower 1", Mbfc::tower1);
     }
+
+    /** Which tower is chosen; the knobs ({@code set}), for the generic one's figures and how it is shown. */
+    private record Asked(String model, Map<String, Double> set) {
+    }
+
+    private final ComboBox<String> model = new ComboBox<>();
+    private final List<Spinner<Double>> figures = new ArrayList<>();
 
     /** What the workshop made: the tower as a scene, drawn; its moving parts drawn; how high it is cut away. */
     private record Made(Built built, Node frame, List<Node> parts, double cut) {
@@ -143,7 +158,20 @@ public final class TowerBench extends Application {
                 }
             });
             grid.addRow(row++, new Label(k.label()), spinner, new Label(k.unit()));
+            if (!k.key().equals("upto") && !k.key().equals("glass")) {
+                figures.add(spinner);
+            }
         }
+        // which tower: the generic one's figures set by the knobs, a real one's its own
+        model.getItems().setAll(TOWERS.keySet());
+        final String chosen = System.getProperty("tower.model", "generic");
+        model.setValue(TOWERS.containsKey(chosen) ? chosen : "generic");
+        model.valueProperty().addListener((o, was, now) -> {
+            framed = false;
+            request();
+        });
+        grid.add(new Label("Tower"), 0, row);
+        grid.add(model, 1, row, 2, 1);
         final ScrollPane adjusting = new ScrollPane(new VBox(8, grid));
         adjusting.setFitToWidth(true);
         adjusting.setPadding(new Insets(8));
@@ -175,12 +203,15 @@ public final class TowerBench extends Application {
     }
 
     private void request() {
-        bus.publish(new Asked(Map.copyOf(set)));
+        final boolean generic = TOWERS.get(model.getValue()) == null;
+        figures.forEach(s -> s.setDisable(!generic));
+        bus.publish(new Asked(model.getValue(), Map.copyOf(set)));
     }
 
-    /** On the workshop's worker: the tower built as set, drawn. */
+    /** On the workshop's worker: the tower built as chosen and set, drawn. */
     private Made make(final Asked a) {
-        final OfficeTower tower = tower(a.set());
+        final java.util.function.Supplier<OfficeTower> real = TOWERS.get(a.model());
+        final OfficeTower tower = real == null ? tower(a.set()) : real.get();
         final int upTo = (int) Math.round(KNOBS.get(10).of(a.set()));
         final Built built = tower.built(upTo, KNOBS.get(11).of(a.set()) > 0.5);
         // cut away over a storey: its floor over it left off, and what moves over it too

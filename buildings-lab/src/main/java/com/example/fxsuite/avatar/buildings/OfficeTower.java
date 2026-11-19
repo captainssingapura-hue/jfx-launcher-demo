@@ -38,9 +38,16 @@ import java.util.Locale;
  * @param service its core's solid parts, each a square (least, most across; least, most along)
  * @param banks   its lifts, each bank where it stands
  * @param crown   how high its crown stands over its roof
+ * @param front   which edge of its outline its way in is in, in its middle: one running across, on its north or its
+ *                south
  */
 public record OfficeTower(String name, List<double[]> outline, List<Double> levels, List<String> uses,
-                          List<double[]> service, List<Placed> banks, double crown) {
+                          List<double[]> service, List<Placed> banks, double crown, int front) {
+
+    /** What a storey is: its lobby, an office floor, a floor of plant (louvred, not glazed). */
+    static final String LOBBY = "lobby";
+    static final String OFFICE = "office";
+    static final String PLANT = "plant";
 
     /** A floor so thick; the spandrel over each storey's glass so deep, so thick; the glass so thick. */
     static final double SLAB = 30;
@@ -66,6 +73,10 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         banks = List.copyOf(banks);
         if (outline.size() < 3 || levels.size() < 2 || uses.size() != levels.size() - 1) {
             throw new IllegalArgumentException(name + ": an outline, storeys and a roof, each storey's use");
+        }
+        if (front < 0 || front >= outline.size()
+                || Math.abs(outline.get(front)[1] - outline.get((front + 1) % outline.size())[1]) > 1) {
+            throw new IllegalArgumentException(name + ": its way in in an edge of its outline running across");
         }
     }
 
@@ -111,10 +122,10 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
             outline.set(0, new double[] {-a, -l});
         }
         final List<Double> levels = new ArrayList<>(List.of(0.0));
-        final List<String> uses = new ArrayList<>(List.of("lobby"));
+        final List<String> uses = new ArrayList<>(List.of(LOBBY));
         for (int f = 1; f <= floors; f++) {
             levels.add(lobby + (f - 1) * storey);
-            uses.add("office");
+            uses.add(OFFICE);
         }
         levels.add(lobby + floors * storey);
         // the office floors split evenly among the zones, the lowest from the first over the lobby
@@ -140,13 +151,24 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         final double longest = banks.stream().mapToDouble(Placed::length).max().orElse(0);
         final List<double[]> service = List.of(new double[] {-coreWide / 2, coreWide / 2, -longest / 2 - 700,
             -longest / 2});
-        return new OfficeTower("office tower", outline, levels, uses, service, banks, 600);
+        return new OfficeTower("office tower", outline, levels, uses, service, banks, 600, northmost(outline));
     }
 
     /** A bank of {@code cars} cars serving the lobby and floors {@code from} to {@code to}, at {@code speed}. */
     static HighRiseBank bank(final List<Double> levels, final int from, final int to, final int cars,
                              final double speed) {
-        return new HighRiseBank(0, 0, levels, from, to, cars, new Profile(speed, 100, 150), 200, 170, 260, 100, 3.5);
+        return bank(levels, from, to, cars, speed, 200, 170, 260, 100);
+    }
+
+    /**
+     * As {@link #bank(List, int, int, int, double)}, its cars {@code wide} across and {@code deep} along outside,
+     * {@code high} inside, their doorways {@code doorway} wide; held open three and a half seconds at a stop.
+     */
+    static HighRiseBank bank(final List<Double> levels, final int from, final int to, final int cars,
+                             final double speed, final double wide, final double deep, final double high,
+                             final double doorway) {
+        return new HighRiseBank(0, 0, levels, from, to, cars, new Profile(speed, 100, 150), wide, deep, high, doorway,
+                3.5);
     }
 
     /** Its floor at storey {@code f} (1 the first over the lobby; the roof the last): cut where its banks go through. */
@@ -170,11 +192,14 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         final List<Solid> solids = new ArrayList<>();
         final double from = levels.get(f);
         final double to = levels.get(f + 1);
-        final int front = front();
         for (int e = 0; e < outline.size(); e++) {
             final double glassTop = to - SLAB - SPANDREL;
             if (f == 0 && e == front) {
                 solids.addAll(entrance(e, from, glassTop));
+            } else if (PLANT.equals(uses.get(f))) {
+                // a plant floor louvred, not glazed: breathing, not broken into
+                solids.add(Plates.edge("louvres", outline, e, SPANDREL_THICK, from, glassTop, Role.WALL,
+                        Material.METAL));
             } else {
                 solids.addAll(Plates.panes("glass", outline, e, 0, 1, PANE, GLASS, from, glassTop, Role.GLAZING,
                         Material.GLASS));
@@ -204,8 +229,8 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return glass;
     }
 
-    /** Which edge of its outline is its front: the one furthest along, its way in in the lobby there. */
-    int front() {
+    /** Which edge of {@code outline} is furthest along of those running across with room for a way in: its north. */
+    static int northmost(final List<double[]> outline) {
         int best = 0;
         double most = Double.NEGATIVE_INFINITY;
         for (int e = 0; e < outline.size(); e++) {
@@ -327,14 +352,18 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         for (final double[] p : outline) {
             reach = Math.max(reach, Math.max(Math.abs(p[0]), Math.abs(p[1])));
         }
-        final double[] f = outline.get(front());
-        final double[] g = outline.get((front() + 1) % outline.size());
+        final double[] f = outline.get(front);
+        final double[] g = outline.get((front + 1) % outline.size());
         final double frontZ = (f[1] + g[1]) / 2;
         final double frontX = (f[0] + g[0]) / 2;
+        // which way is out of its front: to the right of its edge going round it, north or south
+        final double out = -Math.signum(g[0] - f[0]) * Math.signum(Plates.area(outline));
+        final double facing = out > 0 ? 180 : 0;
         final double size = Math.max(2 * reach, roof() + crown);
         return new Built(name, figures(), drawn, whole, movers(), List.of(whole, car, carLeaf, landingLeaf),
-                new Spot("before its way in", new Place(frontX, frontZ + 600, 0, 180)),
-                new Place(-reach, frontZ + 1_400, 0, 90), new Place(frontX + ENTRANCE, frontZ + 300, 0, 180),
-                size + 4_000, new double[] {0, roof() / 2, 0}, size, 145, panes);
+                new Spot("before its way in", new Place(frontX, frontZ + out * 600, 0, facing)),
+                new Place(-reach, frontZ + out * 1_400, 0, 90),
+                new Place(frontX + ENTRANCE, frontZ + out * 300, 0, facing),
+                size + 4_000, new double[] {0, roof() / 2, 0}, size, out > 0 ? 145 : -35, panes);
     }
 }
