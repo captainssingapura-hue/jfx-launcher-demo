@@ -168,6 +168,43 @@ final class Plates {
         return new Solid(name, role, material, corners);
     }
 
+    /**
+     * {@code outline} drawn in by {@code by} all round: each edge moved in square to itself, each corner where the
+     * edges either side of it, so moved, meet. For a floor stopped at the inside of what stands round its edge (a
+     * spandrel over it), not reaching its face: two faces in one plane flicker through each other, seen from afar.
+     */
+    static List<double[]> inset(final List<double[]> outline, final double by) {
+        final int n = outline.size();
+        final double inward = Math.signum(area(outline));
+        final List<double[]> in = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            final double[] o = outline.get((i + n - 1) % n);
+            final double[] p = outline.get(i);
+            final double[] q = outline.get((i + 1) % n);
+            // the edges either side, each as a direction and its inward square, of a length
+            final double ax = p[0] - o[0];
+            final double az = p[1] - o[1];
+            final double al = Math.hypot(ax, az);
+            final double bx = q[0] - p[0];
+            final double bz = q[1] - p[1];
+            final double bl = Math.hypot(bx, bz);
+            final double[] na = {-az / al * inward, ax / al * inward};
+            final double[] nb = {-bz / bl * inward, bx / bl * inward};
+            final double cross = ax / al * (bz / bl) - az / al * (bx / bl);
+            if (Math.abs(cross) < 1e-9) {
+                // running straight on: in square to both
+                in.add(new double[] {p[0] + na[0] * by, p[1] + na[1] * by});
+                continue;
+            }
+            // where p + na·by + s·a meets p + nb·by + t·b: s from the two lines' cross
+            final double dx = (nb[0] - na[0]) * by;
+            final double dz = (nb[1] - na[1]) * by;
+            final double s = (dx * (bz / bl) - dz * (bx / bl)) / cross;
+            in.add(new double[] {p[0] + na[0] * by + s * ax / al, p[1] + na[1] * by + s * az / al});
+        }
+        return in;
+    }
+
     /** Twice the area {@code outline} goes round: more than nothing anticlockwise (x east, z north). */
     static double area(final List<double[]> outline) {
         double sum = 0;

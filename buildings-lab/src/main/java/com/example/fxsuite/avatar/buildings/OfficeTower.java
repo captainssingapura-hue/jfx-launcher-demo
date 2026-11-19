@@ -220,7 +220,8 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
      * the storey under it's outline, so where it steps in its floor is the terrace round it too.
      */
     List<Solid> floor(final int f) {
-        return floor(f, outline(f - 1));
+        // stopped at the inside of the spandrel round it, which covers its edge: in one plane with it, they flicker
+        return floor(f, Plates.inset(outline(f - 1), SPANDREL_THICK));
     }
 
     /** Its floor at storey {@code f} on {@code on}, cut where its banks go through. */

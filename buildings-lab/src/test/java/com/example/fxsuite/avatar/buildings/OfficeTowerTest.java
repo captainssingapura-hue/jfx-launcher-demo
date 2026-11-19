@@ -47,7 +47,11 @@ class OfficeTowerTest {
         final OfficeTower t = OfficeTower.generic(5200, 5200, 800, 600, 950, 12, 465, 1, 4, 400);
         final double outline = Math.abs(Plates.area(t.outline())) / 2 / 10_000;
         assertEquals(52 * 52 - 2 * 8 * 8 / 2.0 - 6 * 6, outline, 1e-6);
-        assertEquals(outline, Plates.area(t.floor(t.storeys()), true), 1e-6, "its roof, nothing through it");
+        // its roof, nothing through it, drawn in to the inside of the spandrel round it, not in one plane with its face
+        final double drawnIn = Math.abs(Plates.area(Plates.inset(t.outline(), OfficeTower.SPANDREL_THICK))) / 2
+                / 10_000;
+        assertEquals(drawnIn, Plates.area(t.floor(t.storeys()), true), 1e-6, "its roof, nothing through it");
+        assertTrue(drawnIn < outline && drawnIn > outline - 0.1 * 52 * 4, "a strip 10 cm (0.1 m) wide all round, no more");
     }
 
     @Test
