@@ -21,17 +21,17 @@ import java.util.List;
  * a building in the way as its solids are, what moves in it each a piece going its own way, each drawn by its key; who
  * comes put where it says.
  */
-final class SceneWorld implements PlayWorld {
+public final class SceneWorld implements PlayWorld {
 
     /** The first key a scene's parts are drawn by: its frame's. */
-    static final int KEY = 970_000;
+    public static final int KEY = 970_000;
     /** How far apart people stand in a row; the room between vehicles parked. */
-    static final double PEOPLE_APART = 150;
-    static final double ROOM = 200;
+    public static final double PEOPLE_APART = 150;
+    public static final double ROOM = 200;
 
     private final Built built;
 
-    SceneWorld(final Built built) {
+    public SceneWorld(final Built built) {
         this.built = built;
     }
 

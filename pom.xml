@@ -36,5 +36,6 @@
         <module>estate-launcher</module>
         <module>avatar-demo</module>
         <module>lifts-lab</module>
+        <module>buildings-lab</module>
     </modules>
 </project>

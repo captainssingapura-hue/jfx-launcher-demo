@@ -32,14 +32,14 @@ import java.util.List;
  * @param doorway  how wide a car's doorway is (a landing's a little wider)
  * @param held     how long its doors are held open at a stop, seconds
  */
-record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int zoneTo, int cars, Profile profile,
-                    double wide, double deep, double high, double doorway, double held) {
+public record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int zoneTo, int cars, Profile profile,
+                           double wide, double deep, double high, double doorway, double held) {
 
     /** Its shafts' walls so thick, so far out from a car. */
-    static final double SHAFT_WALL = 15;
-    static final double GAP = 10;
+    public static final double SHAFT_WALL = 15;
+    public static final double GAP = 10;
 
-    HighRiseBank {
+    public HighRiseBank {
         levels = List.copyOf(levels);
         if (!(zoneFrom >= 1 && zoneFrom <= zoneTo && zoneTo < levels.size() && cars >= 1 && held >= 0)) {
             throw new IllegalArgumentException("a bank serving the lobby and a zone of its building's floors");
@@ -51,17 +51,17 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
     }
 
     /** How far apart its shafts' middles are. */
-    double pitch() {
+    public double pitch() {
         return wide + 2 * GAP + SHAFT_WALL;
     }
 
     /** Car {@code k}'s middle, across. */
-    double carX(final int k) {
+    public double carX(final int k) {
         return x + (k - (cars - 1) / 2.0) * pitch();
     }
 
     /** The floors it stops at: the lobby, and its zone's. */
-    List<Integer> served() {
+    public List<Integer> served() {
         final List<Integer> served = new ArrayList<>(List.of(0));
         for (int f = zoneFrom; f <= zoneTo; f++) {
             served.add(f);
@@ -70,7 +70,7 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
     }
 
     /** Its cars' stops round its timetable: the lobby, its zone up, its zone down; then back to the lobby. */
-    List<Integer> stops() {
+    public List<Integer> stops() {
         final List<Integer> stops = new ArrayList<>(served());
         for (int f = zoneTo - 1; f >= zoneFrom; f--) {
             stops.add(f);
@@ -79,22 +79,22 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
     }
 
     /** How long a car stands at a stop. */
-    double dwell() {
+    public double dwell() {
         return ShuttleLift.OPENING + held + ShuttleLift.SHUTTING;
     }
 
     /** Its timetable, worked out once: where each car is at any moment. */
-    Timetable timetable() {
+    public Timetable timetable() {
         return new Timetable(this);
     }
 
     /** How long a car takes round its timetable. */
-    double cycle() {
+    public double cycle() {
         return timetable().cycle();
     }
 
     /** How long after one car another comes, at any floor it serves. */
-    double interval() {
+    public double interval() {
         return cycle() / cars;
     }
 
@@ -103,7 +103,7 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
     }
 
     /** Car {@code k}'s state, {@code seconds} in (the timetable worked out afresh: for a few questions, not many). */
-    ShuttleLift.State at(final int k, final double seconds) {
+    public ShuttleLift.State at(final int k, final double seconds) {
         return timetable().at(k, seconds);
     }
 
@@ -111,7 +111,7 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
      * A bank's timetable, worked out once: each stop round it, when it begins, and the run from it to the next, so
      * that where each car is, asked every step for every car, is a few sums.
      */
-    static final class Timetable {
+    public static final class Timetable {
 
         private final int cars;
         private final double held;
@@ -144,12 +144,12 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
         }
 
         /** How long a car takes round it. */
-        double cycle() {
+        public double cycle() {
             return cycle;
         }
 
         /** Car {@code k}'s state, {@code seconds} in: its floor's top, the floor it stands at (-1 going), how far open. */
-        ShuttleLift.State at(final int k, final double seconds) {
+        public ShuttleLift.State at(final int k, final double seconds) {
             final double t = (((seconds + k * cycle / cars) % cycle) + cycle) % cycle;
             int s = 0;
             while (s + 1 < starts.length && starts[s + 1] <= t) {
@@ -165,39 +165,39 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
         }
 
         /** How far open car {@code k}'s landing doors at {@code floor} are: as the car's, while it stands there. */
-        double landingOpen(final int k, final int floor, final double seconds) {
+        public double landingOpen(final int k, final int floor, final double seconds) {
             final ShuttleLift.State s = at(k, seconds);
             return s.at() == floor ? s.open() : 0;
         }
     }
 
     /** How high its cars' doors are. */
-    double doorHigh() {
+    public double doorHigh() {
         return high - ShuttleLift.DOOR_UNDER;
     }
 
     /** How wide a landing's doorway is. */
-    double landing() {
+    public double landing() {
         return doorway + ShuttleLift.LANDING_WIDER;
     }
 
     /** A car. */
-    List<Box> car() {
+    public List<Box> car() {
         return ShuttleLift.car(wide, deep, high, doorway);
     }
 
     /** A leaf of a car's doors. */
-    List<Box> carLeaf() {
+    public List<Box> carLeaf() {
         return ShuttleLift.leaf("car door", doorway / 2, doorHigh());
     }
 
     /** A leaf of a landing's doors. */
-    List<Box> landingLeaf() {
+    public List<Box> landingLeaf() {
         return ShuttleLift.leaf("landing door", landing() / 2, doorHigh() + 10);
     }
 
     /** Each car, its doors and its landings' doors, each a mover: drawn by {@code car}, {@code carDoor}, {@code landingDoor}. */
-    List<Mover> movers(final int car, final int carDoor, final int landingDoor) {
+    public List<Mover> movers(final int car, final int carDoor, final int landingDoor) {
         final List<Mover> movers = new ArrayList<>();
         final double front = z + deep / 2 + GAP + SHAFT_WALL + 1.5;
         // one timetable, worked out once, for every car's way and every door's
@@ -226,13 +226,13 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
     }
 
     /** The hole each floor is cut for its shafts, all together (min x, max x, min z, max z). */
-    double[] hole() {
+    public double[] hole() {
         final double half = cars * pitch() / 2 - SHAFT_WALL / 2;
         return new double[] {x - half, x + half, z - deep / 2 - GAP, z + deep / 2 + GAP};
     }
 
     /** How high its shafts go: past its top floor, a car and some, to its machine room's floor. */
-    double over() {
+    public double over() {
         return levels.getLast() + ShuttleLift.FLOOR + high + ShuttleLift.FLOOR + 100;
     }
 
@@ -241,7 +241,7 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
      * in front, storey by storey, each car's landing's doorway where it stops, blank where it expresses; capped over by
      * its machine room's floor ({@code slab} thick).
      */
-    List<Solid> shafts(final double slab) {
+    public List<Solid> shafts(final double slab) {
         final List<Solid> walls = new ArrayList<>();
         final double[] h = hole();
         final double w = SHAFT_WALL;

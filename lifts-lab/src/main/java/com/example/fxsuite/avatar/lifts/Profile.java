@@ -14,9 +14,9 @@ package com.example.fxsuite.avatar.lifts;
  * @param accel its greatest acceleration, cm/s²
  * @param jerk  how fast its acceleration changes at most, cm/s³
  */
-record Profile(double speed, double accel, double jerk) {
+public record Profile(double speed, double accel, double jerk) {
 
-    Profile {
+    public Profile {
         if (!(speed > 0 && accel > 0 && jerk > 0)) {
             throw new IllegalArgumentException("a lift's profile going, gathering speed, easing");
         }
@@ -69,22 +69,22 @@ record Profile(double speed, double accel, double jerk) {
     }
 
     /** How long it takes to go {@code distance}, from standing to standing. */
-    double time(final double distance) {
+    public double time(final double distance) {
         return run(distance).time();
     }
 
     /** How far it has gone of {@code distance}, {@code t} after starting, from standing to standing. */
-    double gone(final double distance, final double t) {
+    public double gone(final double distance, final double t) {
         return run(distance).gone(t);
     }
 
     /** How fast it is going, {@code t} after starting over {@code distance}. */
-    double speedAt(final double distance, final double t) {
+    public double speedAt(final double distance, final double t) {
         return run(distance).speedAt(t);
     }
 
     /** A run over {@code distance}, its stretches worked out: how long it takes, where it is and how fast at a moment. */
-    static final class Run {
+    public static final class Run {
 
         private final double distance;
         private final double[][] stretches;
@@ -101,12 +101,12 @@ record Profile(double speed, double accel, double jerk) {
         }
 
         /** How long it takes, from standing to standing. */
-        double time() {
+        public double time() {
             return time;
         }
 
         /** How far it has gone, {@code t} after starting. */
-        double gone(final double t) {
+        public double gone(final double t) {
             if (t >= time) {
                 return distance;
             }
@@ -129,7 +129,7 @@ record Profile(double speed, double accel, double jerk) {
         }
 
         /** How fast it is going, {@code t} after starting. */
-        double speedAt(final double t) {
+        public double speedAt(final double t) {
             double v = 0;
             double a = 0;
             double left = Math.max(0, t);

@@ -16,9 +16,9 @@ import java.util.List;
  * @param route where it is at each moment: its foot's height, its middle across and along
  * @param key   the key it is drawn by
  */
-record Mover(String name, List<Box> boxes, Course.Route route, int key) {
+public record Mover(String name, List<Box> boxes, Course.Route route, int key) {
 
-    Mover {
+    public Mover {
         boxes = List.copyOf(boxes);
         for (final Box b : boxes) {
             if (b.u0() < -1e-9) {
@@ -28,7 +28,7 @@ record Mover(String name, List<Box> boxes, Course.Route route, int key) {
     }
 
     /** What it is made of to the simulation: its box all round (square about its middle), and each box solid. */
-    Course.Shape shape() {
+    public Course.Shape shape() {
         double across = 0;
         double along = 0;
         double up = 0;
@@ -42,12 +42,12 @@ record Mover(String name, List<Box> boxes, Course.Route route, int key) {
     }
 
     /** What is drawn of it. */
-    List<Solid> solids() {
+    public List<Solid> solids() {
         return boxes.stream().map(Box::solid).toList();
     }
 
     /** It, as a piece of the world: where its route has it at the start, going its way, drawn as a building is. */
-    Course.Piece piece() {
+    public Course.Piece piece() {
         return Course.Piece.moving(shape(), route.at(0), Course.Kind.BUILDING, key, route);
     }
 }

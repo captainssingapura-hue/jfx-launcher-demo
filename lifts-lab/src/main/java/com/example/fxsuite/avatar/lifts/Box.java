@@ -14,10 +14,10 @@ import java.util.List;
  * ({@code u0} to {@code u1}), cm; what it does and what it is made of. The same box is what is in the way of whoever
  * moves about it ({@link #section}) and what is drawn ({@link #solid}), so the two never differ.
  */
-record Box(String name, Role role, Material material, double a0, double a1, double l0, double l1, double u0,
-           double u1) {
+public record Box(String name, Role role, Material material, double a0, double a1, double l0, double l1, double u0,
+                  double u1) {
 
-    Box {
+    public Box {
         if (!(a1 > a0 && l1 > l0 && u1 > u0)) {
             throw new IllegalArgumentException(name + ": a box from its least to its most each way");
         }
@@ -33,7 +33,7 @@ record Box(String name, Role role, Material material, double a0, double a1, doub
      * What is drawn: its eight corners, corner {@code c} at the least or the most across as bit 0 of {@code c} says,
      * along as bit 1, up as bit 2, as a solid's corners are drawn.
      */
-    Solid solid() {
+    public Solid solid() {
         final List<Point> corners = new ArrayList<>(8);
         for (int c = 0; c < 8; c++) {
             corners.add(new Point((c & 1) == 0 ? a0 : a1, (c & 2) == 0 ? l0 : l1, (c & 4) == 0 ? u0 : u1));

@@ -1,0 +1,169 @@
+package com.example.fxsuite.avatar.buildings;
+
+import com.example.fxsuite.avatar.build.Material;
+import com.example.fxsuite.avatar.build.Point;
+import com.example.fxsuite.avatar.build.Role;
+import com.example.fxsuite.avatar.build.Solid;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Flat things of any outline, as solids: a floor on its outline, cut where shafts go through it; and panels along an
+ * outline's edges (glass, a spandrel). An outline is points round it, across (x) and along (z), cm, in its frame; any
+ * outline that does not cross itself, its edges straight. A hole is a square cut (least and most across, least and
+ * most along).
+ *
+ * <p>A floor is cut into strips across, at every corner of its outline and every side of its holes: in each strip the
+ * outline's edges are straight lines, so each piece of it is a four-sided solid, its sides across square, its sides
+ * along as the outline's edges run. Each piece is convex, as a solid must be to be drawn and stood on.
+ */
+final class Plates {
+
+    private Plates() {
+    }
+
+    /**
+     * A floor on {@code outline}, from {@code bottom} to {@code top}, cut where {@code holes} go through it, made of
+     * {@code material}: its pieces, each a solid.
+     */
+    static List<Solid> floor(final String name, final List<double[]> outline, final List<double[]> holes,
+                             final double bottom, final double top, final Role role, final Material material) {
+        final List<Double> xs = new ArrayList<>();
+        for (final double[] p : outline) {
+            xs.add(p[0]);
+        }
+        double least = Double.POSITIVE_INFINITY;
+        double most = Double.NEGATIVE_INFINITY;
+        for (final double[] p : outline) {
+            least = Math.min(least, p[0]);
+            most = Math.max(most, p[0]);
+        }
+        for (final double[] h : holes) {
+            xs.add(Math.clamp(h[0], least, most));
+            xs.add(Math.clamp(h[1], least, most));
+        }
+        final List<Double> cuts = xs.stream().distinct().sorted().toList();
+        final List<Solid> pieces = new ArrayList<>();
+        for (int i = 0; i + 1 < cuts.size(); i++) {
+            final double a = cuts.get(i);
+            final double b = cuts.get(i + 1);
+            if (b - a < 0.5) {
+                continue;
+            }
+            final double mid = (a + b) / 2;
+            // the outline's edges this strip crosses, in order along: each two an inside between them
+            final List<double[]> edges = new ArrayList<>();
+            for (int e = 0; e < outline.size(); e++) {
+                final double[] p = outline.get(e);
+                final double[] q = outline.get((e + 1) % outline.size());
+                if (Math.min(p[0], q[0]) <= mid && mid < Math.max(p[0], q[0])) {
+                    edges.add(new double[] {p[0], p[1], q[0], q[1]});
+                }
+            }
+            edges.sort((e1, e2) -> Double.compare(along(e1, mid), along(e2, mid)));
+            final List<double[]> crossing = holes.stream().filter(h -> h[0] < mid && mid < h[1])
+                    .sorted((h1, h2) -> Double.compare(h1[2], h2[2])).toList();
+            for (int k = 0; k + 1 < edges.size(); k += 2) {
+                final double[] low = edges.get(k);
+                final double[] high = edges.get(k + 1);
+                // the inside between them, less any hole across it
+                double[] from = {along(low, a), along(low, b)};
+                for (final double[] h : crossing) {
+                    if (h[3] <= along(low, mid) || h[2] >= along(high, mid)) {
+                        continue;
+                    }
+                    final double[] to = {Math.min(h[2], along(high, a)), Math.min(h[2], along(high, b))};
+                    if (to[0] - from[0] > 0.5 || to[1] - from[1] > 0.5) {
+                        pieces.add(piece(name, a, b, from, to, bottom, top, role, material));
+                    }
+                    from = new double[] {Math.max(h[3], from[0]), Math.max(h[3], from[1])};
+                }
+                final double[] to = {along(high, a), along(high, b)};
+                if (to[0] - from[0] > 0.5 || to[1] - from[1] > 0.5) {
+                    pieces.add(piece(name, a, b, from, to, bottom, top, role, material));
+                }
+            }
+        }
+        return pieces;
+    }
+
+    /** Where along edge {@code e} (from x, from z, to x, to z) is at {@code x} across. */
+    private static double along(final double[] e, final double x) {
+        final double t = (x - e[0]) / (e[2] - e[0]);
+        return e[1] + t * (e[3] - e[1]);
+    }
+
+    /** A piece from {@code a} to {@code b} across; along, from {@code from} to {@code to} at each. */
+    private static Solid piece(final String name, final double a, final double b, final double[] from,
+                               final double[] to, final double bottom, final double top, final Role role,
+                               final Material material) {
+        final List<Point> corners = new ArrayList<>(8);
+        for (int c = 0; c < 8; c++) {
+            final boolean far = (c & 1) != 0;
+            corners.add(new Point(far ? b : a, (c & 2) == 0 ? (far ? from[1] : from[0]) : (far ? to[1] : to[0]),
+                    (c & 4) == 0 ? bottom : top));
+        }
+        return new Solid(name, role, material, corners);
+    }
+
+    /**
+     * A panel along {@code outline}'s edge from point {@code e} to the next, {@code thick} thick inward from it, from
+     * {@code bottom} to {@code top}: glass, a spandrel. Its corners given so it is drawn its right way out whichever way
+     * the edge runs.
+     */
+    static Solid edge(final String name, final List<double[]> outline, final int e, final double thick,
+                      final double bottom, final double top, final Role role, final Material material) {
+        final double[] p = outline.get(e);
+        final double[] q = outline.get((e + 1) % outline.size());
+        final double inward = Math.signum(area(outline));
+        final double dx = q[0] - p[0];
+        final double dz = q[1] - p[1];
+        final double length = Math.hypot(dx, dz);
+        // inward: to the left of the edge, going round the way the outline does (anticlockwise, x east and z north)
+        final double nx = -dz / length * thick * inward;
+        final double nz = dx / length * thick * inward;
+        double[] a = p;
+        double[] b = q;
+        // corner 0 to 1 along the edge, 0 to 2 inward: turning as x does to z, or swapped so it does
+        if (dx * nz - dz * nx < 0) {
+            a = q;
+            b = p;
+        }
+        final double[][] quad = {a, b, {a[0] + nx, a[1] + nz}, {b[0] + nx, b[1] + nz}};
+        final List<Point> corners = new ArrayList<>(8);
+        for (int c = 0; c < 8; c++) {
+            final double[] at = quad[c & 3];
+            corners.add(new Point(at[0], at[1], (c & 4) == 0 ? bottom : top));
+        }
+        return new Solid(name, role, material, corners);
+    }
+
+    /** Twice the area {@code outline} goes round: more than nothing anticlockwise (x east, z north). */
+    static double area(final List<double[]> outline) {
+        double sum = 0;
+        for (int i = 0; i < outline.size(); i++) {
+            final double[] a = outline.get(i);
+            final double[] b = outline.get((i + 1) % outline.size());
+            sum += a[0] * b[1] - b[0] * a[1];
+        }
+        return sum;
+    }
+
+    /** How big a floor's pieces are, all told, seen from above: m². */
+    static double area(final List<Solid> pieces, final boolean metres) {
+        double sum = 0;
+        for (final Solid s : pieces) {
+            final List<Point> c = s.corners();
+            // its four corners round, from above
+            final double[][] quad = {{c.get(0).across(), c.get(0).along()}, {c.get(1).across(), c.get(1).along()},
+                {c.get(3).across(), c.get(3).along()}, {c.get(2).across(), c.get(2).along()}};
+            double twice = 0;
+            for (int i = 0; i < 4; i++) {
+                twice += quad[i][0] * quad[(i + 1) % 4][1] - quad[(i + 1) % 4][0] * quad[i][1];
+            }
+            sum += Math.abs(twice) / 2;
+        }
+        return metres ? sum / 10_000 : sum;
+    }
+}

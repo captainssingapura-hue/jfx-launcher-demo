@@ -28,28 +28,28 @@ import java.util.List;
  * @param doorway how wide its car's doorway is (its landings' a little wider)
  * @param held    how long its doors are held open at a stop, seconds
  */
-record ShuttleLift(double x, double z, List<Double> floors, double speed, double accel, double wide, double deep,
-                   double high, double doorway, double held) {
+public record ShuttleLift(double x, double z, List<Double> floors, double speed, double accel, double wide, double deep,
+                          double high, double doorway, double held) {
 
     /** A car as they mostly are: so wide and deep outside, so high inside, its doorway so wide; held open so long. */
-    static final double WIDE = 200;
-    static final double DEEP = 200;
-    static final double HIGH = 250;
-    static final double DOORWAY = 100;
-    static final double HELD = 4;
+    public static final double WIDE = 200;
+    public static final double DEEP = 200;
+    public static final double HIGH = 250;
+    public static final double DOORWAY = 100;
+    public static final double HELD = 4;
     /** Its car's floor so thick, its walls; its doors this much under its ceiling; a landing's this much wider. */
-    static final double FLOOR = 10;
-    static final double WALL = 4;
-    static final double DOOR_UNDER = 40;
-    static final double LANDING_WIDER = 20;
+    public static final double FLOOR = 10;
+    public static final double WALL = 4;
+    public static final double DOOR_UNDER = 40;
+    public static final double LANDING_WIDER = 20;
     /** The shaft's walls so thick, so far out from the car. */
-    static final double SHAFT_WALL = 10;
-    static final double GAP = 10;
+    public static final double SHAFT_WALL = 10;
+    public static final double GAP = 10;
     /** At each stop: its doors opening, and shutting, seconds. */
-    static final double OPENING = 1.5;
-    static final double SHUTTING = 1.5;
+    public static final double OPENING = 1.5;
+    public static final double SHUTTING = 1.5;
 
-    ShuttleLift {
+    public ShuttleLift {
         floors = List.copyOf(floors);
         if (floors.size() < 2 || !(speed > 0 && accel > 0 && held >= 0)) {
             throw new IllegalArgumentException("a shuttle lift between two floors at least, going");
@@ -71,29 +71,29 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** How high its car's doors are, and its landings'. */
-    double doorHigh() {
+    public double doorHigh() {
         return high - DOOR_UNDER;
     }
 
     /** How wide its landings' doorways are. */
-    double landing() {
+    public double landing() {
         return doorway + LANDING_WIDER;
     }
 
     /** How long it stands at a stop. */
-    double dwell() {
+    public double dwell() {
         return OPENING + held + SHUTTING;
     }
 
     /** How long it takes to go {@code distance}, from standing to standing. */
-    double travel(final double distance) {
+    public double travel(final double distance) {
         final double d = Math.abs(distance);
         final double ramp = speed * speed / accel;
         return d >= ramp ? d / speed + speed / accel : 2 * Math.sqrt(d / accel);
     }
 
     /** How far it has gone of {@code distance}, {@code t} after starting, from standing to standing. */
-    double gone(final double distance, final double t) {
+    public double gone(final double distance, final double t) {
         final double d = Math.abs(distance);
         final double total = travel(d);
         final double clamped = Math.clamp(t, 0, total);
@@ -112,7 +112,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** Its stops, in order, round its timetable: the foot to the top and back down, the foot not twice. */
-    List<Integer> stops() {
+    public List<Integer> stops() {
         final List<Integer> stops = new ArrayList<>();
         for (int f = 0; f < floors.size(); f++) {
             stops.add(f);
@@ -124,7 +124,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** How long its timetable takes, round. */
-    double cycle() {
+    public double cycle() {
         double total = 0;
         final List<Integer> stops = stops();
         for (int k = 0; k < stops.size(); k++) {
@@ -134,11 +134,11 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** Where it is, {@code seconds} in: its floor's top, which floor it stands at (-1 going), how far open its doors. */
-    record State(double level, int at, double open) {
+    public record State(double level, int at, double open) {
     }
 
     /** Its state {@code seconds} after the start of its timetable, at the foot with its doors beginning to open. */
-    State at(final double seconds) {
+    public State at(final double seconds) {
         final List<Integer> stops = stops();
         double t = ((seconds % cycle()) + cycle()) % cycle();
         for (int k = 0; ; k = (k + 1) % stops.size()) {
@@ -160,18 +160,18 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** How far open landing {@code floor}'s doors are, {@code seconds} in: as the car's, while it stands there. */
-    double landingOpen(final int floor, final double seconds) {
+    public double landingOpen(final int floor, final double seconds) {
         final State s = at(seconds);
         return s.at() == floor ? s.open() : 0;
     }
 
     /** The car: its floor, its back and sides, its front either side of its doorway and over it, its roof. */
-    List<Box> car() {
+    public List<Box> car() {
         return car(wide, deep, high, doorway);
     }
 
     /** A car so wide, deep and high inside, its doorway so wide, its doors {@link #DOOR_UNDER} under its ceiling. */
-    static List<Box> car(final double wide, final double deep, final double high, final double doorway) {
+    public static List<Box> car(final double wide, final double deep, final double high, final double doorway) {
         final double a = wide / 2;
         final double l = deep / 2;
         final double w = WALL;
@@ -190,22 +190,22 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** A door's leaf, {@code wide} wide, {@code high} high, 2 cm thick. */
-    static List<Box> leaf(final String name, final double wide, final double high) {
+    public static List<Box> leaf(final String name, final double wide, final double high) {
         return List.of(new Box(name, Role.FRAME, Material.METAL, -wide / 2, wide / 2, -1, 1, 0, high));
     }
 
     /** A leaf of its car's doors. */
-    List<Box> carLeaf() {
+    public List<Box> carLeaf() {
         return leaf("car door", doorway / 2, doorHigh());
     }
 
     /** A leaf of a landing's doors. */
-    List<Box> landingLeaf() {
+    public List<Box> landingLeaf() {
         return leaf("landing door", landing() / 2, doorHigh() + 10);
     }
 
     /** Its car, its car's doors and each landing's doors, each a mover: drawn by {@code car}, {@code carDoor}, {@code landingDoor}. */
-    List<Mover> movers(final int car, final int carDoor, final int landingDoor) {
+    public List<Mover> movers(final int car, final int carDoor, final int landingDoor) {
         final List<Mover> movers = new ArrayList<>();
         movers.add(new Mover("shuttle car", car(), seconds -> new Place(x, z, at(seconds).level() - FLOOR, 0), car));
         // the car's doors, just outside its front, sliding apart over its front's sides
@@ -229,7 +229,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
     }
 
     /** The hole each floor is cut for its shaft: the car and the gap round it (min x, max x, min z, max z). */
-    double[] hole() {
+    public double[] hole() {
         return new double[] {x - wide / 2 - GAP, x + wide / 2 + GAP, z - deep / 2 - GAP, z + deep / 2 + GAP};
     }
 
@@ -237,7 +237,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
      * Its shaft, storey by storey from its foot, each landing's doorway in its front; each storey up to the floor over
      * it ({@code slab} thick), the top one up past its car to a cap.
      */
-    List<Solid> shaft(final double slab) {
+    public List<Solid> shaft(final double slab) {
         final List<Solid> walls = new ArrayList<>();
         for (int f = 0; f < floors.size(); f++) {
             final double from = floors.get(f);

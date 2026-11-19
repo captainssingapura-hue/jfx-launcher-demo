@@ -27,11 +27,11 @@ import java.util.List;
  * @param size     how big it is, at most, any way
  * @param yaw      which way round it is best seen from, degrees: its front toward the camera
  */
-record Built(String title, String figures, List<Solid> drawn, List<Solid> standing, List<Mover> movers,
-             List<List<Solid>> keyed, Spot start, Place parking, Place people, double ground, double[] middle,
-             double size, double yaw) {
+public record Built(String title, String figures, List<Solid> drawn, List<Solid> standing, List<Mover> movers,
+                    List<List<Solid>> keyed, Spot start, Place parking, Place people, double ground, double[] middle,
+                    double size, double yaw) {
 
-    Built {
+    public Built {
         drawn = List.copyOf(drawn);
         standing = List.copyOf(standing);
         movers = List.copyOf(movers);
