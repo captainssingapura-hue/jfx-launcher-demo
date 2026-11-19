@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LiftsTest {
 
-    private final LiftYard yard = new LiftYard();
+    private final YardScene yard = new YardScene();
 
     @Test
     void aPaternostersCabinsGoEvenlyRoundItsLoopUprightAndSmoothly() {
@@ -36,7 +36,7 @@ class LiftsTest {
             assertTrue(Math.hypot(b.x() - a.x(), b.height() - a.height()) <= p.speed() * step + 1e-6, "at " + t);
         }
         // its floor passes every landing, going up on one side and down on the other
-        for (final double floor : LiftYard.FLOORS) {
+        for (final double floor : YardScene.FLOORS) {
             boolean up = false;
             boolean down = false;
             for (double t = 0; t < p.round(); t += 0.05) {
@@ -77,7 +77,7 @@ class LiftsTest {
             assertTrue(Math.abs(s.at(t + 0.02).level() - state.level()) <= s.speed() * 0.02 + 1e-6, "at " + t);
         }
         assertTrue(opened, "its doors open wide at its stops");
-        assertEquals(6 * (ShuttleLift.dwell() + s.travel(400)), s.cycle(), 1e-9, "six stops round, a floor apart");
+        assertEquals(6 * (s.dwell() + s.travel(400)), s.cycle(), 1e-9, "six stops round, a floor apart");
     }
 
     @Test
@@ -86,7 +86,7 @@ class LiftsTest {
         assertTrue(e.riser() <= Body.STEP, "each step rises less than a body steps up of itself: " + e.riser());
         // on its incline, two steps one after the other: one a riser over the other, a tread along
         final double spacing = 2 * e.length() / e.steps();
-        final double mid = Escalator.FLAT + e.run() / 2;
+        final double mid = e.flat() + e.run() / 2;
         final Place a = e.step(0).at(mid / e.speed());
         final Place b = e.step(1).at(mid / e.speed());
         assertEquals(spacing, b.z() - a.z(), 1e-6);

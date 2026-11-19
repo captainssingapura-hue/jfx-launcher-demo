@@ -19,11 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class RidingTest {
 
-    private final LiftYard yard = new LiftYard();
+    private final YardScene yard = new YardScene();
 
     /** The avatar stood on {@code spot} in the yard, the world stepped {@code seconds}: where it is then. */
     private Vec3 ridden(final Spot spot, final double seconds) {
-        Play play = Play.start(new Played(yard, new Played.Guests(List.of(), 0, false, spot)), false);
+        Play play = Play.start(new Played(new SceneWorld(yard.built()), new Played.Guests(List.of(), 0, false, spot)),
+                false);
         for (int n = 0; n < seconds / Clock.STEP; n++) {
             play = play.step(Controls.NONE, Clock.STEP).play();
         }
@@ -45,7 +46,7 @@ class RidingTest {
     void stoodInTheShuttleLiftsCarItIsAtTheNextFloorWhenTheCarIs() {
         final ShuttleLift s = yard.shuttle;
         // the car at the foot, its doors opening; the next stop, the first floor, once it has stood and gone a floor
-        final double seconds = ShuttleLift.dwell() + s.travel(400) + 2;
+        final double seconds = s.dwell() + s.travel(400) + 2;
         final Vec3 at = ridden(new Spot("in the car", new Place(s.x(), s.z(), 0, 180)), seconds);
         assertEquals(1, s.at(seconds).at(), "the car standing at the first floor");
         assertEquals(400, -at.y(), 3, "on its floor, at the first floor");
@@ -55,7 +56,7 @@ class RidingTest {
     void stoodOnAnEscalatorsStepItGoesUpAndAlongWithIt() {
         final Escalator e = yard.escalator;
         // a step on its incline, a third of the way up
-        final double s = Escalator.FLAT + e.run() / 3;
+        final double s = e.flat() + e.run() / 3;
         final int k = (int) Math.round(s / (2 * e.length() / e.steps()));
         final Place step = e.step(k).at(0);
         final double top = step.height() + e.riser();

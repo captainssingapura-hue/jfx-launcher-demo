@@ -2,6 +2,7 @@ package com.example.fxsuite.avatar.lifts;
 
 import com.example.fxsuite.avatar.build.Material;
 import com.example.fxsuite.avatar.build.Role;
+import com.example.fxsuite.avatar.build.Solid;
 import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Place;
 
@@ -24,20 +25,46 @@ import java.util.List;
  * @param top    how high a cabin's floor goes before it turns over
  * @param cabins how many cabins
  * @param speed  how fast they go, cm/s
+ * @param wide   how wide a cabin is, across
+ * @param deep   how deep a cabin is, along
+ * @param high   how high a cabin is inside
  */
-record Paternoster(double upX, double downX, double z, double bottom, double top, int cabins, double speed) {
+record Paternoster(double upX, double downX, double z, double bottom, double top, int cabins, double speed,
+                   double wide, double deep, double high) {
 
-    /** A cabin: so wide across, so deep along, so high inside; its floor so thick. */
+    /** A cabin as they mostly are: so wide across, so deep along, so high inside. Its floor so thick, its walls. */
     static final double WIDE = 180;
     static final double DEEP = 120;
     static final double HIGH = 220;
     static final double FLOOR = 8;
     static final double WALL = 4;
+    /** Between its two shafts' cabins, and round them in their shafts, so much room; its shaft's walls so thick. */
+    static final double APART = 20;
+    static final double ROOM = 5;
+    static final double SHAFT_WALL = 10;
 
     Paternoster {
-        if (!(downX - upX > WIDE && top > bottom && cabins > 0 && speed > 0)) {
+        if (!(wide > 2 * WALL && deep > WALL && high > 0 && downX - upX >= wide + APART && top > bottom && cabins > 0
+                && speed > 0)) {
             throw new IllegalArgumentException("a paternoster's shafts side by side, its loop some height, cabins going");
         }
+        // round its loop, its cabins no nearer one another than they are high
+        if (2 * (top - bottom) + Math.PI * (downX - upX) < cabins * (high + 2 * FLOOR)) {
+            throw new IllegalArgumentException("a paternoster's " + cabins + " cabins too many for its loop");
+        }
+    }
+
+    /**
+     * One about ({@code x}, {@code z}), its cabins so big, its loop from {@code bottom} to {@code top}, as many cabins
+     * as go round it {@code spacing} apart, at {@code speed}.
+     */
+    static Paternoster about(final double x, final double z, final double bottom, final double top,
+                             final double spacing, final double speed, final double wide, final double deep,
+                             final double high) {
+        final double half = (wide + APART) / 2;
+        final double loop = 2 * (top - bottom) + 2 * Math.PI * half;
+        final int cabins = Math.max(1, (int) Math.floor(loop / Math.max(spacing, high + 2 * FLOOR)));
+        return new Paternoster(x - half, x + half, z, bottom, top, cabins, speed, wide, deep, high);
     }
 
     /** How far apart its shafts' middles are, half: the radius of its turns over the top and under the foot. */
@@ -80,17 +107,17 @@ record Paternoster(double upX, double downX, double z, double bottom, double top
     }
 
     /** A cabin: its floor, its back, its sides, its roof; open in front. */
-    static List<Box> cabin() {
-        final double a = WIDE / 2;
-        final double l = DEEP / 2;
+    List<Box> cabin() {
+        final double a = wide / 2;
+        final double l = deep / 2;
         return List.of(
                 new Box("cabin, floor", Role.BASE, Material.TIMBER, -a, a, -l, l, 0, FLOOR),
-                new Box("cabin, back", Role.WALL, Material.TIMBER, -a, a, -l, -l + WALL, FLOOR, FLOOR + HIGH),
+                new Box("cabin, back", Role.WALL, Material.TIMBER, -a, a, -l, -l + WALL, FLOOR, FLOOR + high),
                 new Box("cabin, left side", Role.WALL, Material.TIMBER, -a, -a + WALL, -l + WALL, l, FLOOR,
-                        FLOOR + HIGH),
+                        FLOOR + high),
                 new Box("cabin, right side", Role.WALL, Material.TIMBER, a - WALL, a, -l + WALL, l, FLOOR,
-                        FLOOR + HIGH),
-                new Box("cabin, roof", Role.ROOF, Material.TIMBER, -a, a, -l, l, FLOOR + HIGH, FLOOR + HIGH + FLOOR));
+                        FLOOR + high),
+                new Box("cabin, roof", Role.ROOF, Material.TIMBER, -a, a, -l, l, FLOOR + high, FLOOR + high + FLOOR));
     }
 
     /** Its cabins, each a mover drawn by {@code key}. */
@@ -102,9 +129,30 @@ record Paternoster(double upX, double downX, double z, double bottom, double top
         return movers;
     }
 
-    /** The hole each floor is cut for it: both shafts, a little wider than its cabins. */
+    /** The hole each floor is cut for it: both shafts, a little wider than its cabins (min x, max x, min z, max z). */
     double[] hole() {
-        return new double[] {upX - WIDE / 2 - 5, downX + WIDE / 2 + 5, z - DEEP / 2 - 10, z + DEEP / 2 + 10};
+        return new double[] {upX - wide / 2 - ROOM, downX + wide / 2 + ROOM, z - deep / 2 - ROOM, z + deep / 2 + ROOM};
+    }
+
+    /** How high its shafts go: past its turn over the top, a cabin and some over it. */
+    double over() {
+        return top + radius() + FLOOR + high + FLOOR + 40;
+    }
+
+    /** Its shafts: walls behind and either side from {@code foot} up past its turn, open in front; capped over. */
+    List<Solid> shaft(final double foot) {
+        final double[] h = hole();
+        final double w = SHAFT_WALL;
+        final double over = over();
+        return List.of(
+                new Box("paternoster, back", Role.WALL, Material.CONCRETE, h[0] - w, h[1] + w, h[2] - w, h[2], foot,
+                        over).solid(),
+                new Box("paternoster, left", Role.WALL, Material.CONCRETE, h[0] - w, h[0], h[2], h[3], foot, over)
+                        .solid(),
+                new Box("paternoster, right", Role.WALL, Material.CONCRETE, h[1], h[1] + w, h[2], h[3], foot, over)
+                        .solid(),
+                new Box("paternoster, cap", Role.ROOF, Material.CONCRETE, h[0] - w, h[1] + w, h[2] - w, h[3], over,
+                        over + 25).solid());
     }
 
     /** How long a cabin takes to go round. */
