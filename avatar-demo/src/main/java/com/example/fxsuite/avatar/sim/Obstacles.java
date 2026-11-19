@@ -303,7 +303,12 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         final int count = near ? which.length : volumes.size();
         for (int k = 0; k < count; k++) {
             final int i = near ? which[k] : k;
-            final Hit hit = volumes.get(i).ray(from, direction, first == null ? reach : first.distance());
+            final double within = first == null ? reach : first.distance();
+            // one whose box it does not come within, not asked: nothing of it is outside its box
+            if (Volume.within(volumes.get(i), from, direction, within) == null) {
+                continue;
+            }
+            final Hit hit = volumes.get(i).ray(from, direction, within);
             if (hit != null && (first == null || hit.distance() < first.distance())) {
                 first = hit.on(volumePieces.get(i));
             }

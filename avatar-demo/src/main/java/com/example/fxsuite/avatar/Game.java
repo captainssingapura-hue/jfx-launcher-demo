@@ -391,7 +391,7 @@ public final class Game {
     private final Label frames = new Label();
     private final FrameTimes frameTimes = new FrameTimes();
     /** Each slow frame, said what was done before it, if asked for ({@link SlowFrames}); and what that needs. */
-    private final SlowFrames slowFrames = SlowFrames.fromProperty();
+    private final SlowFrames slowFrames = new SlowFrames("game");
     private long drawingNanos;
     private Vec3 seenAt = Vec3.ZERO;
     private static final String FRAMES_STYLE = "-fx-font-size: 12px; -fx-font-family: 'Consolas', monospace; "
@@ -711,6 +711,8 @@ public final class Game {
             public void handle(final long now) {
                 final double seconds = last < 0 ? 0 : Math.min(0.1, (now - last) / 1e9);
                 last = now;
+                // on and off, and how slow is slow, as the one setting says ({@link FrameLog}): a bench may change it
+                slowFrames.follow();
                 if (slowFrames.on()) {
                     final String slow = slowFrames.began(now, world.node());
                     if (slow != null) {
@@ -1354,9 +1356,10 @@ public final class Game {
         demos.getItems().addAll(new SeparatorMenuItem(), again, choice);
         final Menu views = new Menu("View");
         // and the slow frames' log, on or off, kept in a file
-        final CheckMenuItem log = new CheckMenuItem("Log slow frames to " + SlowFrames.FILE.getFileName());
-        log.setSelected(slowFrames.on());
-        log.setOnAction(e -> slowFrames.on(log.isSelected()));
+        final CheckMenuItem log = new CheckMenuItem("Log slow frames to " + FrameLog.FILE.getFileName());
+        log.setSelected(FrameLog.ON.get());
+        log.setOnAction(e -> FrameLog.ON.set(log.isSelected()));
+        views.setOnShowing(e -> log.setSelected(FrameLog.ON.get()));
         views.getItems().addAll(
                 item("First person   (V)", KeyCode.V),
                 item("Camera behind   (C)", KeyCode.C),

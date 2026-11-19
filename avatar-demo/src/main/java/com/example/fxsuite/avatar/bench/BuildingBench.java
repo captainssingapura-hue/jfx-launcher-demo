@@ -295,7 +295,7 @@ public final class BuildingBench extends Application {
                 EngineBench.heading("Its figures"), shell.working(), figures, shell.problems(), save,
                 EngineBench.heading("Play it"),
                 EngineBench.label("A building composed, on level ground, a street along its front: walked round and"
-                        + " into, as it is dressed."), player.panel());
+                        + " into, as it is dressed."), player.panel(), shell.logging());
         controls.setPadding(new Insets(14));
         controls.setPrefWidth(370);
         final ScrollPane scroll = new ScrollPane(controls);

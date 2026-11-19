@@ -28,17 +28,19 @@ import java.util.Locale;
  * what it did to the land, and the garbage collector's runs since; and what is left over is JavaFX's. What the
  * frame before that did to the land is said too.
  *
- * <p>Turned on and off as it runs ({@link #on}); each line written out ({@link #write}) to the console and to
- * {@link #FILE}, kept from one run to the next, each time it is turned on marked. On from the start with
- * {@code -Davatar.slow=20} (milliseconds, how slow is slow); else off, and {@link #SLOW} once turned on.
+ * <p>On and off, and how slow is slow, as the one setting for every window says ({@link FrameLog}), followed each
+ * frame ({@link #follow}); each line written out ({@link #write}) to the console and to {@link FrameLog#FILE}, kept
+ * from one run to the next, each time it is turned on marked, each line saying whose it is. A window that does not
+ * tell it its own work ({@link #done}), a bench's view, has its slow gaps told as they are, and what is in view.
  */
-final class SlowFrames {
+public final class SlowFrames {
 
-    /** How slow a frame must be to be told of, unless said otherwise; and where the lines are kept. */
-    static final double SLOW = 20;
-    static final Path FILE = Path.of(System.getProperty("java.io.tmpdir"), "avatar-frames.log");
-
-    private final double slow;
+    /** Whose frames these are: a game's, a bench's. */
+    private final String who;
+    /** How slow a frame must be to be told of, as last told. */
+    private double slow = Double.NaN;
+    /** Whether it has been told what each frame did ({@link #done}). */
+    private boolean measured;
     private boolean on;
     private PrintWriter out;
     private long first = -1;
@@ -53,22 +55,27 @@ final class SlowFrames {
     private Vec3 at = Vec3.ZERO;
     private double speed;
 
-    SlowFrames(final double slow) {
-        this.slow = slow;
+    /** For the frames of {@code who}: a game's, a bench's; off until {@link #follow} finds the setting on. */
+    public SlowFrames(final String who) {
+        this.who = who;
         collected();
     }
 
-    /** From {@code -Davatar.slow}: on, so slow, if it is set; else off, {@link #SLOW} once on. */
-    static SlowFrames fromProperty() {
-        final String ms = System.getProperty("avatar.slow");
-        final boolean set = ms != null && !ms.isBlank();
-        final SlowFrames frames = new SlowFrames(set ? Double.parseDouble(ms) : SLOW);
-        frames.on(set);
-        return frames;
+    /**
+     * On or off as the setting says, and how slow is slow ({@link FrameLog}): each frame, before {@link #began}. A
+     * change of how slow is slow, while on, said.
+     */
+    public void follow() {
+        on(FrameLog.ON.get());
+        final double now = FrameLog.SLOW.get();
+        if (on && now != slow) {
+            write("--- " + who + ": frames slower than " + now + " ms");
+        }
+        slow = now;
     }
 
     /** Whether it is on. */
-    boolean on() {
+    public boolean on() {
         return on;
     }
 
@@ -76,7 +83,7 @@ final class SlowFrames {
      * Turned on ({@code now}) or off. On, the file opened to add to, marked; the frames counted afresh, so the
      * gap since it was last on is not taken for a slow one. Off, the file closed.
      */
-    void on(final boolean now) {
+    public void on(final boolean now) {
         if (now == on) {
             return;
         }
@@ -86,15 +93,16 @@ final class SlowFrames {
             last = -1;
             collected();
             try {
-                out = new PrintWriter(Files.newBufferedWriter(FILE, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-                        StandardOpenOption.APPEND), true);
+                out = new PrintWriter(Files.newBufferedWriter(FrameLog.FILE, StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND), true);
             } catch (final IOException e) {
                 out = null;
-                System.err.println("frames: cannot write " + FILE + ": " + e.getMessage());
+                System.err.println("frames: cannot write " + FrameLog.FILE + ": " + e.getMessage());
             }
-            write("--- on at " + LocalDateTime.now().withNano(0) + ", frames slower than " + slow + " ms");
+            slow = FrameLog.SLOW.get();
+            write("--- " + who + ": on at " + LocalDateTime.now().withNano(0) + ", frames slower than " + slow + " ms");
         } else {
-            write("--- off at " + LocalDateTime.now().withNano(0));
+            write("--- " + who + ": off at " + LocalDateTime.now().withNano(0));
             if (out != null) {
                 out.close();
                 out = null;
@@ -103,7 +111,7 @@ final class SlowFrames {
     }
 
     /** A line written out: to the console, and to the file while it is on. */
-    void write(final String line) {
+    public void write(final String line) {
         System.out.println(line);
         if (out != null) {
             out.println(line);
@@ -114,7 +122,7 @@ final class SlowFrames {
      * A frame began at {@code now} (nanoseconds); a line about the frame before, if the gap since it was slow, or
      * null. {@code scene} counts the meshes being drawn, only then.
      */
-    String began(final long now, final Node scene) {
+    public String began(final long now, final Node scene) {
         final long gcBefore = gcCount;
         final long gcMsBefore = gcMillis;
         collected();
@@ -124,7 +132,16 @@ final class SlowFrames {
             if (gap > slow) {
                 final long runs = gcCount - gcBefore;
                 final long gcMs = gcMillis - gcMsBefore;
-                line = String.format(Locale.ROOT, "%7.1f s ", (now - first) / 1e9) + String.format(Locale.ROOT,
+                if (!measured) {
+                    // a window that does not say what it did: its gap, the collector's runs, and what is in view
+                    line = String.format(Locale.ROOT, "%7.1f s %s slow %.1f ms | gc %s | meshes %d",
+                            (now - first) / 1e9, who, gap, runs == 0 ? "none" : runs + " run" + (runs > 1 ? "s" : "")
+                                    + " " + gcMs + " ms", meshes(scene));
+                    first = first < 0 ? now : first;
+                    last = now;
+                    return line;
+                }
+                line = String.format(Locale.ROOT, "%7.1f s %s ", (now - first) / 1e9, who) + String.format(Locale.ROOT,
                         "slow %.1f ms | work %.1f ms, drawing's %.1f | land %s; before that %s | gc %s | left to JavaFX %.1f ms"
                                 + " | meshes %d | at %.0f,%.0f m, %.0f km/h",
                         gap, work, drawing, land.isEmpty() ? "nothing" : land, landBefore.isEmpty() ? "nothing" : landBefore,
@@ -144,7 +161,8 @@ final class SlowFrames {
      * The frame just done: its own work and the drawing's of it, in nanoseconds; what it did to the land (null for
      * none); where the camera was.
      */
-    void done(final long work, final long drawing, final TerrainModel.Work land, final Vec3 at) {
+    public void done(final long work, final long drawing, final TerrainModel.Work land, final Vec3 at) {
+        this.measured = true;
         this.landBefore = this.land;
         this.work = work / 1e6;
         this.drawing = drawing / 1e6;
@@ -169,7 +187,7 @@ final class SlowFrames {
     }
 
     /** Where the camera was last, and how fast it went. */
-    String where() {
+    public String where() {
         return String.format(Locale.ROOT, "at %.0f,%.0f m, %.0f km/h", at.x() / 100, at.z() / 100, speed * 0.036);
     }
 

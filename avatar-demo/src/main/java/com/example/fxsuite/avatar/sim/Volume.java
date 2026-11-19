@@ -95,6 +95,34 @@ public sealed interface Volume permits Prism, Extrusion, Crossing, Lean, Interio
     /** Where a ray from {@code from} along {@code direction} (a unit vector) first meets it, within {@code reach}; {@code null} if it misses. */
     Hit ray(Vec3 from, Vec3 direction, double reach);
 
+    /**
+     * How far along a ray from {@code from} along {@code direction} it is within {@code volume}'s box (its bounds from
+     * above, from its lowest to its highest, a centimetre more all round), within {@code reach}: where it goes in and
+     * where it comes out; {@code null} if it does not come within it. Nothing of it is met outside that.
+     */
+    static double[] within(final Volume volume, final Vec3 from, final Vec3 direction, final double reach) {
+        final Bounds b = volume.bounds();
+        final double[] at = {from.x(), from.z(), -from.y()};
+        final double[] go = {direction.x(), direction.z(), -direction.y()};
+        final double[] lo = {b.minX() - 1, b.minZ() - 1, volume.low() - 1};
+        final double[] hi = {b.maxX() + 1, b.maxZ() + 1, volume.high() + 1};
+        double enter = 0;
+        double exit = reach;
+        for (int axis = 0; axis < 3; axis++) {
+            if (Math.abs(go[axis]) < 1e-12) {
+                if (at[axis] < lo[axis] || at[axis] > hi[axis]) {
+                    return null;
+                }
+                continue;
+            }
+            final double t1 = (lo[axis] - at[axis]) / go[axis];
+            final double t2 = (hi[axis] - at[axis]) / go[axis];
+            enter = Math.max(enter, Math.min(t1, t2));
+            exit = Math.min(exit, Math.max(t1, t2));
+        }
+        return enter > exit ? null : new double[] {enter, exit};
+    }
+
     /** Whether it and {@code block} take up any of the same space: what a platform needs clear to move into. */
     boolean overlaps(Block block);
 

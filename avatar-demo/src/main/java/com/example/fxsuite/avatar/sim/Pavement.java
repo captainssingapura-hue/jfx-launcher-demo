@@ -99,9 +99,16 @@ public record Pavement(Laid laid) implements Volume {
     /** Where the ray first goes under its top, within its reach: found stepping along, then halving the step. */
     @Override
     public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
-        double was = 0;
-        double s = 0;
-        while (s < reach) {
+        // only where the ray is within its box: stepped as it always is, from the step before it comes in, to where it
+        // goes out; outside it, nothing of it is under the ray to find
+        final double[] span = Volume.within(this, from, direction, reach);
+        if (span == null) {
+            return null;
+        }
+        final double end = Math.min(reach, span[1] + RAY_STEP);
+        double was = Math.floor(span[0] / RAY_STEP) * RAY_STEP;
+        double s = was;
+        while (s < end) {
             s = Math.min(reach, s + RAY_STEP);
             if (under(from, direction, s)) {
                 double lo = was;
