@@ -246,7 +246,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
         }
         final double[] h = hole();
         final double over = floors.getLast() + FLOOR + high + FLOOR + 50;
-        walls.add(new Box("shaft, cap", Role.ROOF, Material.CONCRETE, h[0] - SHAFT_WALL, h[1] + SHAFT_WALL,
+        walls.add(new Box("shaft, cap", Role.ROOF, Material.PRECAST, h[0] - SHAFT_WALL, h[1] + SHAFT_WALL,
                 h[2] - SHAFT_WALL, h[3] + SHAFT_WALL, over, over + slab).solid());
         return walls;
     }
@@ -258,15 +258,15 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
         final double door = landing() / 2;
         final double lintel = from + doorHigh() + 10;
         final List<Box> walls = new ArrayList<>(List.of(
-                new Box("shaft, back", Role.WALL, Material.CONCRETE, h[0] - w, h[1] + w, h[2] - w, h[2], from, to),
-                new Box("shaft, left", Role.WALL, Material.CONCRETE, h[0] - w, h[0], h[2], h[3], from, to),
-                new Box("shaft, right", Role.WALL, Material.CONCRETE, h[1], h[1] + w, h[2], h[3], from, to),
-                new Box("shaft, front, left", Role.WALL, Material.CONCRETE, h[0] - w, x - door, h[3], h[3] + w, from,
+                new Box("shaft, back", Role.WALL, Material.PRECAST, h[0] - w, h[1] + w, h[2] - w, h[2], from, to),
+                new Box("shaft, left", Role.WALL, Material.PRECAST, h[0] - w, h[0], h[2], h[3], from, to),
+                new Box("shaft, right", Role.WALL, Material.PRECAST, h[1], h[1] + w, h[2], h[3], from, to),
+                new Box("shaft, front, left", Role.WALL, Material.PRECAST, h[0] - w, x - door, h[3], h[3] + w, from,
                         to),
-                new Box("shaft, front, right", Role.WALL, Material.CONCRETE, x + door, h[1] + w, h[3], h[3] + w, from,
+                new Box("shaft, front, right", Role.WALL, Material.PRECAST, x + door, h[1] + w, h[3], h[3] + w, from,
                         to)));
         if (lintel < to) {
-            walls.add(new Box("shaft, front, over", Role.WALL, Material.CONCRETE, x - door, x + door, h[3], h[3] + w,
+            walls.add(new Box("shaft, front, over", Role.WALL, Material.PRECAST, x - door, x + door, h[3], h[3] + w,
                     lintel, to));
         }
         return walls;

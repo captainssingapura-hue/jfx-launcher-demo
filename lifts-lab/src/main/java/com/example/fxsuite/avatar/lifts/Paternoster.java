@@ -145,13 +145,13 @@ record Paternoster(double upX, double downX, double z, double bottom, double top
         final double w = SHAFT_WALL;
         final double over = over();
         return List.of(
-                new Box("paternoster, back", Role.WALL, Material.CONCRETE, h[0] - w, h[1] + w, h[2] - w, h[2], foot,
+                new Box("paternoster, back", Role.WALL, Material.PRECAST, h[0] - w, h[1] + w, h[2] - w, h[2], foot,
                         over).solid(),
-                new Box("paternoster, left", Role.WALL, Material.CONCRETE, h[0] - w, h[0], h[2], h[3], foot, over)
+                new Box("paternoster, left", Role.WALL, Material.PRECAST, h[0] - w, h[0], h[2], h[3], foot, over)
                         .solid(),
-                new Box("paternoster, right", Role.WALL, Material.CONCRETE, h[1], h[1] + w, h[2], h[3], foot, over)
+                new Box("paternoster, right", Role.WALL, Material.PRECAST, h[1], h[1] + w, h[2], h[3], foot, over)
                         .solid(),
-                new Box("paternoster, cap", Role.ROOF, Material.CONCRETE, h[0] - w, h[1] + w, h[2] - w, h[3], over,
+                new Box("paternoster, cap", Role.ROOF, Material.PRECAST, h[0] - w, h[1] + w, h[2] - w, h[3], over,
                         over + 25).solid());
     }
 

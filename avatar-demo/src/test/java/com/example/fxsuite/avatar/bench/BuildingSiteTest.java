@@ -32,11 +32,8 @@ class BuildingSiteTest {
     private static Solid box(final String name, final double a0, final double a1, final double l0, final double l1,
                              final double u0, final double u1) {
         final List<Point> corners = new ArrayList<>();
-        for (final double u : new double[] {u0, u1}) {
-            corners.add(new Point(a0, l0, u));
-            corners.add(new Point(a1, l0, u));
-            corners.add(new Point(a1, l1, u));
-            corners.add(new Point(a0, l1, u));
+        for (int c = 0; c < 8; c++) {
+            corners.add(new Point((c & 1) == 0 ? a0 : a1, (c & 2) == 0 ? l0 : l1, (c & 4) == 0 ? u0 : u1));
         }
         return new Solid(name, Role.WALL, Material.BRICK, corners);
     }

@@ -47,6 +47,8 @@ final class YardScene implements LiftScene {
         for (int f = 1; f < FLOORS.size(); f++) {
             final double top = FLOORS.get(f);
             standing.addAll(Frame.floor("floor " + f, -a, a, -l, l, top, holes));
+            standing.addAll(Frame.edgeBeams(-a, a, -l, l, top));
+            standing.add(Frame.beam("beam, back", -a, a, -l, -l + Frame.BEAM_WIDE, top));
             standing.add(Frame.rail("rail, front", -a, a, l - t, l, top));
             standing.add(Frame.rail("rail, left", -a, -a + t, -l, l, top));
             standing.add(Frame.rail("rail, right", a - t, a, -l, l, top));

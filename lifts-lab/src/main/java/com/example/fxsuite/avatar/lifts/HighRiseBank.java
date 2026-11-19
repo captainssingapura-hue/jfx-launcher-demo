@@ -278,6 +278,6 @@ record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom, int z
 
     private static Solid wall(final String name, final double a0, final double a1, final double l0, final double l1,
                               final double u0, final double u1) {
-        return new Box(name, Role.WALL, Material.CONCRETE, a0, a1, l0, l1, u0, u1).solid();
+        return new Box(name, Role.WALL, Material.PRECAST, a0, a1, l0, l1, u0, u1).solid();
     }
 }

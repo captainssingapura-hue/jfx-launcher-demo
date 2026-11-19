@@ -29,14 +29,14 @@ record Box(String name, Role role, Material material, double a0, double a1, doub
                 (u1 - u0) / 2);
     }
 
-    /** What is drawn: its eight corners. */
+    /**
+     * What is drawn: its eight corners, corner {@code c} at the least or the most across as bit 0 of {@code c} says,
+     * along as bit 1, up as bit 2, as a solid's corners are drawn.
+     */
     Solid solid() {
         final List<Point> corners = new ArrayList<>(8);
-        for (final double u : new double[] {u0, u1}) {
-            corners.add(new Point(a0, l0, u));
-            corners.add(new Point(a1, l0, u));
-            corners.add(new Point(a1, l1, u));
-            corners.add(new Point(a0, l1, u));
+        for (int c = 0; c < 8; c++) {
+            corners.add(new Point((c & 1) == 0 ? a0 : a1, (c & 2) == 0 ? l0 : l1, (c & 4) == 0 ? u0 : u1));
         }
         return new Solid(name, role, material, corners);
     }

@@ -23,6 +23,10 @@ import javafx.scene.transform.Translate;
  */
 public final class Orbit {
 
+    /** What share of the way to what it turns round it draws from, at least; and from how near, at most, cm. */
+    static final double NEAR_SHARE = 200;
+    static final double NEAREST_MOST = 500;
+
     private final PerspectiveCamera eye = new PerspectiveCamera(true);
     private final Rotate yaw = new Rotate(-35, Rotate.Y_AXIS);
     private final Rotate pitch = new Rotate(-22, Rotate.X_AXIS);
@@ -48,6 +52,11 @@ public final class Orbit {
         eye.setFarClip(far);
         eye.setFieldOfView(40);
         eye.getTransforms().addAll(target, yaw, pitch, back);
+        // drawn from no nearer than a share of the way to what it turns round: the depth it tells near from far by is
+        // finest near the camera, so from far off, surfaces a few centimetres apart (a slab and a rail on its edge)
+        // are told apart rather than flickering through each other
+        back.zProperty().addListener((o, was, now) -> eye.setNearClip(Math.clamp(-now.doubleValue() / NEAR_SHARE,
+                near, NEAREST_MOST)));
         final DirectionalLight light = new DirectionalLight(sun);
         light.setDirection(towards);
         world.getChildren().addAll(eye, new AmbientLight(ambient), light);

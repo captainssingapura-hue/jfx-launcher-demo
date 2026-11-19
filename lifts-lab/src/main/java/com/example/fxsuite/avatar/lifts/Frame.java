@@ -19,6 +19,9 @@ final class Frame {
     static final double RAIL = 100;
     static final double RAIL_THICK = 5;
     static final double COLUMN = 40;
+    /** The beam along a floor's open edge, under it: so deep under the slab, so wide. */
+    static final double BEAM = 50;
+    static final double BEAM_WIDE = 30;
 
     private Frame() {
     }
@@ -59,7 +62,7 @@ final class Frame {
 
     private static Solid slab(final String name, final double a0, final double a1, final double l0, final double l1,
                               final double top) {
-        return new Box(name, Role.BASE, Material.CONCRETE, a0, a1, l0, l1, top - SLAB, top).solid();
+        return new Box(name, Role.BASE, Material.PRECAST, a0, a1, l0, l1, top - SLAB, top).solid();
     }
 
     /** A rail along {@code x0} to {@code x1} across, {@code z0} to {@code z1} along, on a floor whose top is {@code top}. */
@@ -71,7 +74,24 @@ final class Frame {
     /** A column at ({@code x}, {@code z}), from the ground up to under a floor whose top is {@code top}. */
     static Solid column(final double x, final double z, final double top) {
         final double c = COLUMN / 2;
-        return new Box("column", Role.STRUCTURE, Material.CONCRETE, x - c, x + c, z - c, z + c, 0, top - SLAB).solid();
+        return new Box("column", Role.STRUCTURE, Material.PRECAST, x - c, x + c, z - c, z + c, 0, top - SLAB).solid();
+    }
+
+    /**
+     * A beam along a floor's edge, under its slab, {@link #BEAM} deep, from {@code x0} to {@code x1} across and
+     * {@code z0} to {@code z1} along: as a floor's edge is, deeper than its slab alone.
+     */
+    static Solid beam(final String name, final double x0, final double x1, final double z0, final double z1,
+                      final double top) {
+        return new Box(name, Role.STRUCTURE, Material.PRECAST, x0, x1, z0, z1, top - SLAB - BEAM, top - SLAB).solid();
+    }
+
+    /** Beams under a floor whose top is {@code top} along its front ({@code z1}) and its sides. */
+    static List<Solid> edgeBeams(final double x0, final double x1, final double z0, final double z1,
+                                 final double top) {
+        final double b = BEAM_WIDE;
+        return List.of(beam("beam, front", x0, x1, z1 - b, z1, top), beam("beam, left", x0, x0 + b, z0, z1 - b, top),
+                beam("beam, right", x1 - b, x1, z0, z1 - b, top));
     }
 
     /**
@@ -91,6 +111,7 @@ final class Frame {
             }
             highest = Math.max(highest, top);
             solids.addAll(floor("floor " + f, x0, x1, z0, z1, top, holes));
+            solids.addAll(edgeBeams(x0, x1, z0, z1, top));
             solids.add(rail("rail, front, floor " + f, x0, x1, z1 - t, z1, top));
             solids.add(rail("rail, left, floor " + f, x0, x0 + t, z0, z1 - t, top));
             solids.add(rail("rail, right, floor " + f, x1 - t, x1, z0, z1 - t, top));

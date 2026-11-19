@@ -168,12 +168,11 @@ record Escalator(double x, double head, double rise, double slope, double speed,
         final double[] along = {foot(), foot() + flat, foot() + flat + run(), head};
         final double[] up = {0, 0, rise, rise};
         for (int k = 0; k + 1 < along.length; k++) {
+            // corner c across as bit 0 says, along as bit 1, under or over as bit 2, as a solid's corners are drawn
             final List<Point> corners = new ArrayList<>();
-            for (final double a : new double[] {a0, a1}) {
-                corners.add(new Point(a, along[k], up[k] + below));
-                corners.add(new Point(a, along[k + 1], up[k + 1] + below));
-                corners.add(new Point(a, along[k + 1], up[k + 1] + above));
-                corners.add(new Point(a, along[k], up[k] + above));
+            for (int c = 0; c < 8; c++) {
+                final int end = (c & 2) == 0 ? k : k + 1;
+                corners.add(new Point((c & 1) == 0 ? a0 : a1, along[end], up[end] + ((c & 4) == 0 ? below : above)));
             }
             parts.add(new Solid(name + ", " + (k == 1 ? "incline" : k == 0 ? "foot" : "head"), role, material,
                     corners));
