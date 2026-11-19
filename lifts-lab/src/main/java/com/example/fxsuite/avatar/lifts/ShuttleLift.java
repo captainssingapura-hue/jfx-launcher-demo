@@ -167,11 +167,17 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
 
     /** The car: its floor, its back and sides, its front either side of its doorway and over it, its roof. */
     List<Box> car() {
+        return car(wide, deep, high, doorway);
+    }
+
+    /** A car so wide, deep and high inside, its doorway so wide, its doors {@link #DOOR_UNDER} under its ceiling. */
+    static List<Box> car(final double wide, final double deep, final double high, final double doorway) {
         final double a = wide / 2;
         final double l = deep / 2;
         final double w = WALL;
         final double door = doorway / 2;
         final double up = FLOOR + high;
+        final double doorHigh = high - DOOR_UNDER;
         return List.of(
                 new Box("car, floor", Role.BASE, Material.METAL, -a, a, -l, l, 0, FLOOR),
                 new Box("car, back", Role.WALL, Material.METAL, -a, a, -l, -l + w, FLOOR, up),
@@ -179,7 +185,7 @@ record ShuttleLift(double x, double z, List<Double> floors, double speed, double
                 new Box("car, right side", Role.WALL, Material.METAL, a - w, a, -l + w, l - w, FLOOR, up),
                 new Box("car, front, left", Role.WALL, Material.METAL, -a, -door, l - w, l, FLOOR, up),
                 new Box("car, front, right", Role.WALL, Material.METAL, door, a, l - w, l, FLOOR, up),
-                new Box("car, front, over", Role.WALL, Material.METAL, -door, door, l - w, l, FLOOR + doorHigh(), up),
+                new Box("car, front, over", Role.WALL, Material.METAL, -door, door, l - w, l, FLOOR + doorHigh, up),
                 new Box("car, roof", Role.ROOF, Material.METAL, -a, a, -l, l, up, up + FLOOR));
     }
 

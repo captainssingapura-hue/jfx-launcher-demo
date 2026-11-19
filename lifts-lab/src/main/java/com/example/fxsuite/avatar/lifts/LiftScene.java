@@ -25,6 +25,7 @@ interface LiftScene {
 
     /** The scenes there are: one of each kind of lift, and the yard with all of them. */
     static List<LiftScene> all() {
-        return List.of(new PaternosterScene(), new ShuttleScene(), new EscalatorScene(), new YardScene());
+        return List.of(new HighRiseScene(), new PaternosterScene(), new ShuttleScene(), new EscalatorScene(),
+                new YardScene());
     }
 }
