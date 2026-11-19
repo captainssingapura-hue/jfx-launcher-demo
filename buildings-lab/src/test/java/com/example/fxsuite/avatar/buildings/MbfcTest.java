@@ -106,6 +106,48 @@ class MbfcTest {
         }
     }
 
+    private static final OfficeTower T3 = Mbfc.tower3();
+
+    @Test
+    void tower3ItsFloorsAndItsThirtyFiveLiftsInFiveZones() {
+        assertEquals(Mbfc.storey(46) + 1, T3.storeys(), "the lobby, floors 3 to 46");
+        assertEquals(24_500, T3.roof() + T3.crown(), 1, "245 m to its crown's top");
+        assertEquals(OfficeTower.PLANT, T3.uses().get(Mbfc.storey(7)));
+        assertEquals(OfficeTower.PLANT, T3.uses().get(Mbfc.storey(39)));
+        assertEquals(35, T3.banks().stream().mapToInt(p -> p.bank().cars()).sum());
+        assertEquals(5, T3.banks().stream().map(p -> p.bank().zoneFrom()).distinct().count());
+        for (int n = 5; n <= 46; n++) {
+            if (!OfficeTower.OFFICE.equals(T3.uses().get(Mbfc.storey(n)))) {
+                continue;
+            }
+            final int floor = Mbfc.storey(n);
+            assertEquals(1, T3.banks().stream().map(Placed::bank)
+                    .filter(b -> b.zoneFrom() <= floor && floor <= b.zoneTo()).map(HighRiseBank::zoneFrom).distinct()
+                    .count(), "floor " + n);
+        }
+        for (int i = 0; i < T3.banks().size(); i++) {
+            final double[] a = T3.banks().get(i).hole();
+            for (int j = i + 1; j < T3.banks().size(); j++) {
+                assertTrue(apart(a, T3.banks().get(j).hole()), "banks " + i + " and " + j);
+            }
+            for (final double[] s : T3.service()) {
+                assertTrue(apart(a, s), "bank " + i + " and the core");
+            }
+        }
+        // its core as its plans draw it, 32 m across, 29.3 m along
+        final double west = T3.service().stream().mapToDouble(s -> s[0]).min().orElseThrow();
+        final double east = T3.service().stream().mapToDouble(s -> s[1]).max().orElseThrow();
+        assertEquals(3_200, east - west, 50);
+    }
+
+    @Test
+    void tower3ItsFloorsNearItsPlans() {
+        assertEquals(60.25 * 60.25 - 2 * (14.2 * 1.8 + 1.8 * 12.4), Math.abs(Plates.area(T3.outline())) / 2 / 10_000,
+                1e-6, "its outline, as its plans write it");
+        assertNear(2_847, T3.area(Mbfc.storey(25)) - core(T3, Mbfc.storey(25)), "upper mid-rise");
+        assertNear(2_908, T3.area(Mbfc.storey(33)) - core(T3, Mbfc.storey(33)), "lower high-rise");
+    }
+
     /** The core's solid parts on storey {@code f}, m². */
     private static double core(final OfficeTower t, final int f) {
         double core = 0;
