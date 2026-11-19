@@ -1,5 +1,11 @@
 package com.example.fxsuite.avatar.bench;
 
+import com.example.fxsuite.avatar.bench.kit.Bus;
+import com.example.fxsuite.avatar.bench.kit.Guest;
+import com.example.fxsuite.avatar.bench.kit.Orbit;
+import com.example.fxsuite.avatar.bench.kit.Player;
+import com.example.fxsuite.avatar.bench.kit.Shell;
+import com.example.fxsuite.avatar.bench.kit.Workshop;
 import com.example.fxsuite.avatar.build.Apartments;
 import com.example.fxsuite.avatar.build.Building;
 import com.example.fxsuite.avatar.build.Material;
@@ -9,24 +15,18 @@ import com.example.fxsuite.avatar.look.BuildingModel;
 import com.example.fxsuite.avatar.look.FormModel;
 import com.example.fxsuite.avatar.look.Stall;
 import com.example.fxsuite.avatar.sim.Buildings;
+import com.example.fxsuite.avatar.sim.Course;
 import com.example.fxsuite.avatar.sim.Form;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
-import javafx.scene.AmbientLight;
-import javafx.scene.DirectionalLight;
 import javafx.scene.Group;
-import javafx.scene.PerspectiveCamera;
-import javafx.scene.Scene;
-import javafx.scene.SceneAntialiasing;
-import javafx.scene.SubScene;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.input.MouseButton;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -35,8 +35,6 @@ import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
-import javafx.scene.transform.Rotate;
-import javafx.scene.transform.Translate;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
@@ -44,6 +42,7 @@ import javafx.util.StringConverter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -55,29 +54,35 @@ import java.util.Map;
  * colour of their own, and, if asked, its vertices; on a floor ruled every 10 m, to tell how big it
  * is. Its figures read out: how many vertices and edges, its edges' length all told, how wide, deep
  * and high it is, how many pieces it is in, and what is wrong with it. Saved as text, to read and
- * edit by hand.
+ * edit by hand. Played, a building composed: walked round and into on level ground, a street along its front
+ * ({@link BuildingSite}), with whoever is chosen to come.
  *
  * <p>{@code -Dbuilding.pick=church} (or the start of any building's name) picks what is on show to
  * start with; {@code -Dbuilding.facade=egg} and {@code -Dbuilding.ground=shop} (the start of an option's
  * name) how a composed one is dressed, and {@code -Dbuilding.materials=brick} what it is built in;
  * {@code -Dbuilding.tab=plan} opens on its floor plan ({@link PlanPanel}, for its options);
  * {@code -Dbuilding.yaw=-140}, {@code -Dbuilding.pitch=18} where it is seen from;
- * {@code -Dbuilding.distance} how far off (by default, far enough to see all of it);
+ * {@code -Dbuilding.distance} how far off, cm (by default, far enough to see all of it);
  * {@code -Dbuilding.scale=1.5} how big it is built (1, life size); {@code -Dbuilding.look=person}
  * starts by the person stood before it, of ordinary height, to tell how big it is;
  * {@code -Dbuilding.size=bays=9,width=14} sizes the church or the temple hall ({@link SizeControls});
+ * {@code -Dbench.play=true} plays it as soon as it is shown, with whoever {@code -Dbench.guests} and
+ * {@code -Dbench.people} bring ({@link Player});
  * {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
+ *
+ * <p>Put together of the bench kit's parts ({@code bench.kit}): its window ({@link Shell}), its view ({@link Orbit}),
+ * its building dressed, drawn and read out away from the screen ({@link Workshop}), asked and answered by message
+ * ({@link Bus}), played ({@link Player}).
  */
 public final class BuildingBench extends Application {
 
     /** The floor's rule: a line every 10 m. */
     private static final double RULE = 1000;
 
-    private final PerspectiveCamera eye = new PerspectiveCamera(true);
-    private final Rotate yaw = new Rotate(-140, Rotate.Y_AXIS);
-    private final Rotate pitch = new Rotate(-18, Rotate.X_AXIS);
-    private final Translate back = new Translate(0, 0, -5000);
-    private final Translate target = new Translate(0, 0, 0);
+    private final Bus bus = new Bus();
+    private final Shell shell = new Shell("Buildings bench", bus);
+    private final Orbit view = new Orbit(Color.web("#c9dbe8"), Color.web("#9aa2ab"), Color.web("#8a8780"),
+            new javafx.geometry.Point3D(0.4, 1, 0.6), 10, 1_000_000);
     private final Group shown = new Group();
     private final Group floor = new Group();
     private final ComboBox<Form> buildings = new ComboBox<>();
@@ -101,7 +106,6 @@ public final class BuildingBench extends Application {
     private final Group person = new Group(Stall.person());
     /** How big the church or the temple hall is built: its bays, its heights. */
     private final SizeControls sizing = new SizeControls();
-    private final Label figures = new Label();
     /** The 3D view, and the floor plan's tab. */
     private final javafx.scene.control.TabPane tabs = new javafx.scene.control.TabPane();
     private final javafx.scene.control.Tab planTab = new javafx.scene.control.Tab("Plan (2D)");
@@ -109,6 +113,9 @@ public final class BuildingBench extends Application {
     private final PlanPanel towerPlan = new PlanPanel();
     private final Map<FormModel.Lean, PhongMaterial> colours = new EnumMap<>(FormModel.Lean.class);
     private final PhongMaterial dots = matte("#d64545");
+    /** How a composed building is played: walked round and into, a car and a motorcycle parked on its street. */
+    private final Player player = new Player(this::site, List.of(new Guest.Vehicle(Course.CAR_CHASSIS),
+            new Guest.Vehicle(Course.BOXER)));
     private Form building;
     /** The building composed, for those that are: dressed as its options say. */
     private static final Map<String, Building> COMPOSED = new java.util.HashMap<>(
@@ -163,11 +170,35 @@ public final class BuildingBench extends Application {
     }
 
     private Building composed;
-    /** How far off it is seen whole: the camera's range is set from it. */
-    private double whole = 5000;
-    private double lastX;
-    private double lastY;
     private Stage stage;
+
+    /**
+     * What is asked of the workshop: the building on show, as composed, dressed with its options in its materials,
+     * so big; what is shown of it; and what it is read out with (its tower's plans, how its parts were put together).
+     */
+    private record Asked(Form building, Building composed, List<Building.Option> chosen, Palette palette, double scale,
+                         boolean dressed, boolean skeleton, boolean vertices, boolean roofless,
+                         com.example.fxsuite.avatar.build.Tower tower,
+                         com.example.fxsuite.avatar.build.Assembly.Result assembled) {
+    }
+
+    /** What the workshop made of it: the building dressed, its skeleton (either none, if not shown), its figures. */
+    private record Made(Asked asked, Node dressed, Node skeleton, String figures) {
+    }
+
+    /**
+     * Where the building is dressed, drawn and read out, away from the screen ({@link #make}): its solids, dressed as
+     * chosen, made again only when the building, its options, its materials or its size change; drawn again only when
+     * those, or its roof, do; its skeleton drawn again only when it, its size or its vertices do.
+     */
+    private final Workshop<Asked, Made> workshop = new Workshop<>("buildings bench", bus, Asked.class, this::make);
+    private final Workshop<Asked, Made>.Stage<List<Solid>> solids = workshop.stage("dressed",
+            a -> Workshop.same(a.composed(), a.chosen(), a.palette(), a.scale()),
+            a -> a.composed() == null ? List.of() : a.composed().dressed(a.chosen(), a.palette(), a.scale()));
+    private final Workshop<Asked, Made>.Stage<Node> model = workshop.stage("drawn",
+            a -> Workshop.same(solids.of(a), a.roofless()), this::model);
+    private final Workshop<Asked, Made>.Stage<Node> rods = workshop.stage("skeleton",
+            a -> Workshop.same(a.building(), a.scale(), a.vertices()), this::skeleton);
 
     private static final Map<FormModel.Lean, String> SHADES = Map.of(
             FormModel.Lean.UPRIGHT, "#2f6fb3", FormModel.Lean.LEVEL, "#3b3f45", FormModel.Lean.SLOPED, "#c26a1b");
@@ -176,21 +207,8 @@ public final class BuildingBench extends Application {
     public void start(final Stage stage) {
         this.stage = stage;
         SHADES.forEach((lean, shade) -> colours.put(lean, matte(shade)));
-        eye.setNearClip(10);
-        eye.setFarClip(1_000_000);
-        eye.setFieldOfView(40);
-        eye.getTransforms().addAll(target, yaw, pitch, back);
-        final AmbientLight ambient = new AmbientLight(Color.web("#9aa2ab"));
-        final DirectionalLight sun = new DirectionalLight(Color.web("#8a8780"));
-        sun.setDirection(new javafx.geometry.Point3D(0.4, 1, 0.6));
-        final Group scene3d = new Group(floor, shown, person, eye, ambient, sun);
-        final SubScene view = new SubScene(scene3d, 860, 700, true, SceneAntialiasing.BALANCED);
-        view.setFill(Color.web("#c9dbe8"));
-        view.setCamera(eye);
-        final Pane holder = new Pane(view);
-        view.widthProperty().bind(holder.widthProperty());
-        view.heightProperty().bind(holder.heightProperty());
-        orbit(view);
+        view.add(floor, shown, person);
+        bus.subscribe(Made.class, this::show, Bus.SCREEN);
 
         // the buildings drawn by hand; then the towers stacked from their plans; then one stacked from the plan tab's plan
         final List<Form> all = new java.util.ArrayList<>(Buildings.all());
@@ -230,27 +248,26 @@ public final class BuildingBench extends Application {
                 pick(buildings.getValue(), true);
             }
         });
-        showSkeleton.setOnAction(e -> redraw());
+        showSkeleton.setOnAction(e -> request());
         showDressed.setSelected(true);
-        showDressed.setOnAction(e -> redraw());
+        showDressed.setOnAction(e -> request());
         showFloor.setSelected(true);
-        showVertices.setOnAction(e -> redraw());
+        showVertices.setOnAction(e -> request());
         showFloor.setOnAction(e -> floor.setVisible(showFloor.isSelected()));
         showPerson.setSelected(true);
         showPerson.setOnAction(e -> person.setVisible(showPerson.isSelected()));
         withoutRoof.setSelected(Boolean.getBoolean("building.roofless"));
-        withoutRoof.setOnAction(e -> redraw());
+        withoutRoof.setOnAction(e -> request());
         scaling.setEditable(true);
         scaling.setPrefWidth(110);
         scaling.valueProperty().addListener((seen, was, now) -> {
             fit(false);
-            redraw();
-            describe();
+            request();
         });
         final Button nearPerson = new Button("Stand by the person");
         nearPerson.setOnAction(e -> lookAtPerson());
+        final Label figures = shell.figures();
         figures.setFont(Font.font("Monospaced", 12));
-        figures.setWrapText(true);
         final Button save = new Button("Save as text…");
         save.setOnAction(e -> save());
 
@@ -275,41 +292,51 @@ public final class BuildingBench extends Application {
                 legend, showVertices, showFloor, new HBox(10, showPerson, nearPerson),
                 EngineBench.label("Drag to turn round it; right-drag (or Shift-drag) to move across it; scroll to"
                         + " come nearer."),
-                EngineBench.heading("Its figures"), figures, save);
+                EngineBench.heading("Its figures"), shell.working(), figures, shell.problems(), save,
+                EngineBench.heading("Play it"),
+                EngineBench.label("A building composed, on level ground, a street along its front: walked round and"
+                        + " into, as it is dressed."), player.panel());
         controls.setPadding(new Insets(14));
         controls.setPrefWidth(370);
         final ScrollPane scroll = new ScrollPane(controls);
         scroll.setFitToWidth(true);
         scroll.setPrefWidth(390);
         scroll.setMinWidth(390);
-        final BorderPane root = new BorderPane();
-        root.setLeft(scroll);
         // the building in 3D; and, in a tab of its own, its floor plan flat, for those whose plans are worked out
-        final javafx.scene.control.Tab inThree = new javafx.scene.control.Tab("3D", holder);
+        final javafx.scene.control.Tab inThree = new javafx.scene.control.Tab("3D", view.node());
         inThree.setClosable(false);
         planTab.setClosable(false);
         tabs.getTabs().setAll(inThree, planTab);
         if ("plan".equalsIgnoreCase(System.getProperty("building.tab"))) {
             tabs.getSelectionModel().select(planTab);
         }
-        root.setCenter(tabs);
-        root.setStyle("-fx-background-color: #f4f5f7;");
-        final Scene scene = new Scene(root, 1260, 860);
+        shell.barless().left(scroll).middle(tabs);
 
         pick(building, false);
-        yaw.setAngle(Double.parseDouble(System.getProperty("building.yaw", "-140")));
-        pitch.setAngle(-Double.parseDouble(System.getProperty("building.pitch", "18")));
+        view.turned(Double.parseDouble(System.getProperty("building.yaw", "-140")),
+                Double.parseDouble(System.getProperty("building.pitch", "18")));
         final String distance = System.getProperty("building.distance");
         if ("person".equalsIgnoreCase(System.getProperty("building.look"))) {
             lookAtPerson();
         }
         if (distance != null) {
-            back.setZ(-Double.parseDouble(distance));
+            view.distance(Double.parseDouble(distance));
         }
-        stage.setTitle("Buildings bench");
-        stage.setScene(scene);
-        stage.show();
-        SoundBench.snapshotIfAsked(scene);
+        shell.show(stage, 1260, 860);
+        if (Boolean.getBoolean("bench.play")) {
+            player.play();
+        }
+    }
+
+    @Override
+    public void stop() {
+        workshop.close();
+    }
+
+    /** The building composed on show, as it is now dressed, as a world to play; none for a building only a skeleton. */
+    private BuildingSite site() {
+        return composed == null ? null
+                : new BuildingSite(building.name(), composed.dressed(chosen(), palettes.getValue(), scale()));
     }
 
     /** Another building on show: seen whole, looked at about its middle, if {@code frame}d afresh. */
@@ -326,8 +353,7 @@ public final class BuildingBench extends Application {
         showSkeleton.setDisable(composed == null);
         showSkeleton.setSelected(composed == null);
         fit(frame);
-        redraw();
-        describe();
+        request();
     }
 
     /** How big it is built: 1, life size. */
@@ -348,14 +374,13 @@ public final class BuildingBench extends Application {
      */
     private void fit(final boolean frame) {
         final Form.Bounds box = scaled().bounds();
-        whole = Math.max(box.height(), Math.max(box.width(), box.depth())) * 1.9 + 800;
-        target.setX((box.leftmost() + box.rightmost()) / 2);
-        target.setY(-(box.low() + box.high()) / 2);
-        target.setZ((box.back() + box.front()) / 2);
-        back.setZ(-whole);
+        final double whole = Math.max(box.height(), Math.max(box.width(), box.depth())) * 1.9 + 800;
+        view.lookAt((box.leftmost() + box.rightmost()) / 2, -(box.low() + box.high()) / 2,
+                (box.back() + box.front()) / 2);
+        view.distance(whole);
+        view.zoom(Math.max(100, whole / 40), whole * 4);
         if (frame) {
-            yaw.setAngle(-140);
-            pitch.setAngle(-18);
+            view.turned(-140, 18);
         }
         person.setTranslateX((box.leftmost() + box.rightmost()) / 2);
         person.setTranslateZ(box.front() + 250);
@@ -364,12 +389,9 @@ public final class BuildingBench extends Application {
 
     /** Looked at from close by the person, at their height, the building rising behind them. */
     private void lookAtPerson() {
-        target.setX(person.getTranslateX());
-        target.setY(-Stall.PERSON * 0.6);
-        target.setZ(person.getTranslateZ());
-        back.setZ(-3000);
-        yaw.setAngle(-160);
-        pitch.setAngle(-7);
+        view.lookAt(person.getTranslateX(), -Stall.PERSON * 0.6, person.getTranslateZ());
+        view.distance(3000);
+        view.turned(-160, 7);
     }
 
     /**
@@ -403,10 +425,7 @@ public final class BuildingBench extends Application {
                 options.stream().filter(o -> o.name().toLowerCase(Locale.ROOT).startsWith(asked.toLowerCase(Locale.ROOT)))
                         .findFirst().ifPresent(pick::setValue);
             }
-            pick.setOnAction(e -> {
-                redraw();
-                describe();
-            });
+            pick.setOnAction(e -> request());
             picks.add(pick);
             choosing.getChildren().add(EngineBench.row(choice, pick));
         });
@@ -428,10 +447,7 @@ public final class BuildingBench extends Application {
             composed.palettes().stream().filter(p -> p.name().toLowerCase(Locale.ROOT)
                     .startsWith(material.toLowerCase(Locale.ROOT))).findFirst().ifPresent(palettes::setValue);
         }
-        palettes.setOnAction(e -> {
-            redraw();
-            describe();
-        });
+        palettes.setOnAction(e -> request());
         choosing.getChildren().add(EngineBench.row("Materials", palettes));
     }
 
@@ -440,23 +456,48 @@ public final class BuildingBench extends Application {
         return picks.stream().map(ComboBox::getValue).toList();
     }
 
-    /** The building drawn afresh, its edges as thick as suits its size: thin, but never too thin to see. */
-    private void redraw() {
-        final Form skeleton = scaled();
+    /** Asks the workshop for the building as the bench now has it: drawn afresh where it has changed, read out. */
+    private void request() {
+        final com.example.fxsuite.avatar.build.Tower tower = PlanPanel.TOWER.equals(building.name()) ? towerPlan.tower()
+                : TOWERS.get(building.name());
+        bus.publish(new Asked(building, composed, List.copyOf(chosen()), palettes.getValue(), scale(),
+                composed != null && showDressed.isSelected(), composed == null || showSkeleton.isSelected(),
+                showVertices.isSelected(), withoutRoof.isSelected(), tower, ASSEMBLED.get(building.name())));
+    }
+
+    /** On the workshop's worker: the building drawn as asked, each stage again only if what it is made from changed. */
+    private Made make(final Asked a) {
+        return new Made(a, a.dressed() ? model.of(a) : null, a.skeleton() ? rods.of(a) : null, figures(a));
+    }
+
+    /** On the screen's thread: what the workshop made, shown. */
+    private void show(final Made m) {
+        final List<Node> drawn = new ArrayList<>();
+        if (m.dressed() != null) {
+            drawn.add(m.dressed());
+        }
+        if (m.skeleton() != null) {
+            drawn.add(m.skeleton());
+        }
+        shown.getChildren().setAll(drawn);
+        bus.publish(new Bus.Figures(m.figures()));
+        bus.publish(new Bus.Problems(""));
+    }
+
+    /** The building dressed: without its roof, its covering and what grows on it left off, what holds it up left. */
+    private Node model(final Asked a) {
+        final List<Solid> dressed = solids.of(a);
+        return BuildingModel.of(a.roofless() ? dressed.stream()
+                .filter(s -> s.role() != com.example.fxsuite.avatar.build.Role.ROOF && !s.name().startsWith("roof"))
+                .toList() : dressed);
+    }
+
+    /** Its skeleton, its edges as thick as suits its size: thin, but never too thin to see. */
+    private Node skeleton(final Asked a) {
+        final Form skeleton = a.building().scaled(a.scale());
         final Form.Bounds box = skeleton.bounds();
         final double size = Math.max(box.height(), Math.max(box.width(), box.depth()));
-        final double thickness = Math.max(5, size / 900);
-        shown.getChildren().clear();
-        if (composed != null && showDressed.isSelected()) {
-            final List<com.example.fxsuite.avatar.build.Solid> dressed = composed.dressed(chosen(), palettes.getValue(), scale());
-            // without its roof: its covering, and what grows on it, left off; what holds it up left
-            shown.getChildren().add(BuildingModel.of(withoutRoof.isSelected() ? dressed.stream()
-                    .filter(s -> s.role() != com.example.fxsuite.avatar.build.Role.ROOF && !s.name().startsWith("roof"))
-                    .toList() : dressed));
-        }
-        if (composed == null || showSkeleton.isSelected()) {
-            shown.getChildren().add(FormModel.of(skeleton, thickness, colours, showVertices.isSelected(), dots));
-        }
+        return FormModel.of(skeleton, Math.max(5, size / 900), colours, a.vertices(), dots);
     }
 
     /** The floor under it, well beyond it all round, ruled every 10 m. */
@@ -516,8 +557,7 @@ public final class BuildingBench extends Application {
             planTab.setContent(built.tower() != null ? new TowerPlans(built.tower())
                     : whole ? new Pane() : new PartsPlans(built.plans()));
             fit(false);
-            redraw();
-            describe();
+            request();
         }
     }
 
@@ -542,20 +582,20 @@ public final class BuildingBench extends Application {
         if (shown) {
             building = made;
             composed = rebuilt;
-            redraw();
-            describe();
+            request();
         }
     }
 
-    /** Its figures, read out. */
-    private void describe() {
-        // as big as it is built
-        final Form building = scaled();
+    /** Its figures, read out: as big as it is built. */
+    private String figures(final Asked a) {
+        final double scale = a.scale();
+        final Form building = a.building().scaled(scale);
+        final Building composed = a.composed();
         final Form.Bounds box = building.bounds();
         final List<String> problems = building.problems();
         final StringBuilder out = new StringBuilder();
-        if (scale() != 1) {
-            out.append(String.format(Locale.ROOT, "built %.2f times life size%n", scale()));
+        if (scale != 1) {
+            out.append(String.format(Locale.ROOT, "built %.2f times life size%n", scale));
         }
         out.append(String.format("%d vertices, %d edges%n", building.vertices().size(), building.edges().size()));
         out.append(String.format("%.0f m of edges all told%n", building.length() / 100));
@@ -570,13 +610,13 @@ public final class BuildingBench extends Application {
         out.append(building.pieces() == 1 ? "all one piece\n"
                 : String.format("in %d pieces: its frame, and outlines standing apart%n", building.pieces()));
         if (composed != null) {
-            final List<Solid> solids = composed.dressed(chosen(), palettes.getValue());
+            final List<Solid> solids = this.solids.of(a);
             final Map<Material, Integer> made = new EnumMap<>(Material.class);
             solids.forEach(s -> made.merge(s.material(), 1, Integer::sum));
             out.append(String.format("%d surfaces and %d faces, dressed in %d solids:%n", composed.surfaces().size()
                     + composed.plates().size(), composed.sheets().size(), solids.size()));
             made.forEach((material, count) -> out.append(String.format("  %d %s%n", count, material.title())));
-            final List<String> doubts = composed.doubts(chosen(), palettes.getValue());
+            final List<String> doubts = composed.doubts(a.chosen(), a.palette());
             doubts.forEach(d -> out.append("? ").append(d).append('\n'));
         }
         out.append(problems.isEmpty() ? "its skeleton: nothing wrong with it" : "its skeleton:");
@@ -584,23 +624,20 @@ public final class BuildingBench extends Application {
         if (problems.size() > 12) {
             out.append("\n! and ").append(problems.size() - 12).append(" more");
         }
-        final com.example.fxsuite.avatar.build.Tower tower = PlanPanel.TOWER.equals(building.name()) ? towerPlan.tower()
-                : TOWERS.get(building.name());
-        if (ASSEMBLED.containsKey(building.name())) {
-            final List<String> joints = ASSEMBLED.get(building.name()).problems();
-            figures.setText(out + (joints.isEmpty() ? "\nits parts all meet where they mean to"
-                    : joints.stream().map(p -> "\n! " + p).reduce("", String::concat)));
-            return;
+        final com.example.fxsuite.avatar.build.Tower tower = a.tower();
+        if (a.assembled() != null) {
+            final List<String> joints = a.assembled().problems();
+            return out + (joints.isEmpty() ? "\nits parts all meet where they mean to"
+                    : joints.stream().map(p -> "\n! " + p).reduce("", String::concat));
         }
         if (tower != null) {
-            figures.setText(out + String.format(Locale.ROOT, "%n%d floors, %.1f m to its roof, in %d section%s", tower.floors(),
-                    tower.height() * scale() / 100, tower.sections().size(), tower.sections().size() == 1 ? "" : "s")
+            return out + String.format(Locale.ROOT, "%n%d floors, %.1f m to its roof, in %d section%s", tower.floors(),
+                    tower.height() * scale / 100, tower.sections().size(), tower.sections().size() == 1 ? "" : "s")
                     + tower.problems().stream().map(p -> "\n! " + p).reduce("", String::concat)
                     + (composed == null ? "" : com.example.fxsuite.avatar.build.TowerBuildings.mismatches(composed, tower)
-                            .stream().limit(8).map(p -> "\n! " + p).reduce("", String::concat)));
-            return;
+                            .stream().limit(8).map(p -> "\n! " + p).reduce("", String::concat));
         }
-        figures.setText(out.toString());
+        return out.toString();
     }
 
     private void save() {
@@ -614,34 +651,8 @@ public final class BuildingBench extends Application {
         try {
             Files.writeString(file.toPath(), building.text());
         } catch (IOException e) {
-            figures.setText("Could not save: " + e.getMessage());
+            bus.publish(new Bus.Problems("Could not save: " + e.getMessage()));
         }
-    }
-
-    /** Dragged, it turns round what is on show; right-dragged, moves across it; scrolled, nearer or further. */
-    private void orbit(final SubScene view) {
-        view.setOnMousePressed(e -> {
-            lastX = e.getSceneX();
-            lastY = e.getSceneY();
-        });
-        view.setOnMouseDragged(e -> {
-            final double dx = e.getSceneX() - lastX;
-            final double dy = e.getSceneY() - lastY;
-            lastX = e.getSceneX();
-            lastY = e.getSceneY();
-            if (e.getButton() == MouseButton.SECONDARY || e.isShiftDown()) {
-                final double scale = -back.getZ() / 900;
-                final double turn = Math.toRadians(yaw.getAngle());
-                target.setX(target.getX() - (dx * Math.cos(turn)) * scale);
-                target.setZ(target.getZ() + (dx * Math.sin(turn)) * scale);
-                target.setY(target.getY() - dy * scale);
-            } else {
-                yaw.setAngle(yaw.getAngle() + dx * 0.4);
-                pitch.setAngle(Math.clamp(pitch.getAngle() - dy * 0.4, -89, 89));
-            }
-        });
-        view.setOnScroll(e -> back.setZ(Math.clamp(back.getZ() * Math.pow(1.0015, -e.getDeltaY()), -whole * 4,
-                -Math.max(100, whole / 40))));
     }
 
     private static PhongMaterial matte(final String colour) {

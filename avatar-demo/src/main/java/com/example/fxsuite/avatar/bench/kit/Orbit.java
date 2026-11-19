@@ -32,15 +32,24 @@ public final class Orbit {
     private final Pane holder;
     private double lastX;
     private double lastY;
+    /** How near and how far off it may be scrolled, cm. */
+    private double nearest = 300;
+    private double furthest = 200_000;
 
     /** A view of a sky so coloured, lit so, the camera seeing from {@code near} to {@code far} (cm). */
     public Orbit(final Color sky, final Color ambient, final Color sun, final double near, final double far) {
+        this(sky, ambient, sun, new javafx.geometry.Point3D(0.45, 1, 0.35), near, far);
+    }
+
+    /** The same, the sun shining {@code towards} that way (y down). */
+    public Orbit(final Color sky, final Color ambient, final Color sun, final javafx.geometry.Point3D towards,
+                 final double near, final double far) {
         eye.setNearClip(near);
         eye.setFarClip(far);
         eye.setFieldOfView(40);
         eye.getTransforms().addAll(target, yaw, pitch, back);
         final DirectionalLight light = new DirectionalLight(sun);
-        light.setDirection(new javafx.geometry.Point3D(0.45, 1, 0.35));
+        light.setDirection(towards);
         world.getChildren().addAll(eye, new AmbientLight(ambient), light);
         final SubScene view = new SubScene(world, 900, 520, true, SceneAntialiasing.BALANCED);
         view.setFill(sky);
@@ -80,6 +89,23 @@ public final class Orbit {
         target.setZ(z);
     }
 
+    /** Seen from {@code yawDegrees} round, {@code pitchDegrees} down. */
+    public void turned(final double yawDegrees, final double pitchDegrees) {
+        yaw.setAngle(yawDegrees);
+        pitch.setAngle(-pitchDegrees);
+    }
+
+    /** Seen from {@code cm} off. */
+    public void distance(final double cm) {
+        back.setZ(-cm);
+    }
+
+    /** Scrolled no nearer than {@code nearestCm}, no further than {@code furthestCm}. */
+    public void zoom(final double nearestCm, final double furthestCm) {
+        nearest = nearestCm;
+        furthest = furthestCm;
+    }
+
     private void handle(final SubScene view) {
         view.setOnMousePressed(e -> {
             lastX = e.getSceneX();
@@ -101,6 +127,7 @@ public final class Orbit {
                 pitch.setAngle(Math.clamp(pitch.getAngle() - dy * 0.4, -89, 89));
             }
         });
-        view.setOnScroll(e -> back.setZ(Math.clamp(back.getZ() * Math.pow(1.0015, -e.getDeltaY()), -200_000, -300)));
+        view.setOnScroll(e -> back.setZ(Math.clamp(back.getZ() * Math.pow(1.0015, -e.getDeltaY()), -furthest,
+                -nearest)));
     }
 }

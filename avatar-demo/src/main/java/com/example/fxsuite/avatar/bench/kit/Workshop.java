@@ -67,6 +67,47 @@ public final class Workshop<A, M> {
         return stage;
     }
 
+    /**
+     * A stage's key of {@code parts}, each the same only if it is the very same thing (or an equal number, string,
+     * flag, list): for what is made of things too big to compare (a building, a design), made afresh when changed.
+     */
+    public static Object same(final Object... parts) {
+        return new Same(parts);
+    }
+
+    private record Same(Object[] parts) {
+
+        @Override
+        public boolean equals(final Object o) {
+            if (!(o instanceof Same other) || other.parts.length != parts.length) {
+                return false;
+            }
+            for (int k = 0; k < parts.length; k++) {
+                final Object a = parts[k];
+                final Object b = other.parts[k];
+                if (plain(a) ? !Objects.equals(a, b) : a != b) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int h = 1;
+            for (final Object p : parts) {
+                h = 31 * h + (plain(p) ? Objects.hashCode(p) : System.identityHashCode(p));
+            }
+            return h;
+        }
+
+        /** Whether {@code p} is compared by what it is, not by being the very same. */
+        private static boolean plain(final Object p) {
+            return p instanceof Number || p instanceof String || p instanceof Boolean || p instanceof Enum<?>
+                    || p instanceof List<?>;
+        }
+    }
+
     /** {@code a} asked: done away from the screen, unless something newer is asked before it is begun. */
     public void ask(final A a) {
         final long ticket = asked.incrementAndGet();

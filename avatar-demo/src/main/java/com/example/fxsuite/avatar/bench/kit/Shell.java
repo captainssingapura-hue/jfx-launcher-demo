@@ -37,6 +37,11 @@ public final class Shell {
         figures.setWrapText(true);
         problems.setWrapText(true);
         problems.setTextFill(Color.web("#b03a2e"));
+        // taking no room while there is nothing to say
+        for (final Label said : List.of(working, problems)) {
+            said.managedProperty().bind(said.textProperty().isNotEmpty());
+            said.visibleProperty().bind(said.textProperty().isNotEmpty());
+        }
         bar.setPadding(new Insets(6, 8, 6, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
         root.setTop(bar);
@@ -50,7 +55,19 @@ public final class Shell {
     public Shell bar(final List<? extends Node> items) {
         bar.getChildren().setAll(items);
         bar.getChildren().add(working);
+        root.setTop(bar);
         return this;
+    }
+
+    /** No bar along the top: <i>Working…</i> shown where the bench puts {@link #working}. */
+    public Shell barless() {
+        root.setTop(null);
+        return this;
+    }
+
+    /** Where <i>Working…</i> is shown, for a bench with no bar. */
+    public Label working() {
+        return working;
     }
 
     /** In the middle. */
@@ -67,6 +84,22 @@ public final class Shell {
         side.setPrefWidth(width);
         root.setRight(side);
         return this;
+    }
+
+    /** To the left: what can be changed, as a bench lays it out itself (its figures where it puts {@link #figures}). */
+    public Shell left(final Node changed) {
+        root.setLeft(changed);
+        return this;
+    }
+
+    /** Where its figures are shown, as it hears of them: for a bench that lays out its own side. */
+    public Label figures() {
+        return figures;
+    }
+
+    /** Where what is wrong is shown, as it hears of it. */
+    public Label problems() {
+        return problems;
     }
 
     /** The window shown on {@code stage}, so big; saved and closed if the properties ask. */

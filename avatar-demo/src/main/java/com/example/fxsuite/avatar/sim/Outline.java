@@ -25,6 +25,33 @@ public final class Outline {
         return sum;
     }
 
+    /**
+     * The smallest convex outline round {@code points}, anticlockwise as x east and z north have it: what a solid
+     * covers seen from above, its corners being where they are. Points on its edges, and the same point twice, left out.
+     */
+    public static List<Vec2> hull(final List<Vec2> points) {
+        final List<Vec2> sorted = new ArrayList<>(points);
+        sorted.sort((a, b) -> a.x() != b.x() ? Double.compare(a.x(), b.x()) : Double.compare(a.z(), b.z()));
+        final List<Vec2> hull = new ArrayList<>();
+        for (int pass = 0; pass < 2; pass++) {
+            final int start = hull.size();
+            for (final Vec2 p : sorted) {
+                while (hull.size() >= start + 2 && turn(hull.get(hull.size() - 2), hull.getLast(), p) <= 1e-9) {
+                    hull.removeLast();
+                }
+                hull.add(p);
+            }
+            hull.removeLast();
+            java.util.Collections.reverse(sorted);
+        }
+        return hull;
+    }
+
+    /** Which way {@code a} to {@code b} to {@code c} turns: more than nothing, anticlockwise. */
+    private static double turn(final Vec2 a, final Vec2 b, final Vec2 c) {
+        return (b.x() - a.x()) * (c.z() - a.z()) - (b.z() - a.z()) * (c.x() - a.x());
+    }
+
     /** Whether ({@code x}, {@code z}) is inside it. */
     public static boolean inside(final List<Vec2> points, final double x, final double z) {
         boolean in = false;
