@@ -38,7 +38,7 @@ public final class Damage {
     public static final double BUNKER = 2500;
     /** A building's door, glass in a light frame: as tough as a drone; broken on its own, the building standing. */
     public static final double DOOR = 120;
-    /** A pane of a building's glass on its own, no frame to it: half a door; a blade's blow, six rifle rounds. */
+    /** A pane of a building's glass ({@link Assembly}), no frame to it: half a door; a blade's blow, six rifle rounds. */
     public static final double GLASS = 60;
     /** A building, broken as a whole: ten bunkers' worth. */
     public static final double BUILDING = 25_000;
@@ -158,7 +158,6 @@ public final class Damage {
             case PLATFORM -> PLATFORM;
             case TREE -> TREE;
             case LAMP -> LAMP;
-            case GLASS -> GLASS;
             case CRATE -> Math.round(CRATE + 4 * block.halfWidth() * block.halfDepth()
                     * (block.top() - block.bottom()) / CRATE_VOLUME);
             case FRUIT, FURNITURE -> piece.loose().toughness();
@@ -226,6 +225,20 @@ public final class Damage {
                 happened.add(Event.Struck.of(blow, share(piece, now)));
                 continue;
             }
+            // on a building's breakable part, a pane of its glass: the pane worn, not the building; worn through, gone
+            final Assembly assembly = assembly((changed == null ? pieces : changed).get(piece));
+            final int part = assembly == null ? -1 : assembly.breakableAt(blow.at());
+            if (part >= 0) {
+                final Assembly struck = assembly.struck(part, harm(piece, blow) / assembly.toughness());
+                if (changed == null) {
+                    changed = new ArrayList<>(pieces);
+                }
+                changed.set(piece, changed.get(piece).reshaped(assembly, struck));
+                standing = standing.reshaped(piece, assembly, struck);
+                wholeNow = wholeNow.reshaped(piece, assembly, struck);
+                happened.add(Event.Struck.of(blow, share(piece, now)));
+                continue;
+            }
             if (left == null) {
                 left = health.clone();
             }
@@ -242,6 +255,16 @@ public final class Damage {
         }
         return new Taken(new Damage(changed == null ? pieces : List.copyOf(changed), toughness,
                 left == null ? health : left, standing, wholeNow, ground), happened);
+    }
+
+    /** A piece's assembly of parts ({@link Assembly}), if it is a building made so; else null. */
+    private static Assembly assembly(final Course.Piece piece) {
+        for (final Volume v : piece.volumes()) {
+            if (v instanceof Assembly a) {
+                return a;
+            }
+        }
+        return null;
     }
 
     /** A piece's inside ({@link Interior}), if it is a building that has one; else null. */

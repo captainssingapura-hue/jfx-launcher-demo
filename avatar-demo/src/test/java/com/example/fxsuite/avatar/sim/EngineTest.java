@@ -87,7 +87,9 @@ class EngineTest {
     }
 
     @Test
-    void itWillNotComeDownOnTheAvatarStandingUnderIt() {
+    void noOneFlyingItItStaysWhereItIsOverTheAvatar() {
+        // a carpet no one flies stands as anything stands, over the avatar's head (its coming down of itself, for a
+        // model of what carries on as it was going, to come)
         final Play start = Play.start(false);
         final Lift above = new Lift(start.lifts().getFirst().piece(), Course.CARPET, new Place(0, 0, 600, 0), 0, 0, 0,
                 false, false);
@@ -95,7 +97,8 @@ class EngineTest {
         lifts.set(0, above);
         final Play play = run(new Play(start.avatar(), start.damage(), start.sky(), lifts), Controls.NONE, 2,
                 new ArrayList<>());
-        assertEquals(Body.TALL + Lift.THICK, carpet(play).place().height(), 1e-9, "on the avatar's head, not through it");
+        assertEquals(600, carpet(play).place().height(), 1e-9, "where it was");
+        assertEquals(0, play.avatar().body().height(), 1e-9, "the avatar on the ground under it");
     }
 
     @Test

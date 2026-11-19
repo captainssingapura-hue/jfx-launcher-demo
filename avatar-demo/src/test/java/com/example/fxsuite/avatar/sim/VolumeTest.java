@@ -135,8 +135,7 @@ class VolumeTest {
         assertEquals(0, world.under(0, 0, 16, 400), "standing on piece 0");
         final Obstacles gone = world.without(0);
         assertEquals(Double.POSITIVE_INFINITY, gone.ceiling(0, 0, 32, 200), "gone with its piece");
-        assertEquals(1, gone.volumes().size());
-        assertEquals(List.of(1), gone.volumePieces());
+        assertEquals(-1, gone.under(0, 0, 16, 400), "standing on nothing of its");
     }
 
     /** A gateway 11 m across, 7 m high, 5 m through along z; an arched passage 3.6 m wide through it, its crown at 5.2 m. */

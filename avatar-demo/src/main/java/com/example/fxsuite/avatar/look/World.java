@@ -7,6 +7,7 @@ import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Frame;
 import com.example.fxsuite.avatar.sim.Frames;
 import com.example.fxsuite.avatar.sim.Fruit;
+import com.example.fxsuite.avatar.sim.Assembly;
 import com.example.fxsuite.avatar.sim.Interior;
 import com.example.fxsuite.avatar.sim.Lift;
 import com.example.fxsuite.avatar.sim.Num;
@@ -106,6 +107,17 @@ public final class World {
 
     /** Each building with doors that slide, by its piece. */
     private final Map<Integer, Doors> doors = new HashMap<>();
+    /** How many of a building's panes are drawn as one: redrawn together when one of them breaks. */
+    private static final int PANES_DRAWN = 64;
+
+    /** A building's panes as drawn: its assembly as they were drawn from, and their groups. */
+    private record Panes(Assembly drawn, Group[] groups) {
+    }
+
+    /** Each building made of parts some of which break ({@link Assembly}), by its piece. */
+    private final Map<Integer, Panes> panes = new HashMap<>();
+    /** A building's moving parts (its lifts' cars and doors), by piece: shown only while at work ({@link Play#dormant}). */
+    private final List<Integer> buildingMovers = new ArrayList<>();
     /** What lies on a lawn, a path or a bridge, by its piece, and whether it is shown, as last seen: hidden far off as detail is. */
     private final Map<Integer, Boolean> lying = new HashMap<>();
     /** What stands about and is small (furniture, a lamp post), by its piece: its level, and whether it is shown, as last seen. */
@@ -236,6 +248,11 @@ public final class World {
         }
 
         pieces = course.pieces();
+        for (int i = 0; i < pieces.size(); i++) {
+            if (pieces.get(i).kind() == Course.Kind.BUILDING && pieces.get(i).route() != null) {
+                buildingMovers.add(i);
+            }
+        }
         parts = new Group[pieces.size()];
         turns = new Rotate[pieces.size()];
         bodies = new Shape3D[pieces.size()];
@@ -287,7 +304,7 @@ public final class World {
                 case CAR -> chassis(i, part);
                 case TRACK -> track(part, block, BoxRig.matte(track[piece.tint() % track.length]));
                 case WALL -> plain(part, block, BoxRig.matte(wall[piece.tint() % wall.length]));
-                case BUILDING, WALL_UNIT, GLASS -> building(i, part, block, piece.tint());
+                case BUILDING, WALL_UNIT -> building(i, part, block, piece.tint());
                 case AIRCRAFT -> aircraft(i, part);
                 case GARDEN -> garden(part, piece, pieces);
                 case TREE -> ParkModels.tree(part, block, piece.tint());
@@ -376,6 +393,11 @@ public final class World {
                      final double seconds, final double viewYaw) {
         time += seconds;
         doorsMoved(damage);
+        panesBroken(damage);
+        // a building's moving parts shown only while they are at work: where they are not, they are not worked out
+        for (final int i : buildingMovers) {
+            parts[i].setVisible(placed.containsKey(i) && !damage.broken(i));
+        }
         for (final Map.Entry<Integer, Block> moved : placed.entrySet()) {
             final int i = moved.getKey();
             final Block block = moved.getValue();
@@ -501,11 +523,11 @@ public final class World {
 
     /**
      * Whether piece {@code piece}, broken, simply vanishes, leaving nothing behind: what stands about in a
-     * park, its trees and lamp posts, its benches, bins and planters; a pane of glass.
+     * park, its trees and lamp posts, its benches, bins and planters.
      */
     public boolean vanishes(final int piece) {
         final Course.Piece what = pieces.get(piece);
-        return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP || what.kind() == Course.Kind.GLASS
+        return what.kind() == Course.Kind.TREE || what.kind() == Course.Kind.LAMP
                 || what.kind() == Course.Kind.BUILDING && what.tint() >= com.example.fxsuite.avatar.build.Village.KEYS
                 || what.kind() == Course.Kind.FURNITURE && switch (what.furniture()) {
                     case BENCH, BIN, PLANTER -> true;
@@ -530,8 +552,8 @@ public final class World {
         material(piece).setDiffuseColor(colours[piece].interpolate(SCORCHED, (1 - left) * CHAR));
         final Course.Kind kind = pieces.get(piece).kind();
         if (kind == Course.Kind.DRONE || kind == Course.Kind.FRUIT || kind == Course.Kind.BUILDING
-                || kind == Course.Kind.WALL_UNIT || kind == Course.Kind.GLASS) {
-            return;  // a drone's box is mostly air, fruit is round, a building, a wall or a pane is no box: nothing to crack
+                || kind == Course.Kind.WALL_UNIT) {
+            return;  // a drone's box is mostly air, fruit is round, a building or a wall is no box: nothing to crack
         }
         while (cracked[piece] < CRACKS.length && left < CRACKS[cracked[piece]]) {
             cracked[piece]++;
@@ -639,6 +661,16 @@ public final class World {
             }
             doors.put(piece, new Doors(site, inside, groups));
         }
+        // its panes, drawn apart from it, so many as one: in the same frame, the broken ones left out
+        final Assembly assembly = assembly(pieces.get(piece));
+        if (assembly != null && assembly.breakable() > 0) {
+            final Group[] groups = new Group[(assembly.breakable() + PANES_DRAWN - 1) / PANES_DRAWN];
+            for (int g = 0; g < groups.length; g++) {
+                groups[g] = paneGroup(assembly, g);
+                drawn.node().getChildren().add(groups[g]);
+            }
+            panes.put(piece, new Panes(assembly, groups));
+        }
         leveled.put(piece, drawn);
         levelsShown.put(piece, new boolean[] {true, true, true});
         // what it is worn on: the first of its body, its material its own (the rest share theirs with every building);
@@ -674,6 +706,47 @@ public final class World {
     private static Interior interior(final Course.Piece piece) {
         return piece.volumes().stream().filter(Interior.class::isInstance).map(Interior.class::cast).findFirst()
                 .orElse(null);
+    }
+
+    /** A piece's assembly of parts ({@link Assembly}), if it is a building made so; else null. */
+    private static Assembly assembly(final Course.Piece piece) {
+        return piece.volumes().stream().filter(Assembly.class::isInstance).map(Assembly.class::cast).findFirst()
+                .orElse(null);
+    }
+
+    /** Group {@code g} of a building's panes, as {@code assembly} has them: each drawn by its own key; the broken gone. */
+    private static Group paneGroup(final Assembly assembly, final int g) {
+        final List<com.example.fxsuite.avatar.build.Solid> glass = new ArrayList<>();
+        for (int b = g * PANES_DRAWN; b < Math.min(assembly.breakable(), (g + 1) * PANES_DRAWN); b++) {
+            if (!assembly.broken(b)) {
+                glass.addAll(com.example.fxsuite.avatar.build.Sites.drawn(assembly.drawFrom() + b));
+            }
+        }
+        return BuildingModel.of(glass);
+    }
+
+    /** Each building's panes, redrawn where one has broken since they were last drawn: only its group. */
+    private void panesBroken(final Damage damage) {
+        for (final Map.Entry<Integer, Panes> each : panes.entrySet()) {
+            final Panes was = each.getValue();
+            final Assembly now = assembly(damage.piece(each.getKey()));
+            if (now == null || now == was.drawn()) {
+                continue;
+            }
+            final java.util.Set<Integer> changed = new java.util.TreeSet<>();
+            for (int b = 0; b < now.breakable(); b++) {
+                if (now.broken(b) != was.drawn().broken(b)) {
+                    changed.add(b / PANES_DRAWN);
+                }
+            }
+            for (final int g : changed) {
+                final Group redrawn = paneGroup(now, g);
+                final Group parent = (Group) was.groups()[g].getParent();
+                parent.getChildren().set(parent.getChildren().indexOf(was.groups()[g]), redrawn);
+                was.groups()[g] = redrawn;
+            }
+            each.setValue(new Panes(now, was.groups()));
+        }
     }
 
     /** Group {@code g} of building {@code key}'s doors, each as far open as {@code inside} says; the broken ones gone. */

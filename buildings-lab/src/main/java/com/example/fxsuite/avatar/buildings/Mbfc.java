@@ -21,6 +21,29 @@ final class Mbfc {
     private Mbfc() {
     }
 
+    /** The first key the towers are drawn by in the bay, each taking {@link Standing#KEYS} from it in turn. */
+    static final int KEYS = 975_000;
+
+    /**
+     * The three where they stand in the bay ({@link com.example.fxsuite.avatar.build.MarinaBay}'s frame, cm): each
+     * where the map has its middle, turned as its sides run there, its plan's north along; their feet on its land.
+     * Which way each faces is the map's, and agrees with each one's outline: Tower 1's notch to its north-west, Tower
+     * 2's long sides across, Tower 3's step at its south-west.
+     */
+    static List<Standing> standing() {
+        final double[][] where = {{-58_590, -57_440, 3.7}, {-60_880, -64_900, 16.1}, {-52_350, -69_450, -8.6}};
+        final List<OfficeTower> towers = List.of(tower1(), tower2(), tower3());
+        final com.example.fxsuite.avatar.sim.Land land = com.example.fxsuite.avatar.build.MarinaBay.land();
+        final List<Standing> standing = new ArrayList<>();
+        for (int k = 0; k < towers.size(); k++) {
+            final double[] w = where[k];
+            standing.add(new Standing(towers.get(k),
+                    new com.example.fxsuite.avatar.sim.Place(w[0], w[1], land.height(w[0], w[1]), w[2]),
+                    KEYS + k * Standing.KEYS));
+        }
+        return standing;
+    }
+
     /** The building's floor numbered {@code n} (3 and up) as the model's storey. */
     static int storey(final int n) {
         return n - 2;

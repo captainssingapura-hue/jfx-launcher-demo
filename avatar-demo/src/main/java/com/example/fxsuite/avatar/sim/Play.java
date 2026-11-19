@@ -39,7 +39,7 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
      * Which rules the world steps by. Raise it whenever a change would step the same inputs to a
      * different world, so a recording made under the old rules says so rather than going astray.
      */
-    public static final int RULES = 33;
+    public static final int RULES = 34;
 
     public Play {
         lifts = List.copyOf(lifts);
@@ -130,11 +130,30 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         return damage.flying().stream().map(i -> damage.piece(i).at(sky.time())).toList();
     }
 
-    /** Each piece that can move and still stands, by number, and where it now is, all of it: for drawing it there. */
+    /** How near the avatar a building's moving parts are at work: its lifts' cars and doors. */
+    public static final double AWAKE = 6_000;
+
+    /**
+     * Whether piece {@code piece} is a moving part of a building (a lift's car, a door of its) far from the avatar:
+     * at rest where it was laid, as the building it is in stands, its way not worked out; at work again as the avatar
+     * comes within {@link #AWAKE} of it.
+     */
+    public boolean dormant(final int piece) {
+        final Course.Piece what = damage.piece(piece);
+        if (what.kind() != Course.Kind.BUILDING || what.route() == null) {
+            return false;
+        }
+        final Vec3 at = avatar.body().position();
+        return Math.hypot(what.block().x() - at.x(), what.block().z() - at.z()) > AWAKE;
+    }
+
+    /** Each piece that can move and still stands, by number, and where it now is, all of it but what is dormant ({@link #dormant}): for drawing it there. */
     public Map<Integer, Block> moving() {
         final Map<Integer, Block> boxes = new LinkedHashMap<>();
         for (final int piece : damage.moving()) {
-            boxes.put(piece, placed(piece, sky.time(), lifts, props).block());
+            if (!dormant(piece)) {
+                boxes.put(piece, placed(piece, sky.time(), lifts, props).block());
+            }
         }
         return boxes;
     }
@@ -393,8 +412,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 }
             }
             for (int j = 0; j < lifts.size(); j++) {
+                // a vehicle no one drives stands as anything stands: it does not give, as a wall does not
                 if (lifts.get(j).piece() == target && lifts.get(j).craft() instanceof Course.Chassis struck
-                        && !damage.broken(target)) {
+                        && !damage.broken(target) && lifts.get(j).held()) {
                     other = lifts.get(j).across();
                     centre = new Vec3(lifts.get(j).place().x(), 0, lifts.get(j).place().z());
                     heavy = struck.drive().mass();
@@ -1016,6 +1036,13 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                     continue;
                 }
             }
+            // a vehicle goes as a vehicle only while it is driven: else it stands as anything stands, at once, carried,
+            // if it rests on what moves, as anything resting on it is. Its going on of itself, let go, shoved, drifting,
+            // is for a model of what carries on as it was going, to come
+            if (!lift.held()) {
+                moved[i] = lift.standing();
+                continue;
+            }
             // its cargo, and the platforms docked on it, go where it goes: not in its way
             final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
             aboard.addAll(resting.apply(lift.piece()));
@@ -1347,12 +1374,22 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
         if (moving.isEmpty()) {
             return built;
         }
-        // each moving piece's blocks, in the order it was built with, put where it now is
-        final Map<Integer, List<Block>> placed = new TreeMap<>();
+        // each moving piece's blocks, in the order it was built with, put where it now is; one where it was built,
+        // as it stands among them already (a lift's landing door, shut), left as it is
+        final Map<Integer, List<Block>> placed = new java.util.HashMap<>();
         for (final int piece : moving) {
-            placed.put(piece, placed(piece, seconds, lifts, props).solid());
+            if (dormant(piece)) {
+                continue;
+            }
+            final Course.Piece now = placed(piece, seconds, lifts, props);
+            if (now != damage.piece(piece)) {
+                placed.put(piece, now.solid());
+            }
         }
-        final Map<Integer, Integer> next = new TreeMap<>();
+        if (placed.isEmpty()) {
+            return built;
+        }
+        final Map<Integer, Integer> next = new java.util.HashMap<>();
         final List<Block> blocks = new ArrayList<>(built.blocks().size());
         for (int i = 0; i < built.blocks().size(); i++) {
             final int piece = built.pieces().get(i);

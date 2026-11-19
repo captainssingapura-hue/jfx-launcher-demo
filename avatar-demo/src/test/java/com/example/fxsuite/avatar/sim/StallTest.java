@@ -103,24 +103,25 @@ class StallTest {
     }
 
     @Test
-    void standingOnTheMelonsTheAvatarGoesWithTheBargeToo() {
+    void standingOnTheMelonsOfABargeNoOneDrivesTheAvatarStaysOnThem() {
         final Play start = Play.start(false);
         final int k = 1;
+        // set going, but no one at its helm: a barge no one drives stands as anything stands, at once (its drifting
+        // on, for a model of what carries on as it was going, to come)
         final Lift drifting = new Lift(start.lifts().get(k).piece(), Course.BARGE, start.lifts().get(k).place(), 500, 0,
                 0, false);
         final List<Lift> lifts = new ArrayList<>(start.lifts());
         lifts.set(k, drifting);
-        // on top of the melons on the table, which stand on the table, which stands on the barge as it drifts on
+        // on top of the melons on the table, which stand on the table, which stands on the barge
         final Block melon = course.pieces().get(melons().get(8)).block();
         final Vec3 on = new Vec3(melon.x(), -melon.top(), melon.z());
         Play play = new Play(new Avatar(Body.standing(on, 0), false), start.damage(), start.sky(), lifts,
                 start.people(), start.props());
         play = run(play, Controls.NONE, 0.5);
-        final Place moved = play.lifts().get(k).place();
-        final Vec3 expected = drifting.place().carry(on, moved);
-        assertTrue(Math.hypot(moved.x() - drifting.place().x(), moved.z() - drifting.place().z()) > 100, "drifting on");
-        assertEquals(expected.x(), play.avatar().body().position().x(), 1e-6, "and the avatar with it");
-        assertEquals(expected.z(), play.avatar().body().position().z(), 1e-6);
+        assertEquals(drifting.place(), play.lifts().get(k).place(), "standing where it was");
+        assertEquals(0, play.lifts().get(k).ahead(), 1e-9, "going nowhere");
+        assertEquals(on.x(), play.avatar().body().position().x(), 1e-6, "and the avatar where it stood");
+        assertEquals(on.z(), play.avatar().body().position().z(), 1e-6);
         assertEquals(melon.top(), play.avatar().body().height(), 1e-6, "still on the melons");
     }
 

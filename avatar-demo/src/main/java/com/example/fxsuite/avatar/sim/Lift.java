@@ -81,6 +81,18 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
                 bumped, tipped, turning);
     }
 
+    /**
+     * The same, standing: going nowhere, steering nowhere, turning not at all, having run into nothing. What a
+     * vehicle no one drives is ({@link Play}): it goes as a vehicle only while it is driven. Where it is, which way it
+     * faces and how it leans, as they were.
+     */
+    public Lift standing() {
+        if (ahead == 0 && aside == 0 && climb == 0 && steer == 0 && bumped == -1 && turning == 0) {
+            return this;
+        }
+        return new Lift(piece, craft, place, 0, 0, 0, held, engine, bombs, ready, 0, tilt, roll, -1, tipped, 0);
+    }
+
     /** Over on its side: a sidecar outfit, past its limit for long enough ({@link Outfit#TIPS}). */
     public boolean over() {
         return tipped >= Outfit.TIPS;

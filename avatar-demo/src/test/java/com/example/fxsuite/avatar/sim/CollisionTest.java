@@ -33,14 +33,18 @@ class CollisionTest {
         return play.props().stream().filter(p -> p.piece() == piece).findFirst().orElseThrow();
     }
 
-    /** {@code play} with the land vehicle {@code chassis} moved to {@code at}, going {@code ahead}, its wheels straight. */
-    private static Play moved(final Play play, final Course.Chassis chassis, final Place at, final double ahead) {
+    /**
+     * {@code play} with the land vehicle {@code chassis} moved to {@code at}, going {@code ahead}, its wheels straight;
+     * driven, if {@code driven}, as a vehicle goes only while it is: else standing.
+     */
+    private static Play moved(final Play play, final Course.Chassis chassis, final Place at, final double ahead,
+                              final boolean driven) {
         // the first of them: the roadster, not the van on the same chassis
         final List<Lift> lifts = new ArrayList<>();
         boolean done = false;
         for (final Lift lift : play.lifts()) {
             final boolean it = !done && lift.craft() == chassis;
-            lifts.add(it ? new Lift(lift.piece(), chassis, at, ahead, 0, 0, lift.held(), true, 0, 0, 0, 0) : lift);
+            lifts.add(it ? new Lift(lift.piece(), chassis, at, ahead, 0, 0, driven, true, 0, 0, 0, 0) : lift);
             done |= it;
         }
         return new Play(play.avatar(), play.damage(), play.sky(), lifts, play.people(), play.props(), play.turrets());
@@ -50,21 +54,22 @@ class CollisionTest {
     private record Setup(Play play, int crate, int vehicle) {
     }
 
-    private static Setup atACrate(final Course.Chassis chassis, final double back, final double ahead) {
+    private static Setup atACrate(final Course.Chassis chassis, final double back, final double ahead,
+                                  final boolean driven) {
         final Play start = Play.start(Demos.FLYOVER, false);
         final Prop crate = start.props().stream().filter(p -> p.thing() instanceof Crate)
                 .min(Comparator.comparingDouble(p -> Math.abs(p.place().x()))).orElseThrow();
         final double side = Math.signum(crate.place().x());
         final double reach = ((Crate) crate.thing()).length() / 2 + chassis.length() / 2 + back;
         final Place at = new Place(crate.place().x() - side * reach, crate.place().z(), chassis.ride(), side * 90);
-        final Play placed = moved(start, chassis, at, ahead);
+        final Play placed = moved(start, chassis, at, ahead, driven);
         final int vehicle = placed.lifts().stream().filter(l -> l.craft() == chassis).findFirst().orElseThrow().piece();
         return new Setup(placed, crate.piece(), vehicle);
     }
 
     @Test
     void aVehicleShovesACrateAlongAndSlowlyDoesItNoHarm() {
-        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 100, 300);
+        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 100, 300, true);
         final Place was = prop(setup.play(), setup.crate()).place();
         final Play after = run(setup.play(), Controls.NONE, 3);
         final Place now = prop(after, setup.crate()).place();
@@ -77,7 +82,7 @@ class CollisionTest {
 
     @Test
     void hitFastACrateBreaksAndTheVehicleTakesSomeHarm() {
-        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 50, 1400);  // 50 km/h
+        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 50, 1400, true);  // 50 km/h
         final Play after = run(setup.play(), Controls.NONE, 0.5);
         assertTrue(after.damage().broken(setup.crate()), "the crate in pieces");
         assertTrue(after.damage().left(setup.vehicle()) < 1, "the pickup dented");
@@ -85,10 +90,10 @@ class CollisionTest {
     }
 
     @Test
-    void oneVehicleIntoAnotherSharesTheirMomentumByTheirMasses() {
-        // the roadster at speed into the truck, parked: it stops, and the truck hardly moves; and the other way about
-        final double light = Course.CAR_CHASSIS.drive().mass();
-        final double heavy = Course.TRUCK_CHASSIS.drive().mass();
+    void aDrivenVehicleIntoAParkedOneStopsAgainstItAndTheParkedOneStands() {
+        // the roadster at speed into the truck, parked; and the other way about: a vehicle no one drives stands as
+        // anything stands, however heavy what hits it (its being shoved along, for a model of what carries on as it
+        // was going, to come)
         for (final boolean carHits : new boolean[] {true, false}) {
             final Play start = Play.start(Demos.FLYOVER, false);
             final Course.Chassis mover = carHits ? Course.CAR_CHASSIS : Course.TRUCK_CHASSIS;
@@ -96,45 +101,18 @@ class CollisionTest {
             // the parked one out in the open, behind the start, side-on; the mover heading straight at its side
             final Place standing = new Place(0, -2000, parked.ride(), 90);
             final double gap = mover.length() / 2 + parked.half() + 20;
-            Play play = moved(moved(start, parked, standing, 0), mover, new Place(0, -2000 - gap, mover.ride(), 0), 1000);
+            final Play play = moved(moved(start, parked, standing, 0, false), mover,
+                    new Place(0, -2000 - gap, mover.ride(), 0), 1000, true);
             final int moverPiece = play.lifts().stream().filter(l -> l.craft() == mover).findFirst().orElseThrow().piece();
             final int parkedPiece = play.lifts().stream().filter(l -> l.craft() == parked).findFirst().orElseThrow().piece();
-            final double before = mover.drive().mass() * 1000;
-            Play after = play;
-            for (int i = 0; i < 60 && lift(after, parkedPiece).across().magnitude() < 1; i++) {
-                after = run(after, Controls.NONE, Clock.STEP);
-            }
-            final Vec3 struck = lift(after, parkedPiece).across();
-            final double going = lift(after, moverPiece).across().z();
-            final double momentum = mover.drive().mass() * going + parked.drive().mass() * struck.z();
-            assertEquals(before, momentum, 0.03 * before, "momentum kept, as near as a step: " + mover.name());
-            if (carHits) {
-                assertTrue(struck.magnitude() < 300, "the truck hardly moved: " + struck);
-                assertTrue(going < 300, "the car stopped short: " + going);
-            } else {
-                assertTrue(struck.magnitude() > 900, "the car sent off as fast as the truck came: " + struck);
-                assertTrue(going > 600, "the truck hardly slowed: " + going);
-            }
-            assertTrue(light < heavy);
+            final Play after = run(play, Controls.NONE, 2);
+            final Lift struck = lift(after, parkedPiece);
+            assertEquals(0, struck.across().magnitude(), 1e-9, "the parked one going nowhere: " + mover.name());
+            assertEquals(standing.x(), struck.place().x(), 1e-9, "where it stood");
+            assertEquals(standing.z(), struck.place().z(), 1e-9);
+            final double front = lift(after, moverPiece).place().z() + mover.length() / 2;
+            assertTrue(front < -2000 - parked.half() + 30, "the driven one stopped against its side: " + front);
         }
-    }
-
-    @Test
-    void hitSideOnACarSlidesAndItsTyresScrubThatOff() {
-        final Play start = Play.start(Demos.FLYOVER, false);
-        final Place standing = new Place(0, -2000, Course.CAR_CHASSIS.ride(), 90);
-        final double gap = Course.PICKUP_CHASSIS.length() / 2 + Course.CAR_CHASSIS.half() + 20;
-        Play play = moved(moved(start, Course.CAR_CHASSIS, standing, 0), Course.PICKUP_CHASSIS,
-                new Place(0, -2000 - gap, Course.PICKUP_CHASSIS.ride(), 0), 800);
-        final int car = play.lifts().stream().filter(l -> l.craft() == Course.CAR_CHASSIS).findFirst().orElseThrow().piece();
-        double most = 0;
-        for (int i = 0; i < 3 / Clock.STEP; i++) {
-            play = run(play, Controls.NONE, Clock.STEP);
-            most = Math.max(most, Math.abs(lift(play, car).aside()));
-        }
-        assertTrue(most > 300, "slid sideways: " + most);
-        assertEquals(0, lift(play, car).aside(), 1e-9, "and its tyres stopped it");
-        assertTrue(lift(play, car).place().z() > -2000 + 30, "shoved off where it stood: " + lift(play, car).place());
     }
 
     @Test
@@ -153,7 +131,7 @@ class CollisionTest {
 
     @Test
     void drivenOnItPushesTheCrateAlongAheadOfIt() {
-        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 150, 0);
+        final Setup setup = atACrate(Course.PICKUP_CHASSIS, 150, 0, false);
         // a step for its gun to be carried to where it now is; then at its wheel, taking it, and on the throttle
         final Play settled = run(setup.play(), Controls.NONE, Clock.STEP);
         final Lift pickup = lift(settled, setup.vehicle());

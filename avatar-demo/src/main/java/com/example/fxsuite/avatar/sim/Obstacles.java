@@ -29,7 +29,7 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         blocks = List.copyOf(blocks);
         gates = List.copyOf(gates);
         pieces = List.copyOf(pieces);
-        volumes = List.copyOf(volumes);
+        volumes = volumes instanceof Hollowed ? volumes : List.copyOf(volumes);
         volumePieces = List.copyOf(volumePieces);
         if (pieces.size() != blocks.size()) {
             throw new IllegalArgumentException(blocks.size() + " blocks but " + pieces.size() + " piece numbers");
@@ -98,15 +98,86 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
         if (!volumePieces.contains(piece)) {
             return new Obstacles(left, gates, numbers, volumes, volumePieces, land);
         }
-        final List<Volume> volumesLeft = new ArrayList<>();
-        final List<Integer> volumeNumbers = new ArrayList<>();
-        for (int i = 0; i < volumes.size(); i++) {
-            if (volumePieces.get(i) != piece) {
-                volumesLeft.add(volumes.get(i));
-                volumeNumbers.add(volumePieces.get(i));
+        // its volumes left where they were, each in no one's way: the rest where they were among them, so where they
+        // are is known already, from the volumes as they were first indexed ({@link #volumesNear})
+        final Volume[] hollowed = volumes.toArray(new Volume[0]);
+        for (int i = 0; i < hollowed.length; i++) {
+            if (volumePieces.get(i) == piece) {
+                hollowed[i] = new Gone(hollowed[i].bounds(), hollowed[i].low(), hollowed[i].high());
             }
         }
-        return new Obstacles(left, gates, numbers, volumesLeft, volumeNumbers, land);
+        return new Obstacles(left, gates, numbers,
+                new Hollowed(volumes instanceof Hollowed h ? h.indexed : volumes, hollowed), volumePieces, land);
+    }
+
+    /**
+     * Volumes as {@code indexed} has them, some of them gone ({@link Gone}): each where it was among them, so the
+     * index of where they are ({@link VolumeGrid}) is {@code indexed}'s. Not to be changed.
+     */
+    private static final class Hollowed extends java.util.AbstractList<Volume> implements java.util.RandomAccess {
+
+        private final List<Volume> indexed;
+        private final Volume[] volumes;
+
+        Hollowed(final List<Volume> indexed, final Volume[] volumes) {
+            this.indexed = indexed;
+            this.volumes = volumes;
+        }
+
+        @Override
+        public Volume get(final int index) {
+            return volumes[index];
+        }
+
+        @Override
+        public int size() {
+            return volumes.length;
+        }
+    }
+
+    /** A volume that was, left out: where it was, as far up as it went, in no one's way, under or over nothing. */
+    record Gone(Volume.Bounds bounds, double low, double high) implements Volume {
+
+        @Override
+        public boolean covers(final double x, final double z, final double radius) {
+            return false;
+        }
+
+        @Override
+        public boolean steep(final double x, final double z, final double radius, final double top) {
+            return false;
+        }
+
+        @Override
+        public double topAt(final double x, final double z, final double radius, final double below) {
+            return Double.NEGATIVE_INFINITY;
+        }
+
+        @Override
+        public double undersideAt(final double x, final double z, final double radius, final double above) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        @Override
+        public Vec2 push(final double x, final double z, final double radius, final double feet, final double head) {
+            return null;
+        }
+
+        @Override
+        public Vec2 push(final double ax, final double az, final double bx, final double bz, final double radius,
+                         final double feet, final double head) {
+            return null;
+        }
+
+        @Override
+        public Hit ray(final Vec3 from, final Vec3 direction, final double reach) {
+            return null;
+        }
+
+        @Override
+        public boolean overlaps(final Block block) {
+            return false;
+        }
     }
 
     /** The same world with volume {@code was} of piece {@code piece} {@code now} instead: a building's door opened. */
@@ -162,12 +233,14 @@ public record Obstacles(List<Block> blocks, List<Gate> gates, List<Integer> piec
      * round, by their numbers among them, in order: the others are nowhere near.
      */
     public int[] volumesNear(final double x, final double z, final double radius) {
+        // some of them left out, each where it was: where they are is where the volumes they were taken from are
+        final List<Volume> indexed = volumes instanceof Hollowed h ? h.indexed : volumes;
         final Object[] kept = grid;
-        if (kept != null && kept[0] == volumes) {
+        if (kept != null && kept[0] == indexed) {
             return ((VolumeGrid) kept[1]).near(x, z, radius);
         }
-        final VolumeGrid made = new VolumeGrid(volumes);
-        grid = new Object[] {volumes, made};
+        final VolumeGrid made = new VolumeGrid(indexed);
+        grid = new Object[] {indexed, made};
         return made.near(x, z, radius);
     }
 

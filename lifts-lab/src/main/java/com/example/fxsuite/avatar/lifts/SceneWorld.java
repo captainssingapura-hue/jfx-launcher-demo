@@ -7,9 +7,11 @@ import com.example.fxsuite.avatar.build.StandIns;
 import com.example.fxsuite.avatar.build.Town;
 import com.example.fxsuite.avatar.look.Scenery;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Damage;
 import com.example.fxsuite.avatar.sim.Land;
 import com.example.fxsuite.avatar.sim.Place;
 import com.example.fxsuite.avatar.sim.Terrain;
+import com.example.fxsuite.avatar.sim.Volume;
 
 import javafx.scene.Group;
 
@@ -47,20 +49,27 @@ public final class SceneWorld implements PlayWorld {
 
     @Override
     public void lay(final Course.Layout world) {
-        // its frame's key, then each kind of moving part's, then each pane's, drawn about its own foot
+        // its frame's key, then each kind of moving part's, then each pane's, in its frame
         final int keyed = built.keyed().size();
         Sites.register(KEY, KEY + keyed + built.panes().size(),
-                k -> k < keyed ? built.keyed().get(k) : StandIns.about(built.panes().get(k - keyed)));
+                k -> k < keyed ? built.keyed().get(k) : built.panes().get(k - keyed));
         final double reach = Math.ceil(built.ground() / 1_000) * 1_000;
         final Terrain flat = new Terrain("lifts scene", -reach, -reach, reach, reach, 1_000, 0, 0, Terrain.Noise.NONE,
                 List.of(), List.of());
         final List<Course.Piece> pieces = new ArrayList<>();
-        pieces.add(Town.building(built.drawn(), new Place(0, 0, 0, 0), KEY, StandIns.prisms(built.standing()), 1));
+        pieces.add(Town.building(built.drawn(), new Place(0, 0, 0, 0), KEY, shape(built, KEY + keyed), 1));
         built.movers().forEach(m -> pieces.add(m.piece()));
-        for (int p = 0; p < built.panes().size(); p++) {
-            pieces.add(StandIns.pane(built.panes().get(p), KEY + keyed + p));
-        }
         world.land(new Land(flat.survey(), List.of())).ruled(true).pieces(pieces);
+    }
+
+    /**
+     * What a scene's frame is to the simulation, in its own frame: its solids standing for it; or, with glass that
+     * breaks, one thing of them all ({@link StandIns#assembly}), each pane of it breaking on its own, drawn by keys from
+     * {@code panesFrom} on.
+     */
+    public static List<Volume> shape(final Built built, final int panesFrom) {
+        return built.panes().isEmpty() ? StandIns.prisms(built.standing())
+                : List.of(StandIns.assembly(built.standing(), built.panes(), Damage.GLASS, panesFrom));
     }
 
     @Override

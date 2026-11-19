@@ -33,8 +33,14 @@ class ObstaclesTest {
                 new Vec2(700, -200), new Vec2(700, 200), new Vec2(300, 200)), 500, 600)), List.of(2));
         assertEquals(500, over.ceiling(500, 0, 30, 0), 1e-9, "its underside over it");
         assertEquals(Double.POSITIVE_INFINITY, over.ceiling(5_000, 0, 30, 0), "open sky away from it");
-        // and leaving out a piece that is shaped, its volumes go with it
-        assertEquals(List.of(far), world.without(2).volumes());
+        // and leaving out a piece that is shaped, its volumes go with it: in no one's way, the rest as they were, each
+        // where it was among them, so where they are is known already
+        final Obstacles shaped = world.without(2);
+        assertTrue(shaped.volumes().getFirst() == far);
+        assertEquals(0, shaped.floor(500, 0, 30, 1000), 1e-9, "the near one gone: the ground");
+        assertFalse(shaped.slide(250, 0, 100, 0, 60, 0, 100).blocked(), "nothing to run into");
+        assertEquals(300, shaped.floor(50_200, 200, 30, 1000), 1e-9, "the far one there still");
+        assertEquals(-1, shaped.under(500, 0, 30, 300));
     }
 
     /** A 200 × 200 block, 100 tall, at the origin. */

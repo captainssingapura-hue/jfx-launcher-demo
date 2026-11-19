@@ -169,7 +169,7 @@ class CourseTest {
         for (final Course.Kind kind : Course.Kind.values()) {
             assertEquals(kind == Course.Kind.CRATE || kind == Course.Kind.PLATFORM || kind == Course.Kind.BUNKER
                     || kind == Course.Kind.CAR || kind == Course.Kind.BUILDING || kind == Course.Kind.WALL_UNIT
-                    || kind == Course.Kind.TREE || kind == Course.Kind.LAMP || kind == Course.Kind.GLASS
+                    || kind == Course.Kind.TREE || kind == Course.Kind.LAMP
                     || kind.target()
                     || kind.loose(), kind.breakable(), kind.name());
         }

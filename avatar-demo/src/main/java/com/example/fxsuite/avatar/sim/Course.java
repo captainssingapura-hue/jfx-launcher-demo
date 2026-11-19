@@ -66,12 +66,7 @@ public final class Course {
         /** A tree: its trunk in the way, its crown over it not; felled, it is gone. */
         TREE(true),
         /** A lamp post: its post in the way; broken, it is gone. */
-        LAMP(true),
-        /**
-         * A pane of a building's glass, standing on its own: struck, it is that pane that wears down and breaks, and
-         * is gone, the building standing; so a way in where there was none.
-         */
-        GLASS(true);
+        LAMP(true);
 
         private final boolean breakable;
 
@@ -226,9 +221,16 @@ public final class Course {
             return new Piece(shape.box(at), kind, tint, shape.solid(at), shape, at, another, carrier, loose, body);
         }
 
-        /** Where it is {@code seconds} after the start: along its route, if it has one, or where it is. */
+        /**
+         * Where it is {@code seconds} after the start: along its route, if it has one, or where it is. Where its route
+         * has it where it already is (a lift's landing door, shut, most of the time), itself: nothing made again.
+         */
         public Piece at(final double seconds) {
-            return route == null ? this : placed(route.at(seconds));
+            if (route == null) {
+                return this;
+            }
+            final Place now = route.at(seconds);
+            return now.equals(place) ? this : placed(now);
         }
 
         /**
