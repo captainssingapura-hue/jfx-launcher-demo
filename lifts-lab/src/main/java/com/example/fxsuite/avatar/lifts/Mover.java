@@ -1,7 +1,9 @@
 package com.example.fxsuite.avatar.lifts;
 
+import com.example.fxsuite.avatar.build.Point;
 import com.example.fxsuite.avatar.build.Solid;
 import com.example.fxsuite.avatar.sim.Course;
+import com.example.fxsuite.avatar.sim.Place;
 
 import java.util.List;
 
@@ -44,6 +46,21 @@ public record Mover(String name, List<Box> boxes, Course.Route route, int key) {
     /** What is drawn of it. */
     public List<Solid> solids() {
         return boxes.stream().map(Box::solid).toList();
+    }
+
+    /**
+     * Its solids where its route has it at {@code seconds}, turned as it faces there: for a bench's still model, its
+     * parts where they stand, drawn with the building they are in.
+     */
+    public List<Solid> solidsAt(final double seconds) {
+        final Place p = route.at(seconds);
+        final double r = Math.toRadians(p.yaw());
+        final double c = Math.cos(r);
+        final double s = Math.sin(r);
+        return solids().stream().map(solid -> new Solid(solid.name(), solid.role(), solid.material(),
+                solid.corners().stream().map(q -> new Point(
+                        p.x() + c * q.across() + s * q.along(), p.z() - s * q.across() + c * q.along(),
+                        q.up() + p.height())).toList())).toList();
     }
 
     /** It, as a piece of the world: where its route has it at the start, going its way, drawn as a building is. */

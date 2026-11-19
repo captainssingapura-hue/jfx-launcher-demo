@@ -1,22 +1,18 @@
 package com.example.fxsuite.avatar.buildings;
 
 import com.example.fxsuite.avatar.bench.kit.Bus;
-import com.example.fxsuite.avatar.bench.kit.Orbit;
+import com.example.fxsuite.avatar.bench.kit.ModelView;
 import com.example.fxsuite.avatar.bench.kit.Player;
 import com.example.fxsuite.avatar.bench.kit.Shell;
 import com.example.fxsuite.avatar.bench.kit.Workshop;
+import com.example.fxsuite.avatar.build.Solid;
 import com.example.fxsuite.avatar.lifts.Built;
 import com.example.fxsuite.avatar.lifts.Knob;
 import com.example.fxsuite.avatar.lifts.Mover;
 import com.example.fxsuite.avatar.lifts.SceneWorld;
-import com.example.fxsuite.avatar.look.BuildingModel;
-import com.example.fxsuite.avatar.sim.Place;
 
-import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.geometry.Insets;
-import javafx.scene.Group;
-import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -27,29 +23,23 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
-import javafx.scene.paint.PhongMaterial;
-import javafx.scene.shape.Box;
-import javafx.scene.transform.Rotate;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
  * The buildings lab's bench: an office tower made from a few figures ({@link OfficeTower#generic}), so wide and deep,
  * its corners cut and notched, so many storeys so high over a lobby so high, its office floors in so many zones each
- * with its bank of lifts, the higher faster; cut away over any floor to be looked into, its glass shown or not; its
- * lifts at work as they go in time; its figures read out; played, to walk into it and ride its lifts. Put together of
- * the bench kit's parts.
+ * with its bank of lifts, the higher faster; cut away over any floor to be looked into, its glass shown or not; still,
+ * a model to look at, its lifts' cars and doors where they stand at the start; its figures read out. Played, to walk
+ * into it and ride its lifts: what moves is seen there, not here. Put together of the bench kit's parts.
  *
  * <p>Or a real tower, described from its figures ({@link #TOWERS}): its own size and lifts, shown as the knobs say.
  *
  * <p>{@code -Dtower.model="MBFC Tower 1"} which tower; {@code -Dtower.set=floors=40,zones=3} its knobs;
- * {@code -Dtower.time=12} (seconds) where in time it starts;
  * {@code -Dtower.yaw}, {@code -Dtower.pitch}, {@code -Dtower.distance} (m) where it is seen from; {@code -Dbench.play=true}
  * plays it at once; {@code -Dbench.snapshot=out.png} saves the window after {@code -Dbench.settle} ms and exits.
  */
@@ -72,20 +62,10 @@ public final class TowerBench extends Application {
 
     private final Bus bus = new Bus();
     private final Shell shell = new Shell("Buildings lab: office tower", bus);
-    private final Orbit view = Orbit.standard();
+    private final ModelView view = new ModelView();
     private final Map<String, Double> set = new HashMap<>();
-    private final Group frame = new Group();
-    private final Group moving = new Group();
-    private final Label clock = new Label();
-    private final ComboBox<Double> rate = new ComboBox<>();
     private Built shown;
-    /** How high what is shown is cut away. */
-    private double cut = Double.POSITIVE_INFINITY;
-    private final List<Node> parts = new ArrayList<>();
-    private final List<Rotate> turns = new ArrayList<>();
     private final Player player = new Player(() -> shown == null ? null : new SceneWorld(shown), List.of());
-    private double time = Double.parseDouble(System.getProperty("tower.time", "0"));
-    private boolean running = true;
     private boolean framed;
     private boolean playWhenShown = Boolean.getBoolean("bench.play");
 
@@ -99,6 +79,8 @@ public final class TowerBench extends Application {
         TOWERS.put("MBFC Tower 3", Mbfc::tower3);
         TOWERS.put("ORQ North Tower", Orq::north);
         TOWERS.put("ORQ South Tower", Orq::south);
+        TOWERS.put("Asia Square Tower 1", AsiaSquare::tower1);
+        TOWERS.put("Asia Square Tower 2", AsiaSquare::tower2);
     }
 
     /** Which tower is chosen; the knobs ({@code set}), for the generic one's figures and how it is shown. */
@@ -108,8 +90,8 @@ public final class TowerBench extends Application {
     private final ComboBox<String> model = new ComboBox<>();
     private final List<Spinner<Double>> figures = new ArrayList<>();
 
-    /** What the workshop made: the tower as a scene, drawn; its moving parts drawn; how high it is cut away. */
-    private record Made(Built built, Node frame, List<Node> parts, double cut) {
+    /** What the workshop made: the tower as a scene; it drawn, still, its lifts where they stand at the start. */
+    private record Made(Built built, ModelView.Model model) {
     }
 
     private final Workshop<Asked, Made> workshop = new Workshop<>("buildings lab", bus, Asked.class, this::make);
@@ -124,7 +106,6 @@ public final class TowerBench extends Application {
 
     @Override
     public void start(final Stage stage) {
-        view.add(ground(), frame, moving);
         bus.subscribe(Made.class, this::show, Bus.SCREEN);
         final String asked = System.getProperty("tower.set");
         if (asked != null) {
@@ -135,17 +116,10 @@ public final class TowerBench extends Application {
                 }
             }
         }
-        final Button pause = new Button("Pause");
-        pause.setOnAction(e -> {
-            running = !running;
-            pause.setText(running ? "Pause" : "Go on");
-        });
-        rate.getItems().setAll(0.25, 0.5, 1.0, 2.0, 5.0, 10.0);
-        rate.setValue(1.0);
         final Button play = new Button("Play");
         play.setStyle("-fx-font-weight: bold;");
         play.setOnAction(e -> player.play());
-        shell.bar(List.of(pause, new Label("Speed ×"), rate, clock, play));
+        shell.bar(List.of(play));
         final GridPane grid = new GridPane();
         grid.setHgap(8);
         grid.setVgap(6);
@@ -186,18 +160,6 @@ public final class TowerBench extends Application {
         shell.side(new Label("The tower"), tabs, 420);
         shell.middle(view.node());
         request();
-        new AnimationTimer() {
-            private long last = -1;
-
-            @Override
-            public void handle(final long now) {
-                if (last >= 0 && running) {
-                    time += (now - last) / 1e9 * rate.getValue();
-                    place();
-                }
-                last = now;
-            }
-        }.start();
         shell.show(stage, 1440, 900);
     }
 
@@ -218,34 +180,27 @@ public final class TowerBench extends Application {
         final OfficeTower tower = real == null ? tower(a.set()) : real.get();
         final int upTo = (int) Math.round(KNOBS.get(10).of(a.set()));
         final Built built = tower.built(upTo, KNOBS.get(11).of(a.set()) > 0.5);
-        // cut away over a storey: its floor over it left off, and what moves over it too
+        // cut away over a storey: its floor over it left off, and its lifts' parts over it too
         final double cut = upTo >= tower.storeys() - 1 ? Double.POSITIVE_INFINITY : tower.levels().get(upTo + 1);
-        final List<Node> drawn = new ArrayList<>();
+        final List<Solid> still = new ArrayList<>(built.drawn());
         for (final Mover m : built.movers()) {
-            final Group part = new Group(BuildingModel.of(m.solids()));
-            part.getTransforms().add(new Rotate(0, Rotate.Y_AXIS));
-            drawn.add(part);
+            if (m.route().at(0).height() < cut) {
+                still.addAll(m.solidsAt(0));
+            }
         }
-        return new Made(built, BuildingModel.of(built.drawn()), drawn, cut);
+        return new Made(built, ModelView.Model.of(still));
     }
 
     /** On the screen's thread: the tower shown in place of what was; looked at afresh the first time. */
     private void show(final Made m) {
         shown = m.built();
-        cut = m.cut();
-        frame.getChildren().setAll(m.frame());
-        parts.clear();
-        turns.clear();
-        parts.addAll(m.parts());
-        m.parts().forEach(p -> turns.add((Rotate) p.getTransforms().getFirst()));
-        moving.getChildren().setAll(m.parts());
-        place();
+        view.show(m.model());
         bus.publish(new Bus.Figures(shown.figures()));
         bus.publish(new Bus.Problems(""));
         if (!framed) {
             framed = true;
             final double[] middle = shown.middle();
-            view.lookAt(middle[0], -middle[1], middle[2]);
+            view.lookAt(middle[0], middle[1], middle[2]);
             view.from("tower", shown.yaw(), 20, shown.size() * 1.8 / 100 + 10);
             view.zoom(300, shown.size() * 10);
         }
@@ -253,30 +208,5 @@ public final class TowerBench extends Application {
             playWhenShown = false;
             player.play();
         }
-    }
-
-    /** Each moving part where its way has it now, turned as it faces. */
-    private void place() {
-        if (shown != null) {
-            for (int k = 0; k < parts.size() && k < shown.movers().size(); k++) {
-                final Place p = shown.movers().get(k).route().at(time);
-                final Node part = parts.get(k);
-                part.setTranslateX(p.x());
-                part.setTranslateY(-p.height());
-                part.setTranslateZ(p.z());
-                turns.get(k).setAngle(p.yaw());
-                part.setVisible(p.height() < cut);
-            }
-        }
-        clock.setText(String.format(Locale.ROOT, "%.1f s", time));
-    }
-
-    private static Box ground() {
-        final Box ground = new Box(20_000, 2, 20_000);
-        ground.setTranslateY(1.5);
-        final PhongMaterial grass = new PhongMaterial(Color.web("#9fae8f"));
-        grass.setSpecularColor(Color.web("#3a3f46"));
-        ground.setMaterial(grass);
-        return ground;
     }
 }
