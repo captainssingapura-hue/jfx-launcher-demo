@@ -33,25 +33,29 @@ record Standing(OfficeTower tower, Place at, int key) {
         return tower.built(tower.storeys(), true);
     }
 
-    /** What it is drawn by: told to the drawing, each key what it draws. */
+    /** What it is drawn by: told to the drawing, each key what it draws; its frame with its landings' doors shut. */
     void register(final Built built) {
         final int keyed = built.keyed().size();
         if (keyed + built.panes().size() > KEYS) {
             throw new IllegalStateException(tower.name() + ": more to draw than its keys");
         }
+        final List<Solid> frame = new java.util.ArrayList<>(built.keyed().getFirst());
+        frame.addAll(tower.landingsShut());
         Sites.register(key, key + keyed + built.panes().size(),
-                k -> k < keyed ? built.keyed().get(k) : built.panes().get(k - keyed));
+                k -> k == 0 ? frame : k < keyed ? built.keyed().get(k) : built.panes().get(k - keyed));
     }
 
     /**
      * It as pieces of the world, staged ({@link Staged}): one piece, its coarse shape ({@link OfficeTower#coarse}) and
-     * its fine model (its frame's parts, its panes each breaking on its own) as one volume, as finely as the focus
-     * wants it. Its lifts' cars and doors no pieces of the world: they belong to its fine model, to come.
-     * {@link #register} tells how it is drawn.
+     * its fine model (its frame's parts, its landings' doors standing shut, its panes each breaking on its own) as one
+     * volume, its storeys its cells, as finely as the focus wants it. Its lifts' cars no pieces of the world: they
+     * belong to its fine model, to come; till then its lifts stand shut. {@link #register} tells how it is drawn.
      */
     List<Course.Piece> pieces(final Built built) {
+        final List<Solid> frame = new java.util.ArrayList<>(built.standing());
+        frame.addAll(tower.landingsShut());
         final Staged staged = new Staged(tower.coarse(),
-                StandIns.assembly(built.standing(), built.panes(), Damage.GLASS, key + built.keyed().size()));
+                StandIns.assembly(frame, built.panes(), Damage.GLASS, key + built.keyed().size()), tower.cells());
         return List.of(Town.building(built.drawn(), at, key, List.of(staged), 1));
     }
 

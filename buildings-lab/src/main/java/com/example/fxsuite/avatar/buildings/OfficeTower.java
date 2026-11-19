@@ -367,6 +367,18 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return solids;
     }
 
+    /** Its banks' landings' doors, all of them, standing shut: its lifts not at work. */
+    List<Solid> landingsShut() {
+        final List<Solid> solids = new ArrayList<>();
+        banks.forEach(b -> solids.addAll(b.landingsShut()));
+        return solids;
+    }
+
+    /** Its storeys by their floors' heights, the lobby's first, and its roof's: its cells, as staged. */
+    double[] cells() {
+        return levels.stream().mapToDouble(Double::doubleValue).toArray();
+    }
+
     /** Its banks' shafts, all of them. */
     List<Solid> shafts() {
         final List<Solid> solids = new ArrayList<>();

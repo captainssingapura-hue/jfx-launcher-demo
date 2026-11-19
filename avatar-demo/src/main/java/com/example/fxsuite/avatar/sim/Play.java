@@ -425,18 +425,14 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             if (damage.broken(piece)) {
                 continue;
             }
-            final Staged.Stage was = damage.stage(piece);
-            Staged staged = null;
-            for (final Volume v : damage.piece(piece).volumes()) {
-                if (v instanceof Staged s) {
-                    staged = s;
-                }
-            }
+            final Staged staged = Damage.staged(damage.piece(piece));
             final Volume.Bounds b = staged.bounds();
             final double dx = Math.max(0, Math.max(b.minX() - focus.maxX(), focus.minX() - b.maxX()));
             final double dz = Math.max(0, Math.max(b.minZ() - focus.maxZ(), focus.minZ() - b.maxZ()));
             final double dy = Math.max(0, Math.max(staged.low() - focus.high(), focus.low() - staged.high()));
-            now = now.restaged(piece, stage(was, Math.sqrt(dx * dx + dy * dy + dz * dz)));
+            // in focus, its storeys the focus meets fine
+            now = now.restaged(piece, staged.focused(stage(staged.stage(), Math.sqrt(dx * dx + dy * dy + dz * dz)),
+                    focus.low(), focus.high()));
         }
         return now;
     }

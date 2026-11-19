@@ -45,6 +45,9 @@ public final class Assembly implements Volume {
     /** How much of each breakable part is whole, 1 to 0 broken; which parts are gone. */
     private final double[] whole;
     private final boolean[] gone;
+    /** The heights its parts answer between ({@link #banded}): all of it, unless it is answering for a band of it. */
+    private final double bandFrom;
+    private final double bandTo;
 
     /**
      * Its parts that never break ({@code fixed}) and those that do ({@code breakable}), each able to take
@@ -63,6 +66,8 @@ public final class Assembly implements Volume {
         this.whole = new double[breakable.size()];
         Arrays.fill(this.whole, 1);
         this.gone = new boolean[parts.size()];
+        this.bandFrom = Double.NEGATIVE_INFINITY;
+        this.bandTo = Double.POSITIVE_INFINITY;
         this.box = new double[6 * parts.size()];
         double minX = Double.POSITIVE_INFINITY;
         double maxX = Double.NEGATIVE_INFINITY;
@@ -115,6 +120,14 @@ public final class Assembly implements Volume {
 
     /** The same, its breakable parts as whole as {@code whole}, the parts {@code gone} gone: all else shared. */
     private Assembly(final Assembly was, final double[] whole, final boolean[] gone) {
+        this(was, whole, gone, was.bandFrom, was.bandTo);
+    }
+
+    /** The same, answering only for its parts between {@code from} and {@code to} up: all else shared. */
+    private Assembly(final Assembly was, final double[] whole, final boolean[] gone, final double from,
+                     final double to) {
+        this.bandFrom = from;
+        this.bandTo = to;
         this.parts = was.parts;
         this.box = was.box;
         this.bounds = was.bounds;
@@ -137,6 +150,25 @@ public final class Assembly implements Volume {
         final Assembly placed = new Assembly(moved.subList(0, fixed), moved.subList(fixed, moved.size()), toughness,
                 drawFrom);
         return new Assembly(placed, whole.clone(), gone.clone());
+    }
+
+    /**
+     * The same, answering only for its parts that reach between {@code from} and {@code to} up (a band of its storeys,
+     * the slab under the lowest among them): the rest in no one's way, as if not there. Its state, as broken as it is,
+     * shared; {@link #unbanded} all of it again.
+     */
+    public Assembly banded(final double from, final double to) {
+        return from == bandFrom && to == bandTo ? this : new Assembly(this, whole, gone, from, to);
+    }
+
+    /** The same, answering for all its parts. */
+    public Assembly unbanded() {
+        return banded(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+    }
+
+    /** Whether part {@code p} reaches into the band it answers for, a centimetre either way. */
+    private boolean inBand(final int p) {
+        return box[6 * p + 5] >= bandFrom - 1 && box[6 * p + 4] <= bandTo + 1;
     }
 
     /** How many of its parts break, each on its own. */
@@ -184,7 +216,7 @@ public final class Assembly implements Volume {
     public int breakableAt(final Vec3 at) {
         final double h = -at.y();
         for (final int p : near(at.x() - 1, at.x() + 1, at.z() - 1, at.z() + 1, h - 1, h + 1)) {
-            if (p < fixed || gone[p]) {
+            if (p < fixed || gone[p] || !inBand(p)) {
                 continue;
             }
             final int k = 6 * p;
@@ -248,8 +280,8 @@ public final class Assembly implements Volume {
     /** Whether part {@code p} is there to answer, and its box from above comes within {@code radius} of a point. */
     private boolean answers(final int p, final double x, final double z, final double radius) {
         final int k = 6 * p;
-        return !gone[p] && x + radius >= box[k] && x - radius <= box[k + 1] && z + radius >= box[k + 2]
-                && z - radius <= box[k + 3];
+        return !gone[p] && inBand(p) && x + radius >= box[k] && x - radius <= box[k + 1]
+                && z + radius >= box[k + 2] && z - radius <= box[k + 3];
     }
 
     @Override
@@ -346,7 +378,7 @@ public final class Assembly implements Volume {
         boolean pushed = false;
         for (int pass = 0; pass < 2; pass++) {
             for (final int p : near) {
-                if (gone[p]) {
+                if (gone[p] || !inBand(p)) {
                     continue;
                 }
                 final Volume part = parts.get(p);
@@ -398,7 +430,7 @@ public final class Assembly implements Volume {
             final Vec3 b = from.add(direction.multiply(end));
             for (final int p : near(Math.min(a.x(), b.x()) - 1, Math.max(a.x(), b.x()) + 1, Math.min(a.z(), b.z()) - 1,
                     Math.max(a.z(), b.z()) + 1, Math.min(-a.y(), -b.y()) - 1, Math.max(-a.y(), -b.y()) + 1)) {
-                if (tried.get(p) || gone[p]) {
+                if (tried.get(p) || gone[p] || !inBand(p)) {
                     continue;
                 }
                 tried.set(p);
@@ -421,7 +453,7 @@ public final class Assembly implements Volume {
         final double lo = Math.min(block.bottom(), block.highest());
         final double hi = Math.max(block.bottom(), block.highest());
         for (final int p : near(block.x() - reach, block.x() + reach, block.z() - reach, block.z() + reach, lo, hi)) {
-            if (!gone[p] && parts.get(p).overlaps(block)) {
+            if (!gone[p] && inBand(p) && parts.get(p).overlaps(block)) {
                 return true;
             }
         }

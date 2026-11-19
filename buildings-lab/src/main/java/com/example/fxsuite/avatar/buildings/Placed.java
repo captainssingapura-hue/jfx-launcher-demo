@@ -42,6 +42,11 @@ record Placed(HighRiseBank bank, double x, double z, double yaw) {
         return bank.shafts(slab).stream().map(this::placed).toList();
     }
 
+    /** Its landings' doors standing shut, in the building: its lifts not at work. */
+    List<Solid> landingsShut() {
+        return bank.landingsShut().stream().map(this::placed).toList();
+    }
+
     private Solid placed(final Solid solid) {
         return new Solid(solid.name(), solid.role(), solid.material(), solid.corners().stream().map(p -> {
             final double[] w = at(p.across(), p.along());

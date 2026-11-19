@@ -225,6 +225,21 @@ public final class Damage {
                 happened.add(Event.Struck.of(blow, share(piece, now)));
                 continue;
             }
+            // on a pane of a staged building where it is fine: the pane worn in its fine model, which keeps it so
+            final Staged staged = staged((changed == null ? pieces : changed).get(piece));
+            final int pane = staged == null ? -1 : staged.paneAt(blow.at());
+            if (pane >= 0) {
+                final Staged struck = staged.withFine(staged.fine().struck(pane,
+                        harm(piece, blow) / staged.fine().toughness()));
+                if (changed == null) {
+                    changed = new ArrayList<>(pieces);
+                }
+                changed.set(piece, changed.get(piece).reshaped(staged, struck));
+                standing = standing.reshaped(piece, staged, struck);
+                wholeNow = wholeNow.reshaped(piece, staged, struck);
+                happened.add(Event.Struck.of(blow, share(piece, now)));
+                continue;
+            }
             // on a building's breakable part, a pane of its glass: the pane worn, not the building; worn through, gone
             final Assembly assembly = assembly((changed == null ? pieces : changed).get(piece));
             final int part = assembly == null ? -1 : assembly.breakableAt(blow.at());
@@ -325,17 +340,11 @@ public final class Damage {
      * The same, building {@code piece} at stage {@code now} ({@link Staged}), as the focus has it: its volume swapped
      * where it stands, its harm as it was; where everything else is known as it was, its box the same.
      */
-    public Damage restaged(final int piece, final Staged.Stage now) {
-        Staged was = null;
-        for (final Volume v : pieces.get(piece).volumes()) {
-            if (v instanceof Staged s) {
-                was = s;
-            }
-        }
-        if (was == null || was.stage() == now) {
+    public Damage restaged(final int piece, final Staged staged) {
+        final Staged was = staged(pieces.get(piece));
+        if (was == null || was == staged) {
             return this;
         }
-        final Staged staged = was.at(now);
         final List<Course.Piece> changed = new ArrayList<>(pieces);
         changed.set(piece, pieces.get(piece).reshaped(was, staged));
         return new Damage(List.copyOf(changed), toughness, health, obstacles.reshaped(piece, was, staged),
@@ -359,9 +368,15 @@ public final class Damage {
 
     /** Building {@code piece}'s stage, as the focus last had it; {@code null} if it is not staged. */
     public Staged.Stage stage(final int piece) {
-        for (final Volume v : pieces.get(piece).volumes()) {
+        final Staged s = staged(pieces.get(piece));
+        return s == null ? null : s.stage();
+    }
+
+    /** A piece's staged volume ({@link Staged}), if it is a building staged; else null. */
+    public static Staged staged(final Course.Piece piece) {
+        for (final Volume v : piece.volumes()) {
             if (v instanceof Staged s) {
-                return s.stage();
+                return s;
             }
         }
         return null;

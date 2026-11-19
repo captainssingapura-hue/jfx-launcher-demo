@@ -225,6 +225,30 @@ public record HighRiseBank(double x, double z, List<Double> levels, int zoneFrom
         return movers;
     }
 
+    /**
+     * Each of its landings' doors standing shut, where its movers would have them shut ({@link #movers}): for a
+     * building whose lifts are not at work, its shafts closed at every floor they stop at, nothing to fall into.
+     */
+    public List<Solid> landingsShut() {
+        final List<Solid> shut = new ArrayList<>();
+        final double front = z + deep / 2 + GAP + SHAFT_WALL + 1.5;
+        final double landingOut = landing() / 4;
+        for (int k = 0; k < cars; k++) {
+            for (final int side : new int[] {-1, 1}) {
+                final double across = carX(k) + side * landingOut;
+                for (final int floor : served()) {
+                    final double up = level(floor);
+                    for (final Box b : landingLeaf()) {
+                        shut.add(new Box(b.name() + ", shut, car " + (k + 1) + ", floor " + floor, b.role(),
+                                b.material(), b.a0() + across, b.a1() + across, b.l0() + front, b.l1() + front,
+                                b.u0() + up, b.u1() + up).solid());
+                    }
+                }
+            }
+        }
+        return shut;
+    }
+
     /** The hole each floor is cut for its shafts, all together (min x, max x, min z, max z). */
     public double[] hole() {
         final double half = cars * pitch() / 2 - SHAFT_WALL / 2;
