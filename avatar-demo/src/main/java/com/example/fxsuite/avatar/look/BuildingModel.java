@@ -77,6 +77,23 @@ public final class BuildingModel {
         return LOOKS.get(material);
     }
 
+    /**
+     * The glass drawn under {@code node} as it is seen from inside the building it is in ({@code inside}): not drawn,
+     * the day outside seen through it, as a vehicle's is from its seat; or from outside it, whole. Not tinted: a
+     * see-through mesh hides whatever is drawn after it, the towers beyond it, so it is left out.
+     */
+    public static void glassSeen(final javafx.scene.Node node, final boolean inside) {
+        if (node instanceof javafx.scene.shape.Shape3D shape) {
+            if (shape.getMaterial() == LOOKS.get(Material.GLASS)) {
+                shape.setVisible(!inside);
+            }
+        } else if (node instanceof javafx.scene.Parent parent) {
+            for (final javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                glassSeen(child, inside);
+            }
+        }
+    }
+
     /** {@code solids}, drawn, all of them: a mesh for each material, glass last. */
     public static Group of(final List<Solid> solids) {
         return levels(solids).node();

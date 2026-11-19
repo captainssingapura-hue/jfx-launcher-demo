@@ -516,6 +516,26 @@ public final class World {
         return (PhongMaterial) bodies[piece].getMaterial();
     }
 
+    /** The building whose glass is seen from inside it, by piece; -1 for none. */
+    private int glassInside = -1;
+
+    /**
+     * Building {@code inside}'s glass seen through, looked out of from in it, by day (-1 for none); every other
+     * building's whole, the day it gives back seen from outside it.
+     */
+    public void glassInside(final int inside) {
+        if (inside == glassInside) {
+            return;
+        }
+        if (leveled.containsKey(glassInside)) {
+            BuildingModel.glassSeen(leveled.get(glassInside).node(), false);
+        }
+        glassInside = inside;
+        if (leveled.containsKey(inside)) {
+            BuildingModel.glassSeen(leveled.get(inside).node(), true);
+        }
+    }
+
     /** Shows each vehicle's glass, but for piece {@code inside}'s (-1 for none): looked out of from in it. */
     public void glassFrom(final int inside) {
         glass.forEach((piece, panes) -> panes.setVisible(piece != inside));
@@ -742,6 +762,7 @@ public final class World {
             }
             for (final int g : changed) {
                 final Group redrawn = paneGroup(now, g);
+                BuildingModel.glassSeen(redrawn, each.getKey() == glassInside);
                 final Group parent = (Group) was.groups()[g].getParent();
                 parent.getChildren().set(parent.getChildren().indexOf(was.groups()[g]), redrawn);
                 was.groups()[g] = redrawn;

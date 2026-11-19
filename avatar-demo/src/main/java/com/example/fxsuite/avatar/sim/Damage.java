@@ -366,6 +366,21 @@ public final class Damage {
         return staged;
     }
 
+    /**
+     * The staged building {@code at} is in, by piece: within its outline (its coarse shape's, as it stands), between
+     * its foot and its top; -1 if in none. Broken or not.
+     */
+    public int stagedAround(final Vec3 at) {
+        final double up = -at.y();
+        for (final int i : staged()) {
+            final Staged s = staged(pieces.get(i));
+            if (up >= s.low() && up <= s.high() && s.coarse().covers(at.x(), at.z(), 0)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /** Building {@code piece}'s stage, as the focus last had it; {@code null} if it is not staged. */
     public Staged.Stage stage(final int piece) {
         final Staged s = staged(pieces.get(piece));

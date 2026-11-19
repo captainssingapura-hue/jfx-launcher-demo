@@ -916,6 +916,9 @@ public final class Game {
         rig.fromItsEyes(ownEyes);
         world.glassFrom(cockpit != null && flying.isPresent() ? flying.get().piece() : -1);
         final Vec3 viewer = cockpit != null ? cockpit.at() : chase.position(standingWas);
+        // a building's glass seen through from inside it, where the view is from or the avatar is; whole from outside
+        final int in = damage.stagedAround(viewer);
+        world.glassInside(in >= 0 ? in : damage.stagedAround(body.position()));
         // inside a closed vehicle the avatar is out of sight: no figure, no sights; looking
         // out from where its eyes are, its own figure is not seen either
         rig.node().setVisible(!inside && (cockpit == null || ownEyes));

@@ -107,6 +107,18 @@ class StagedTowerTest {
     }
 
     @Test
+    void whatIsInsideItIsKnownWhateverItsStage() {
+        final double height = (TOWER.levels().get(5) + TOWER.levels().get(6)) / 2;
+        for (final double south : new double[] {40_000, 2_600 + 300}) {
+            final Damage damage = from(south).damage();
+            assertEquals(0, damage.stagedAround(new Vec3(1_000, -height, 1_000)), "in its fifth storey");
+            assertEquals(0, damage.stagedAround(new Vec3(0, -200, 2_000)), "in its lobby");
+            assertEquals(-1, damage.stagedAround(new Vec3(0, -height, -2_600 - 300)), "3 m off its face");
+            assertEquals(-1, damage.stagedAround(new Vec3(0, -TOWER.roof() - TOWER.crown() - 500, 0)), "over it");
+        }
+    }
+
+    @Test
     void itsStageFollowsTheFocus() {
         assertEquals(Staged.Stage.FAR, from(40_000).stage(0), "400 m off");
         assertEquals(Staged.Stage.NEAR, from(10_000).stage(0), "100 m off");
