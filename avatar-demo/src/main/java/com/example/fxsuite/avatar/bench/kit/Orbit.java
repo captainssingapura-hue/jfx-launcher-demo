@@ -48,6 +48,14 @@ public final class Orbit {
     /** The same, the sun shining {@code towards} that way (y down). */
     public Orbit(final Color sky, final Color ambient, final Color sun, final javafx.geometry.Point3D towards,
                  final double near, final double far) {
+        this(sky, near, far);
+        final DirectionalLight light = new DirectionalLight(sun);
+        light.setDirection(towards);
+        world.getChildren().addAll(new AmbientLight(ambient), light);
+    }
+
+    /** A view of a sky so coloured, lit by nothing of its own: what it shows brings its lights (the game's world). */
+    public Orbit(final Color sky, final double near, final double far) {
         eye.setNearClip(near);
         eye.setFarClip(far);
         eye.setFieldOfView(40);
@@ -57,9 +65,7 @@ public final class Orbit {
         // are told apart rather than flickering through each other
         back.zProperty().addListener((o, was, now) -> eye.setNearClip(Math.clamp(-now.doubleValue() / NEAR_SHARE,
                 near, NEAREST_MOST)));
-        final DirectionalLight light = new DirectionalLight(sun);
-        light.setDirection(towards);
-        world.getChildren().addAll(eye, new AmbientLight(ambient), light);
+        world.getChildren().add(eye);
         final SubScene view = new SubScene(world, 900, 520, true, SceneAntialiasing.BALANCED);
         view.setFill(sky);
         view.setCamera(eye);
@@ -102,6 +108,16 @@ public final class Orbit {
     public void turned(final double yawDegrees, final double pitchDegrees) {
         yaw.setAngle(yawDegrees);
         pitch.setAngle(-pitchDegrees);
+    }
+
+    /** How far round it is seen from, degrees. */
+    public double yawDegrees() {
+        return yaw.getAngle();
+    }
+
+    /** How far down it is seen from, degrees. */
+    public double pitchDegrees() {
+        return -pitch.getAngle();
     }
 
     /** Seen from {@code cm} off. */

@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * A bench's model view: a model, still, on level ground, to be looked at from any side. What it shows is only ever
- * {@link Model}s, each drawn once from its solids and never touched again: nothing in it moves, nothing in it is
+ * {@link Model}s, each drawn once (from its solids, or made afresh) and never touched again: nothing in it moves, nothing in it is
  * redrawn but by {@link #show} putting other models in its place, and nothing about it changes from frame to frame but
  * where it is seen from. A bench that would see something move plays it ({@link Player}) in a window of its own.
  *
@@ -37,7 +37,14 @@ public final class ModelView {
 
         /** {@code solids} drawn, each material's in one mesh. */
         public static Model of(final List<Solid> solids) {
-            final Group drawn = BuildingModel.of(solids);
+            return of(BuildingModel.of(solids));
+        }
+
+        /**
+         * {@code drawn}, made afresh to be shown and handed over: whoever made it keeps nothing of it to move or
+         * change after. A bench changed makes another and shows that in its place.
+         */
+        public static Model of(final Node drawn) {
             // looked at, never picked: the view's dragging is all that answers the mouse
             drawn.setMouseTransparent(true);
             return new Model(drawn);
@@ -48,17 +55,20 @@ public final class ModelView {
     private final Group ground = new Group();
     private final Group shown = new Group();
 
-    /** A view as the roads bench has had it ({@link Orbit#standard}). */
+    /** A view as the roads bench has had it ({@link Orbit#standard}), on grass 200 m square. */
     public ModelView() {
         this(Orbit.standard());
+        ground(0, 0, 0, 20_000);
     }
 
-    /** A view seen through {@code orbit}, its sky and lights; what it shows is only ever this view's. */
+    /**
+     * A view seen through {@code orbit}, its sky and lights, with no ground till it is given one ({@link #ground}) or
+     * what it shows brings its own; {@code orbit} not to be used but by this view.
+     */
     public ModelView(final Orbit orbit) {
         this.orbit = orbit;
         ground.setMouseTransparent(true);
         orbit.add(ground, shown);
-        ground(0, 0, 0, 20_000);
     }
 
     /** What to put in the window: the view, filling what holds it. */
@@ -101,6 +111,16 @@ public final class ModelView {
     /** Seen from {@code yawDegrees} round, {@code pitchDegrees} down. */
     public void turned(final double yawDegrees, final double pitchDegrees) {
         orbit.turned(yawDegrees, pitchDegrees);
+    }
+
+    /** How far round it is seen from, degrees. */
+    public double yawDegrees() {
+        return orbit.yawDegrees();
+    }
+
+    /** How far down it is seen from, degrees. */
+    public double pitchDegrees() {
+        return orbit.pitchDegrees();
     }
 
     /** Seen from {@code cm} off. */
