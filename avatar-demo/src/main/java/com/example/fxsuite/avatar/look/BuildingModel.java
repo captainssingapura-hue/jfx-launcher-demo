@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * A building as dressed ({@code build.Building#dressed}), drawn: its solids, all those of a material
  * in one mesh, in that material's colour: board-marked concrete warm grey, precast paler, glass a
- * dark see-through blue-grey (drawn last, so what is behind it shows), metal near black, the roof's
+ * sky-tinted blue-grey, whole by day (drawn last, to show what is behind it come night), metal near black, the roof's
  * gravel darker, brick a red brown, stone a warm pale limestone. In the building's frame, standing
  * on the ground: across to the right is x, up is -y, along ahead is z.
  */
@@ -58,9 +58,11 @@ public final class BuildingModel {
         LOOKS.put(Material.PAINTED, BoxRig.matte("#2f7d78"));
         LOOKS.put(Material.TIMBER, BoxRig.matte("#4a3326"));
         LOOKS.put(Material.PLASTER, BoxRig.matte("#b2453a"));
-        final PhongMaterial glass = new PhongMaterial(Color.web("#4f6f86", 0.55));
-        glass.setSpecularColor(Color.web("#d8e6f0"));
-        glass.setSpecularPower(40);
+        // glass by day: the sky it gives back, not what is behind it; till there is night, when what is lit inside
+        // shows through, it is drawn so, whole
+        final PhongMaterial glass = new PhongMaterial(Color.web("#5f819b"));
+        glass.setSpecularColor(Color.web("#e2ecf4"));
+        glass.setSpecularPower(32);
         LOOKS.put(Material.GLASS, glass);
         // water as the rivers' and the ponds' is: the same look, lit as they are
         LOOKS.put(Material.WATER, WaterModel.look(Horizon.lighting(World.AMBIENT, World.SUNLIGHT, World.SUN)));
