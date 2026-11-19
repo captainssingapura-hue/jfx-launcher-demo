@@ -95,6 +95,7 @@ public final class TowerBench extends Application {
     static {
         TOWERS.put("generic", null);
         TOWERS.put("MBFC Tower 1", Mbfc::tower1);
+        TOWERS.put("MBFC Tower 2", Mbfc::tower2);
     }
 
     /** Which tower is chosen; the knobs ({@code set}), for the generic one's figures and how it is shown. */

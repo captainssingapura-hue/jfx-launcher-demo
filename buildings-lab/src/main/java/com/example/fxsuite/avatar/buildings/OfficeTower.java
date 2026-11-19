@@ -35,19 +35,41 @@ import java.util.Locale;
  * @param outline its floors' outline, about its middle
  * @param levels  each storey's floor, the lobby's first (on the ground), the roof's last
  * @param uses    what each storey is, the roof's left out
- * @param service its core's solid parts, each a square (least, most across; least, most along)
- * @param banks   its lifts, each bank where it stands
- * @param crown   how high its crown stands over its roof
- * @param front   which edge of its outline its way in is in, in its middle: one running across, on its north or its
- *                south
+ * @param service  its core's solid parts, each a square (least, most across; least, most along), on every storey; or
+ *                 on those from one to another only, given after it (a lift lobby that is toilets where its zone
+ *                 does not stop)
+ * @param banks    its lifts, each bank where it stands
+ * @param crown    how high its crown stands over its roof
+ * @param front    which edge of its outline its way in is in, in its middle: one running across, on its north or its
+ *                 south
+ * @param setbacks where it steps in as it rises: from each's storey up, its outline that one; the floor at the step
+ *                 the lower storey's outline still, a terrace railed round its edge
  */
 public record OfficeTower(String name, List<double[]> outline, List<Double> levels, List<String> uses,
-                          List<double[]> service, List<Placed> banks, double crown, int front) {
+                          List<double[]> service, List<Placed> banks, double crown, int front,
+                          List<Setback> setbacks) {
 
-    /** What a storey is: its lobby, an office floor, a floor of plant (louvred, not glazed). */
+    /** What a storey is: its lobby, an office floor, a floor of plant, of parking (louvred, not glazed). */
     static final String LOBBY = "lobby";
     static final String OFFICE = "office";
     static final String PLANT = "plant";
+    static final String PARKING = "car park";
+    /** A terrace's railing, so high. */
+    static final double RAILING = 110;
+
+    /** From storey {@code from} up, an outline stepped in from the one under it. */
+    record Setback(int from, List<double[]> outline) {
+
+        Setback {
+            outline = outline.stream().map(double[]::clone).toList();
+        }
+    }
+
+    /** One that never steps in: the same outline all the way up. */
+    OfficeTower(final String name, final List<double[]> outline, final List<Double> levels, final List<String> uses,
+                final List<double[]> service, final List<Placed> banks, final double crown, final int front) {
+        this(name, outline, levels, uses, service, banks, crown, front, List.of());
+    }
 
     /** A floor so thick; the spandrel over each storey's glass so deep, so thick; the glass so thick. */
     static final double SLAB = 30;
@@ -71,6 +93,11 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         uses = List.copyOf(uses);
         service = service.stream().map(double[]::clone).toList();
         banks = List.copyOf(banks);
+        setbacks = setbacks.stream().sorted(java.util.Comparator.comparingInt(Setback::from)).toList();
+        final int storeys = levels.size() - 1;
+        if (setbacks.stream().anyMatch(s -> s.from() < 1 || s.from() >= storeys || s.outline().size() < 3)) {
+            throw new IllegalArgumentException(name + ": each setback from a storey over the lobby, an outline");
+        }
         if (outline.size() < 3 || levels.size() < 2 || uses.size() != levels.size() - 1) {
             throw new IllegalArgumentException(name + ": an outline, storeys and a roof, each storey's use");
         }
@@ -88,6 +115,23 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
     /** How high its roof is. */
     public double roof() {
         return levels.getLast();
+    }
+
+    /** Storey {@code f}'s outline: the lobby's, or the last it stepped in to under it; the roof's its top storey's. */
+    List<double[]> outline(final int f) {
+        final int storey = Math.min(f, storeys() - 1);
+        List<double[]> at = outline;
+        for (final Setback s : setbacks) {
+            if (s.from() <= storey) {
+                at = s.outline();
+            }
+        }
+        return at;
+    }
+
+    /** Whether a storey of such a use is louvred round, not glazed: plant, parking. */
+    static boolean louvred(final String use) {
+        return PLANT.equals(use) || PARKING.equals(use);
     }
 
     /**
@@ -171,8 +215,16 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
                 3.5);
     }
 
-    /** Its floor at storey {@code f} (1 the first over the lobby; the roof the last): cut where its banks go through. */
+    /**
+     * Its floor at storey {@code f} (1 the first over the lobby; the roof the last): cut where its banks go through; on
+     * the storey under it's outline, so where it steps in its floor is the terrace round it too.
+     */
     List<Solid> floor(final int f) {
+        return floor(f, outline(f - 1));
+    }
+
+    /** Its floor at storey {@code f} on {@code on}, cut where its banks go through. */
+    private List<Solid> floor(final int f, final List<double[]> on) {
         final List<double[]> holes = new ArrayList<>();
         for (final Placed b : banks) {
             if (f <= b.bank().zoneTo()) {
@@ -180,38 +232,50 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
             }
         }
         final double top = levels.get(f);
-        return Plates.floor(f == storeys() ? "roof" : "floor " + f, outline, holes, top - SLAB, top, Role.BASE,
+        return Plates.floor(f == storeys() ? "roof" : "floor " + f, on, holes, top - SLAB, top, Role.BASE,
                 Material.PRECAST);
     }
 
     /**
-     * Storey {@code f}'s own solids (0 the lobby's): its glass and spandrels round it, its columns, its core's service,
-     * the floor over it; the lobby's front left open in its middle as its way in.
+     * Storey {@code f}'s own solids (0 the lobby's): its glass and spandrels round its outline, its columns, its core's
+     * service, the floor over it; the lobby's front left open in its middle as its way in; where it steps in from the
+     * storey under it, a railing round the terrace it leaves.
      */
     List<Solid> storey(final int f) {
         final List<Solid> solids = new ArrayList<>();
         final double from = levels.get(f);
         final double to = levels.get(f + 1);
-        for (int e = 0; e < outline.size(); e++) {
+        final List<double[]> round = outline(f);
+        for (int e = 0; e < round.size(); e++) {
             final double glassTop = to - SLAB - SPANDREL;
             if (f == 0 && e == front) {
                 solids.addAll(entrance(e, from, glassTop));
-            } else if (PLANT.equals(uses.get(f))) {
-                // a plant floor louvred, not glazed: breathing, not broken into
-                solids.add(Plates.edge("louvres", outline, e, SPANDREL_THICK, from, glassTop, Role.WALL,
+            } else if (louvred(uses.get(f))) {
+                // a plant floor, a car park, louvred, not glazed: breathing, not broken into
+                solids.add(Plates.edge("louvres", round, e, SPANDREL_THICK, from, glassTop, Role.WALL,
                         Material.METAL));
             } else {
-                solids.addAll(Plates.panes("glass", outline, e, 0, 1, PANE, GLASS, from, glassTop, Role.GLAZING,
+                solids.addAll(Plates.panes("glass", round, e, 0, 1, PANE, GLASS, from, glassTop, Role.GLAZING,
                         Material.GLASS));
             }
-            solids.add(Plates.edge("spandrel", outline, e, SPANDREL_THICK, glassTop, to, Role.WALL, Material.METAL));
+            solids.add(Plates.edge("spandrel", round, e, SPANDREL_THICK, glassTop, to, Role.WALL, Material.METAL));
         }
-        for (final double[] c : columns()) {
+        final List<double[]> under = f > 0 ? outline(f - 1) : round;
+        if (under != round) {
+            for (int e = 0; e < under.size(); e++) {
+                solids.add(Plates.edge("railing", under, e, SPANDREL_THICK, from, from + RAILING, Role.WALL,
+                        Material.METAL));
+            }
+        }
+        for (final double[] c : columns(round)) {
             solids.add(new Box("column", Role.STRUCTURE, Material.PRECAST, c[0] - COLUMN / 2, c[0] + COLUMN / 2,
                     c[1] - COLUMN / 2, c[1] + COLUMN / 2, from, to - SLAB).solid());
         }
         for (final double[] s : service) {
-            solids.add(new Box("core", Role.WALL, Material.PRECAST, s[0], s[1], s[2], s[3], from, to - SLAB).solid());
+            if (s.length < 6 || s[4] <= f && f <= s[5]) {
+                solids.add(new Box("core", Role.WALL, Material.PRECAST, s[0], s[1], s[2], s[3], from, to - SLAB)
+                        .solid());
+            }
         }
         solids.addAll(floor(f + 1));
         return solids;
@@ -246,8 +310,13 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
         return best;
     }
 
-    /** Where its columns stand: along each edge, {@link #SPACING} apart, {@link #INSET} in from it. */
+    /** Where its columns stand at its lobby: along each edge, {@link #SPACING} apart, {@link #INSET} in from it. */
     List<double[]> columns() {
+        return columns(outline);
+    }
+
+    /** Where columns stand round {@code outline}: along each edge, {@link #SPACING} apart, {@link #INSET} in. */
+    static List<double[]> columns(final List<double[]> outline) {
         final List<double[]> columns = new ArrayList<>();
         final double round = Math.signum(Plates.area(outline));
         for (int e = 0; e < outline.size(); e++) {
@@ -272,8 +341,9 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
     /** Its crown: a parapet round its roof, so high. */
     List<Solid> crownSolids() {
         final List<Solid> solids = new ArrayList<>();
-        for (int e = 0; e < outline.size(); e++) {
-            solids.add(Plates.edge("crown", outline, e, SPANDREL_THICK, roof(), roof() + crown, Role.WALL,
+        final List<double[]> top = outline(storeys() - 1);
+        for (int e = 0; e < top.size(); e++) {
+            solids.add(Plates.edge("crown", top, e, SPANDREL_THICK, roof(), roof() + crown, Role.WALL,
                     Material.METAL));
         }
         return solids;
@@ -316,7 +386,7 @@ public record OfficeTower(String name, List<double[]> outline, List<Double> leve
 
     /** How big its floor at storey {@code f} is, m², its holes left out. */
     double area(final int f) {
-        return Plates.area(floor(f), true);
+        return Plates.area(floor(f, outline(f)), true);
     }
 
     /** What it comes to, read out. */

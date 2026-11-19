@@ -55,10 +55,10 @@ final class Mbfc {
         // the banks' middles across, each facing its lobby; all of them along the core's north part
         final double along = 370;
         final List<Placed> banks = List.of(
-                new Placed(bank(levels, lowTo + 1, highTo, 600), -620, along, 90),
-                new Placed(bank(levels, lowTo + 1, highTo, 600), -4, along, -90),
-                new Placed(bank(levels, 1, lowTo, 400), 380, along, 90),
-                new Placed(bank(levels, 1, lowTo, 400), 950, along, -90));
+                new Placed(bank(levels, lowTo + 1, highTo, 4, 600), -620, along, 90),
+                new Placed(bank(levels, lowTo + 1, highTo, 4, 600), -4, along, -90),
+                new Placed(bank(levels, 1, lowTo, 4, 400), 380, along, 90),
+                new Placed(bank(levels, 1, lowTo, 4, 400), 950, along, -90));
         final List<double[]> service = List.of(
                 // the core's south part: its stairs, its service lift, its toilets, its risers
                 new double[] {-1180, 510, -1390, -430},
@@ -72,10 +72,79 @@ final class Mbfc {
     }
 
     /**
-     * A bank of four of Tower 1's cars serving the lobby and floors {@code from} to {@code to} of {@code levels}, at
-     * {@code speed}: each car 2.6 m wide and 2.1 m deep outside, 2.7 m high inside, its doorway 1.1 m.
+     * Tower 2: 50 floors, its offices on floors 7 to 37 and 39 to 50, floor 38 plant, floors 3 to 6 parking in the
+     * podium; 4.65 m floor to floor over a lobby 9.5 m high, as Tower 1's, its roof some 233 m up and its crown taking
+     * it to the 245 m known of it. Some 63 by 48 m low down, notched at its north-west and south-east corners and cut
+     * on the slant at its north-east; stepped in on its west and south over floor 38, its south-west cut on the slant,
+     * and on its west and north again over floor 44, each step a terrace. Its plans give no lengths: they are scaled by
+     * its columns, 9 m apart as the others', and set over each other by its core's fixed part, the same in each.
+     *
+     * <p>Its core along the middle of its plan, west to east: the low zone's lift lobby (floors 7 to 21, four cars
+     * either side, its west bank standing apart), the high zone's (37 to 50, three cars one side, four the other), the
+     * mid zone's (22 to 36, four either side), its stairs, service lifts and toilets to the east; toilets under each
+     * zone's lobby where that zone does not stop. Twenty-three lifts in three zones. Its way in on its south side.
      */
-    private static HighRiseBank bank(final List<Double> levels, final int from, final int to, final double speed) {
-        return OfficeTower.bank(levels.subList(0, to + 1), from, to, 4, speed, 260, 210, 270, 110);
+    static OfficeTower tower2() {
+        final List<double[]> low = List.of(
+                new double[] {-3160, -2414}, new double[] {2199, -2414}, new double[] {2199, -2119},
+                new double[] {3160, -2119}, new double[] {3160, 1960}, new double[] {2353, 2138},
+                new double[] {2353, 2414}, new double[] {-2527, 2414}, new double[] {-2527, 1655},
+                new double[] {-3160, 1655});
+        final List<double[]> lowerHigh = List.of(
+                new double[] {-680, -2119}, new double[] {3160, -2119}, new double[] {3160, 1750},
+                new double[] {1630, 2140}, new double[] {1630, 2414}, new double[] {-2490, 2414},
+                new double[] {-2490, -982}, new double[] {-2228, -982}, new double[] {-2228, -1798});
+        final List<double[]> upperHigh = List.of(
+                new double[] {-680, -2119}, new double[] {3160, -2119}, new double[] {3160, 1700},
+                new double[] {1582, 2036}, new double[] {-2189, 2036}, new double[] {-2189, -1800});
+        final double lobby = 950;
+        final double storey = 465;
+        final int top = 50;
+        final List<Double> levels = new ArrayList<>(List.of(0.0));
+        final List<String> uses = new ArrayList<>(List.of(OfficeTower.LOBBY));
+        for (int n = 3; n <= top; n++) {
+            levels.add(lobby + (storey(n) - 1) * storey);
+            uses.add(n <= 6 ? OfficeTower.PARKING : n == 38 ? OfficeTower.PLANT : OfficeTower.OFFICE);
+        }
+        levels.add(lobby + storey(top) * storey);
+        final int lowFrom = storey(7);
+        final int lowTo = storey(21);
+        final int midFrom = storey(22);
+        final int midTo = storey(36);
+        final int highFrom = storey(37);
+        final int highTo = storey(top);
+        final double along = 130;
+        final List<Placed> banks = List.of(
+                new Placed(bank(levels, lowFrom, lowTo, 4, 400), -1893, along, 90),
+                new Placed(bank(levels, lowFrom, lowTo, 4, 400), -1305, along, -90),
+                new Placed(bank(levels, highFrom, highTo, 3, 800), -880, along, 90),
+                new Placed(bank(levels, highFrom, highTo, 4, 800), -310, along, -90),
+                new Placed(bank(levels, midFrom, midTo, 4, 600), 58, along, 90),
+                new Placed(bank(levels, midFrom, midTo, 4, 600), 655, along, -90));
+        final List<double[]> service = List.of(
+                // its stairs, service lifts, toilets and risers, east of its lifts
+                new double[] {870, 2082, -797, 800},
+                // toilets along the core's south side; under the low zone's banks only as high as they go
+                new double[] {-1010, 870, -797, -490},
+                new double[] {-2140, -1175, -797, -490, 0, lowTo},
+                // the core's walls between its banks
+                new double[] {-1175, -1010, -490, 800},
+                new double[] {-180, -72, -490, 800},
+                new double[] {785, 870, -490, 800},
+                // toilets in the high and the mid zones' lobbies on the floors under where they stop
+                new double[] {-750, -440, -490, 800, 1, highFrom - 1},
+                new double[] {188, 525, -490, 800, 1, midFrom - 1});
+        return new OfficeTower("MBFC Tower 2", low, levels, uses, service, banks, 1_230, 0,
+                List.of(new OfficeTower.Setback(storey(39), lowerHigh), new OfficeTower.Setback(storey(45), upperHigh)));
+    }
+
+    /**
+     * A bank of {@code cars} of the towers' cars serving the lobby and floors {@code from} to {@code to} of
+     * {@code levels}, at {@code speed}: each car 2.6 m wide and 2.1 m deep outside, 2.7 m high inside, its doorway
+     * 1.1 m.
+     */
+    private static HighRiseBank bank(final List<Double> levels, final int from, final int to, final int cars,
+                                     final double speed) {
+        return OfficeTower.bank(levels.subList(0, to + 1), from, to, cars, speed, 260, 210, 270, 110);
     }
 }
