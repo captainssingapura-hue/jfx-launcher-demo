@@ -384,7 +384,15 @@ public record Lift(int piece, Course.Craft craft, Place place, double ahead, dou
 
     /** Whether it rests on {@code under}, its engine cut and its underside on it. */
     public boolean resting(final Support under) {
-        return !engine && Math.abs(place.height() - below() - under.top()) < 0.5;
+        return !engine && on(under);
+    }
+
+    /**
+     * Whether its underside is on {@code under}, whatever its engine is doing: what a vehicle no one drives is carried
+     * by, if it moves, as anything standing on it is ({@link Play}).
+     */
+    public boolean on(final Support under) {
+        return Math.abs(place.height() - below() - under.top()) < 0.5;
     }
 
     /**

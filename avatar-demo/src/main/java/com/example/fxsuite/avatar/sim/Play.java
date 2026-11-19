@@ -1025,7 +1025,9 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
                 moved[i] = lift;
                 continue;
             }
-            if (lift.resting(under[i]) && under[i].piece() >= 0) {
+            // on what moves: carried by it. One no one drives, whose underside is on it, whatever its engine is doing,
+            // as anything standing on it is; one driven, only resting there, its engine cut
+            if ((lift.held() ? lift.resting(under[i]) : lift.on(under[i])) && under[i].piece() >= 0) {
                 final Course.Piece what = damage.piece(under[i].piece());
                 final Course.Piece carrier = what.rides() ? damage.piece(what.carrier()) : what;
                 if (carrier.flies()) {
@@ -1047,7 +1049,8 @@ public record Play(Avatar avatar, Damage damage, Sky sky, List<Lift> lifts, List
             final List<Integer> aboard = new ArrayList<>(damage.riding(lift.piece()));
             aboard.addAll(resting.apply(lift.piece()));
             for (int j = 0; j < count; j++) {
-                if (onLift[j] == i && handed.get(j).resting(under[j])) {
+                final Lift other = handed.get(j);
+                if (onLift[j] == i && (other.held() ? other.resting(under[j]) : other.on(under[j]))) {
                     aboard.add(handed.get(j).piece());
                 }
             }

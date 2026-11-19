@@ -79,6 +79,39 @@ class ScrumTest {
     }
 
     @Test
+    void flownItTakesAVehicleParkedOnItsDeckAlong() {
+        // the carpet, no one at it, parked on the meeting platform's deck behind its console, its engine left running
+        // as its driver left it: no one drives it, so it stands, and is carried as anything standing there is
+        final Play start = Play.start(Demos.PLATFORM, false);
+        final Lift deck = meeting(start);
+        final int k = start.lifts().indexOf(deck);
+        final int c = start.lifts().indexOf(start.lifts().stream().filter(l -> Course.CARPET.equals(l.deck()))
+                .findFirst().orElseThrow());
+        final Vec3 back = Num.heading(deck.place().yaw()).multiply(-300);
+        final Lift parked = new Lift(start.lifts().get(c).piece(), start.lifts().get(c).craft(),
+                new Place(deck.place().x() + back.x(), deck.place().z() + back.z(), deck.place().height() + Lift.THICK,
+                        deck.place().yaw()), 0, 0, 0, false, true);
+        final List<Lift> lifts = new java.util.ArrayList<>(start.lifts());
+        lifts.set(c, parked);
+        Play play = new Play(new Avatar(Body.standing(deck.pilot(), deck.place().yaw()), false), start.damage(),
+                start.sky(), lifts, start.people(), start.props(), start.turrets());
+        play = play.step(Controls.doing(Action.TAKE), Clock.STEP).play();
+        assertTrue(play.lifts().get(k).held(), "the meeting platform's controls taken");
+        assertFalse(play.lifts().get(c).held(), "no one at the carpet");
+        for (int step = 0; step < 240; step++) {
+            play = play.step(new Controls(0.5, 0, 0.3, 1, true, false, 0), Clock.STEP).play();
+        }
+        final Place now = play.lifts().get(k).place();
+        assertTrue(now.height() > deck.place().height() + 300, "it climbed");
+        final Vec3 expected = deck.place().carry(new Vec3(parked.place().x(), -parked.place().height(),
+                parked.place().z()), now);
+        final Place carpet = play.lifts().get(c).place();
+        assertEquals(expected.x(), carpet.x(), 1e-6, "the carpet carried with it");
+        assertEquals(expected.z(), carpet.z(), 1e-6);
+        assertEquals(-expected.y(), carpet.height(), 1e-6, "still on its deck");
+    }
+
+    @Test
     void flownItTakesTheStandUpAndItsBoardAlong() {
         final Play start = Play.start(Demos.PLATFORM, false);
         final Lift deck = meeting(start);
